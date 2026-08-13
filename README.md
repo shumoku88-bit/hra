@@ -1,37 +1,61 @@
 # aledger
 
-`aledger` は、Haskell製複式簿記・家計簿カーネル `h-kernel` を Ada 2012 / Ada 2022 で再実装するプロジェクトです。
+`aledger`は、h-kernelと同じcanonical Household sourceをAda 2022で読み、exactな複式簿記・家計projectionを行う実験的kernelです。
 
-## 特徴と設計原則
+## Canonical data
 
-- **Ada 2012 厳密型システム**: 金額・勘定科目・複式簿記の貸借一致を静的に保護。
-- **Exact Decimal Quantity (`ALedger.Money`)**: 丸め誤差のない `delta 0.00000001` 固定小数点精度。
-- **Commodity-Aware Multi-Balance (`Balance`)**: 多通貨（JPY, USD, BTC等）を混同せず独自バランスマップで集計し、0円の残高は自動消去。
-- **Strict Account Registry (`ALedger.Account`)**: 5大勘定（Asset, Liability, Equity, Income, Expense）＋ Budget の明示的型宣言。
-- **Double-Entry Balance Law (`ALedger.Ledger`)**: すべての取引（Transaction）において貸借和（Sum of Postings）が 0 になることを検証し、アンバランスな取引は受理を拒絶。
+aledger専用の正データは作りません。user-owned private repositoryのrootを、h-kernelと共有する唯一のcanonical Household rootとして扱います。
 
-## ディレクトリ構造
-
-- `alire.toml`: Alire パッケージマニフェスト
-- `aledger.gpr`: GPRbuild ビルド定義
-- `src/`: Ada ソースコード (`.ads` モジュール仕様 / `.adb` モジュール本体)
-  - `aledger.ads`: ルートパッケージ
-  - `aledger-money.ads`, `aledger-money.adb`: 金額・通貨・バランスマップ
-  - `aledger-account.ads`, `aledger-account.adb`: 勘定科目・カテゴリ・レジストリ
-  - `aledger-ledger.ads`, `aledger-ledger.adb`: ポスティング・取引・元帳計算
-  - `aledger_main.adb`: CLI エントリポイント
-- `tests/`: 単体テストスイート
-  - `test_runner.adb`: 全モジュールの自動検証テストハーネス
-
-## ビルドとテストの実行
-
-```bash
-# 依存ツールのセットアップ (Alire)
-alr exec -- gprbuild -P aledger.gpr
-
-# テストスイートの実行
-./bin/test_runner
-
-# CLIの実行
-./bin/aledger check
+```text
+accounts.journal
+actual.journal
+plan.journal
+budget.journal
+budget.toml
+household.toml
+report.toml
+issues.tsv
 ```
+
+8 sourceのどれかが欠落・読取不能ならcomplete observationは失敗します。legacy fallback、source filename redirect、engine別copyは追加しません。
+
+現在は4 journalと`issues.tsv`のadmissionが部分実装で、3 TOML sourceはexact observationのみです。h-kernel互換のtyped policy admissionとcross-source validationは今後のmigration chapterです。現時点のReportをcanonicalな意思決定結果として扱わないでください。
+
+詳しくは以下を参照してください。
+
+- [`docs/CANONICAL_HOUSEHOLD.md`](docs/CANONICAL_HOUSEHOLD.md)
+- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
+- [`SECURITY.md`](SECURITY.md)
+
+## Kernel invariants
+
+- `delta 0.00000001`のexact decimal Quantity
+- Commodity別のcanonical Balance
+- double-entry balance law
+- typed Account registry
+- inverse postingとexplicit relationによるreversal
+- source observationと会計計算、rendering、filesystem effectの分離
+
+## Build and test
+
+```sh
+alr build
+./bin/test_runner
+```
+
+canonical rootの構造と現在対応済みの意味を検証します。
+
+```sh
+./bin/aledger check --base /path/to/private-household-root
+```
+
+`LEDGER_DATA_DIR`または`HKERNEL_LEDGER_DATA_DIR`でもrootを指定できます。private source、生成Report、local pathを公開repositoryやCI logへ出力しないでください。
+
+## Source layout
+
+- `src/aledger-canonical_source.*`: 固定8-source pathとexact-byte observation
+- `src/aledger-household.*`: complete observationからのHousehold composition
+- `src/aledger-journal.*`: Journal admission
+- `src/aledger-money.*`, `aledger-account.*`, `aledger-ledger.*`: accounting kernel
+- `src/aledger-plan.*`, `aledger-budget.*`, `aledger-report.*`: domain projection
+- `tests/test_runner.adb`: synthetic test suite

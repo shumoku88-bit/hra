@@ -2,6 +2,7 @@ with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
 with ALedger.Account;        use ALedger.Account;
 with ALedger.Ledger;         use ALedger.Ledger;
 with ALedger.Issues;         use ALedger.Issues;
+with ALedger.Canonical_Source;
 
 package ALedger.Household is
 
@@ -9,18 +10,10 @@ package ALedger.Household is
    --  Canonical Household Root & 8 Physical Source Topology
    --  ========================================================================
 
-   type Source_Paths is record
-      Accounts_Journal : Unbounded_String;
-      Actual_Journal   : Unbounded_String;
-      Plan_Journal     : Unbounded_String;
-      Budget_Journal   : Unbounded_String;
-      Budget_TOML      : Unbounded_String;
-      Household_TOML   : Unbounded_String;
-      Report_TOML      : Unbounded_String;
-      Issues_TSV       : Unbounded_String;
-   end record;
+   subtype Source_Paths is ALedger.Canonical_Source.Source_Paths;
 
-   function Resolve_Source_Paths (Root_Dir : String) return Source_Paths;
+   function Resolve_Source_Paths (Root_Dir : String) return Source_Paths
+     renames ALedger.Canonical_Source.Resolve_Source_Paths;
 
    --  ========================================================================
    --  Household State (Admitted facts from all canonical sources)
@@ -29,6 +22,7 @@ package ALedger.Household is
    type Household_State is record
       Root_Path       : Unbounded_String;
       Paths           : Source_Paths;
+      Sources         : ALedger.Canonical_Source.Source_Observation;
       Registry        : Account_Registry;
       Actual_Ledger   : Ledger.Ledger;
       Plan_Ledger     : Ledger.Ledger;

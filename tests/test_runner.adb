@@ -10,6 +10,7 @@ with ALedger.Ledger;         use ALedger.Ledger;
 with ALedger.Journal;        use ALedger.Journal;
 with ALedger.Report;         use ALedger.Report;
 with ALedger.Household;      use ALedger.Household;
+with ALedger.Canonical_Source; use ALedger.Canonical_Source;
 with ALedger.Plan;           use ALedger.Plan;
 with ALedger.Writer;         use ALedger.Writer;
 with ALedger.Render;         use ALedger.Render;
@@ -265,7 +266,8 @@ procedure Test_Runner is
 
    procedure Test_Canonical_Household is
       Tmp_Dir : constant String := "/tmp/aledger_test_household";
-      Paths   : constant Source_Paths := Resolve_Source_Paths (Tmp_Dir);
+      Paths   : constant ALedger.Household.Source_Paths :=
+        ALedger.Household.Resolve_Source_Paths (Tmp_Dir);
       State   : Household_State;
       Err     : Unbounded_String;
       F       : File_Type;
@@ -293,9 +295,45 @@ procedure Test_Runner is
       Put_Line (F, "    assets:wallet          -500 JPY");
       Close (F);
 
-      --  Load Canonical Household Root
-      Assert (Load_Canonical_Household (Tmp_Dir, State, Err), "Load Canonical Household root from 8-source topology");
+      --  A partial root must never be accepted as the canonical topology.
+      Assert
+        (not Load_Canonical_Household (Tmp_Dir, State, Err),
+         "Reject incomplete canonical Household root");
+
+      --  Complete the fixed eight-source topology.  TOML policy admission is
+      --  intentionally a later chapter, but exact source observation starts now.
+      Create (F, Out_File, To_String (Paths.Plan_Journal));
+      Put_Line (F, "INVALID PLAN SOURCE");
+      Close (F);
+      Create (F, Out_File, To_String (Paths.Budget_Journal));
+      Close (F);
+      Create (F, Out_File, To_String (Paths.Budget_TOML));
+      Put_Line (F, "# synthetic budget policy placeholder");
+      Close (F);
+      Create (F, Out_File, To_String (Paths.Household_TOML));
+      Put_Line (F, "# synthetic household policy placeholder");
+      Close (F);
+      Create (F, Out_File, To_String (Paths.Report_TOML));
+      Put_Line (F, "# synthetic report policy placeholder");
+      Close (F);
+      Create (F, Out_File, To_String (Paths.Issues_TSV));
+      Put_Line (F, "issue_id" & ASCII.HT & "status");
+      Close (F);
+
+      Assert
+        (not Load_Canonical_Household (Tmp_Dir, State, Err),
+         "Reject malformed source instead of silently dropping it");
+      Create (F, Out_File, To_String (Paths.Plan_Journal));
+      Close (F);
+
+      Assert (Load_Canonical_Household (Tmp_Dir, State, Err), "Load complete canonical Household root from fixed 8-source topology");
       Assert (Natural (State.Actual_Ledger.Transactions.Length) = 1, "Canonical actual.journal loaded 1 transaction");
+      Assert
+        (Text_For (State.Sources, Actual_Source) =
+           "2026-08-13 Coffee Purchase" & ASCII.LF &
+           "    expenses:coffee         500 JPY" & ASCII.LF &
+           "    assets:wallet          -500 JPY" & ASCII.LF,
+         "Canonical observation retains exact actual.journal source bytes");
 
       declare
          PL : constant Profit_And_Loss := Generate_Profit_And_Loss (State.Combined_Ledger);

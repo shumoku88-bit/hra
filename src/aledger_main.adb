@@ -75,13 +75,15 @@ begin
             if Cmd = "tui" then
                Run_Interactive_TUI (State);
             elsif Cmd = "check" then
-               Put_Line ("SUCCESS: Canonical household topology & balance laws verified for " & Root_Dir);
+               Put_Line ("SUCCESS: Fixed 8-source topology and currently supported admissions verified for " & Root_Dir);
+               Put_Line ("  Configuration       : observed exactly; typed TOML admission pending");
                Put_Line ("  Actual Transactions : " & Natural'Image (Natural (State.Actual_Ledger.Transactions.Length)));
                Put_Line ("  Plan Transactions   : " & Natural'Image (Natural (State.Plan_Ledger.Transactions.Length)));
                Put_Line ("  Budget Transactions : " & Natural'Image (Natural (State.Budget_Ledger.Transactions.Length)));
                Put_Line ("  Registered Accounts : " & Natural'Image (Declarations (State.Registry)'Length));
                Put_Line ("  Open Issues         : " & Natural'Image (Natural (Open_Issues (State.Issues).Length)));
             elsif Cmd = "report" then
+               Put_Line ("WARNING: typed TOML policy admission is incomplete; this report is not yet canonical.");
                Put_Line ("==================================================");
                Put_Line ("   ALedger Financial Statements");
                Put_Line ("   Canonical Root: " & Root_Dir);
