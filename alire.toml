@@ -1,0 +1,6 @@
+name = "aledger"
+description = "Ada 2012 double-entry accounting kernel ported from h-kernel"
+version = "0.1.0-dev"
+authors = ["Antigravity"]
+licenses = "MIT"
+executables = ["aledger_main"]

@@ -1,0 +1,21 @@
+; Sample Journal Document for ALedger
+account assets:bank
+  ; type: Asset
+account income:salary
+  ; type: Income
+account expenses:rent
+  ; type: Expense
+account expenses:food
+  ; type: Expense
+
+2026-08-01 Monthly Salary
+    assets:bank           350000 JPY
+    income:salary        -350000 JPY
+
+2026-08-05 Rent Payment
+    expenses:rent          90000 JPY
+    assets:bank           -90000 JPY
+
+2026-08-10 Supermarket Purchase
+    expenses:food          12500 JPY
+    assets:bank

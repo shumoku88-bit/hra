@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+# ALedger Daily Command Hub (Ada 2012 Accounting Kernel)
+set -e
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+
+# Execute GPRbuild if binary is not present or stale
+BIN="$PROJECT_ROOT/bin/aledger"
+if [ ! -f "$BIN" ]; then
+    echo "[ALedger] Building Ada binary..."
+    ~/.local/bin/alr exec -- gprbuild -P "$PROJECT_ROOT/aledger.gpr" > /dev/null
+fi
+
+if [ $# -eq 0 ]; then
+    exec "$BIN" tui
+else
+    exec "$BIN" "$@"
+fi

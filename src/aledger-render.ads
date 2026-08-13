@@ -1,0 +1,22 @@
+with ALedger.Ledger; use ALedger.Ledger;
+
+package ALedger.Render is
+
+   --  ========================================================================
+   --  Human-Readable Report Rendering Engine (Conforming to h-kernel Standards)
+   --  ========================================================================
+
+   function Render_Account_Balances
+     (L          : Ledger.Ledger;
+      As_Of_Date : String) return String;
+
+   function Render_Balance_Sheet
+     (L          : Ledger.Ledger;
+      As_Of_Date : String) return String;
+
+   function Render_Profit_And_Loss
+     (L          : Ledger.Ledger;
+      Start_Date : String;
+      End_Date   : String) return String;
+
+end ALedger.Render;

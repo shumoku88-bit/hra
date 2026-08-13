@@ -1,0 +1,9 @@
+# Alire & GPRbuild compilation artifacts
+bin/
+obj/
+alire/
+*.o
+*.ali
+*.bak
+*.tmp
+/tmp/
