@@ -28,6 +28,9 @@ package ALedger.Report is
    end record;
 
    function Generate_Trial_Balance (L : Ledger.Ledger) return Trial_Balance;
+   function Generate_Trial_Balance_As_Of
+     (L          : Ledger.Ledger;
+      As_Of_Date : String) return Trial_Balance;
 
    --  ========================================================================
    --  Profit and Loss / Income Statement (損益計算書)
@@ -42,6 +45,10 @@ package ALedger.Report is
    end record;
 
    function Generate_Profit_And_Loss (L : Ledger.Ledger) return Profit_And_Loss;
+   function Generate_Profit_And_Loss_Period
+     (L          : Ledger.Ledger;
+      Start_Date : String;
+      End_Date   : String) return Profit_And_Loss;
 
    --  ========================================================================
    --  Balance Sheet (貸借対照表)
@@ -60,5 +67,8 @@ package ALedger.Report is
    end record;
 
    function Generate_Balance_Sheet (L : Ledger.Ledger) return Balance_Sheet;
+   function Generate_Balance_Sheet_As_Of
+     (L          : Ledger.Ledger;
+      As_Of_Date : String) return Balance_Sheet;
 
 end ALedger.Report;

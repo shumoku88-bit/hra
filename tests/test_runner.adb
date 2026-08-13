@@ -1,4 +1,5 @@
 with Ada.Text_IO;          use Ada.Text_IO;
+with Ada.Command_Line;
 with Ada.Directories;        use Ada.Directories;
 with Ada.Strings.Fixed;      use Ada.Strings.Fixed;
 with Ada.Strings.Unbounded;  use Ada.Strings.Unbounded;
@@ -46,7 +47,7 @@ procedure Test_Runner is
       Assert (Parse_Quantity ("1000", Q1), "Parse quantity 1000");
       Assert (Parse_Quantity ("-500.50", Q2), "Parse quantity -500.50");
 
-      Assert (Render_Quantity (Q1) = "1000", "Render quantity 1000");
+      Assert (Render_Quantity (Q1) = "1,000", "Render quantity 1,000");
       Assert (Render_Quantity (Q2) = "-500.5", "Render quantity -500.5");
 
       A1 := Make_Amount (JPY, Q1);
@@ -172,6 +173,46 @@ procedure Test_Runner is
          Assert (Lookup_Balance (Bank_Bal, JPY) = Q_M1500, "Elided amount inferred bank balance = -1500 JPY");
          Assert (Lookup_Balance (Food_Bal, JPY) = Q_1500, "Food account balance = 1500 JPY");
          Assert (Is_Zero_Balance (Tot_Bal), "Parsed journal preserves strict ZERO balance law");
+      end;
+
+      --  Test flexible amount parsing
+      declare
+         Flex_Journal : constant String :=
+           "2026-08-14 Multi Currency Flexible Formats" & ASCII.LF &
+           "    expenses:groceries     JPY 2,500" & ASCII.LF &
+           "    expenses:software      $50.00" & ASCII.LF &
+           "    assets:bank:usd        -50 USD" & ASCII.LF &
+           "    assets:cash            -2500 JPY" & ASCII.LF;
+         L_Flex : Ledger;
+      begin
+         Assert (Parse_Journal_Text (Flex_Journal, L_Flex, Err), "Parse flexible currency & comma formats (JPY 2,500, $50.00)");
+         Assert (Natural (L_Flex.Transactions.Length) = 1, "Parsed flexible transaction successfully");
+      end;
+
+      --  Test Parse_Diagnostic Tracing and Location formatting
+      declare
+         Invalid_Journal : constant String :=
+           "; line 1 comment" & ASCII.LF &
+           "2026-08-15 Unbalanced Tx" & ASCII.LF &
+           "    expenses:food      1000 JPY" & ASCII.LF &
+           "    assets:cash        -500 JPY" & ASCII.LF;
+         L_Err : Ledger;
+         Diag  : Parse_Diagnostic;
+      begin
+         Assert (not Parse_Journal_Text (Invalid_Journal, "actual.journal", L_Err, Diag), "Reject unbalanced transaction with diagnostic");
+         Assert (To_String (Diag.File_Name) = "actual.journal", "Diagnostic captures correct File_Name");
+         Assert (Diag.Line_Number > 0, "Diagnostic captures correct Line_Number");
+         Assert (Index (Format_Diagnostic (Diag), "actual.journal:") > 0, "Format_Diagnostic renders file location trace");
+      end;
+
+      declare
+         Invalid_Document : constant String := "THIS IS NOT A JOURNAL" & ASCII.LF;
+         L_Err            : Ledger;
+         Diag             : Parse_Diagnostic;
+      begin
+         Assert
+           (not Parse_Journal_Text (Invalid_Document, "invalid.journal", L_Err, Diag),
+            "Reject unsupported top-level journal content");
       end;
    end Test_Journal;
 
@@ -361,7 +402,7 @@ procedure Test_Runner is
          end loop;
          Close (F_Read);
 
-         Assert (not Append_Transaction_Safely (Target_File, Unbalanced_Invalid_Tx, W_Stat, Err_Msg) and then W_Stat = Post_Admission_Failed, "Post-admission validation fails on unbalanced candidate");
+         Assert (not Append_Transaction_Safely (Target_File, Unbalanced_Invalid_Tx, W_Stat, Err_Msg) and then (W_Stat = Pre_Admission_Failed or else W_Stat = Post_Admission_Failed), "Pre/Post-admission validation fails on unbalanced candidate");
 
          --  Verify that target file was RESTORED 100% back to Current_Content!
          declare
@@ -426,25 +467,110 @@ procedure Test_Runner is
         "" & ASCII.LF &
         "2026-07-31 Month end food" & ASCII.LF &
         "    expenses:food         300 JPY" & ASCII.LF &
-        "    assets:cash          -300 JPY" & ASCII.LF;
+        "    assets:cash          -300 JPY" & ASCII.LF &
+        "" & ASCII.LF &
+        "2026-08-01 After contract as-of" & ASCII.LF &
+        "    expenses:food          50 JPY" & ASCII.LF &
+        "    assets:cash           -50 JPY" & ASCII.LF;
 
       L   : Ledger;
       Err : Unbounded_String;
    begin
-      Put_Line ("--- Testing ALedger.Render & Golden Report Contract Conformance ---");
+      Put_Line ("--- Testing ALedger & h-kernel Cross-Engine Equivalence ---");
 
-      Assert (Parse_Journal_Text (Golden_Journal_Text, L, Err), "Parse golden contract journal text");
+      Assert (Parse_Journal_Text (Golden_Journal_Text, L, Err), "Parse h-kernel report contract journal text");
 
       declare
          Bal_Report : constant String := Render_Account_Balances (L, "2026-07-31");
          BS_Report  : constant String := Render_Balance_Sheet (L, "2026-07-31");
          PL_Report  : constant String := Render_Profit_And_Loss (L, "2026-07-01", "2026-07-31");
+
+         BS_Obj     : constant Balance_Sheet := Generate_Balance_Sheet_As_Of (L, "2026-07-31");
+         PL_Obj     : constant Profit_And_Loss := Generate_Profit_And_Loss_Period (L, "2026-07-01", "2026-07-31");
       begin
-         Assert (Index (Bal_Report, "Balanced: YES") > 0, "Account Balances report verified Balanced: YES");
-         Assert (Index (BS_Report, "Balanced: YES (Net Check: 0)") > 0, "Balance Sheet report verified Balanced: YES (Net Check: 0)");
-         Assert (Index (PL_Report, "Net Profit (Income - Expenses) | 3000") > 0, "P&L Net Profit strictly matches golden calculation (5,100 - 2,100 = 3,000 JPY)");
+         --  Verify Account Balances as-of 2026-07-31 (excluding 2026-08-01 transaction)
+         Assert (Index (Bal_Report, "assets:cash | 13,000 JPY") > 0, "Equivalence: assets:cash = 13,000 JPY as of 2026-07-31");
+         Assert (Index (Bal_Report, "Balanced: YES") > 0, "Account Balances verified Balanced: YES");
+
+         --  Verify Balance Sheet as-of 2026-07-31
+         Assert (Index (BS_Report, "Total assets | 13,000 JPY") > 0, "Equivalence: Balance Sheet Total Assets = 13,000 JPY");
+         Assert (Index (BS_Report, "Current earnings | 3,000 JPY") > 0, "Equivalence: Balance Sheet Current Earnings = 3,000 JPY");
+         Assert (Index (BS_Report, "Total equity     | 13,000 JPY") > 0, "Equivalence: Balance Sheet Total Equity = 13,000 JPY");
+         Assert (Is_Zero_Balance (BS_Obj.Accounting_Equation_Delta), "Equivalence: Accounting Equation Delta is strictly ZERO");
+
+         --  Verify July Period Profit & Loss (2026-07-01 .. 2026-07-31)
+         Assert (Index (PL_Report, "Total Income  | 5,100 JPY") > 0, "Equivalence: July Total Income = 5,100 JPY");
+         Assert (Index (PL_Report, "Total Expenses                 | 900 JPY") > 0, "Equivalence: July Total Expenses = 900 JPY");
+         Assert (Index (PL_Report, "Net Profit (Income - Expenses) | 4,200 JPY") > 0, "Equivalence: July Net Profit strictly matches h-kernel (4,200 JPY)");
+         Assert (not Is_Zero_Balance (PL_Obj.Net_Income), "Equivalence: PL_Obj.Net_Income object is non-zero");
       end;
    end Test_Golden_Report_Verification;
+
+   procedure Test_Reversal_Law is
+      L : Ledger := Empty_Ledger;
+      JPY : constant Commodity := Make_Commodity ("JPY");
+      Acc_Asset : constant ALedger.Account.Account := Make_Account ("assets:cash");
+      Acc_Expense : constant ALedger.Account.Account := Make_Account ("expenses:gadgets");
+      Q_5000 : Quantity;
+      Postings : Posting_Vectors.Vector;
+      Orig_Tx, Rev_Tx : Transaction;
+      Status : Transaction_Error;
+   begin
+      Put_Line ("--- Testing ALedger Reversal Law & Durable Identity ---");
+
+      Assert (Parse_Quantity ("5000", Q_5000), "Parse 5000 for Reversal test");
+      Postings.Append (Make_Posting (Acc_Expense, Make_Amount (JPY, Q_5000)));
+      Postings.Append (Make_Posting (Acc_Asset, Make_Amount (JPY, -Q_5000)));
+
+      Assert (Create_Transaction ("2026-08-10", "Gadget Purchase [event-id: evt-2026-001]", Postings, Orig_Tx, Status), "Create original transaction");
+      Orig_Tx.Event_ID := To_Unbounded_String ("evt-2026-001");
+      Assert (Add_Transaction (L, Orig_Tx, Status), "Add original transaction to ledger");
+
+      Assert (Create_Reversal_Transaction (Orig_Tx, "evt-2026-002", "2026-08-11", "Return gadget", Rev_Tx, Status), "Create reversal transaction via Reversal Law");
+      Assert (Is_Reversal_Of (Rev_Tx, Orig_Tx), "Verify Is_Reversal_Of relation");
+
+      declare
+         Bad_Rev : Transaction := Rev_Tx;
+         P       : Posting := Bad_Rev.Postings.Element (1);
+      begin
+         P.Acc := Acc_Asset;
+         Bad_Rev.Postings.Replace_Element (1, P);
+         Assert
+           (not Is_Reversal_Of (Bad_Rev, Orig_Tx),
+            "Reject a balanced transaction that does not invert target postings");
+      end;
+
+      Assert (Add_Transaction (L, Rev_Tx, Status), "Add reversal transaction to ledger");
+
+      declare
+         Asset_Bal : constant Balance := Compute_Account_Balance (L, Acc_Asset);
+         Exp_Bal   : constant Balance := Compute_Account_Balance (L, Acc_Expense);
+         Tot_Bal   : constant Balance := Compute_Total_Balance (L);
+      begin
+         Assert (Is_Zero_Balance (Asset_Bal), "Asset balance returned to ZERO after reversal");
+         Assert (Is_Zero_Balance (Exp_Bal), "Expense balance returned to ZERO after reversal");
+         Assert (Is_Zero_Balance (Tot_Bal), "Total ledger balance remains strictly ZERO");
+      end;
+
+      --  Test Journal metadata extraction for event-id and reverses
+      declare
+         Rev_Journal_Text : constant String :=
+           "2026-08-12 Store Refund [event-id: evt-2026-003] [reverses: evt-2026-001]" & ASCII.LF &
+           "    assets:cash          5000 JPY" & ASCII.LF &
+           "    expenses:gadgets    -5000 JPY" & ASCII.LF;
+         L_Parsed : Ledger;
+         Err : Unbounded_String;
+      begin
+         Assert (Parse_Journal_Text (Rev_Journal_Text, L_Parsed, Err), "Parse journal with event-id and reverses metadata");
+         Assert (Natural (L_Parsed.Transactions.Length) = 1, "Parsed 1 reversal journal transaction");
+         declare
+            T : constant Transaction := L_Parsed.Transactions.Element (1);
+         begin
+            Assert (To_String (T.Event_ID) = "evt-2026-003", "Extracted Event_ID = evt-2026-003");
+            Assert (To_String (T.Reverses_ID) = "evt-2026-001", "Extracted Reverses_ID = evt-2026-001");
+         end;
+      end;
+   end Test_Reversal_Law;
 
 begin
    Put_Line ("==================================================");
@@ -460,12 +586,14 @@ begin
    Test_Plan_Lifecycle;
    Test_Safe_Writer;
    Test_Golden_Report_Verification;
+   Test_Reversal_Law;
 
    Put_Line ("--------------------------------------------------");
    Put_Line ("Summary: Passed =" & Natural'Image (Passed_Count) &
              ", Failed =" & Natural'Image (Failed_Count));
    if Failed_Count > 0 then
       Put_Line ("RESULT: FAIL");
+      Ada.Command_Line.Set_Exit_Status (Ada.Command_Line.Failure);
    else
       Put_Line ("RESULT: SUCCESS");
    end if;

@@ -77,27 +77,53 @@ package body ALedger.Money is
          return False;
    end Parse_Quantity;
 
-   function Render_Quantity (Q : Quantity) return String is
-      Img : constant String := Quantity'Image (Q);
-      Trimmed : constant String := Trim (Img, Ada.Strings.Both);
+   function Format_With_Commas (Integer_Part : String) return String is
+      Result      : Unbounded_String := Null_Unbounded_String;
+      Digit_Count : Natural := 0;
+      Is_Neg      : constant Boolean := (Integer_Part'Length > 0 and then Integer_Part (Integer_Part'First) = '-');
+      Start_Idx   : constant Natural := (if Is_Neg then Integer_Part'First + 1 else Integer_Part'First);
    begin
-      --  Remove trailing fractional zeros if applicable
-      if Index (Trimmed, ".") > 0 then
+      if Start_Idx > Integer_Part'Last then
+         return Integer_Part;
+      end if;
+
+      for I in reverse Start_Idx .. Integer_Part'Last loop
+         if Digit_Count > 0 and then Digit_Count rem 3 = 0 then
+            Result := "," & Result;
+         end if;
+         Result := Integer_Part (I) & Result;
+         Digit_Count := Digit_Count + 1;
+      end loop;
+
+      if Is_Neg then
+         Result := "-" & Result;
+      end if;
+
+      return To_String (Result);
+   end Format_With_Commas;
+
+   function Render_Quantity (Q : Quantity) return String is
+      Img     : constant String := Quantity'Image (Q);
+      Trimmed : constant String := Trim (Img, Ada.Strings.Both);
+      Dot_Idx : constant Natural := Index (Trimmed, ".");
+   begin
+      if Dot_Idx > 0 then
          declare
-            Last_Non_Zero : Natural := Trimmed'Last;
+            Int_Part : constant String := Trimmed (Trimmed'First .. Dot_Idx - 1);
+            Last_NZ  : Natural := Trimmed'Last;
          begin
-            while Last_Non_Zero > Trimmed'First
-              and then Trimmed (Last_Non_Zero) = '0'
-            loop
-               Last_Non_Zero := Last_Non_Zero - 1;
+            while Last_NZ > Dot_Idx and then Trimmed (Last_NZ) = '0' loop
+               Last_NZ := Last_NZ - 1;
             end loop;
-            if Trimmed (Last_Non_Zero) = '.' then
-               Last_Non_Zero := Last_Non_Zero - 1;
+
+            if Trimmed (Last_NZ) = '.' then
+               return Format_With_Commas (Int_Part);
+            else
+               return Format_With_Commas (Int_Part) & Trimmed (Dot_Idx .. Last_NZ);
             end if;
-            return Trimmed (Trimmed'First .. Last_Non_Zero);
          end;
       else
-         return Trimmed;
+         return Format_With_Commas (Trimmed);
       end if;
    end Render_Quantity;
 

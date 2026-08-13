@@ -1,5 +1,6 @@
 with Ada.Text_IO;          use Ada.Text_IO;
 with Ada.Directories;        use Ada.Directories;
+with GNAT.OS_Lib;
 with ALedger.Ledger;         use ALedger.Ledger;
 with ALedger.Journal;        use ALedger.Journal;
 
@@ -10,6 +11,7 @@ package body ALedger.Writer is
       case Status is
          when Success               => return "Success";
          when Stale_Source_Rejected => return "Stale_Source_Rejected";
+         when Pre_Admission_Failed  => return "Pre_Admission_Failed";
          when Backup_Failed         => return "Backup_Failed";
          when File_Write_Failed     => return "File_Write_Failed";
          when Post_Admission_Failed => return "Post_Admission_Failed";
@@ -60,8 +62,10 @@ package body ALedger.Writer is
       Current_On_Disk : Unbounded_String;
       Tmp_Path        : constant String := Target_Path & ".tmp";
       Bak_Path        : constant String := Target_Path & ".bak";
+      Dummy_L         : Ledger.Ledger;
+      Parse_Err       : Unbounded_String;
    begin
-      --  1. Stale Check: Read current bytes on disk and compare
+      --  1. Stale Check: read current bytes before doing any mutation.
       if Exists (Target_Path) then
          if not Read_File (Target_Path, Current_On_Disk) then
             Status := File_Write_Failed;
@@ -75,38 +79,55 @@ package body ALedger.Writer is
             return False;
          end if;
 
-         --  2. Backup Creation
-         if not Write_File (Bak_Path, Expected_Old_Text) then
-            Status := Backup_Failed;
-            Error_Msg := To_Unbounded_String ("Failed to create backup file: " & Bak_Path);
-            return False;
-         end if;
       end if;
 
-      --  3. Write Candidate to Sibling Temporary File
-      if not Write_File (Tmp_Path, New_Text) then
-         Status := File_Write_Failed;
-         Error_Msg := To_Unbounded_String ("Failed to write candidate to temporary file: " & Tmp_Path);
+      --  2. Pre-admission validation, still before any filesystem mutation.
+      if not Parse_Journal_Text (New_Text, Dummy_L, Parse_Err) then
+         Status := Pre_Admission_Failed;
+         Error_Msg := To_Unbounded_String ("Pre-admission validation rejected candidate: " & To_String (Parse_Err));
          return False;
       end if;
 
-      --  4. Atomic Rename/Replace
-      begin
-         if Exists (Target_Path) then
-            Delete_File (Target_Path);
+      --  3. Keep a recovery copy until post-admission validation succeeds.
+      if Exists (Target_Path) and then not Write_File (Bak_Path, Expected_Old_Text) then
+         Status := Backup_Failed;
+         Error_Msg := To_Unbounded_String ("Failed to create backup file: " & Bak_Path);
+         return False;
+      end if;
+
+      --  4. Write Candidate to Sibling Temporary File
+      if not Write_File (Tmp_Path, New_Text) then
+         Status := File_Write_Failed;
+         Error_Msg := To_Unbounded_String ("Failed to write candidate to temporary file: " & Tmp_Path);
+         if Exists (Bak_Path) then
+            Delete_File (Bak_Path);
          end if;
-         Rename (Tmp_Path, Target_Path);
-      exception
-         when others =>
+         return False;
+      end if;
+
+      --  5. Atomically replace the target where the host rename semantics
+      --  support replacement.  Unlike delete-then-rename, a failure leaves
+      --  the original target in place.
+      declare
+         Renamed : Boolean;
+      begin
+         GNAT.OS_Lib.Rename_File (Tmp_Path, Target_Path, Renamed);
+         if not Renamed then
             Status := File_Write_Failed;
             Error_Msg := To_Unbounded_String ("Failed atomic rename from " & Tmp_Path & " to " & Target_Path);
+            if Exists (Tmp_Path) then
+               Delete_File (Tmp_Path);
+            end if;
+            if Exists (Bak_Path) then
+               Delete_File (Bak_Path);
+            end if;
             return False;
+         end if;
       end;
 
-      --  5. Post-Admission Validation
+      --  6. Post-Admission Validation
       declare
          Parsed_L : Ledger.Ledger;
-         Parse_Err: Unbounded_String;
       begin
          if not Parse_Journal_Text (New_Text, Parsed_L, Parse_Err) then
             --  Post-admission failure: Restore from backup
@@ -123,7 +144,10 @@ package body ALedger.Writer is
          end if;
       end;
 
-      --  Success: Clean up temporary backup if present
+      --  Success: Clean up temporary backup & temp files if present
+      if Exists (Tmp_Path) then
+         Delete_File (Tmp_Path);
+      end if;
       if Exists (Bak_Path) then
          Delete_File (Bak_Path);
       end if;

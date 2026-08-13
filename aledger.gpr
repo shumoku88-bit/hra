@@ -7,7 +7,8 @@ project Aledger is
 
    package Compiler is
       for Default_Switches ("Ada") use (
-         "-gnat2012",   -- Ada 2012 standard
+         "-gnat2022",   -- Ada 2022 standard
+         "-gnata",      -- Enable assertions and contract checking (Pre/Post/Type_Invariant)
          "-gnatwa",     -- Turn on all warnings
          "-gnatW8",     -- UTF-8 encoding support
          "-g",          -- Debug symbols

@@ -34,6 +34,8 @@ package ALedger.Ledger is
    type Transaction is record
       Date_Text     : Unbounded_String;  --  Format: YYYY-MM-DD
       Code_Or_Payee : Unbounded_String;
+      Event_ID      : Unbounded_String;  --  Durable Identity
+      Reverses_ID   : Unbounded_String;  --  Reversed Target Event ID (if reversal)
       Postings      : Posting_Vectors.Vector;
    end record;
 
@@ -47,7 +49,19 @@ package ALedger.Ledger is
       Payee    : String;
       Postings : Posting_Vectors.Vector;
       Tx       : out Transaction;
-      Status   : out Transaction_Error) return Boolean;
+      Status   : out Transaction_Error) return Boolean
+     with Post => (if Create_Transaction'Result then Status = Success and then Is_Balanced (Tx));
+
+   function Create_Reversal_Transaction
+     (Target_Tx       : Transaction;
+      Reversal_ID     : String;
+      Reversal_Date   : String;
+      Reversal_Reason : String;
+      Rev_Tx          : out Transaction;
+      Status          : out Transaction_Error) return Boolean
+     with Post => (if Create_Reversal_Transaction'Result then Status = Success and then Is_Balanced (Rev_Tx));
+
+   function Is_Reversal_Of (Candidate_Rev, Target_Tx : Transaction) return Boolean;
 
    function Calculate_Balance (Tx : Transaction) return Balance;
    function Is_Balanced (Tx : Transaction) return Boolean;
@@ -69,7 +83,8 @@ package ALedger.Ledger is
    function Add_Transaction
      (L      : in out Ledger;
       Tx     : Transaction;
-      Status : out Transaction_Error) return Boolean;
+      Status : out Transaction_Error) return Boolean
+     with Post => (if Add_Transaction'Result then Status = Success);
 
    function Compute_Account_Balance
      (L   : Ledger;

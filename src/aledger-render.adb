@@ -4,7 +4,6 @@ with ALedger.Money;          use ALedger.Money;
 with ALedger.Account;        use ALedger.Account;
 with ALedger.Report;         use ALedger.Report;
 with ALedger.Budget;         use ALedger.Budget;
-with ALedger.Issues;         use ALedger.Issues;
 
 package body ALedger.Render is
 
@@ -19,30 +18,42 @@ package body ALedger.Render is
       end if;
    end Render_Amount_Or_Paren;
 
+   function Render_Multi_Balance (B : Balance) return String is
+      Ents : constant Balance_Entry_Array := Entries (B);
+      Buf  : Unbounded_String;
+   begin
+      if Ents'Length = 0 then
+         return "0";
+      end if;
+
+      for I in Ents'Range loop
+         if I > Ents'First then
+            Append (Buf, ", ");
+         end if;
+         Append (Buf, Render_Amount_Or_Paren (Ents (I).Val, Code (Ents (I).Comm)));
+      end loop;
+
+      return To_String (Buf);
+   end Render_Multi_Balance;
+
    function Render_Account_Balances
      (L          : Ledger.Ledger;
       As_Of_Date : String) return String
    is
       Buf : Unbounded_String;
-      TB  : constant Trial_Balance := Generate_Trial_Balance (L);
-      JPY : constant Commodity := Make_Commodity ("JPY");
+      TB  : constant Trial_Balance := Generate_Trial_Balance_As_Of (L, As_Of_Date);
    begin
       Append (Buf, "== Account Balances (aledger Engine) ==" & ASCII.LF);
-      Append (Buf, "As of: " & As_Of_Date & ASCII.LF);
+      Append (Buf, "As of: " & (if As_Of_Date'Length > 0 then As_Of_Date else "all transactions") & ASCII.LF);
       Append (Buf, ASCII.LF);
       Append (Buf, "Account         |      Balance" & ASCII.LF);
       Append (Buf, "------------------------------" & ASCII.LF);
 
-      for Decl of Declarations (L.Registry) loop
-         declare
-            Acc_Bal : constant Balance := Compute_Account_Balance (L, Decl.Acc);
-            Val_Q   : constant Quantity := Lookup_Balance (Acc_Bal, JPY);
-         begin
-            if not Is_Zero (Val_Q) then
-               Append (Buf, Name (Decl.Acc) & " | ");
-               Append (Buf, Render_Amount_Or_Paren (Val_Q, "JPY") & ASCII.LF);
-            end if;
-         end;
+      for Line of TB.Lines loop
+         if not Is_Zero_Balance (Line.Bal) then
+            Append (Buf, Name (Line.Acc) & " | ");
+            Append (Buf, Render_Multi_Balance (Line.Bal) & ASCII.LF);
+         end if;
       end loop;
 
       Append (Buf, ASCII.LF);
@@ -60,33 +71,38 @@ package body ALedger.Render is
       As_Of_Date : String) return String
    is
       Buf : Unbounded_String;
-      BS  : constant Balance_Sheet := Generate_Balance_Sheet (L);
-      JPY : constant Commodity := Make_Commodity ("JPY");
+      BS  : constant Balance_Sheet := Generate_Balance_Sheet_As_Of (L, As_Of_Date);
    begin
       Append (Buf, "== Balance Sheet (aledger Engine) ==" & ASCII.LF);
-      Append (Buf, "As of: " & As_Of_Date & ASCII.LF);
+      Append (Buf, "As of: " & (if As_Of_Date'Length > 0 then As_Of_Date else "all transactions") & ASCII.LF);
       Append (Buf, ASCII.LF);
       Append (Buf, "Assets" & ASCII.LF);
       Append (Buf, "Account      |    Balance" & ASCII.LF);
       Append (Buf, "-------------------------" & ASCII.LF);
 
       for Line of BS.Asset_Lines loop
-         Append (Buf, Name (Line.Acc) & " | " & Render_Quantity (Lookup_Balance (Line.Bal, JPY)) & " JPY" & ASCII.LF);
+         Append (Buf, Name (Line.Acc) & " | " & Render_Multi_Balance (Line.Bal) & ASCII.LF);
       end loop;
-      Append (Buf, "Total assets | " & Render_Quantity (Lookup_Balance (BS.Total_Assets, JPY)) & " JPY" & ASCII.LF);
+      Append (Buf, "Total assets | " & Render_Multi_Balance (BS.Total_Assets) & ASCII.LF);
       Append (Buf, ASCII.LF);
 
       Append (Buf, "Liabilities" & ASCII.LF);
       Append (Buf, "Account           | Balance" & ASCII.LF);
       Append (Buf, "---------------------------" & ASCII.LF);
-      Append (Buf, "Total liabilities |       0" & ASCII.LF);
+      for Line of BS.Liability_Lines loop
+         Append (Buf, Name (Line.Acc) & " | " & Render_Multi_Balance (Line.Bal) & ASCII.LF);
+      end loop;
+      Append (Buf, "Total liabilities | " & Render_Multi_Balance (BS.Total_Liabilities) & ASCII.LF);
       Append (Buf, ASCII.LF);
 
       Append (Buf, "Equity" & ASCII.LF);
       Append (Buf, "Account          |    Balance" & ASCII.LF);
       Append (Buf, "-----------------------------" & ASCII.LF);
-      Append (Buf, "Current earnings | " & Render_Quantity (Lookup_Balance (BS.Current_Earnings, JPY)) & " JPY" & ASCII.LF);
-      Append (Buf, "Total equity     | " & Render_Quantity (Lookup_Balance (BS.Total_Equity, JPY)) & " JPY" & ASCII.LF);
+      for Line of BS.Equity_Lines loop
+         Append (Buf, Name (Line.Acc) & " | " & Render_Multi_Balance (Line.Bal) & ASCII.LF);
+      end loop;
+      Append (Buf, "Current earnings | " & Render_Multi_Balance (BS.Current_Earnings) & ASCII.LF);
+      Append (Buf, "Total equity     | " & Render_Multi_Balance (BS.Total_Equity) & ASCII.LF);
       Append (Buf, ASCII.LF);
 
       if Is_Zero_Balance (BS.Accounting_Equation_Delta) then
@@ -104,20 +120,23 @@ package body ALedger.Render is
       End_Date   : String) return String
    is
       Buf : Unbounded_String;
-      PL  : constant Profit_And_Loss := Generate_Profit_And_Loss (L);
-      JPY : constant Commodity := Make_Commodity ("JPY");
+      PL  : constant Profit_And_Loss := Generate_Profit_And_Loss_Period (L, Start_Date, End_Date);
    begin
       Append (Buf, "== Profit & Loss Statement (aledger Engine) ==" & ASCII.LF);
-      Append (Buf, "Period: " & Start_Date & ".." & End_Date & ASCII.LF);
+      if Start_Date'Length = 0 and then End_Date'Length = 0 then
+         Append (Buf, "Period: all transactions" & ASCII.LF);
+      else
+         Append (Buf, "Period: " & Start_Date & ".." & End_Date & ASCII.LF);
+      end if;
       Append (Buf, ASCII.LF);
       Append (Buf, "Income" & ASCII.LF);
       Append (Buf, "Account       |    Amount" & ASCII.LF);
       Append (Buf, "-------------------------" & ASCII.LF);
 
       for Line of PL.Income_Lines loop
-         Append (Buf, Name (Line.Acc) & " | " & Render_Quantity (Lookup_Balance (Line.Bal, JPY)) & " JPY" & ASCII.LF);
+         Append (Buf, Name (Line.Acc) & " | " & Render_Multi_Balance (Line.Bal) & ASCII.LF);
       end loop;
-      Append (Buf, "Total Income  | " & Render_Quantity (Lookup_Balance (PL.Total_Income, JPY)) & " JPY" & ASCII.LF);
+      Append (Buf, "Total Income  | " & Render_Multi_Balance (PL.Total_Income) & ASCII.LF);
       Append (Buf, ASCII.LF);
 
       Append (Buf, "Expenses" & ASCII.LF);
@@ -125,11 +144,11 @@ package body ALedger.Render is
       Append (Buf, "------------------------------------------" & ASCII.LF);
 
       for Line of PL.Expense_Lines loop
-         Append (Buf, Name (Line.Acc) & " | " & Render_Quantity (Lookup_Balance (Line.Bal, JPY)) & " JPY" & ASCII.LF);
+         Append (Buf, Name (Line.Acc) & " | " & Render_Multi_Balance (Line.Bal) & ASCII.LF);
       end loop;
-      Append (Buf, "Total Expenses                 | " & Render_Quantity (Lookup_Balance (PL.Total_Expenses, JPY)) & " JPY" & ASCII.LF);
+      Append (Buf, "Total Expenses                 | " & Render_Multi_Balance (PL.Total_Expenses) & ASCII.LF);
       Append (Buf, "------------------------------------------" & ASCII.LF);
-      Append (Buf, "Net Profit (Income - Expenses) | " & Render_Quantity (Lookup_Balance (PL.Net_Income, JPY)) & " JPY" & ASCII.LF);
+      Append (Buf, "Net Profit (Income - Expenses) | " & Render_Multi_Balance (PL.Net_Income) & ASCII.LF);
 
       return To_String (Buf);
    end Render_Profit_And_Loss;
@@ -199,14 +218,17 @@ package body ALedger.Render is
       Append (Buf, "Backing evidence" & ASCII.LF);
       Append (Buf, "Coordinate                |       Amount" & ASCII.LF);
       Append (Buf, "----------------------------------------" & ASCII.LF);
-      Append (Buf, "Funding balance           |      213 JPY" & ASCII.LF);
-      Append (Buf, "Signed envelope total     |    6,811 JPY" & ASCII.LF);
-      Append (Buf, "Positive backing required |   11,786 JPY" & ASCII.LF);
-      Append (Buf, "Backing surplus           | (11,573 JPY)" & ASCII.LF);
-      Append (Buf, "Ledger unassigned         |      331 JPY" & ASCII.LF);
-      Append (Buf, "Reconciliation delta      | (11,904 JPY)" & ASCII.LF);
+      Append (Buf, "Funding balance           | " & Render_Multi_Balance (BSR.Funding_Balance) & ASCII.LF);
+      Append (Buf, "Signed envelope total     | " & Render_Multi_Balance (BSR.Total_Entitlement) & ASCII.LF);
+      Append (Buf, "Positive backing required | " & Render_Multi_Balance (BSR.Backing_Required) & ASCII.LF);
+      Append (Buf, "Backing surplus           | " & Render_Multi_Balance (BSR.Backing_Surplus) & ASCII.LF);
+      Append (Buf, "Reconciliation delta      | " & Render_Multi_Balance (BSR.Reconciliation_Delta) & ASCII.LF);
       Append (Buf, ASCII.LF);
-      Append (Buf, "Status: under_backed" & ASCII.LF);
+      if BSR.Is_Under_Backed then
+         Append (Buf, "Status: under_backed" & ASCII.LF);
+      else
+         Append (Buf, "Status: fully_backed" & ASCII.LF);
+      end if;
 
       return To_String (Buf);
    end Render_Budget_Status;
@@ -229,7 +251,7 @@ package body ALedger.Render is
          Append (Buf, "+- OPEN -------------------------------------------------------------------------------+" & ASCII.LF);
          Append (Buf, "| ID       : " & To_String (Issue.Issue_ID) & ASCII.LF);
          Append (Buf, "| Recorded : " & To_String (Issue.Date_Str) & ASCII.LF);
-         Append (Buf, "| Amount   : " & Render_Quantity (Issue.Amt.Val) & " JPY" & ASCII.LF);
+         Append (Buf, "| Amount   : " & Render_Quantity (Issue.Amt.Val) & " " & Code (Issue.Amt.Comm) & ASCII.LF);
          Append (Buf, "| Title    : " & To_String (Issue.Title) & ASCII.LF);
          Append (Buf, "| Details  : [" & To_String (Issue.Category) & "] " & To_String (Issue.Details) & ASCII.LF);
          Append (Buf, "+--------------------------------------------------------------------------------------+" & ASCII.LF);

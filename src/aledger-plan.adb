@@ -38,6 +38,16 @@ package body ALedger.Plan is
       return PID;
    end Make_Plan_Id;
 
+   function Null_Plan_Id return Plan_Id is
+   begin
+      return (ID_Text => Null_Unbounded_String);
+   end Null_Plan_Id;
+
+   function Is_Null (PID : Plan_Id) return Boolean is
+   begin
+      return Length (PID.ID_Text) = 0;
+   end Is_Null;
+
    function Text (PID : Plan_Id) return String is
    begin
       return To_String (PID.ID_Text);
@@ -75,7 +85,7 @@ package body ALedger.Plan is
              From_Acc  => From_Acc,
              To_Acc    => To_Acc,
              Status    => Pending,
-             Successor => Make_Plan_Id ("null"));
+             Successor => Null_Plan_Id);
       return True;
    end Create_Plan_Entry;
 

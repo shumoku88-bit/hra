@@ -1,5 +1,4 @@
 with Ada.Strings.Fixed; use Ada.Strings.Fixed;
-with ALedger.Money;     use ALedger.Money;
 
 package body ALedger.Issues is
 
@@ -18,23 +17,25 @@ package body ALedger.Issues is
             end loop;
 
             declare
-               Raw_Line : constant String := TSV_Text (Line_Start .. Line_End - 1);
-               Trimmed  : constant String := Trim (Raw_Line, Ada.Strings.Both);
+               Raw_Line_Slice : constant String := TSV_Text (Line_Start .. Line_End - 1);
+               Last_Idx       : constant Natural := (if Raw_Line_Slice'Length > 0 and then Raw_Line_Slice (Raw_Line_Slice'Last) = ASCII.CR then Raw_Line_Slice'Last - 1 else Raw_Line_Slice'Last);
+               Raw_Line       : constant String := (if Raw_Line_Slice'Length > 0 and then Last_Idx >= Raw_Line_Slice'First then Raw_Line_Slice (Raw_Line_Slice'First .. Last_Idx) else "");
+               Trimmed        : constant String := Trim (Raw_Line, Ada.Strings.Both);
             begin
                if Line_Num > 1 and then Trimmed'Length > 0 then
                   --  Parse tab-separated fields: issue_id status date due closed category title amount currency details
                   declare
                      Field_Count : Natural := 0;
-                     Field_Start : Positive := Trimmed'First;
+                     Field_Start : Positive := Raw_Line'First;
                      F_ID, F_Stat, F_Date, F_Title, F_Cat, F_Det : Unbounded_String;
                      F_Amt_Str, F_Curr_Str : Unbounded_String;
                   begin
-                     for I in Trimmed'Range loop
-                        if Trimmed (I) = ASCII.HT or else I = Trimmed'Last then
+                     for I in Raw_Line'Range loop
+                        if Raw_Line (I) = ASCII.HT or else I = Raw_Line'Last then
                            Field_Count := Field_Count + 1;
                            declare
-                              F_End : constant Natural := (if Trimmed (I) = ASCII.HT then I - 1 else I);
-                              F_Val : constant String := Trimmed (Field_Start .. F_End);
+                              F_End : constant Natural := (if Raw_Line (I) = ASCII.HT then I - 1 else I);
+                              F_Val : constant String := (if Field_Start <= F_End then Raw_Line (Field_Start .. F_End) else "");
                            begin
                               case Field_Count is
                                  when 1 => F_ID       := To_Unbounded_String (F_Val);
@@ -72,13 +73,14 @@ package body ALedger.Issues is
                            end if;
 
                            Result.Items.Append
-                             ((Issue_ID => F_ID,
-                               Status   => Stat,
-                               Date_Str => F_Date,
-                               Title    => F_Title,
-                               Amt      => Make_Amount (Comm, Q),
-                               Category => F_Cat,
-                               Details  => F_Det));
+                             (Household_Issue'
+                                (Issue_ID => F_ID,
+                                 Status   => Stat,
+                                 Date_Str => F_Date,
+                                 Title    => F_Title,
+                                 Amt      => Make_Amount (Comm, Q),
+                                 Category => F_Cat,
+                                 Details  => F_Det));
                         end;
                      end if;
                   end;

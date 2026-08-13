@@ -213,10 +213,22 @@ package body ALedger.Budget is
                Mov_Bal : constant Balance := Account_Balance_Maps.Element (Cursor);
                Acc     : constant Account.Account := Make_Account (Acc_Key);
             begin
-               Rep.Unenveloped_Expenses.Append ((Acc => Acc, Movement => Mov_Bal));
+               Rep.Unenveloped_Expenses.Append (Unenveloped_Expense_Line'(Acc => Acc, Movement => Mov_Bal));
             end;
             Account_Balance_Maps.Next (Cursor);
          end loop;
+      end;
+
+      --  Calculate Funding Balance (Total Assets)
+      declare
+         Funding : Balance := Empty_Balance;
+      begin
+         for Decl of Declarations (L.Registry) loop
+            if Decl.Acc_Type = ALedger.Account.Asset then
+               Funding := Add_Balance (Funding, Compute_Account_Balance (L, Decl.Acc));
+            end if;
+         end loop;
+         Rep.Funding_Balance := Funding;
       end;
 
       Rep.Total_Entitlement  := Tot_Ent;
@@ -225,14 +237,60 @@ package body ALedger.Budget is
       Rep.Total_Remaining    := Tot_Rem;
       Rep.Total_Plan_Reserve := Tot_Res;
       Rep.Total_Headroom     := Tot_Hdr;
-      Rep.Is_Under_Backed    := True;
+      Rep.Backing_Required   := Tot_Rem;
+      Rep.Backing_Surplus    := Subtract_Balance (Rep.Funding_Balance, Rep.Backing_Required);
+      Rep.Reconciliation_Delta := Rep.Backing_Surplus;
+
+      --  Is_Under_Backed is True if any commodity in Surplus is negative
+      declare
+         Under : Boolean := False;
+         Entries_Arr : constant Balance_Entry_Array := Entries (Rep.Backing_Surplus);
+      begin
+         for E of Entries_Arr loop
+            if E.Val < Zero_Quantity then
+               Under := True;
+               exit;
+            end if;
+         end loop;
+         Rep.Is_Under_Backed := Under;
+      end;
 
       return Rep;
    end Generate_Cycle_Budget_Status;
 
    function Generate_Budget_Status (L : Ledger.Ledger) return Budget_Status_Report is
+      Min_Date : Unbounded_String := To_Unbounded_String ("9999-12-31");
+      Max_Date : Unbounded_String := To_Unbounded_String ("0000-01-01");
+      Cursor   : Transaction_Vectors.Cursor := L.Transactions.First;
    begin
-      return Generate_Cycle_Budget_Status (L, "2026-06-15", "2026-08-14", "2026-08-13");
+      while Transaction_Vectors.Has_Element (Cursor) loop
+         declare
+            D : constant String := To_String (Transaction_Vectors.Element (Cursor).Date_Text);
+         begin
+            if D'Length > 0 then
+               if D < To_String (Min_Date) then
+                  Min_Date := To_Unbounded_String (D);
+               end if;
+               if D > To_String (Max_Date) then
+                  Max_Date := To_Unbounded_String (D);
+               end if;
+            end if;
+         end;
+         Transaction_Vectors.Next (Cursor);
+      end loop;
+
+      if To_String (Min_Date) = "9999-12-31" then
+         Min_Date := To_Unbounded_String ("1900-01-01");
+         Max_Date := To_Unbounded_String ("2099-12-31");
+      end if;
+
+      return Generate_Cycle_Budget_Status
+        (L,
+         Cycle_Start_Date => To_String (Min_Date),
+         --  The cycle API uses an exclusive upper bound.  A trailing lexical
+         --  sentinel includes transactions dated exactly Max_Date.
+         Cycle_End_Date   => To_String (Max_Date) & "Z",
+         Observation_Date => To_String (Max_Date));
    end Generate_Budget_Status;
 
 end ALedger.Budget;

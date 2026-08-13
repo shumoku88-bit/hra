@@ -23,6 +23,8 @@ package ALedger.Plan is
       Status : out Plan_Id_Status) return Boolean;
 
    function Make_Plan_Id (Value : String) return Plan_Id;
+   function Null_Plan_Id return Plan_Id;
+   function Is_Null (PID : Plan_Id) return Boolean;
    function Text (PID : Plan_Id) return String;
 
    function "=" (Left, Right : Plan_Id) return Boolean;

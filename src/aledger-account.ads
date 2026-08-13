@@ -33,7 +33,8 @@ package ALedger.Account is
       Acc     : out Account;
       Status  : out Account_Status) return Boolean;
 
-   function Make_Account (Name : String) return Account;
+   function Make_Account (Name : String) return Account
+     with Pre => Name'Length > 0;
    --  Raises Constraint_Error if invalid.
 
    function Name (Acc : Account) return String;

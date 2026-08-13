@@ -18,7 +18,8 @@ package ALedger.Money is
       Symbol : out Commodity;
       Status : out Commodity_Status) return Boolean;
 
-   function Make_Commodity (Code : String) return Commodity;
+   function Make_Commodity (Code : String) return Commodity
+     with Pre => Code'Length > 0;
    --  Raises Constraint_Error if invalid.
 
    function Code (C : Commodity) return String;
@@ -36,7 +37,8 @@ package ALedger.Money is
 
    function Parse_Quantity (Input : String; Value : out Quantity) return Boolean;
    function Render_Quantity (Q : Quantity) return String;
-   function Is_Zero (Q : Quantity) return Boolean;
+   function Is_Zero (Q : Quantity) return Boolean
+     with Post => Is_Zero'Result = (Q = Zero_Quantity);
 
    --  ========================================================================
    --  Amount: Quantity tagged with a single Commodity
@@ -46,8 +48,11 @@ package ALedger.Money is
       Val  : Quantity;
    end record;
 
-   function Make_Amount (C : Commodity; Q : Quantity) return Amount;
-   function Negate_Amount (A : Amount) return Amount;
+   function Make_Amount (C : Commodity; Q : Quantity) return Amount
+     with Post => Make_Amount'Result.Val = Q;
+
+   function Negate_Amount (A : Amount) return Amount
+     with Post => Negate_Amount'Result.Val = -A.Val;
 
    --  ========================================================================
    --  Balance: Canonical Multi-Commodity Balance (zero entries purged)
