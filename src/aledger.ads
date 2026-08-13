@@ -1,4 +1,4 @@
---  ALedger: Double-Entry Accounting Engine in Ada 2012
+--  ALedger: Double-Entry Accounting Engine in Ada 2022
 --  Ported from h-kernel (Haskell)
 
 package ALedger is

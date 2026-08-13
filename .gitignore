@@ -8,3 +8,5 @@ config/
 *.bak
 *.tmp
 /tmp/
+proof/obj/
+proof/gnatprove/

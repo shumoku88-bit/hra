@@ -76,6 +76,7 @@ cycle、Envelope、Account policy、Report query/presentationはcanonical TOML�
 | Journal admission | partial | 基本Transaction、Posting、Account declaration、balance law |
 | Issues admission | partial | current private sourceを読めるがschema/lifecycle parityの精査が必要 |
 | Accounting kernel | partial | exact Quantity、Commodity Balance、Transaction、基本集計 |
+| SPARK proof core | foundation | bounded quanta、Commodity別balance、ordered reversal、Envelope/Backing式を独立証明。production接続は未完了 |
 | Reports | partial | P&L、Balance Sheet、Issues、Envelope/Backingの確認用出力 |
 | Report policy application | partial | `report.toml`はadmitするが全query/renderingへ未適用 |
 | Editor / writer | prototype | safe-writer experimentはあるがcanonical authorityなし |
@@ -147,6 +148,8 @@ cycle、Envelope、Account policy、Report query/presentationはcanonical TOML�
 - failure precedenceを決め、CLI/TUIで共通利用する
 
 ## 6. Accounting and policy kernel
+
+Actual、Plan reserve、Envelope、Backingに共通する金額式は[`PROOF_CORE.md`](PROOF_CORE.md)のSPARK境界を通す。source admissionとidentity/provenanceはordinary Ada、bounded exact arithmeticはSPARKが所有する。proof foundationの存在だけでproduction計算を証明済みとは扱わない。
 
 ### P0
 
@@ -423,17 +426,18 @@ private source値をfixture、CI log、Issue、PRへ転記しない。
 
 次の順序を基本とする。
 
-1. **Journal graphとnamed source admission**
-2. **Account registry照合とtyped Date/identity/provenance**
-3. **Actual/Plan/Budget/Issueのcomplete Household validation**
-4. **Report policy resolutionとP0 reports**
-5. **P1の12-report portfolioとmachine-neutral parity**
-6. **read-only CLI/Inspect/Export**
-7. **pure typed Editor operationsとpreview**
-8. **safe writerのfailure law**
-9. **source別writer authority cutover（必要な場合だけ）**
-10. **typed ownerを利用するTUI再構成**
-11. **実測に基づくcache、performance、追加UX**
+1. **SPARK proof foundation（完了、production接続は継続）**
+2. **Journal graphとnamed source admission**
+3. **Account registry照合とtyped Date/identity/provenance**
+4. **Actual/Plan/Budget/Issueのcomplete Household validationとproof core接続**
+5. **Report policy resolutionとP0 reports**
+6. **P1の12-report portfolioとmachine-neutral parity**
+7. **read-only CLI/Inspect/Export**
+8. **pure typed Editor operationsとpreview**
+9. **safe writerのfailure law**
+10. **source別writer authority cutover（必要な場合だけ）**
+11. **typed ownerを利用するTUI再構成**
+12. **実測に基づくcache、performance、追加UX**
 
 TUIを先に大きくするとdomain ruleとwriter ruleが画面へ複製される。Reportを先に文字列だけ増やすと比較不能になる。そのため、admission → semantic result → renderer/CLI → Editor effect → TUIの順を守る。
 

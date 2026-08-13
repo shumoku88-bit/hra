@@ -11,6 +11,8 @@ CLI / TUI
   -> Canonical_Source filesystem observation
   -> source-specific admission (Journal / Config / Issues)
   -> validated Household_State
+  -> normalized proof facts
+  -> SPARK Proof_Core (Transaction / Plan / Envelope / Backing arithmetic)
   -> Money / Account / Ledger / Plan / Budget / Report
   -> Render
 
@@ -21,6 +23,8 @@ edit intent
 ```
 
 会計計算はpath、environment variable、terminal、renameを知らない。Renderはsourceを読まない。CLI/TUIはAccount分類、期間、予算、writer lawを再実装しない。
+
+SPARK境界は[`PROOF_CORE.md`](PROOF_CORE.md)が所有する。parserやUIを全面SPARK化せず、ordinary Ada admissionが正規化したbounded factsだけをpure proof coreへ渡す。現在はproof foundationが独立しており、production accounting ownerへの接続は未完了である。
 
 ## Stable invariants
 
@@ -54,9 +58,10 @@ policyはTOML構文のまま計算へ流さず、source-specific parserでtyped 
 
 1. **Observation foundation（完了）**: 固定8 sourceを一回だけexact-byteで観測し、欠落を拒否する
 2. **Typed configuration（admission完了）**: `budget.toml`、`household.toml`、`report.toml`をnamed typed policyへadmitする。計算・renderingへの全面適用は各ownerのparity章で行う
-3. **Journal graph parity**: include、metadata、declared Account、Actual/Plan/Budget固有meaningをadmitする
-4. **Cross-source validation**: Account、Envelope、Plan、Budget、identity/provenance referenceをcomplete stateで検証する
-5. **Semantic parity**: synthetic corpusとprivate rehearsalでh-kernelと比較する
-6. **Writer evaluation**: reader完成後、source別authority cutoverとは分離して評価する
+3. **SPARK proof foundation（完了）**: bounded normalized facts、Transaction balance、ordered reversal、Plan obligation、Envelope、Backingのproof boundaryを置く。production接続は各parity章で行う
+4. **Journal graph parity**: include、metadata、declared Account、Actual/Plan/Budget固有meaningをadmitする
+5. **Cross-source validation**: Account、Envelope、Plan、Budget、identity/provenance referenceをcomplete stateで検証する
+6. **Semantic parity**: synthetic corpusとprivate rehearsalでh-kernelと比較する
+7. **Writer evaluation**: reader完成後、source別authority cutoverとは分離して評価する
 
 各chapterは前段のsilent fallbackを残さない。将来機能を想定したplugin、generic repository、universal event frameworkは作らない。

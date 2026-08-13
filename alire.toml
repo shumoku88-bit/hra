@@ -7,3 +7,6 @@ executables = ["aledger_main"]
 
 [[depends-on]]
 ada_toml = "~0.5.0"
+
+[[depends-on]]
+gnatprove = "~16.1.0"

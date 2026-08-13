@@ -26,6 +26,7 @@ issues.tsv
 - [`docs/CANONICAL_HOUSEHOLD.md`](docs/CANONICAL_HOUSEHOLD.md)
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
 - [`docs/CAPABILITY_ROADMAP.md`](docs/CAPABILITY_ROADMAP.md): Report、Editor、TUIを含むparity inventory
+- [`docs/PROOF_CORE.md`](docs/PROOF_CORE.md): Actual、Plan、Envelope、BackingのSPARK境界
 - [`SECURITY.md`](SECURITY.md)
 
 ## Kernel invariants
@@ -62,6 +63,7 @@ file bin/aledger
 cd /path/to/aledger
 alr build
 ./bin/test_runner
+./tools/prove
 ```
 
 成功時は最後に次のように表示されます。
@@ -193,6 +195,8 @@ private source、生成Report、local pathを公開repositoryやCI logへ出力�
 
 ## Source layout
 
+- `src/aledger-proof_core.*`: bounded exact arithmeticのSPARK proof foundation
+- `proof/aledger_proof.gpr`, `tools/prove`: strict proof target
 - `src/aledger-output.*`: UTF-8を二重encodeしないnative terminal output
 - `src/aledger-canonical_source.*`: 固定8-source pathとexact-byte observation
 - `src/aledger-*_config.*`: Budget、Household、Report TOMLの型付きadmission

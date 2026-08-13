@@ -14,6 +14,7 @@ with ALedger.Canonical_Source; use ALedger.Canonical_Source;
 with ALedger.Config_Support;
 with ALedger.Budget_Config;
 with ALedger.Report_Config;
+with ALedger.Proof_Core;
 with ALedger.Plan;           use ALedger.Plan;
 with ALedger.Writer;         use ALedger.Writer;
 with ALedger.Render;         use ALedger.Render;
@@ -32,6 +33,50 @@ procedure Test_Runner is
          Failed_Count := Failed_Count + 1;
       end if;
    end Assert;
+
+   procedure Test_Proof_Core is
+      package Proof renames ALedger.Proof_Core;
+      Original : constant Proof.Posting_Array :=
+        [1 => (Account => 1, Commodity => 1, Quantity => 1_000),
+         2 => (Account => 2, Commodity => 1, Quantity => -1_000),
+         3 => (Account => 1, Commodity => 2, Quantity => 50),
+         4 => (Account => 3, Commodity => 2, Quantity => -50)];
+      Reversal : constant Proof.Posting_Array :=
+        [1 => (Account => 1, Commodity => 1, Quantity => -1_000),
+         2 => (Account => 2, Commodity => 1, Quantity => 1_000),
+         3 => (Account => 1, Commodity => 2, Quantity => -50),
+         4 => (Account => 3, Commodity => 2, Quantity => 50)];
+      Unreserved : constant Proof.Atomic_Quanta :=
+        Proof.Unreserved_Obligation
+          ((Amount => 500, Already_Excluded => 150));
+      Envelope : constant Proof.Envelope_Result := Proof.Evaluate_Envelope
+        ((Entitlement => 1_000,
+          Consumption => 400,
+          Refunds => 100,
+          Plan_Reserve => 200));
+      Lines : constant Proof.Envelope_Result_Array :=
+        [1 => Envelope,
+         2 => (Remaining => -100, Post_Plan_Headroom => -100)];
+      Backing : constant Proof.Backing_Result := Proof.Evaluate_Backing
+        (Lines, (Funding_Balance => 1_200, Unassigned_Balance => 100));
+   begin
+      Put_Line ("--- Testing ALedger.Proof_Core contracts ---");
+      Assert (Proof.Is_Balanced (Original), "Proof core balances each Commodity independently");
+      Assert (Proof.Is_Ordered_Inverse (Original, Reversal), "Proof core recognizes exact ordered reversal");
+      Assert
+        (Unreserved = 350,
+         "Proof core deducts only bounded exclusion from a Plan obligation");
+      Assert
+        (Envelope.Remaining = 700 and then Envelope.Post_Plan_Headroom = 500,
+         "Proof core preserves Envelope remaining and Plan headroom equations");
+      Assert
+        (Backing.Signed_Total = 600 and then
+         Backing.Backing_Required = 700 and then
+         Backing.Backing_Surplus = 500 and then
+         Backing.Reconciliation_Delta = 400 and then
+         not Backing.Is_Under_Backed,
+         "Proof core preserves Backing and reconciliation equations");
+   end Test_Proof_Core;
 
    procedure Test_Money is
       JPY, USD : Commodity;
@@ -724,6 +769,7 @@ begin
    Put_Line ("   ALedger Test Suite (v" & ALedger.Version & ")");
    Put_Line ("==================================================");
 
+   Test_Proof_Core;
    Test_Money;
    Test_Account;
    Test_Ledger;
