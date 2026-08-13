@@ -13,6 +13,23 @@ with ALedger.TUI;            use ALedger.TUI;
 
 procedure ALedger_Main is
 
+   procedure Print_Help is
+   begin
+      Put_Line ("Usage: aledger COMMAND [--base <household_root_dir>]");
+      New_Line;
+      Put_Line ("Commands:");
+      Put_Line ("  check    Validate the fixed 8-source topology, typed policy, and balance laws");
+      Put_Line ("  report   Render P&L, Balance Sheet, open Issues, and Budget status");
+      Put_Line ("  tui      Launch the experimental native terminal UI");
+      Put_Line ("  version  Show version information");
+      Put_Line ("  help     Show this help message");
+      New_Line;
+      Put_Line ("Household root precedence:");
+      Put_Line ("  --base, LEDGER_DATA_DIR, HKERNEL_LEDGER_DATA_DIR, ./ledger-data, .");
+      New_Line;
+      Put_Line ("WARNING: report policy is not yet fully applied; report output is not canonical.");
+   end Print_Help;
+
    function Resolve_Household_Root return String is
    begin
       --  1. Check command line arguments for --base <path>
@@ -44,12 +61,7 @@ begin
       Put_Line ("ALedger: Double-Entry Accounting Kernel (Ada 2022)");
       Put_Line ("Version: " & ALedger.Version);
       New_Line;
-      Put_Line ("Usage: aledger [command] [options]");
-      Put_Line ("  tui [--base <dir>]      Launch native interactive Terminal UI");
-      Put_Line ("  check [--base <dir>]    Validate canonical household sources & balance laws");
-      Put_Line ("  report [--base <dir>]   Generate P&L, Balance Sheet, Trial Balance, Envelope & Issues");
-      Put_Line ("  version                 Show version information");
-      Put_Line ("  help                    Show this help message");
+      Print_Help;
       return;
    end if;
 
@@ -60,7 +72,7 @@ begin
       if Cmd = "version" then
          Put_Line ("aledger " & ALedger.Version);
       elsif Cmd = "help" then
-         Put_Line ("Usage: aledger [command] [--base <household_root_dir>]");
+         Print_Help;
       elsif Cmd = "tui" or Cmd = "check" or Cmd = "report" then
          declare
             State : Household_State;
