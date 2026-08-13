@@ -17,7 +17,7 @@ package body ALedger.Plan is
          if Is_Space (Value (I)) then
             Status := Plan_Id_Contains_Whitespace;
             return False;
-         elsif Is_Control (Value (I)) then
+         elsif Character'Pos (Value (I)) < 32 or else Character'Pos (Value (I)) = 127 then
             Status := Plan_Id_Contains_Control_Character;
             return False;
          end if;

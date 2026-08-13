@@ -182,6 +182,9 @@ package body ALedger.Journal is
                   --  Header Line (Transaction or Directive or Full-line Comment)
                   if Is_Comment (Raw_Line) then
                      Flush_Current_Transaction;
+                  elsif Trimmed'Length >= 7 and then Lower_String (Trimmed (Trimmed'First .. Trimmed'First + 6)) = "include" then
+                     --  include directive (skip gracefully)
+                     Flush_Current_Transaction;
                   else
                      Flush_Current_Transaction;
                      In_Account_Decl := False;
@@ -200,13 +203,21 @@ package body ALedger.Journal is
                            end if;
                         end;
                      elsif Trimmed'Length >= 10 and then Is_Digit (Trimmed (Trimmed'First)) then
-                        --  Transaction Header: YYYY-MM-DD Description
+                        --  Transaction Header: YYYY-MM-DD [*|!] Description
                         declare
                            Space_Idx : constant Natural := Index (Trimmed, " ");
                         begin
                            if Space_Idx > 0 then
                               Tx_Date  := To_Unbounded_String (Trimmed (Trimmed'First .. Space_Idx - 1));
-                              Tx_Payee := To_Unbounded_String (Trim (Trimmed (Space_Idx + 1 .. Trimmed'Last), Ada.Strings.Both));
+                              declare
+                                 Rest : constant String := Trim (Trimmed (Space_Idx + 1 .. Trimmed'Last), Ada.Strings.Both);
+                              begin
+                                 if Rest'Length > 0 and then (Rest (Rest'First) = '*' or else Rest (Rest'First) = '!') then
+                                    Tx_Payee := To_Unbounded_String (Trim (Rest (Rest'First + 1 .. Rest'Last), Ada.Strings.Both));
+                                 else
+                                    Tx_Payee := To_Unbounded_String (Rest);
+                                 end if;
+                              end;
                            else
                               Tx_Date  := To_Unbounded_String (Trimmed);
                               Tx_Payee := To_Unbounded_String ("");

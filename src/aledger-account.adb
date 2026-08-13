@@ -40,8 +40,9 @@ package body ALedger.Account is
          return False;
       end if;
 
+      --  Check for ASCII control characters (0..31, 127), allowing UTF-8 multibyte bytes (128..255)
       for I in Name'Range loop
-         if Is_Control (Name (I)) then
+         if Character'Pos (Name (I)) < 32 or else Character'Pos (Name (I)) = 127 then
             Status := Account_Contains_Control_Character;
             return False;
          end if;
