@@ -1,6 +1,7 @@
 with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
 with ALedger.Account;        use ALedger.Account;
 with ALedger.Ledger;         use ALedger.Ledger;
+with ALedger.Issues;         use ALedger.Issues;
 
 package ALedger.Household is
 
@@ -33,6 +34,7 @@ package ALedger.Household is
       Plan_Ledger     : Ledger.Ledger;
       Budget_Ledger   : Ledger.Ledger;
       Combined_Ledger : Ledger.Ledger;
+      Issues          : Issues_Inventory;
    end record;
 
    function Empty_Household_State return Household_State;

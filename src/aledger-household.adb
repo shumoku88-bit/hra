@@ -149,6 +149,17 @@ package body ALedger.Household is
          end;
       end if;
 
+      --  5. Load issues.tsv (Household Issues)
+      if Read_File_Content (To_String (Paths.Issues_TSV), Content) then
+         declare
+            Inv : Issues_Inventory;
+         begin
+            if Parse_Issues_TSV (To_String (Content), Inv) then
+               Result.Issues := Inv;
+            end if;
+         end;
+      end if;
+
       --  Set combined ledger registry
       Result.Combined_Ledger.Registry := Result.Registry;
       Result.Actual_Ledger.Registry   := Result.Registry;

@@ -4,6 +4,7 @@ with ALedger.Money;          use ALedger.Money;
 with ALedger.Account;        use ALedger.Account;
 with ALedger.Report;         use ALedger.Report;
 with ALedger.Budget;         use ALedger.Budget;
+with ALedger.Issues;         use ALedger.Issues;
 
 package body ALedger.Render is
 
@@ -209,5 +210,33 @@ package body ALedger.Render is
 
       return To_String (Buf);
    end Render_Budget_Status;
+
+   function Render_Household_Issues (Inv : Issues_Inventory) return String is
+      Buf   : Unbounded_String;
+      Opens : constant Issue_Vectors.Vector := Open_Issues (Inv);
+      Total : constant Natural := Natural (Inv.Items.Length);
+      Open_C: constant Natural := Natural (Opens.Length);
+      Res_C : constant Natural := Total - Open_C;
+   begin
+      Append (Buf, "== Household Issues ==" & ASCII.LF);
+      Append (Buf, "Source: issues.tsv | open issues only | Displayed: " &
+              Trim (Natural'Image (Open_C), Ada.Strings.Both) & " | Resolved hidden: " &
+              Trim (Natural'Image (Res_C), Ada.Strings.Both) & ASCII.LF);
+      Append (Buf, "Issues do not change accounting or budget values" & ASCII.LF);
+      Append (Buf, ASCII.LF);
+
+      for Issue of Opens loop
+         Append (Buf, "+- OPEN -------------------------------------------------------------------------------+" & ASCII.LF);
+         Append (Buf, "| ID       : " & To_String (Issue.Issue_ID) & ASCII.LF);
+         Append (Buf, "| Recorded : " & To_String (Issue.Date_Str) & ASCII.LF);
+         Append (Buf, "| Amount   : " & Render_Quantity (Issue.Amt.Val) & " JPY" & ASCII.LF);
+         Append (Buf, "| Title    : " & To_String (Issue.Title) & ASCII.LF);
+         Append (Buf, "| Details  : [" & To_String (Issue.Category) & "] " & To_String (Issue.Details) & ASCII.LF);
+         Append (Buf, "+--------------------------------------------------------------------------------------+" & ASCII.LF);
+         Append (Buf, ASCII.LF);
+      end loop;
+
+      return To_String (Buf);
+   end Render_Household_Issues;
 
 end ALedger.Render;

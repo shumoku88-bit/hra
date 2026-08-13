@@ -10,6 +10,7 @@ with ALedger.Ledger;         use ALedger.Ledger;
 with ALedger.Household;      use ALedger.Household;
 with ALedger.Report;         use ALedger.Report;
 with ALedger.Render;         use ALedger.Render;
+with ALedger.Issues;         use ALedger.Issues;
 with ALedger.TUI;            use ALedger.TUI;
 
 procedure ALedger_Main is
@@ -44,7 +45,7 @@ begin
       Put_Line ("Usage: aledger [command] [options]");
       Put_Line ("  tui [--base <dir>]      Launch native interactive Terminal UI");
       Put_Line ("  check [--base <dir>]    Validate canonical household sources & balance laws");
-      Put_Line ("  report [--base <dir>]   Generate P&L, Balance Sheet, and Trial Balance");
+      Put_Line ("  report [--base <dir>]   Generate P&L, Balance Sheet, Trial Balance, Envelope & Issues");
       Put_Line ("  version                 Show version information");
       Put_Line ("  help                    Show this help message");
       return;
@@ -77,6 +78,7 @@ begin
                Put_Line ("  Plan Transactions   : " & Natural'Image (Natural (State.Plan_Ledger.Transactions.Length)));
                Put_Line ("  Budget Transactions : " & Natural'Image (Natural (State.Budget_Ledger.Transactions.Length)));
                Put_Line ("  Registered Accounts : " & Natural'Image (Declarations (State.Registry)'Length));
+               Put_Line ("  Open Issues         : " & Natural'Image (Natural (Open_Issues (State.Issues).Length)));
             elsif Cmd = "report" then
                declare
                   PL : constant Profit_And_Loss := Generate_Profit_And_Loss (State.Combined_Ledger);
@@ -101,6 +103,8 @@ begin
                   New_Line;
                   Put_Line ("--- Trial Balance Total ---");
                   Put_Line ("  Trial Balance Sum : " & Render_Quantity (Lookup_Balance (TB.Total, Make_Commodity ("JPY"))));
+                  New_Line;
+                  Put (Render_Household_Issues (State.Issues));
                   New_Line;
                   Put (Render_Budget_Status (State.Combined_Ledger));
                end;

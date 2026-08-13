@@ -1,4 +1,5 @@
 with ALedger.Ledger; use ALedger.Ledger;
+with ALedger.Issues; use ALedger.Issues;
 
 package ALedger.Render is
 
@@ -21,5 +22,8 @@ package ALedger.Render is
 
    function Render_Budget_Status
      (L : Ledger.Ledger) return String;
+
+   function Render_Household_Issues
+     (Inv : Issues_Inventory) return String;
 
 end ALedger.Render;
