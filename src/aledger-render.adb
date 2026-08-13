@@ -239,4 +239,30 @@ package body ALedger.Render is
       return To_String (Buf);
    end Render_Household_Issues;
 
+   function Render_Recent_Transactions
+     (L     : Ledger.Ledger;
+      Count : Positive := 5) return String
+   is
+      Buf   : Unbounded_String;
+      Total : constant Natural := Natural (L.Transactions.Length);
+      Start : constant Natural := (if Total > Count then Total - Count + 1 else 1);
+   begin
+      Append (Buf, "== Recent Transactions (Latest " & Trim (Natural'Image (Count), Ada.Strings.Both) & ") ==" & ASCII.LF);
+      Append (Buf, ASCII.LF);
+
+      for I in reverse Start .. Total loop
+         declare
+            Tx : constant Transaction := L.Transactions.Element (I);
+         begin
+            Append (Buf, To_String (Tx.Date_Text) & " " & To_String (Tx.Code_Or_Payee) & ASCII.LF);
+            for P of Tx.Postings loop
+               Append (Buf, "    " & Name (P.Acc) & "    " & Render_Amount_Or_Paren (P.Amt.Val, Code (P.Amt.Comm)) & ASCII.LF);
+            end loop;
+            Append (Buf, ASCII.LF);
+         end;
+      end loop;
+
+      return To_String (Buf);
+   end Render_Recent_Transactions;
+
 end ALedger.Render;

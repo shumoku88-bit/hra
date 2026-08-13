@@ -26,4 +26,8 @@ package ALedger.Render is
    function Render_Household_Issues
      (Inv : Issues_Inventory) return String;
 
+   function Render_Recent_Transactions
+     (L     : Ledger.Ledger;
+      Count : Positive := 5) return String;
+
 end ALedger.Render;
