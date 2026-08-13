@@ -3,6 +3,15 @@ with Ada.Strings.Fixed;            use Ada.Strings.Fixed;
 
 package body ALedger.Account is
 
+   function Lower_String (S : String) return String is
+      Result : String (S'Range);
+   begin
+      for I in S'Range loop
+         Result (I) := To_Lower (S (I));
+      end loop;
+      return Result;
+   end Lower_String;
+
    function Account_Type_Image (Category : Account_Type) return String is
    begin
       case Category is
@@ -133,6 +142,32 @@ package body ALedger.Account is
       end if;
    end Register_Or_Update_Account;
 
+   function Infer_Account_Type_From_Name (Acc_Name : String; Category : out Account_Type) return Boolean is
+      Lower : constant String := Lower_String (Acc_Name);
+   begin
+      if Lower'Length >= 7 and then Lower (Lower'First .. Lower'First + 6) = "assets:" then
+         Category := Asset;
+         return True;
+      elsif Lower'Length >= 12 and then Lower (Lower'First .. Lower'First + 11) = "liabilities:" then
+         Category := Liability;
+         return True;
+      elsif Lower'Length >= 7 and then Lower (Lower'First .. Lower'First + 6) = "equity:" then
+         Category := Equity;
+         return True;
+      elsif Lower'Length >= 7 and then Lower (Lower'First .. Lower'First + 6) = "income:" then
+         Category := Income;
+         return True;
+      elsif Lower'Length >= 9 and then Lower (Lower'First .. Lower'First + 8) = "expenses:" then
+         Category := Expense;
+         return True;
+      elsif Lower'Length >= 7 and then Lower (Lower'First .. Lower'First + 6) = "budget:" then
+         Category := Budget;
+         return True;
+      else
+         return False;
+      end if;
+   end Infer_Account_Type_From_Name;
+
    function Lookup_Declaration
      (Reg  : Account_Registry;
       Acc  : Account;
@@ -144,7 +179,17 @@ package body ALedger.Account is
          Decl := Reg.Map.Element (Acc_Key);
          return True;
       else
-         return False;
+         --  Fallback to inferring account category from standard prefix (e.g. assets:, expenses:)
+         declare
+            Inferred_Cat : Account_Type;
+         begin
+            if Infer_Account_Type_From_Name (Acc_Key, Inferred_Cat) then
+               Decl := Declare_Account (Acc, Inferred_Cat);
+               return True;
+            else
+               return False;
+            end if;
+         end;
       end if;
    end Lookup_Declaration;
 

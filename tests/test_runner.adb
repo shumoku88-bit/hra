@@ -71,7 +71,7 @@ procedure Test_Runner is
    end Test_Money;
 
    procedure Test_Account is
-      Acc1, Acc2   : ALedger.Account.Account;
+      Acc1, Acc2, Acc_Undeclared : ALedger.Account.Account;
       A_Status     : Account_Status;
       Reg          : Account_Registry := Empty_Registry;
       R_Status     : Registry_Status;
@@ -81,6 +81,7 @@ procedure Test_Runner is
 
       Assert (Create_Account ("assets:bank:checking", Acc1, A_Status), "Create Account assets:bank:checking");
       Assert (Create_Account ("expenses:food", Acc2, A_Status), "Create Account expenses:food");
+      Assert (Create_Account ("income:freelance", Acc_Undeclared, A_Status), "Create Account income:freelance");
 
       Assert (not Create_Account ("  assets:bank  ", Acc1, A_Status) and then A_Status = Account_Has_Surrounding_Whitespace, "Reject space trimmed account");
 
@@ -96,6 +97,7 @@ procedure Test_Runner is
       begin
          Assert (Account_Type_For (Reg, Acc1, Found_AT) and then Found_AT = Asset, "Lookup Account_Type for Acc1 = Asset");
          Assert (Account_Type_For (Reg, Acc2, Found_AT) and then Found_AT = Expense, "Lookup Account_Type for Acc2 = Expense");
+         Assert (Account_Type_For (Reg, Acc_Undeclared, Found_AT) and then Found_AT = Income, "Automatically infer Account_Type for undeclared income:freelance = Income");
       end;
    end Test_Account;
 
