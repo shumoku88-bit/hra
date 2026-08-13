@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# ALedger Daily Command Hub (Ada 2012 Accounting Kernel)
+# ALedger Daily Command Hub (Ada 2022 Accounting Kernel)
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

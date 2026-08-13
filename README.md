@@ -38,7 +38,7 @@ issues.tsv
 
 ## Native Ada implementation
 
-本体とTOML parserはAdaで実装され、GNAT/AlireがOSのnative executableへコンパイルします。interpreter、JVM、Node.js runtimeは使用しません。
+本体とTOML parserはAdaで実装され、GNAT/AlireがOSのnative executableへコンパイルします。interpreter、JVM、Node.js runtimeは使用しません。CLI/TUIはcanonical source内のUTF-8を再変換せず、terminalへexact byteとして出力します。
 
 ```sh
 file bin/aledger
@@ -159,7 +159,14 @@ WARNING: typed TOML policies are not yet fully applied; this report is not canon
 
 現在の`report`は確認・比較用です。`report.toml`は型付き値へadmitされますが、period/presentation policyはまだすべてのrendererへ適用されていません。h-kernelとのsemantic parityが完了するまでcanonicalな判断や自動処理には使用しないでください。
 
-ReportにはprivateなAccount、日付、金額、Issueが含まれます。保存する場合はprivate repositoryの外側かつ公開されない場所を使います。
+ReportにはprivateなAccount、日付、金額、Issueが含まれます。terminalはUTF-8 localeで使用してください。
+
+```sh
+locale
+# LANGまたはLC_CTYPEがUTF-8であることを確認
+```
+
+保存する場合はprivate repositoryの外側かつ公開されない場所を使います。
 
 ```sh
 umask 077
@@ -185,6 +192,7 @@ private source、生成Report、local pathを公開repositoryやCI logへ出力�
 
 ## Source layout
 
+- `src/aledger-output.*`: UTF-8を二重encodeしないnative terminal output
 - `src/aledger-canonical_source.*`: 固定8-source pathとexact-byte observation
 - `src/aledger-*_config.*`: Budget、Household、Report TOMLの型付きadmission
 - `src/aledger-household.*`: complete observationからのHousehold composition

@@ -1,4 +1,3 @@
-with Ada.Text_IO;          use Ada.Text_IO;
 with Ada.Command_Line;       use Ada.Command_Line;
 with Ada.Directories;        use Ada.Directories;
 with Ada.Environment_Variables;
@@ -10,6 +9,7 @@ with ALedger.Household;      use ALedger.Household;
 with ALedger.Render;         use ALedger.Render;
 with ALedger.Issues;         use ALedger.Issues;
 with ALedger.TUI;            use ALedger.TUI;
+with ALedger.Output;         use ALedger.Output;
 
 procedure ALedger_Main is
 

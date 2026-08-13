@@ -1,4 +1,4 @@
-with Ada.Text_IO;          use Ada.Text_IO;
+with Ada.Text_IO;
 with Ada.Strings.Unbounded;  use Ada.Strings.Unbounded;
 with ALedger.Money;          use ALedger.Money;
 with ALedger.Account;        use ALedger.Account;
@@ -6,6 +6,7 @@ with ALedger.Ledger;         use ALedger.Ledger;
 with ALedger.Report;         use ALedger.Report;
 with ALedger.Render;         use ALedger.Render;
 with ALedger.Writer;         use ALedger.Writer;
+with ALedger.Output;         use ALedger.Output;
 
 package body ALedger.TUI is
 
@@ -27,7 +28,7 @@ package body ALedger.TUI is
    procedure Draw_Banner (Root_Path : String) is
    begin
       Put_Line (Header_Bar & "  ==============================================================  " & Reset);
-      Put_Line (Header_Bar & "   ALedger Terminal UI (Ada 2012 Accounting Kernel)              " & Reset);
+      Put_Line (Header_Bar & "   ALedger Terminal UI (Ada 2022 Accounting Kernel)              " & Reset);
       Put_Line (Header_Bar & "  ==============================================================  " & Reset);
       Put_Line (Cyan & " Household Root: " & Reset & Bold & Root_Path & Reset);
       New_Line;
@@ -61,7 +62,7 @@ package body ALedger.TUI is
    begin
       New_Line;
       Put (Cyan & "Press ENTER to return to Dashboard..." & Reset);
-      Get_Line (Dummy, Last);
+      Ada.Text_IO.Get_Line (Dummy, Last);
    end Pause_For_User;
 
    procedure Run_Interactive_TUI (State : in out Household_State) is
@@ -82,7 +83,7 @@ package body ALedger.TUI is
          New_Line;
          Put (Cyan & "Choice > " & Reset);
 
-         Get_Line (Choice, Last);
+         Ada.Text_IO.Get_Line (Choice, Last);
 
          if Last > 0 then
             case Choice (1) is
@@ -122,15 +123,15 @@ package body ALedger.TUI is
                      D_Last, P_Last, F_Last, T_Last, A_Last : Natural;
                   begin
                      Put ("Enter Date (YYYY-MM-DD) : ");
-                     Get_Line (Date_Str, D_Last);
+                     Ada.Text_IO.Get_Line (Date_Str, D_Last);
                      Put ("Enter Description       : ");
-                     Get_Line (Payee_Str, P_Last);
+                     Ada.Text_IO.Get_Line (Payee_Str, P_Last);
                      Put ("From Account (Asset)   : ");
-                     Get_Line (From_Str, F_Last);
+                     Ada.Text_IO.Get_Line (From_Str, F_Last);
                      Put ("To Account (Expense)   : ");
-                     Get_Line (To_Str, T_Last);
+                     Ada.Text_IO.Get_Line (To_Str, T_Last);
                      Put ("Amount JPY              : ");
-                     Get_Line (Amt_Str, A_Last);
+                     Ada.Text_IO.Get_Line (Amt_Str, A_Last);
 
                      if D_Last > 0 and P_Last > 0 and F_Last > 0 and T_Last > 0 and A_Last > 0 then
                         declare
