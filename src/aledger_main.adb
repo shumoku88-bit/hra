@@ -9,6 +9,7 @@ with ALedger.Account;        use ALedger.Account;
 with ALedger.Ledger;         use ALedger.Ledger;
 with ALedger.Household;      use ALedger.Household;
 with ALedger.Report;         use ALedger.Report;
+with ALedger.Render;         use ALedger.Render;
 with ALedger.TUI;            use ALedger.TUI;
 
 procedure ALedger_Main is
@@ -100,6 +101,8 @@ begin
                   New_Line;
                   Put_Line ("--- Trial Balance Total ---");
                   Put_Line ("  Trial Balance Sum : " & Render_Quantity (Lookup_Balance (TB.Total, Make_Commodity ("JPY"))));
+                  New_Line;
+                  Put (Render_Budget_Status (State.Combined_Ledger));
                end;
             end if;
          end;

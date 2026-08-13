@@ -19,4 +19,7 @@ package ALedger.Render is
       Start_Date : String;
       End_Date   : String) return String;
 
+   function Render_Budget_Status
+     (L : Ledger.Ledger) return String;
+
 end ALedger.Render;

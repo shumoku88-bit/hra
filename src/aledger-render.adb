@@ -2,6 +2,7 @@ with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
 with ALedger.Money;          use ALedger.Money;
 with ALedger.Account;        use ALedger.Account;
 with ALedger.Report;         use ALedger.Report;
+with ALedger.Budget;         use ALedger.Budget;
 
 package body ALedger.Render is
 
@@ -123,5 +124,39 @@ package body ALedger.Render is
 
       return To_String (Buf);
    end Render_Profit_And_Loss;
+
+   function Render_Budget_Status
+     (L : Ledger.Ledger) return String
+   is
+      Buf : Unbounded_String;
+      BSR : constant Budget_Status_Report := Generate_Budget_Status (L);
+      JPY : constant Commodity := Make_Commodity ("JPY");
+   begin
+      Append (Buf, "== Budget Envelope Status (aledger Engine) ==" & ASCII.LF);
+      Append (Buf, ASCII.LF);
+      Append (Buf, "Envelope Account        | Allocated     | Spent         | Remaining" & ASCII.LF);
+      Append (Buf, "-------------------------------------------------------------------" & ASCII.LF);
+
+      for Env of BSR.Envelopes loop
+         declare
+            Ent   : constant Quantity := Lookup_Balance (Env.Entitlement, JPY);
+            Con   : constant Quantity := Lookup_Balance (Env.Consumption, JPY);
+            Rem_Q : constant Quantity := Lookup_Balance (Remaining (Env), JPY);
+         begin
+            Append (Buf, Name (Env.Acc) & " | ");
+            Append (Buf, Render_Quantity (Ent) & " JPY | ");
+            Append (Buf, Render_Quantity (Con) & " JPY | ");
+            Append (Buf, Render_Quantity (Rem_Q) & " JPY" & ASCII.LF);
+         end;
+      end loop;
+
+      Append (Buf, "-------------------------------------------------------------------" & ASCII.LF);
+      Append (Buf, "Total Envelope Status   | " &
+              Render_Quantity (Lookup_Balance (BSR.Total_Entitlement, JPY)) & " JPY | " &
+              Render_Quantity (Lookup_Balance (BSR.Total_Consumption, JPY)) & " JPY | " &
+              Render_Quantity (Lookup_Balance (BSR.Total_Remaining, JPY)) & " JPY" & ASCII.LF);
+
+      return To_String (Buf);
+   end Render_Budget_Status;
 
 end ALedger.Render;

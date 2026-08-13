@@ -174,17 +174,18 @@ package body ALedger.Journal is
                Trimmed  : constant String := Trim (Raw_Line, Ada.Strings.Both);
             begin
                if Trimmed'Length = 0 then
-                  --  Blank line flushes transaction block
-                  if not In_Account_Decl then
-                     Flush_Current_Transaction;
-                  end if;
+                  --  Blank line flushes transaction block or account block
+                  Flush_Current_Transaction;
+                  In_Account_Decl := False;
                elsif not Is_Indented (Raw_Line) then
                   --  Header Line (Transaction or Directive or Full-line Comment)
                   if Is_Comment (Raw_Line) then
                      Flush_Current_Transaction;
+                     In_Account_Decl := False;
                   elsif Trimmed'Length >= 7 and then Lower_String (Trimmed (Trimmed'First .. Trimmed'First + 6)) = "include" then
                      --  include directive (skip gracefully)
                      Flush_Current_Transaction;
+                     In_Account_Decl := False;
                   else
                      Flush_Current_Transaction;
                      In_Account_Decl := False;
@@ -229,8 +230,8 @@ package body ALedger.Journal is
 
                else
                   --  Indented Line (Posting or Account Metadata)
-                  if In_Account_Decl and then Is_Comment (Raw_Line) then
-                     --  Check metadata for account (e.g.   ; type: Expense)
+                  if In_Account_Decl then
+                     --  Check metadata for account (e.g.   type: Expense or   ; type: Expense)
                      declare
                         S_Idx : Natural := Raw_Line'First;
                      begin
