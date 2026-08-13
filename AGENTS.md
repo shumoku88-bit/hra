@@ -23,7 +23,7 @@ issues.tsv
 - private sourceの内容をrepository、test fixture、logへ複製しない
 - reader capabilityとwriter authorityを分ける
 
-詳細は[`docs/CANONICAL_HOUSEHOLD.md`](docs/CANONICAL_HOUSEHOLD.md)を参照する。
+詳細は[`docs/CANONICAL_HOUSEHOLD.md`](docs/CANONICAL_HOUSEHOLD.md)を参照する。Report、Editor、TUIを含む実装対象と順序は[`docs/CAPABILITY_ROADMAP.md`](docs/CAPABILITY_ROADMAP.md)を確認する。
 
 ## 設計原則
 

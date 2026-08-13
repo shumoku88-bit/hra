@@ -25,6 +25,7 @@ issues.tsv
 
 - [`docs/CANONICAL_HOUSEHOLD.md`](docs/CANONICAL_HOUSEHOLD.md)
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
+- [`docs/CAPABILITY_ROADMAP.md`](docs/CAPABILITY_ROADMAP.md): Report、Editor、TUIを含むparity inventory
 - [`SECURITY.md`](SECURITY.md)
 
 ## Kernel invariants

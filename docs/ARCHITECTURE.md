@@ -2,6 +2,8 @@
 
 ステータス: active foundation
 
+Report、Editor、TUIを含む全体の実装対象とparity順序は[`CAPABILITY_ROADMAP.md`](CAPABILITY_ROADMAP.md)が所有する。
+
 ## Dependency direction
 
 ```text
