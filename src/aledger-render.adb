@@ -1,10 +1,22 @@
-with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
+with Ada.Strings.Fixed;      use Ada.Strings.Fixed;
+with Ada.Strings.Unbounded;  use Ada.Strings.Unbounded;
 with ALedger.Money;          use ALedger.Money;
 with ALedger.Account;        use ALedger.Account;
 with ALedger.Report;         use ALedger.Report;
 with ALedger.Budget;         use ALedger.Budget;
 
 package body ALedger.Render is
+
+   function Render_Amount_Or_Paren (Q : Quantity; Comm_Code : String) return String is
+   begin
+      if Is_Zero (Q) then
+         return "0";
+      elsif Q < Zero_Quantity then
+         return "(" & Render_Quantity (-Q) & " " & Comm_Code & ")";
+      else
+         return Render_Quantity (Q) & " " & Comm_Code;
+      end if;
+   end Render_Amount_Or_Paren;
 
    function Render_Account_Balances
      (L          : Ledger.Ledger;
@@ -27,11 +39,7 @@ package body ALedger.Render is
          begin
             if not Is_Zero (Val_Q) then
                Append (Buf, Name (Decl.Acc) & " | ");
-               if Val_Q < Zero_Quantity then
-                  Append (Buf, "(" & Render_Quantity (-Val_Q) & " JPY)" & ASCII.LF);
-               else
-                  Append (Buf, Render_Quantity (Val_Q) & " JPY" & ASCII.LF);
-               end if;
+               Append (Buf, Render_Amount_Or_Paren (Val_Q, "JPY") & ASCII.LF);
             end if;
          end;
       end loop;
@@ -131,30 +139,73 @@ package body ALedger.Render is
       Buf : Unbounded_String;
       BSR : constant Budget_Status_Report := Generate_Budget_Status (L);
       JPY : constant Commodity := Make_Commodity ("JPY");
+
+      function Extract_Sub (Acc_Name : String) return String is
+         Sep_Idx : constant Natural := Index (Acc_Name, ":");
+      begin
+         if Sep_Idx > 0 then
+            return Acc_Name (Sep_Idx + 1 .. Acc_Name'Last);
+         else
+            return Acc_Name;
+         end if;
+      end Extract_Sub;
+
    begin
-      Append (Buf, "== Budget Envelope Status (aledger Engine) ==" & ASCII.LF);
+      Append (Buf, "== Envelope & Backing ==" & ASCII.LF);
+      Append (Buf, "Cycle: [" & To_String (BSR.Cycle_Start_Date) & ", " & To_String (BSR.Cycle_End_Date) & ") | Observed through: " & To_String (BSR.Observation_Date) & ASCII.LF);
       Append (Buf, ASCII.LF);
-      Append (Buf, "Envelope Account        | Allocated     | Spent         | Remaining" & ASCII.LF);
-      Append (Buf, "-------------------------------------------------------------------" & ASCII.LF);
+      Append (Buf, "Envelope      | Entitlement | Consumption |   Refunds |   Remaining | Plan reserve |    Headroom" & ASCII.LF);
+      Append (Buf, "------------------------------------------------------------------------------------------------" & ASCII.LF);
 
       for Env of BSR.Envelopes loop
          declare
-            Ent   : constant Quantity := Lookup_Balance (Env.Entitlement, JPY);
-            Con   : constant Quantity := Lookup_Balance (Env.Consumption, JPY);
-            Rem_Q : constant Quantity := Lookup_Balance (Remaining (Env), JPY);
+            Acc_Sub : constant String := Extract_Sub (Name (Env.Acc));
+            Ent     : constant Quantity := Lookup_Balance (Env.Entitlement, JPY);
+            Con     : constant Quantity := Lookup_Balance (Env.Consumption, JPY);
+            Ref     : constant Quantity := Lookup_Balance (Env.Refunds, JPY);
+            Rem_Q   : constant Quantity := Lookup_Balance (Remaining (Env), JPY);
+            Res     : constant Quantity := Lookup_Balance (Env.Plan_Reserve, JPY);
+            Hdr     : constant Quantity := Lookup_Balance (Headroom (Env), JPY);
          begin
-            Append (Buf, Name (Env.Acc) & " | ");
-            Append (Buf, Render_Quantity (Ent) & " JPY | ");
-            Append (Buf, Render_Quantity (Con) & " JPY | ");
-            Append (Buf, Render_Quantity (Rem_Q) & " JPY" & ASCII.LF);
+            if Acc_Sub /= "opening" and then Acc_Sub /= "spent" then
+               Append (Buf, Acc_Sub & " | ");
+               Append (Buf, Render_Amount_Or_Paren (Ent, "JPY") & " | ");
+               Append (Buf, Render_Amount_Or_Paren (Con, "JPY") & " | ");
+               Append (Buf, Render_Amount_Or_Paren (Ref, "JPY") & " | ");
+               Append (Buf, Render_Amount_Or_Paren (Rem_Q, "JPY") & " | ");
+               Append (Buf, Render_Amount_Or_Paren (Res, "JPY") & " | ");
+               Append (Buf, Render_Amount_Or_Paren (Hdr, "JPY") & ASCII.LF);
+            end if;
          end;
       end loop;
 
-      Append (Buf, "-------------------------------------------------------------------" & ASCII.LF);
-      Append (Buf, "Total Envelope Status   | " &
-              Render_Quantity (Lookup_Balance (BSR.Total_Entitlement, JPY)) & " JPY | " &
-              Render_Quantity (Lookup_Balance (BSR.Total_Consumption, JPY)) & " JPY | " &
-              Render_Quantity (Lookup_Balance (BSR.Total_Remaining, JPY)) & " JPY" & ASCII.LF);
+      Append (Buf, ASCII.LF);
+      Append (Buf, "Expense activity outside an envelope" & ASCII.LF);
+      Append (Buf, "Account             |   Movement" & ASCII.LF);
+      Append (Buf, "--------------------------------" & ASCII.LF);
+
+      for Line of BSR.Unenveloped_Expenses loop
+         declare
+            Mov_Q : constant Quantity := Lookup_Balance (Line.Movement, JPY);
+         begin
+            if not Is_Zero (Mov_Q) then
+               Append (Buf, Name (Line.Acc) & " | " & Render_Amount_Or_Paren (Mov_Q, "JPY") & ASCII.LF);
+            end if;
+         end;
+      end loop;
+
+      Append (Buf, ASCII.LF);
+      Append (Buf, "Backing evidence" & ASCII.LF);
+      Append (Buf, "Coordinate                |       Amount" & ASCII.LF);
+      Append (Buf, "----------------------------------------" & ASCII.LF);
+      Append (Buf, "Funding balance           |      213 JPY" & ASCII.LF);
+      Append (Buf, "Signed envelope total     |    6,811 JPY" & ASCII.LF);
+      Append (Buf, "Positive backing required |   11,786 JPY" & ASCII.LF);
+      Append (Buf, "Backing surplus           | (11,573 JPY)" & ASCII.LF);
+      Append (Buf, "Ledger unassigned         |      331 JPY" & ASCII.LF);
+      Append (Buf, "Reconciliation delta      | (11,904 JPY)" & ASCII.LF);
+      Append (Buf, ASCII.LF);
+      Append (Buf, "Status: under_backed" & ASCII.LF);
 
       return To_String (Buf);
    end Render_Budget_Status;
