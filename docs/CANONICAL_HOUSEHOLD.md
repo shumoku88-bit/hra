@@ -55,9 +55,11 @@ complete observationは8 sourceのどれかが欠落・読取不能なら失敗�
 |---|---:|---:|
 | Accounts/Actual/Plan/Budget journals | yes | partial |
 | `issues.tsv` | yes | partial |
-| three TOML sources | yes | not yet |
+| `budget.toml` | yes | typed policy、structural validation、Account validation |
+| `household.toml` | yes | typed policy、Budgetとのcross-validation、Account validation |
+| `report.toml` | yes | typed query/presentation policy |
 
-Journalのinclude graph、metadata、declared Account照合、Plan/Actual/Budget固有identityとprovenanceはまだh-kernel parityに達していない。TOMLは同一観測へ保持されるが、policyとして利用されない。したがって現在のaledger Reportをcanonicalな意思決定結果として扱わない。
+Journalのinclude graph、metadata、declared Account照合、Plan/Actual/Budget固有identityとprovenanceはまだh-kernel parityに達していない。TOML policyもまだ全計算・renderingへ適用されていない。したがって現在のaledger Reportをcanonicalな意思決定結果として扱わない。
 
 この表は移行中の現在地であり、silent ignoreを恒久仕様として承認しない。
 

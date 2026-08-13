@@ -1,3 +1,5 @@
+with "ada_toml";
+
 project Aledger is
    for Languages use ("Ada");
    for Source_Dirs use ("src", "tests");

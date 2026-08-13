@@ -19,7 +19,7 @@ issues.tsv
 
 8 sourceのどれかが欠落・読取不能ならcomplete observationは失敗します。legacy fallback、source filename redirect、engine別copyは追加しません。
 
-現在は4 journalと`issues.tsv`のadmissionが部分実装で、3 TOML sourceはexact observationのみです。h-kernel互換のtyped policy admissionとcross-source validationは今後のmigration chapterです。現時点のReportをcanonicalな意思決定結果として扱わないでください。
+3 TOML sourceはsource別の型付きpolicyへadmitされ、unknown key、欠落、型不一致、構造的な重複、未宣言または不正種別のAccount参照を拒否します。Journalと`issues.tsv`のadmission、include graph、identity/provenance、およびpolicyを計算へ適用する部分はまだh-kernel parityに達していません。現時点のReportをcanonicalな意思決定結果として扱わないでください。
 
 詳しくは以下を参照してください。
 
@@ -54,6 +54,7 @@ canonical rootの構造と現在対応済みの意味を検証します。
 ## Source layout
 
 - `src/aledger-canonical_source.*`: 固定8-source pathとexact-byte observation
+- `src/aledger-*_config.*`: Budget、Household、Report TOMLの型付きadmission
 - `src/aledger-household.*`: complete observationからのHousehold composition
 - `src/aledger-journal.*`: Journal admission
 - `src/aledger-money.*`, `aledger-account.*`, `aledger-ledger.*`: accounting kernel

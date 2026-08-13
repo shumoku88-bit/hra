@@ -50,8 +50,8 @@ policyはTOML構文のまま計算へ流さず、source-specific parserでtyped 
 
 ## Migration chapters
 
-1. **Observation foundation**: 固定8 sourceを一回だけexact-byteで観測し、欠落を拒否する
-2. **Typed configuration**: `budget.toml`、`household.toml`、`report.toml`をnamed typed policyへadmitする
+1. **Observation foundation（完了）**: 固定8 sourceを一回だけexact-byteで観測し、欠落を拒否する
+2. **Typed configuration（admission完了）**: `budget.toml`、`household.toml`、`report.toml`をnamed typed policyへadmitする。計算・renderingへの全面適用は各ownerのparity章で行う
 3. **Journal graph parity**: include、metadata、declared Account、Actual/Plan/Budget固有meaningをadmitする
 4. **Cross-source validation**: Account、Envelope、Plan、Budget、identity/provenance referenceをcomplete stateで検証する
 5. **Semantic parity**: synthetic corpusとprivate rehearsalでh-kernelと比較する

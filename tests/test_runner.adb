@@ -11,6 +11,9 @@ with ALedger.Journal;        use ALedger.Journal;
 with ALedger.Report;         use ALedger.Report;
 with ALedger.Household;      use ALedger.Household;
 with ALedger.Canonical_Source; use ALedger.Canonical_Source;
+with ALedger.Config_Support;
+with ALedger.Budget_Config;
+with ALedger.Report_Config;
 with ALedger.Plan;           use ALedger.Plan;
 with ALedger.Writer;         use ALedger.Writer;
 with ALedger.Render;         use ALedger.Render;
@@ -217,6 +220,57 @@ procedure Test_Runner is
       end;
    end Test_Journal;
 
+   procedure Test_TOML_Config_Admission is
+      Diag   : ALedger.Config_Support.Config_Diagnostic;
+      Policy : ALedger.Budget_Config.Budget_Policy;
+      Report : ALedger.Report_Config.Report_Configuration;
+      Food_UTF8 : constant String :=
+        Character'Val (16#E9#) & Character'Val (16#A3#) & Character'Val (16#9F#) &
+        Character'Val (16#E8#) & Character'Val (16#B2#) & Character'Val (16#BB#);
+      Valid_Budget : constant String :=
+        "[[backing-pools]]" & ASCII.LF &
+        "id = ""liquid""" & ASCII.LF &
+        "asset-accounts = [""assets:cash""]" & ASCII.LF &
+        "[[envelopes]]" & ASCII.LF &
+        "id = """ & Food_UTF8 & """" & ASCII.LF &
+        "label = """ & Food_UTF8 & """" & ASCII.LF &
+        "pacing = ""daily""" & ASCII.LF &
+        "backing-pool = ""liquid""" & ASCII.LF &
+        "expense-accounts = [""expenses:food""]" & ASCII.LF;
+      Invalid_Report : constant String :=
+        "[reports.trial-balance]" & ASCII.LF &
+        "as-of = ""2026-02-30""" & ASCII.LF &
+        "[reports.balance-sheet]" & ASCII.LF &
+        "as-of = ""latest""" & ASCII.LF &
+        "[reports.profit-and-loss]" & ASCII.LF &
+        "from = ""beginning""" & ASCII.LF &
+        "through = ""latest""" & ASCII.LF &
+        "[reports.daily-flow]" & ASCII.LF &
+        "from = ""beginning""" & ASCII.LF &
+        "through = ""latest""" & ASCII.LF &
+        "[reports.monthly-accounts]" & ASCII.LF &
+        "from = ""beginning""" & ASCII.LF &
+        "through = ""latest""" & ASCII.LF &
+        "[reports.recent-transactions]" & ASCII.LF &
+        "through = ""latest""" & ASCII.LF &
+        "count = 5" & ASCII.LF;
+   begin
+      Put_Line ("--- Testing typed canonical TOML admission ---");
+      Assert
+        (ALedger.Budget_Config.Parse_Budget_Policy
+           (Valid_Budget, Policy, Diag) and then
+         To_String (Policy.Envelopes.Element (1).ID) = Food_UTF8,
+         "Admit UTF-8 Budget policy into typed values");
+      Assert
+        (not ALedger.Budget_Config.Parse_Budget_Policy
+           (Valid_Budget & "unknown = true" & ASCII.LF, Policy, Diag),
+         "Reject unknown Budget TOML key");
+      Assert
+        (not ALedger.Report_Config.Parse_Report_Configuration
+           (Invalid_Report, Report, Diag),
+         "Reject impossible Report date");
+   end Test_TOML_Config_Admission;
+
    procedure Test_Report_And_Budget is
       Journal_With_Income_And_Expense : constant String :=
         "account assets:bank" & ASCII.LF &
@@ -286,6 +340,12 @@ procedure Test_Runner is
       Put_Line (F, "  ; type: Asset");
       Put_Line (F, "account expenses:coffee");
       Put_Line (F, "  ; type: Expense");
+      Put_Line (F, "account income:salary");
+      Put_Line (F, "  ; type: Income");
+      Put_Line (F, "account budget:coffee");
+      Put_Line (F, "  ; type: Budget");
+      Put_Line (F, "account budget:unassigned");
+      Put_Line (F, "  ; type: Budget");
       Close (F);
 
       --  Write actual.journal
@@ -308,13 +368,48 @@ procedure Test_Runner is
       Create (F, Out_File, To_String (Paths.Budget_Journal));
       Close (F);
       Create (F, Out_File, To_String (Paths.Budget_TOML));
-      Put_Line (F, "# synthetic budget policy placeholder");
+      Put_Line (F, "[[backing-pools]]");
+      Put_Line (F, "id = ""liquid""");
+      Put_Line (F, "asset-accounts = [""assets:wallet""]");
+      Put_Line (F, "[[envelopes]]");
+      Put_Line (F, "id = ""coffee""");
+      Put_Line (F, "label = ""Coffee""");
+      Put_Line (F, "pacing = ""daily""");
+      Put_Line (F, "backing-pool = ""liquid""");
+      Put_Line (F, "expense-accounts = [""expenses:coffee""]");
       Close (F);
       Create (F, Out_File, To_String (Paths.Household_TOML));
-      Put_Line (F, "# synthetic household policy placeholder");
+      Put_Line (F, "[cycle]");
+      Put_Line (F, "mode = ""income-anchor""");
+      Put_Line (F, "income-account = ""income:salary""");
+      Put_Line (F, "[money]");
+      Put_Line (F, "primary-commodity = ""JPY""");
+      Put_Line (F, "[budget]");
+      Put_Line (F, "unassigned-accounts = [""budget:unassigned""]");
+      Put_Line (F, "[[budget.envelopes]]");
+      Put_Line (F, "id = ""coffee""");
+      Put_Line (F, "allocation-account = ""budget:coffee""");
       Close (F);
       Create (F, Out_File, To_String (Paths.Report_TOML));
-      Put_Line (F, "# synthetic report policy placeholder");
+      Put_Line (F, "[presentation.amounts]");
+      Put_Line (F, "negative-style = ""parentheses""");
+      Put_Line (F, "[reports.trial-balance]");
+      Put_Line (F, "as-of = ""latest""");
+      Put_Line (F, "[reports.balance-sheet]");
+      Put_Line (F, "as-of = ""latest""");
+      Put_Line (F, "[reports.profit-and-loss]");
+      Put_Line (F, "from = ""beginning""");
+      Put_Line (F, "through = ""latest""");
+      Put_Line (F, "[reports.daily-flow]");
+      Put_Line (F, "from = ""beginning""");
+      Put_Line (F, "through = ""latest""");
+      Put_Line (F, "max-date-columns = 7");
+      Put_Line (F, "[reports.monthly-accounts]");
+      Put_Line (F, "from = ""beginning""");
+      Put_Line (F, "through = ""latest""");
+      Put_Line (F, "[reports.recent-transactions]");
+      Put_Line (F, "through = ""latest""");
+      Put_Line (F, "count = 10");
       Close (F);
       Create (F, Out_File, To_String (Paths.Issues_TSV));
       Put_Line (F, "issue_id" & ASCII.HT & "status");
@@ -328,6 +423,12 @@ procedure Test_Runner is
 
       Assert (Load_Canonical_Household (Tmp_Dir, State, Err), "Load complete canonical Household root from fixed 8-source topology");
       Assert (Natural (State.Actual_Ledger.Transactions.Length) = 1, "Canonical actual.journal loaded 1 transaction");
+      Assert
+        (State.Household_Policy.Has_Primary_Commodity and then
+         Code (State.Household_Policy.Primary_Commodity) = "JPY" and then
+         Natural (State.Budget_Policy.Envelopes.Length) = 1 and then
+         State.Report_Policy.Presentation.Daily_Date_Columns = 7,
+         "Canonical TOML sources admit typed policy values");
       Assert
         (Text_For (State.Sources, Actual_Source) =
            "2026-08-13 Coffee Purchase" & ASCII.LF &
@@ -343,6 +444,14 @@ procedure Test_Runner is
          Assert (Parse_Quantity ("500", Q_500), "Parse 500");
          Assert (Lookup_Balance (PL.Total_Expenses, JPY) = Q_500, "Combined household P&L Expenses = 500 JPY");
       end;
+
+      Open (F, Append_File, To_String (Paths.Report_TOML));
+      Put_Line (F, "unknown-coordinate = true");
+      Close (F);
+      Assert
+        (not Load_Canonical_Household (Tmp_Dir, State, Err) and then
+         Index (To_String (Err), "unknown key") > 0,
+         "Reject unknown TOML coordinates instead of silently ignoring them");
 
       --  Cleanup temporary directory
       Delete_Tree (Tmp_Dir);
@@ -619,6 +728,7 @@ begin
    Test_Account;
    Test_Ledger;
    Test_Journal;
+   Test_TOML_Config_Admission;
    Test_Report_And_Budget;
    Test_Canonical_Household;
    Test_Plan_Lifecycle;

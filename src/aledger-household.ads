@@ -3,6 +3,9 @@ with ALedger.Account;        use ALedger.Account;
 with ALedger.Ledger;         use ALedger.Ledger;
 with ALedger.Issues;         use ALedger.Issues;
 with ALedger.Canonical_Source;
+with ALedger.Budget_Config;
+with ALedger.Household_Config;
+with ALedger.Report_Config;
 
 package ALedger.Household is
 
@@ -23,6 +26,9 @@ package ALedger.Household is
       Root_Path       : Unbounded_String;
       Paths           : Source_Paths;
       Sources         : ALedger.Canonical_Source.Source_Observation;
+      Budget_Policy   : ALedger.Budget_Config.Budget_Policy;
+      Household_Policy : ALedger.Household_Config.Household_Configuration;
+      Report_Policy   : ALedger.Report_Config.Report_Configuration;
       Registry        : Account_Registry;
       Actual_Ledger   : Ledger.Ledger;
       Plan_Ledger     : Ledger.Ledger;

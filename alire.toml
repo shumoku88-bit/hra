@@ -1,6 +1,9 @@
 name = "aledger"
-description = "Ada 2012 double-entry accounting kernel ported from h-kernel"
+description = "Ada 2022 accounting kernel for the shared h-kernel Household source"
 version = "0.1.0-dev"
 authors = ["Antigravity"]
 licenses = "MIT"
 executables = ["aledger_main"]
+
+[[depends-on]]
+ada_toml = "~0.5.0"
