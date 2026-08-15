@@ -4,6 +4,7 @@ with ALedger.Envelope;
 with ALedger.Envelope_Commitment;
 with ALedger.Envelope_Consumption;
 with ALedger.Envelope_Entitlement;
+with ALedger.Envelope_Fulfillment;
 with ALedger.Money; use ALedger.Money;
 
 package body ALedger.Envelope_Report_Render is
@@ -29,6 +30,7 @@ package body ALedger.Envelope_Report_Render is
       use ALedger.Envelope_Commitment;
       use ALedger.Envelope_Consumption;
       use ALedger.Envelope_Entitlement;
+      use ALedger.Envelope_Fulfillment;
 
       Buf : Unbounded_String;
       JPY : constant Commodity := Make_Commodity ("JPY");
@@ -48,10 +50,10 @@ package body ALedger.Envelope_Report_Render is
       Append (Buf, ASCII.LF);
       Append
         (Buf,
-         "Envelope      | Entitlement | Consumption |   Refunds |   Remaining | Plan reserve |    Headroom" & ASCII.LF);
+         "Envelope      | Entitlement | Consumption |   Refunds | Fulfillment |   Remaining | Plan reserve |    Headroom" & ASCII.LF);
       Append
         (Buf,
-         "------------------------------------------------------------------------------------------------" & ASCII.LF);
+         "--------------------------------------------------------------------------------------------------------------" & ASCII.LF);
 
       for Env_Id of All_Envs loop
          declare
@@ -59,6 +61,8 @@ package body ALedger.Envelope_Report_Render is
             Ent_Bal  : constant Balance := Entitlement_For (State.Entitlement, Env_Id);
             Amts     : constant Consumption_Amounts :=
               Consumption_For (Observation.Consumption, Env_Id);
+            Fulfill  : constant Fulfillment_Amounts :=
+              Fulfillment_For (Observation.Fulfillment, Env_Id);
             Claim    : constant Backed_Envelope_Claim :=
               Claim_For (Observation.Backing, Env_Id);
             Reserve  : constant Balance :=
@@ -66,6 +70,8 @@ package body ALedger.Envelope_Report_Render is
             Ent_Q : constant Quantity := Lookup_Balance (Ent_Bal, JPY);
             Con_Q : constant Quantity := Lookup_Balance (Amts.Charges, JPY);
             Ref_Q : constant Quantity := Lookup_Balance (Amts.Refunds, JPY);
+            Ful_Q : constant Quantity :=
+              Lookup_Balance (Net_Fulfillment (Fulfill), JPY);
             Rem_Q : constant Quantity := Lookup_Balance (Claim.Remaining, JPY);
             Res_Q : constant Quantity := Lookup_Balance (Reserve, JPY);
             Hdr_Q : constant Quantity := Lookup_Balance (Claim.Headroom, JPY);
@@ -75,6 +81,7 @@ package body ALedger.Envelope_Report_Render is
             Append (Buf, Render_Amount (Ent_Q, "JPY") & " | ");
             Append (Buf, Render_Amount (Con_Q, "JPY") & " | ");
             Append (Buf, Render_Amount (Ref_Q, "JPY") & " | ");
+            Append (Buf, Render_Amount (Ful_Q, "JPY") & " | ");
             Append (Buf, Render_Amount (Rem_Q, "JPY") & " | ");
             Append (Buf, Render_Amount (Res_Q, "JPY") & " | ");
             Append (Buf, Render_Amount (Hdr_Q, "JPY") & ASCII.LF);
