@@ -1,4 +1,6 @@
 with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
+with ALedger.Ledger;         use ALedger.Ledger;
+with ALedger.Report_Config;
 
 package body ALedger.Report_Plan is
 
