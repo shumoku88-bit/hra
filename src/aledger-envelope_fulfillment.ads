@@ -60,6 +60,7 @@ package ALedger.Envelope_Fulfillment is
      (Success,
       Duplicate_Actual_Event_Id,
       Missing_Completion_Event_Id,
+      Completion_Actual_Is_Reversal,
       Completion_Posting_Count_Mismatch,
       Completion_Account_Shape_Mismatch,
       Completion_Direction_Mismatch,
@@ -76,18 +77,19 @@ package ALedger.Envelope_Fulfillment is
    --  Observe explicit completed Plan fulfillment through one inclusive day.
    --
    --  * completion comes only from Plan_Observation's explicit Actual plan-id
+   --  * the completion Actual is the non-reversal root of its evidence chain
    --  * route identity is resolved at the root completion Actual day
    --  * only positive non-Expense Plan posting positions are fulfillment targets
    --  * corresponding Actual quantities are authoritative
    --  * Event_ID/Reverses_ID chains reverse or restore the same root evidence
    function Observe
-     (Completed       : ALedger.Plan_Observation.Completed_Plan_Vectors.Vector;
-      Actual_Ledger   : ALedger.Ledger.Ledger;
-      Registry        : ALedger.Account.Account_Registry;
-      Routing         : ALedger.Fulfillment_Routing.Fulfillment_Routing_History;
+     (Completed        : ALedger.Plan_Observation.Completed_Plan_Vectors.Vector;
+      Actual_Ledger    : ALedger.Ledger.Ledger;
+      Registry         : ALedger.Account.Account_Registry;
+      Routing          : ALedger.Fulfillment_Routing.Fulfillment_Routing_History;
       Observed_Through : String;
-      Result          : out Envelope_Fulfillment;
-      Diag            : out Observe_Diagnostic) return Boolean;
+      Result           : out Envelope_Fulfillment;
+      Diag             : out Observe_Diagnostic) return Boolean;
 
    function Fulfillment_For
      (Obs : Envelope_Fulfillment;
