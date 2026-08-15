@@ -215,8 +215,10 @@ begin
         ALedger.Envelope_Entitlement.Empty_Observation;
       Consumption   : ALedger.Envelope_Consumption.Envelope_Consumption :=
         ALedger.Envelope_Consumption.Empty_Consumption;
+      Funding       : ALedger.Backing_Policy.Funding_Commitment_Observation;
       Backing       : ALedger.Backing_Policy.Backing_Observation;
       Claim         : ALedger.Backing_Policy.Backed_Envelope_Claim;
+      Position      : ALedger.Backing_Policy.Backing_Pool_Position;
    begin
       Assert
         (ALedger.Budget_Config.Parse_Budget_Policy
@@ -235,16 +237,29 @@ begin
           Amt     => ALedger.Money.Make_Amount (JPY, 1000.0),
           Target  => Food_Env));
 
+      Funding := ALedger.Backing_Policy.Observe_Funding_Commitment
+        (Policy, Open_Plans, Window);
       Backing := ALedger.Backing_Policy.Observe_Backing
-        (Policy, Actual, Entitlement, Consumption, Commitment);
+        (Policy, Actual, Entitlement, Consumption, Commitment, Funding);
       Claim := ALedger.Backing_Policy.Claim_For (Backing, Food_Env);
+      Position := ALedger.Backing_Policy.Position_For (Backing, "liquid");
 
       Assert
         (ALedger.Money.Lookup_Balance (Claim.Remaining, JPY) = 1000.0,
          "Backing keeps pre-Plan Remaining at 1,000 JPY");
       Assert
         (ALedger.Money.Lookup_Balance (Claim.Headroom, JPY) = 700.0,
-         "Backing deducts 300 JPY Plan reserve from Headroom");
+         "Backing deducts 300 JPY Envelope Plan reserve from Headroom");
+      Assert
+        (ALedger.Money.Lookup_Balance (Position.Funding_Balance, JPY) = 1950.0,
+         "Backing sees 1,950 JPY observed Asset funding");
+      Assert
+        (ALedger.Money.Lookup_Balance (Position.Funding_Commitment, JPY) = 600.0,
+         "Backing reserves 600 JPY from current-cycle negative Asset Plans");
+      Assert
+        (ALedger.Money.Lookup_Balance
+           (ALedger.Backing_Policy.Available_Surplus (Position), JPY) = 650.0,
+         "Available surplus reconciles funding commitment and Plan headroom");
    end;
 
    Put_Line
