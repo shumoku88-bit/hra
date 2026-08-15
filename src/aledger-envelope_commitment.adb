@@ -3,6 +3,7 @@ with ALedger.Money;
 with ALedger.Account;
 with ALedger.Envelope;
 with ALedger.Envelope_Routing;
+with ALedger.Fulfillment_Routing;
 with ALedger.Plan;
 
 package body ALedger.Envelope_Commitment is
@@ -54,6 +55,28 @@ package body ALedger.Envelope_Commitment is
      (Open_Plans       : ALedger.Plan_Observation.Open_Plan_Vectors.Vector;
       Registry         : ALedger.Account.Account_Registry;
       Routing          : ALedger.Envelope_Routing.Routing_History;
+      Window           : ALedger.Cycle_Observation.Cycle_Window;
+      Observed_Through : String;
+      Result           : out Commitment_Observation;
+      Diag             : out Observe_Diagnostic) return Boolean
+   is
+   begin
+      return Observe
+        (Open_Plans,
+         Registry,
+         Routing,
+         ALedger.Fulfillment_Routing.Empty_History,
+         Window,
+         Observed_Through,
+         Result,
+         Diag);
+   end Observe;
+
+   function Observe
+     (Open_Plans       : ALedger.Plan_Observation.Open_Plan_Vectors.Vector;
+      Registry         : ALedger.Account.Account_Registry;
+      Routing          : ALedger.Envelope_Routing.Routing_History;
+      Fulfillment      : ALedger.Fulfillment_Routing.Fulfillment_Routing_History;
       Window           : ALedger.Cycle_Observation.Cycle_Window;
       Observed_Through : String;
       Result           : out Commitment_Observation;
@@ -181,11 +204,28 @@ package body ALedger.Envelope_Commitment is
                               end if;
                            end;
                         else
-                           --  Non-Expense targets require explicit PlanId
-                           --  fulfillment routing. aledger does not admit that
-                           --  source coordinate yet, so Account identity alone
-                           --  intentionally creates no Envelope claim.
-                           null;
+                           --  Positive non-Expense postings never inherit
+                           --  Envelope meaning from their Account. The stable
+                           --  PlanId is the sole fulfillment coordinate.
+                           if ALedger.Fulfillment_Routing.Has_Routing_At
+                             (Fulfillment, P.ID, Observed_Through)
+                           then
+                              declare
+                                 Route : constant ALedger.Fulfillment_Routing.Fulfillment_Route :=
+                                   ALedger.Fulfillment_Routing.Resolve
+                                     (Fulfillment, P.ID, Observed_Through);
+                              begin
+                                 case Route.Kind is
+                                    when ALedger.Fulfillment_Routing.Fulfills_Envelope =>
+                                       Add_Envelope
+                                         (Output.Managed,
+                                          ALedger.Envelope.Image (Route.Target),
+                                          Posting.Amt);
+                                    when ALedger.Fulfillment_Routing.Not_Fulfillment_Target =>
+                                       null;
+                                 end case;
+                              end;
+                           end if;
                         end if;
                      end;
                   end if;
