@@ -10,6 +10,9 @@ with ALedger.Planned_Payments;
 with ALedger.Planned_Payments_Render;
 
 procedure Test_Planned_Payments is
+   use type ALedger.Planned_Payments.Temporal_Status;
+   use type ALedger.Planned_Payments.Admission_Status;
+
    Passed_Count : Natural := 0;
    Failed_Count : Natural := 0;
 
@@ -114,15 +117,15 @@ procedure Test_Planned_Payments is
      "    expenses:subs        400 JPY" & ASCII.LF &
      "    assets:cash        -1000 JPY" & ASCII.LF;
 
-   Registry    : ALedger.Account.Account_Registry := ALedger.Account.Empty_Registry;
-   Plans       : ALedger.Ledger.Ledger;
-   Actual      : ALedger.Ledger.Ledger;
+   Registry     : ALedger.Account.Account_Registry := ALedger.Account.Empty_Registry;
+   Plans        : ALedger.Ledger.Ledger;
+   Actual       : ALedger.Ledger.Ledger;
    Empty_Actual : ALedger.Ledger.Ledger;
-   Duplicate   : ALedger.Ledger.Ledger;
-   Multi_Post  : ALedger.Ledger.Ledger;
-   Error_Msg   : Unbounded_String;
-   Result      : ALedger.Planned_Payments.Observation;
-   Diag        : ALedger.Planned_Payments.Admission_Diagnostic;
+   Duplicate    : ALedger.Ledger.Ledger;
+   Multi_Post   : ALedger.Ledger.Ledger;
+   Error_Msg    : Unbounded_String;
+   Result       : ALedger.Planned_Payments.Observation;
+   Diag         : ALedger.Planned_Payments.Admission_Diagnostic;
 
 begin
    Put_Line ("--- Testing ALedger.Planned_Payments ---");
