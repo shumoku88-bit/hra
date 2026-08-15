@@ -5,34 +5,7 @@ with Ada.Containers.Indefinite_Vectors;
 
 package ALedger.Envelope_Routing is
 
-   --  ========================================================================
-   --  Expense Routing
-   --
-   --  Maps Expense Accounts to Envelopes via explicit effective-dated routes.
-   --  This replaces the legacy name-prefix matching (budget:X -> expenses:X)
-   --  with a stable, historical routing table.
-   --
-   --  Key principles from h-kernel:
-   --    - Missing routing is attention evidence (not silent fallback)
-   --    - Historical routing is never reconstructed from current config
-   --    - Current config changes do not rewrite old intent
-   --
-   --  Source: [[envelope-history.expense-routing]] in budget.toml
-   --  ========================================================================
-
-   --  ========================================================================
-   --  Route Kind
-   --  ========================================================================
-
    type Route_Kind is (Managed_By_Envelope, Not_Envelope_Managed);
-
-   --  ========================================================================
-   --  Expense Route
-   --
-   --  Discriminated record: Managed_By_Envelope carries a Target Envelope_Id.
-   --  Not_Envelope_Managed carries no data.  The compiler prevents accessing
-   --  Target on a Not_Envelope_Managed route.
-   --  ========================================================================
 
    type Expense_Route (Kind : Route_Kind := Not_Envelope_Managed) is record
       case Kind is
@@ -50,10 +23,6 @@ package ALedger.Envelope_Routing is
    function Not_Managed_Route return Expense_Route
      with Post => Not_Managed_Route'Result.Kind = Not_Envelope_Managed;
 
-   --  ========================================================================
-   --  Effective Date
-   --  ========================================================================
-
    type Effective_Date_Kind is (Initial, From_Date);
 
    type Effective_Date (Kind : Effective_Date_Kind := Initial) is record
@@ -61,7 +30,7 @@ package ALedger.Envelope_Routing is
          when Initial =>
             null;
          when From_Date =>
-            Date : Unbounded_String;   -- "YYYY-MM-DD"
+            Date : Unbounded_String;
       end case;
    end record;
 
@@ -72,10 +41,6 @@ package ALedger.Envelope_Routing is
      with Pre  => Date'Length > 0,
           Post => Dated_Effective'Result.Kind = From_Date;
 
-   --  ========================================================================
-   --  Routing Entry
-   --  ========================================================================
-
    type Routing_Entry is record
       Effective : Effective_Date;
       Expense   : Account.Account;
@@ -85,15 +50,6 @@ package ALedger.Envelope_Routing is
 
    package Routing_Entry_Vectors is new Ada.Containers.Indefinite_Vectors
      (Index_Type => Positive, Element_Type => Routing_Entry);
-
-   --  ========================================================================
-   --  Routing History
-   --
-   --  Admitted once from canonical source.  Immutable after construction.
-   --  Resolve returns the most recent applicable route for an Account on a
-   --  given date.  Multiple entries for the same Account with different
-   --  effective dates are allowed; the latest applicable one wins.
-   --  ========================================================================
 
    type Routing_History is private;
 
@@ -112,17 +68,22 @@ package ALedger.Envelope_Routing is
       History  : out Routing_History;
       Status   : out History_Status) return Boolean;
 
-   --  Resolve the route for Expense on the given Date.
-   --
-   --  Returns the entry with the latest effective date <= Date.
-   --  "initial" entries are always applicable.
-   --  If no entry applies, returns Not_Envelope_Managed.
+   --  Resolve the latest applicable route. If no route is applicable this
+   --  legacy value-returning query yields Not_Envelope_Managed; callers that
+   --  must distinguish missing evidence use Has_Routing_At first.
    function Resolve
      (H       : Routing_History;
       Expense : Account.Account;
       Date    : String) return Expense_Route;
 
-   --  True if any routing entry exists for this Account (regardless of date).
+   --  True if at least one route for Expense is applicable on Date. An initial
+   --  route always applies; a dated route applies only on/after effective-from.
+   function Has_Routing_At
+     (H       : Routing_History;
+      Expense : Account.Account;
+      Date    : String) return Boolean;
+
+   --  True if any routing entry exists for this Account at any point in history.
    function Has_Routing
      (H       : Routing_History;
       Expense : Account.Account) return Boolean;
