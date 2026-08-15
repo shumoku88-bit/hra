@@ -8,6 +8,7 @@ with ALedger.Household_Config;
 with ALedger.Report_Config;
 with ALedger.Envelope;
 with ALedger.Envelope_Routing;
+with ALedger.Fulfillment_Routing;
 with ALedger.Envelope_Entitlement;
 with ALedger.Envelope_Consumption;
 with ALedger.Backing_Policy;
@@ -42,6 +43,7 @@ package ALedger.Household is
       Issues              : Issues_Inventory;
       Envelope_Registry   : ALedger.Envelope.Envelope_Registry;
       Routing_History     : ALedger.Envelope_Routing.Routing_History;
+      Fulfillment_History : ALedger.Fulfillment_Routing.Fulfillment_Routing_History;
       Entitlement         : ALedger.Envelope_Entitlement.Entitlement_Observation;
       Consumption         : ALedger.Envelope_Consumption.Envelope_Consumption;
       Backing_Policy_Spec : ALedger.Backing_Policy.Backing_Policy;
