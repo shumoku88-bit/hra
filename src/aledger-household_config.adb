@@ -147,7 +147,7 @@ package body ALedger.Household_Config is
       end loop;
 
       if not Parse_Root (Text, Source_Name, Root, Diag)
-        or else not Check_Keys (Root, "cycle|money|budget|daily-target|account-policy", Source_Name, "", Diag)
+        or else not Check_Keys (Root, "cycle|money|budget|daily-target|account-policy|envelope-history", Source_Name, "", Diag)
         or else not Require (Root, "cycle", TOML.TOML_Table, Source_Name, "", Cycle, Diag)
         or else not Require (Root, "budget", TOML.TOML_Table, Source_Name, "", Budget, Diag)
         or else not Optional (Root, "money", TOML.TOML_Table, Source_Name, "", Money, Has_Money, Diag)
@@ -273,6 +273,176 @@ package body ALedger.Household_Config is
          if not Parse_Account_Policy (Account_Policy_Value, Result.Accounts, Diag) then return False; end if;
          Result.Has_Account_Policy := True;
       end if;
+
+      --  ========================================================================
+      --  Parse [envelope-history] section (optional)
+      --  ========================================================================
+      declare
+         History_Section : TOML.TOML_Value;
+         Has_History     : Boolean;
+      begin
+         if not Optional (Root, "envelope-history", TOML.TOML_Table,
+                          Source_Name, "", History_Section, Has_History, Diag)
+         then
+            return False;
+         end if;
+
+         if Has_History then
+            if not Check_Keys (History_Section, "identities|expense-routing",
+                                Source_Name, "envelope-history", Diag)
+            then
+               return False;
+            end if;
+
+            --  Parse identities array
+            declare
+               Identities_Value : TOML.TOML_Value;
+               Has_Identities   : Boolean;
+            begin
+               if not Optional (History_Section, "identities", TOML.TOML_Array,
+                                Source_Name, "envelope-history",
+                                Identities_Value, Has_Identities, Diag)
+               then
+                  return False;
+               end if;
+
+               if Has_Identities then
+                  for I in 1 .. Identities_Value.Length loop
+                     declare
+                        Item : constant TOML.TOML_Value := Identities_Value.Item (I);
+                        Path : constant String :=
+                          "envelope-history.identities[" & Image (I) & "]";
+                     begin
+                        if Item.Kind /= TOML.TOML_String then
+                           Set_Error (Diag, Source_Name, Path,
+                                      "expected string", Item);
+                           return False;
+                        end if;
+                        Result.Envelope_History.Identities.Append
+                          (Item.As_String);
+                     end;
+                  end loop;
+               end if;
+            end;
+
+            --  Parse expense-routing array
+            declare
+               Routing_Value : TOML.TOML_Value;
+               Has_Routing   : Boolean;
+            begin
+               if not Optional (History_Section, "expense-routing",
+                                TOML.TOML_Array,
+                                Source_Name, "envelope-history",
+                                Routing_Value, Has_Routing, Diag)
+               then
+                  return False;
+               end if;
+
+               if Has_Routing then
+                  for I in 1 .. Routing_Value.Length loop
+                     declare
+                        Item : constant TOML.TOML_Value :=
+                          Routing_Value.Item (I);
+                        Path : constant String :=
+                          "envelope-history.expense-routing["
+                          & Image (I) & "]";
+                        Effective_Value : TOML.TOML_Value;
+                        Expense_Value   : TOML.TOML_Value;
+                        Route_Value     : TOML.TOML_Value;
+                        Target_Value    : TOML.TOML_Value;
+                        Note_Value      : TOML.TOML_Value;
+                        Has_Tgt, Has_Note : Boolean;
+                        Entry_Data : Expense_Routing_Entry_Data;
+                     begin
+                        if Item.Kind /= TOML.TOML_Table then
+                           Set_Error (Diag, Source_Name, Path,
+                                      "expected table", Item);
+                           return False;
+                        end if;
+
+                        if not Check_Keys
+                          (Item,
+                           "effective-from|expense-account|route|target|note",
+                           Source_Name, Path, Diag)
+                        then
+                           return False;
+                        end if;
+
+                        if not Require (Item, "effective-from",
+                                        TOML.TOML_String,
+                                        Source_Name, Path,
+                                        Effective_Value, Diag)
+                        then return False; end if;
+
+                        if not Require (Item, "expense-account",
+                                        TOML.TOML_String,
+                                        Source_Name, Path,
+                                        Expense_Value, Diag)
+                        then return False; end if;
+
+                        if not Require (Item, "route", TOML.TOML_String,
+                                        Source_Name, Path,
+                                        Route_Value, Diag)
+                        then return False; end if;
+
+                        if not Optional (Item, "target",
+                                         TOML.TOML_String,
+                                         Source_Name, Path,
+                                         Target_Value, Has_Tgt, Diag)
+                        then return False; end if;
+
+                        if not Optional (Item, "note", TOML.TOML_String,
+                                         Source_Name, Path,
+                                         Note_Value, Has_Note, Diag)
+                        then return False; end if;
+
+                        if Effective_Value.As_String = "initial" then
+                           Entry_Data.Effective := (Kind => Initial);
+                        else
+                           Entry_Data.Effective :=
+                             (Kind => From_Date,
+                              Date => Effective_Value.As_Unbounded_String);
+                        end if;
+
+                        Entry_Data.Expense_Account :=
+                          Expense_Value.As_Unbounded_String;
+
+                        if Route_Value.As_String = "managed" then
+                           if not Has_Tgt then
+                              Set_Error (Diag, Source_Name,
+                                         Path & ".target",
+                                         "required when route is 'managed'",
+                                         Item);
+                              return False;
+                           end if;
+                           Entry_Data.Route :=
+                             (Kind   => Managed,
+                              Target => Target_Value.As_Unbounded_String);
+                        elsif Route_Value.As_String = "not-managed" then
+                           Entry_Data.Route := (Kind => Not_Managed);
+                        else
+                           Set_Error (Diag, Source_Name,
+                                      Path & ".route",
+                                      "expected 'managed' or 'not-managed'",
+                                      Route_Value);
+                           return False;
+                        end if;
+
+                        if Has_Note then
+                           Entry_Data.Note :=
+                             Note_Value.As_Unbounded_String;
+                        else
+                           Entry_Data.Note := Null_Unbounded_String;
+                        end if;
+
+                        Result.Envelope_History.Expense_Routing.Append
+                          (Entry_Data);
+                     end;
+                  end loop;
+               end if;
+            end;
+         end if;
+      end;
 
       Config := Result;
       return True;

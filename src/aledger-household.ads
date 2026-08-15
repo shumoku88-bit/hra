@@ -6,6 +6,11 @@ with ALedger.Canonical_Source;
 with ALedger.Budget_Config;
 with ALedger.Household_Config;
 with ALedger.Report_Config;
+with ALedger.Envelope;
+with ALedger.Envelope_Routing;
+with ALedger.Envelope_Entitlement;
+with ALedger.Envelope_Consumption;
+with ALedger.Backing_Policy;
 
 package ALedger.Household is
 
@@ -23,18 +28,24 @@ package ALedger.Household is
    --  ========================================================================
 
    type Household_State is record
-      Root_Path       : Unbounded_String;
-      Paths           : Source_Paths;
-      Sources         : ALedger.Canonical_Source.Source_Observation;
-      Budget_Policy   : ALedger.Budget_Config.Budget_Policy;
-      Household_Policy : ALedger.Household_Config.Household_Configuration;
-      Report_Policy   : ALedger.Report_Config.Report_Configuration;
-      Registry        : Account_Registry;
-      Actual_Ledger   : Ledger.Ledger;
-      Plan_Ledger     : Ledger.Ledger;
-      Budget_Ledger   : Ledger.Ledger;
-      Combined_Ledger : Ledger.Ledger;
-      Issues          : Issues_Inventory;
+      Root_Path           : Unbounded_String;
+      Paths               : Source_Paths;
+      Sources             : ALedger.Canonical_Source.Source_Observation;
+      Budget_Policy       : ALedger.Budget_Config.Budget_Policy;
+      Household_Policy    : ALedger.Household_Config.Household_Configuration;
+      Report_Policy       : ALedger.Report_Config.Report_Configuration;
+      Registry            : Account_Registry;
+      Actual_Ledger       : Ledger.Ledger;
+      Plan_Ledger         : Ledger.Ledger;
+      Budget_Ledger       : Ledger.Ledger;
+      Combined_Ledger     : Ledger.Ledger;
+      Issues              : Issues_Inventory;
+      Envelope_Registry   : ALedger.Envelope.Envelope_Registry;
+      Routing_History     : ALedger.Envelope_Routing.Routing_History;
+      Entitlement         : ALedger.Envelope_Entitlement.Entitlement_Observation;
+      Consumption         : ALedger.Envelope_Consumption.Envelope_Consumption;
+      Backing_Policy_Spec : ALedger.Backing_Policy.Backing_Policy;
+      Backing             : ALedger.Backing_Policy.Backing_Observation;
    end record;
 
    function Empty_Household_State return Household_State;

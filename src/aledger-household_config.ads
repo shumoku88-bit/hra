@@ -42,6 +42,44 @@ package ALedger.Household_Config is
       Variable_Expenses   : String_Vectors.Vector;
    end record;
 
+   --  ========================================================================
+   --  Envelope History Data (from [envelope-history] section)
+   --  ========================================================================
+
+   type Effective_Date_Kind is (Initial, From_Date);
+
+   type Effective_Date_Data (Kind : Effective_Date_Kind := Initial) is record
+      case Kind is
+         when Initial   => null;
+         when From_Date => Date : Unbounded_String;
+      end case;
+   end record;
+
+   type Expense_Route_Kind is (Managed, Not_Managed);
+
+   type Expense_Route_Data (Kind : Expense_Route_Kind := Not_Managed) is record
+      case Kind is
+         when Managed   => Target : Unbounded_String;
+         when Not_Managed => null;
+      end case;
+   end record;
+
+   type Expense_Routing_Entry_Data is record
+      Effective       : Effective_Date_Data;
+      Expense_Account : Unbounded_String;
+      Route           : Expense_Route_Data;
+      Note            : Unbounded_String;
+   end record;
+
+   package Expense_Routing_Entry_Data_Vectors is
+     new Ada.Containers.Indefinite_Vectors
+       (Index_Type => Positive, Element_Type => Expense_Routing_Entry_Data);
+
+   type Envelope_History_Data is record
+      Identities      : String_Vectors.Vector;
+      Expense_Routing : Expense_Routing_Entry_Data_Vectors.Vector;
+   end record;
+
    type Household_Configuration is record
       Cycle                    : Cycle_Mode;
       Cycle_Income_Account     : Unbounded_String;
@@ -52,6 +90,7 @@ package ALedger.Household_Config is
       Daily_Target_Assets      : Daily_Target_Asset_Vectors.Vector;
       Has_Account_Policy       : Boolean := False;
       Accounts                 : Account_Policy;
+      Envelope_History         : Envelope_History_Data;
    end record;
 
    function Parse_Household_Configuration

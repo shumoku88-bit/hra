@@ -13,7 +13,7 @@ CLI / TUI
   -> validated Household_State
   -> normalized proof facts
   -> SPARK Proof_Core (Transaction / Plan / Envelope / Backing arithmetic)
-  -> Money / Account / Ledger / Plan / Budget / Report
+  -> Money / Account / Ledger / Plan / Envelope / Backing / Report
   -> Render
 
 edit intent

@@ -1,17 +1,22 @@
 with ALedger.Journal;          use ALedger.Journal;
 with ALedger.Canonical_Source; use ALedger.Canonical_Source;
 with ALedger.Config_Support;
+with ALedger.Budget_Source_Adapter;
 
 package body ALedger.Household is
 
    function Empty_Household_State return Household_State is
       State : Household_State;
    begin
-      State.Registry        := Empty_Registry;
-      State.Actual_Ledger   := Empty_Ledger;
-      State.Plan_Ledger     := Empty_Ledger;
-      State.Budget_Ledger   := Empty_Ledger;
-      State.Combined_Ledger := Empty_Ledger;
+      State.Registry          := Empty_Registry;
+      State.Actual_Ledger     := Empty_Ledger;
+      State.Plan_Ledger       := Empty_Ledger;
+      State.Budget_Ledger     := Empty_Ledger;
+      State.Combined_Ledger   := Empty_Ledger;
+      State.Envelope_Registry := ALedger.Envelope.Empty_Registry;
+      State.Routing_History   := ALedger.Envelope_Routing.Empty_History;
+      State.Entitlement       := ALedger.Envelope_Entitlement.Empty_Observation;
+      State.Consumption       := ALedger.Envelope_Consumption.Empty_Consumption;
       return State;
    end Empty_Household_State;
 
@@ -239,6 +244,156 @@ package body ALedger.Household is
       Result.Actual_Ledger.Registry   := Result.Registry;
       Result.Plan_Ledger.Registry     := Result.Registry;
       Result.Budget_Ledger.Registry   := Result.Registry;
+
+      --  =====================================================================
+      --  Envelope-Native Domain Admission & Calculation
+      --  =====================================================================
+
+      --  1. Admit Envelope Registry from envelope-history.identities (or budget.toml envelopes)
+      declare
+         Env_Ids : ALedger.Config_Support.String_Vectors.Vector :=
+           Result.Household_Policy.Envelope_History.Identities;
+      begin
+         if Env_Ids.Is_Empty then
+            for Env_Def of Result.Budget_Policy.Envelopes loop
+               Env_Ids.Append (To_String (Env_Def.ID));
+            end loop;
+         end if;
+
+         if not Env_Ids.Is_Empty then
+            if not ALedger.Envelope.Admit_Registry
+              (Env_Ids, Result.Envelope_Registry, Config_Diag)
+            then
+               Error_Msg := To_Unbounded_String
+                 (ALedger.Config_Support.Format_Diagnostic (Config_Diag));
+               return False;
+            end if;
+         end if;
+      end;
+
+      --  2. Admit Routing History from envelope-history.expense-routing (or budget.toml envelopes)
+      declare
+         use ALedger.Envelope_Routing;
+         R_Entries : Routing_Entry_Vectors.Vector;
+         H_Status  : History_Status;
+      begin
+         if not Result.Household_Policy.Envelope_History.Expense_Routing.Is_Empty then
+            for Entry_Data of Result.Household_Policy.Envelope_History.Expense_Routing loop
+               declare
+                  Eff   : Effective_Date;
+                  Route : Expense_Route;
+               begin
+                  case Entry_Data.Effective.Kind is
+                     when ALedger.Household_Config.Initial =>
+                        Eff := Initial_Effective_Date;
+                     when ALedger.Household_Config.From_Date =>
+                        Eff := Dated_Effective (To_String (Entry_Data.Effective.Date));
+                  end case;
+
+                  case Entry_Data.Route.Kind is
+                     when ALedger.Household_Config.Managed =>
+                        declare
+                           Target_Id : ALedger.Envelope.Envelope_Id;
+                           Found     : constant Boolean :=
+                             ALedger.Envelope.Lookup
+                               (Result.Envelope_Registry,
+                                To_String (Entry_Data.Route.Target),
+                                Target_Id);
+                        begin
+                           if not Found then
+                              Error_Msg := To_Unbounded_String
+                                ("household.toml: routing target envelope not found in registry: " &
+                                 To_String (Entry_Data.Route.Target));
+                              return False;
+                           end if;
+                           Route := Managed_Route (Target_Id);
+                        end;
+                     when ALedger.Household_Config.Not_Managed =>
+                        Route := Not_Managed_Route;
+                  end case;
+
+                  R_Entries.Append
+                    (Routing_Entry'
+                       (Effective => Eff,
+                        Expense   => Account.Make_Account (To_String (Entry_Data.Expense_Account)),
+                        Route     => Route,
+                        Note      => Entry_Data.Note));
+               end;
+            end loop;
+         else
+            --  Fallback: synthesize initial routing from budget.toml envelopes
+            for Env_Def of Result.Budget_Policy.Envelopes loop
+               declare
+                  Target_Id : ALedger.Envelope.Envelope_Id;
+                  Found     : constant Boolean :=
+                    ALedger.Envelope.Lookup
+                      (Result.Envelope_Registry,
+                       To_String (Env_Def.ID),
+                       Target_Id);
+               begin
+                  if Found then
+                     for Exp_Acc of Env_Def.Expense_Accounts loop
+                        R_Entries.Append
+                          (Routing_Entry'
+                             (Effective => Initial_Effective_Date,
+                              Expense   => Account.Make_Account (Exp_Acc),
+                              Route     => Managed_Route (Target_Id),
+                              Note      => Null_Unbounded_String));
+                     end loop;
+                  end if;
+               end;
+            end loop;
+         end if;
+
+         if not Admit (R_Entries, Result.Envelope_Registry, Result.Routing_History, H_Status) then
+            Error_Msg := To_Unbounded_String
+              ("household.toml: failed to admit expense routing history");
+            return False;
+         end if;
+      end;
+
+      --  3. Admit Backing Policy
+      declare
+         P_Status : ALedger.Backing_Policy.Policy_Status;
+      begin
+         if not ALedger.Backing_Policy.Admit_Backing_Policy
+           (Result.Budget_Policy, Result.Envelope_Registry, Result.Backing_Policy_Spec, P_Status)
+         then
+            Error_Msg := To_Unbounded_String
+              ("budget.toml: failed to admit backing policy");
+            return False;
+         end if;
+      end;
+
+      --  4. Calculate Entitlement from budget.journal movements
+      declare
+         Ad_Diag : ALedger.Budget_Source_Adapter.Adapter_Diagnostic;
+      begin
+         if not ALedger.Budget_Source_Adapter.Observe_Entitlements
+           (Result.Budget_Ledger.Transactions,
+            Result.Household_Policy,
+            Result.Envelope_Registry,
+            Result.Entitlement,
+            Ad_Diag)
+         then
+            Error_Msg := To_Unbounded_String
+              ("budget.journal: " & To_String (Ad_Diag.Message));
+            return False;
+         end if;
+      end;
+
+      --  5. Calculate Consumption from Actual_Ledger
+      Result.Consumption :=
+        ALedger.Envelope_Consumption.Observe_Consumption
+          (Result.Actual_Ledger, Result.Routing_History);
+
+      --  6. Calculate Backing from State
+      Result.Backing :=
+        ALedger.Backing_Policy.Observe_Backing
+          (Result.Backing_Policy_Spec,
+           Result.Actual_Ledger,
+           Result.Entitlement,
+           Result.Consumption);
 
       State := Result;
       Error_Msg := Null_Unbounded_String;

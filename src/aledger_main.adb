@@ -107,7 +107,7 @@ begin
                New_Line;
                Put (Render_Household_Issues (State.Issues));
                New_Line;
-               Put (Render_Budget_Status (State.Combined_Ledger));
+               Put (Render_Budget_Status (State));
             end if;
          end;
       else

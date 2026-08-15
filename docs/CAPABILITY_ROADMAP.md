@@ -69,10 +69,14 @@ cycle、Envelope、Account policy、Report query/presentationはcanonical TOML�
 
 ## 4. 現在地
 
+更新日: 2026-08-15
+
+### 現在の実装状況
+
 | 領域 | 状態 | 現在の意味 |
 |---|---|---|
 | 固定8-source exact observation | implemented | 欠落・読取不能を拒否し、一回のsource bytesを保持 |
-| 3 TOML admission | implemented | Budget、Household、Reportを型付き値へ変換しunknown keyと参照不整合を拒否 |
+| 3 TOML admission | implemented | Budget、Household、Reportを型付き値へ変換しunknown keyと参照不整合を拒否。`[envelope-history]` もadmit |
 | Journal admission | partial | 基本Transaction、Posting、Account declaration、balance law |
 | Issues admission | partial | current private sourceを読めるがschema/lifecycle parityの精査が必要 |
 | Accounting kernel | partial | exact Quantity、Commodity Balance、Transaction、基本集計 |
@@ -82,6 +86,24 @@ cycle、Envelope、Account policy、Report query/presentationはcanonical TOML�
 | Editor / writer | prototype | safe-writer experimentはあるがcanonical authorityなし |
 | TUI | prototype | fixed date、固定JPY、画面内rule、未承認writer入口が残る |
 | Cross-engine verification | partial | synthetic golden testのみ。portfolio全体のparity harnessは未実装 |
+| Envelope Registry | implemented | `ALedger.Envelope.Envelope_Registry` をstable identityとして確立 |
+| Expense Routing | implemented | `ALedger.Envelope_Routing.Routing_History` でeffective-dated route解決 |
+| Entitlement Fold | implemented | `ALedger.Envelope_Entitlement` でbudget.journal movementをfold |
+| Consumption calculation | missing | Actual Ledger + Routing → Consumption 未実装 |
+| Backing by pool | missing | pool別のBacking position 未実装 |
+
+### Envelope-native migration progress
+
+詳細は [`PROGRESS.md`](PROGRESS.md) を参照。
+
+- [x] Step 1: `ALedger.Envelope` — 完了 (test_runner に28テスト)
+- [x] Step 2: `ALedger.Envelope_Routing` — 完了 (test_runner に20テスト)
+- [x] Step 3: `household.toml` の `[envelope-history]` parse — 完了 (9テスト + `aledger check` 成功)
+- [x] Step 4: `ALedger.Envelope_Entitlement` — 完了 (test_runner に9テスト)
+- [x] Step 5: `ALedger.Budget_Source_Adapter` — 完了 (test_runner に16テスト)
+- [x] Step 6: `ALedger.Envelope_Consumption` — 完了 (test_runner に18テスト)
+- [x] Step 7: `ALedger.Backing_Policy` — 完了 (test_runner に13テスト)
+- [x] Step 8: `Household_State` 再構成 + report 接続 + `aledger-budget` 退役 — 完了 (test_runner に3テスト + 旧コード退役)
 
 現在の`report`出力は比較・開発確認用であり、canonical resultではない。
 

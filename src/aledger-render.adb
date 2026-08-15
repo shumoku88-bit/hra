@@ -3,7 +3,11 @@ with Ada.Strings.Unbounded;  use Ada.Strings.Unbounded;
 with ALedger.Money;          use ALedger.Money;
 with ALedger.Account;        use ALedger.Account;
 with ALedger.Report;         use ALedger.Report;
-with ALedger.Budget;         use ALedger.Budget;
+with ALedger.Household;
+with ALedger.Envelope;
+with ALedger.Envelope_Entitlement;
+with ALedger.Envelope_Consumption;
+with ALedger.Backing_Policy;
 
 package body ALedger.Render is
 
@@ -41,7 +45,10 @@ package body ALedger.Render is
       As_Of_Date : String) return String
    is
       Buf : Unbounded_String;
-      TB  : constant Trial_Balance := Generate_Trial_Balance_As_Of (L, As_Of_Date);
+      TB  : constant Trial_Balance :=
+        (if As_Of_Date'Length > 0
+         then Generate_Trial_Balance_As_Of (L, As_Of_Date)
+         else Generate_Trial_Balance (L));
    begin
       Append (Buf, "== Account Balances (aledger Engine) ==" & ASCII.LF);
       Append (Buf, "As of: " & (if As_Of_Date'Length > 0 then As_Of_Date else "all transactions") & ASCII.LF);
@@ -71,7 +78,10 @@ package body ALedger.Render is
       As_Of_Date : String) return String
    is
       Buf : Unbounded_String;
-      BS  : constant Balance_Sheet := Generate_Balance_Sheet_As_Of (L, As_Of_Date);
+      BS  : constant Balance_Sheet :=
+        (if As_Of_Date'Length > 0
+         then Generate_Balance_Sheet_As_Of (L, As_Of_Date)
+         else Generate_Balance_Sheet (L));
    begin
       Append (Buf, "== Balance Sheet (aledger Engine) ==" & ASCII.LF);
       Append (Buf, "As of: " & (if As_Of_Date'Length > 0 then As_Of_Date else "all transactions") & ASCII.LF);
@@ -101,14 +111,15 @@ package body ALedger.Render is
       for Line of BS.Equity_Lines loop
          Append (Buf, Name (Line.Acc) & " | " & Render_Multi_Balance (Line.Bal) & ASCII.LF);
       end loop;
-      Append (Buf, "Current earnings | " & Render_Multi_Balance (BS.Current_Earnings) & ASCII.LF);
       Append (Buf, "Total equity     | " & Render_Multi_Balance (BS.Total_Equity) & ASCII.LF);
       Append (Buf, ASCII.LF);
 
+      Append (Buf, "Current earnings | " & Render_Multi_Balance (BS.Current_Earnings) & ASCII.LF);
+      Append (Buf, "Accounting Equation (Assets = Liabilities + Equity): ");
       if Is_Zero_Balance (BS.Accounting_Equation_Delta) then
-         Append (Buf, "Balanced: YES (Net Check: 0)" & ASCII.LF);
+         Append (Buf, "BALANCED (delta is strictly ZERO)" & ASCII.LF);
       else
-         Append (Buf, "Balanced: NO" & ASCII.LF);
+         Append (Buf, "UNBALANCED" & ASCII.LF);
       end if;
 
       return To_String (Buf);
@@ -120,7 +131,10 @@ package body ALedger.Render is
       End_Date   : String) return String
    is
       Buf : Unbounded_String;
-      PL  : constant Profit_And_Loss := Generate_Profit_And_Loss_Period (L, Start_Date, End_Date);
+      PL  : constant Profit_And_Loss :=
+        (if Start_Date'Length > 0 or End_Date'Length > 0
+         then Generate_Profit_And_Loss_Period (L, Start_Date, End_Date)
+         else Generate_Profit_And_Loss (L));
    begin
       Append (Buf, "== Profit & Loss Statement (aledger Engine) ==" & ASCII.LF);
       if Start_Date'Length = 0 and then End_Date'Length = 0 then
@@ -129,10 +143,10 @@ package body ALedger.Render is
          Append (Buf, "Period: " & Start_Date & ".." & End_Date & ASCII.LF);
       end if;
       Append (Buf, ASCII.LF);
+
       Append (Buf, "Income" & ASCII.LF);
       Append (Buf, "Account       |    Amount" & ASCII.LF);
       Append (Buf, "-------------------------" & ASCII.LF);
-
       for Line of PL.Income_Lines loop
          Append (Buf, Name (Line.Acc) & " | " & Render_Multi_Balance (Line.Bal) & ASCII.LF);
       end loop;
@@ -142,7 +156,6 @@ package body ALedger.Render is
       Append (Buf, "Expenses" & ASCII.LF);
       Append (Buf, "Account                        |    Amount" & ASCII.LF);
       Append (Buf, "------------------------------------------" & ASCII.LF);
-
       for Line of PL.Expense_Lines loop
          Append (Buf, Name (Line.Acc) & " | " & Render_Multi_Balance (Line.Bal) & ASCII.LF);
       end loop;
@@ -154,80 +167,130 @@ package body ALedger.Render is
    end Render_Profit_And_Loss;
 
    function Render_Budget_Status
-     (L : Ledger.Ledger) return String
+     (State : ALedger.Household.Household_State) return String
    is
+      use ALedger.Household;
+      use ALedger.Envelope;
+      use ALedger.Envelope_Entitlement;
+      use ALedger.Envelope_Consumption;
+      use ALedger.Backing_Policy;
+
       Buf : Unbounded_String;
-      BSR : constant Budget_Status_Report := Generate_Budget_Status (L);
       JPY : constant Commodity := Make_Commodity ("JPY");
 
-      function Extract_Sub (Acc_Name : String) return String is
-         Sep_Idx : constant Natural := Index (Acc_Name, ":");
-      begin
-         if Sep_Idx > 0 then
-            return Acc_Name (Sep_Idx + 1 .. Acc_Name'Last);
-         else
-            return Acc_Name;
-         end if;
-      end Extract_Sub;
+      All_Envs : constant Envelope_Id_Array := All_Ids (State.Envelope_Registry);
 
+      Total_Entitlement : Balance := Empty_Balance;
+      Total_Consumption : Balance := Empty_Balance;
+      Total_Refunds     : Balance := Empty_Balance;
+      Total_Remaining   : Balance := Empty_Balance;
+
+      All_Fully_Backed : Boolean := True;
    begin
       Append (Buf, "== Envelope & Backing ==" & ASCII.LF);
-      Append (Buf, "Cycle: [" & To_String (BSR.Cycle_Start_Date) & ", " & To_String (BSR.Cycle_End_Date) & ") | Observed through: " & To_String (BSR.Observation_Date) & ASCII.LF);
+      if Length (State.Consumption.Observed_Through) > 0 then
+         Append (Buf, "Observed through: " & To_String (State.Consumption.Observed_Through) & ASCII.LF);
+      end if;
       Append (Buf, ASCII.LF);
       Append (Buf, "Envelope      | Entitlement | Consumption |   Refunds |   Remaining | Plan reserve |    Headroom" & ASCII.LF);
       Append (Buf, "------------------------------------------------------------------------------------------------" & ASCII.LF);
 
-      for Env of BSR.Envelopes loop
+      for Env_Id of All_Envs loop
          declare
-            Acc_Sub : constant String := Extract_Sub (Name (Env.Acc));
-            Ent     : constant Quantity := Lookup_Balance (Env.Entitlement, JPY);
-            Con     : constant Quantity := Lookup_Balance (Env.Consumption, JPY);
-            Ref     : constant Quantity := Lookup_Balance (Env.Refunds, JPY);
-            Rem_Q   : constant Quantity := Lookup_Balance (Remaining (Env), JPY);
-            Res     : constant Quantity := Lookup_Balance (Env.Plan_Reserve, JPY);
-            Hdr     : constant Quantity := Lookup_Balance (Headroom (Env), JPY);
+            Env_Name : constant String := Image (Env_Id);
+            Ent_Bal  : constant Balance := Entitlement_For (State.Entitlement, Env_Id);
+            Amts     : constant Consumption_Amounts := Consumption_For (State.Consumption, Env_Id);
+            Rem_Bal  : constant Balance := Subtract_Balance (Ent_Bal, Net_Consumption (Amts));
+            Res_Bal  : constant Balance := Empty_Balance;
+            Hdr_Bal  : constant Balance := Rem_Bal;
+
+            Ent_Q : constant Quantity := Lookup_Balance (Ent_Bal, JPY);
+            Con_Q : constant Quantity := Lookup_Balance (Amts.Charges, JPY);
+            Ref_Q : constant Quantity := Lookup_Balance (Amts.Refunds, JPY);
+            Rem_Q : constant Quantity := Lookup_Balance (Rem_Bal, JPY);
+            Res_Q : constant Quantity := Lookup_Balance (Res_Bal, JPY);
+            Hdr_Q : constant Quantity := Lookup_Balance (Hdr_Bal, JPY);
          begin
-            if Acc_Sub /= "opening" and then Acc_Sub /= "spent" then
-               Append (Buf, Acc_Sub & " | ");
-               Append (Buf, Render_Amount_Or_Paren (Ent, "JPY") & " | ");
-               Append (Buf, Render_Amount_Or_Paren (Con, "JPY") & " | ");
-               Append (Buf, Render_Amount_Or_Paren (Ref, "JPY") & " | ");
-               Append (Buf, Render_Amount_Or_Paren (Rem_Q, "JPY") & " | ");
-               Append (Buf, Render_Amount_Or_Paren (Res, "JPY") & " | ");
-               Append (Buf, Render_Amount_Or_Paren (Hdr, "JPY") & ASCII.LF);
-            end if;
+            Total_Entitlement := Add_Balance (Total_Entitlement, Ent_Bal);
+            Total_Consumption := Add_Balance (Total_Consumption, Amts.Charges);
+            Total_Refunds     := Add_Balance (Total_Refunds, Amts.Refunds);
+            Total_Remaining   := Add_Balance (Total_Remaining, Rem_Bal);
+
+            Append (Buf, Env_Name & " | ");
+            Append (Buf, Render_Amount_Or_Paren (Ent_Q, "JPY") & " | ");
+            Append (Buf, Render_Amount_Or_Paren (Con_Q, "JPY") & " | ");
+            Append (Buf, Render_Amount_Or_Paren (Ref_Q, "JPY") & " | ");
+            Append (Buf, Render_Amount_Or_Paren (Rem_Q, "JPY") & " | ");
+            Append (Buf, Render_Amount_Or_Paren (Res_Q, "JPY") & " | ");
+            Append (Buf, Render_Amount_Or_Paren (Hdr_Q, "JPY") & ASCII.LF);
          end;
       end loop;
 
-      Append (Buf, ASCII.LF);
-      Append (Buf, "Expense activity outside an envelope" & ASCII.LF);
-      Append (Buf, "Account             |   Movement" & ASCII.LF);
-      Append (Buf, "--------------------------------" & ASCII.LF);
+      --  Unmanaged / Unrouted expenses
+      if not State.Consumption.Unmanaged.Is_Empty or else not State.Consumption.Unrouted.Is_Empty then
+         Append (Buf, ASCII.LF);
+         Append (Buf, "Expense activity outside an envelope" & ASCII.LF);
+         Append (Buf, "Account             |   Movement" & ASCII.LF);
+         Append (Buf, "--------------------------------" & ASCII.LF);
 
-      for Line of BSR.Unenveloped_Expenses loop
-         declare
-            Mov_Q : constant Quantity := Lookup_Balance (Line.Movement, JPY);
-         begin
-            if not Is_Zero (Mov_Q) then
-               Append (Buf, Name (Line.Acc) & " | " & Render_Amount_Or_Paren (Mov_Q, "JPY") & ASCII.LF);
-            end if;
-         end;
-      end loop;
+         for Cursor in State.Consumption.Unmanaged.Iterate loop
+            declare
+               Acc_Name : constant String :=
+                 Account_Amounts_Maps.Key (Cursor);
+               Amts     : constant Consumption_Amounts :=
+                 Account_Amounts_Maps.Element (Cursor);
+               Net_Q    : constant Quantity := Lookup_Balance (Net_Consumption (Amts), JPY);
+            begin
+               if not Is_Zero (Net_Q) then
+                  Append (Buf, Acc_Name & " | " & Render_Amount_Or_Paren (Net_Q, "JPY") & ASCII.LF);
+               end if;
+            end;
+         end loop;
 
+         for Cursor in State.Consumption.Unrouted.Iterate loop
+            declare
+               Acc_Name : constant String :=
+                 Account_Amounts_Maps.Key (Cursor);
+               Amts     : constant Consumption_Amounts :=
+                 Account_Amounts_Maps.Element (Cursor);
+               Net_Q    : constant Quantity := Lookup_Balance (Net_Consumption (Amts), JPY);
+            begin
+               if not Is_Zero (Net_Q) then
+                  Append (Buf, Acc_Name & " (unrouted) | " & Render_Amount_Or_Paren (Net_Q, "JPY") & ASCII.LF);
+               end if;
+            end;
+         end loop;
+      end if;
+
+      --  Backing Evidence
       Append (Buf, ASCII.LF);
       Append (Buf, "Backing evidence" & ASCII.LF);
       Append (Buf, "Coordinate                |       Amount" & ASCII.LF);
       Append (Buf, "----------------------------------------" & ASCII.LF);
-      Append (Buf, "Funding balance           | " & Render_Multi_Balance (BSR.Funding_Balance) & ASCII.LF);
-      Append (Buf, "Signed envelope total     | " & Render_Multi_Balance (BSR.Total_Entitlement) & ASCII.LF);
-      Append (Buf, "Positive backing required | " & Render_Multi_Balance (BSR.Backing_Required) & ASCII.LF);
-      Append (Buf, "Backing surplus           | " & Render_Multi_Balance (BSR.Backing_Surplus) & ASCII.LF);
-      Append (Buf, "Reconciliation delta      | " & Render_Multi_Balance (BSR.Reconciliation_Delta) & ASCII.LF);
+
+      for Cursor in State.Backing.Positions.Iterate loop
+         declare
+            Pool_Name : constant String := Pool_Position_Maps.Key (Cursor);
+            Pos       : constant Backing_Pool_Position := Pool_Position_Maps.Element (Cursor);
+            Surplus   : constant Balance := Gross_Surplus (Pos);
+            Surplus_Q : constant Quantity := Lookup_Balance (Surplus, JPY);
+         begin
+            if Surplus_Q < Zero_Quantity then
+               All_Fully_Backed := False;
+            end if;
+
+            Append (Buf, "Funding balance (" & Pool_Name & ") | " & Render_Multi_Balance (Pos.Funding_Balance) & ASCII.LF);
+            Append (Buf, "Positive backing required (" & Pool_Name & ") | " & Render_Multi_Balance (Pos.Gross_Envelope_Required) & ASCII.LF);
+            Append (Buf, "Backing surplus (" & Pool_Name & ") | " & Render_Multi_Balance (Surplus) & ASCII.LF);
+         end;
+      end loop;
+
+      Append (Buf, "Signed envelope total     | " & Render_Multi_Balance (Total_Entitlement) & ASCII.LF);
       Append (Buf, ASCII.LF);
-      if BSR.Is_Under_Backed then
-         Append (Buf, "Status: under_backed" & ASCII.LF);
-      else
+      if All_Fully_Backed then
          Append (Buf, "Status: fully_backed" & ASCII.LF);
+      else
+         Append (Buf, "Status: under_backed" & ASCII.LF);
       end if;
 
       return To_String (Buf);
