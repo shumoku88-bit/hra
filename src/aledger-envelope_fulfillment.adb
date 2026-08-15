@@ -102,6 +102,8 @@ package body ALedger.Envelope_Fulfillment is
          end if;
       end Direction;
 
+      --  Cheap relation traversal used only to decide whether an Actual belongs
+      --  to the candidate root chain. Exact reversal validity is checked below.
       function Root_Event_Id (Event_Id : String) return Unbounded_String is
          Current : Unbounded_String := To_Unbounded_String (Event_Id);
       begin
@@ -122,26 +124,63 @@ package body ALedger.Envelope_Fulfillment is
          return Null_Unbounded_String;
       end Root_Event_Id;
 
-      function Reversal_Shape_Matches
-        (Candidate, Root : ALedger.Ledger.Transaction) return Boolean
+      --  Validate every relation edge from Event_Id back to Root_Id using the
+      --  Ledger's canonical reversal law. Posting order is deliberately not part
+      --  of reversal identity. Depth parity alone determines whether the fixed
+      --  root target is currently applied or reversed.
+      function Reversal_Depth_To_Root
+        (Event_Id : String;
+         Root_Id  : String;
+         Depth    : out Natural) return Boolean
       is
+         Current : Unbounded_String := To_Unbounded_String (Event_Id);
       begin
-         if Natural (Candidate.Postings.Length) /= Natural (Root.Postings.Length) then
+         Depth := 0;
+         if Event_Id'Length = 0 or else Root_Id'Length = 0 then
             return False;
          end if;
 
-         for I in 1 .. Natural (Root.Postings.Length) loop
+         for Step in 0 .. Natural (Actual_Ledger.Transactions.Length) loop
+            pragma Unreferenced (Step);
+            if To_String (Current) = Root_Id then
+               return True;
+            end if;
+
+            if not Event_Index.Contains (To_String (Current)) then
+               return False;
+            end if;
+
             declare
-               C : constant ALedger.Ledger.Posting := Candidate.Postings.Element (I);
-               R : constant ALedger.Ledger.Posting := Root.Postings.Element (I);
+               Current_Tx : constant ALedger.Ledger.Transaction :=
+                 Actual_Ledger.Transactions.Element
+                   (Event_Index.Element (To_String (Current)));
+               Target_Id : constant String := To_String (Current_Tx.Reverses_ID);
             begin
-               if C.Acc /= R.Acc or else C.Amt.Comm /= R.Amt.Comm then
+               if Target_Id'Length = 0
+                 or else not Event_Index.Contains (Target_Id)
+               then
                   return False;
                end if;
+
+               declare
+                  Target_Tx : constant ALedger.Ledger.Transaction :=
+                    Actual_Ledger.Transactions.Element
+                      (Event_Index.Element (Target_Id));
+               begin
+                  if not ALedger.Ledger.Is_Reversal_Of
+                    (Current_Tx, Target_Tx)
+                  then
+                     return False;
+                  end if;
+               end;
+
+               Depth := Depth + 1;
+               Current := To_Unbounded_String (Target_Id);
             end;
          end loop;
-         return True;
-      end Reversal_Shape_Matches;
+
+         return False;
+      end Reversal_Depth_To_Root;
 
    begin
       Output.Observed_Through := To_Unbounded_String (Observed_Through);
@@ -268,7 +307,9 @@ package body ALedger.Envelope_Fulfillment is
                           and then Category /= ALedger.Account.Expense
                         then
                            declare
-                              Amounts : Fulfillment_Amounts := Empty_Amounts;
+                              Amounts     : Fulfillment_Amounts := Empty_Amounts;
+                              Root_Amount : constant ALedger.Money.Amount :=
+                                Pair.Actual_Tx.Postings.Element (I).Amt;
                            begin
                               for Tx of Actual_Ledger.Transactions loop
                                  declare
@@ -279,29 +320,27 @@ package body ALedger.Envelope_Fulfillment is
                                       and then Ev_Id'Length > 0
                                       and then To_String (Root_Event_Id (Ev_Id)) = Root_Id
                                     then
-                                       if not Reversal_Shape_Matches
-                                         (Tx, Pair.Actual_Tx)
-                                       then
-                                          Fail
-                                            (Reversal_Shape_Mismatch,
-                                             Pair.ID,
-                                             "Fulfillment reversal chain must preserve root Account/Commodity shape");
-                                          return False;
-                                       end if;
-
                                        declare
-                                          Amount : constant ALedger.Money.Amount :=
-                                            Tx.Postings.Element (I).Amt;
+                                          Depth : Natural;
                                        begin
-                                          if Amount.Val > ALedger.Money.Zero_Quantity then
+                                          if not Reversal_Depth_To_Root
+                                            (Ev_Id, Root_Id, Depth)
+                                          then
+                                             Fail
+                                               (Reversal_Shape_Mismatch,
+                                                Pair.ID,
+                                                "Fulfillment reversal chain must consist of exact Ledger reversal links");
+                                             return False;
+                                          end if;
+
+                                          if Depth mod 2 = 0 then
                                              Amounts.Applied := Add_Balance
                                                (Amounts.Applied,
-                                                Singleton_Balance (Amount));
-                                          elsif Amount.Val < ALedger.Money.Zero_Quantity then
+                                                Singleton_Balance (Root_Amount));
+                                          else
                                              Amounts.Reversed := Add_Balance
                                                (Amounts.Reversed,
-                                                Singleton_Balance
-                                                  (ALedger.Money.Negate_Amount (Amount)));
+                                                Singleton_Balance (Root_Amount));
                                           end if;
                                        end;
                                     end if;
