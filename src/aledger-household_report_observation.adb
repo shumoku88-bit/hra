@@ -70,6 +70,7 @@ package body ALedger.Household_Report_Observation is
         (Result.Open_Plans,
          State.Registry,
          State.Routing_History,
+         State.Fulfillment_History,
          Result.Current_Cycle,
          Observed_Through,
          Result.Commitment,

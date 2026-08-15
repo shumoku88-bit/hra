@@ -288,13 +288,14 @@ package body ALedger.Household_Config is
          end if;
 
          if Has_History then
-            if not Check_Keys (History_Section, "identities|expense-routing",
-                                Source_Name, "envelope-history", Diag)
+            if not Check_Keys
+              (History_Section,
+               "identities|expense-routing|fulfillment-routing",
+               Source_Name, "envelope-history", Diag)
             then
                return False;
             end if;
 
-            --  Parse identities array
             declare
                Identities_Value : TOML.TOML_Value;
                Has_Identities   : Boolean;
@@ -325,7 +326,6 @@ package body ALedger.Household_Config is
                end if;
             end;
 
-            --  Parse expense-routing array
             declare
                Routing_Value : TOML.TOML_Value;
                Has_Routing   : Boolean;
@@ -429,13 +429,109 @@ package body ALedger.Household_Config is
                         end if;
 
                         if Has_Note then
-                           Entry_Data.Note :=
-                             Note_Value.As_Unbounded_String;
+                           Entry_Data.Note := Note_Value.As_Unbounded_String;
                         else
                            Entry_Data.Note := Null_Unbounded_String;
                         end if;
 
                         Result.Envelope_History.Expense_Routing.Append
+                          (Entry_Data);
+                     end;
+                  end loop;
+               end if;
+            end;
+
+            declare
+               Routing_Value : TOML.TOML_Value;
+               Has_Routing   : Boolean;
+            begin
+               if not Optional
+                 (History_Section, "fulfillment-routing", TOML.TOML_Array,
+                  Source_Name, "envelope-history",
+                  Routing_Value, Has_Routing, Diag)
+               then
+                  return False;
+               end if;
+
+               if Has_Routing then
+                  for I in 1 .. Routing_Value.Length loop
+                     declare
+                        Item : constant TOML.TOML_Value :=
+                          Routing_Value.Item (I);
+                        Path : constant String :=
+                          "envelope-history.fulfillment-routing["
+                          & Image (I) & "]";
+                        Effective_Value : TOML.TOML_Value;
+                        Plan_Value      : TOML.TOML_Value;
+                        Route_Value     : TOML.TOML_Value;
+                        Target_Value    : TOML.TOML_Value;
+                        Note_Value      : TOML.TOML_Value;
+                        Has_Target      : Boolean;
+                        Entry_Data      : Fulfillment_Routing_Entry_Data;
+                     begin
+                        if Item.Kind /= TOML.TOML_Table then
+                           Set_Error
+                             (Diag, Source_Name, Path, "expected table", Item);
+                           return False;
+                        end if;
+
+                        if not Check_Keys
+                          (Item,
+                           "effective-from|plan-id|route|target|note",
+                           Source_Name, Path, Diag)
+                          or else not Require
+                            (Item, "effective-from", TOML.TOML_String,
+                             Source_Name, Path, Effective_Value, Diag)
+                          or else not Require
+                            (Item, "plan-id", TOML.TOML_String,
+                             Source_Name, Path, Plan_Value, Diag)
+                          or else not Require
+                            (Item, "route", TOML.TOML_String,
+                             Source_Name, Path, Route_Value, Diag)
+                          or else not Optional
+                            (Item, "target", TOML.TOML_String,
+                             Source_Name, Path,
+                             Target_Value, Has_Target, Diag)
+                          or else not Require
+                            (Item, "note", TOML.TOML_String,
+                             Source_Name, Path, Note_Value, Diag)
+                        then
+                           return False;
+                        end if;
+
+                        Entry_Data.Effective_From :=
+                          Effective_Value.As_Unbounded_String;
+                        Entry_Data.Plan_ID := Plan_Value.As_Unbounded_String;
+                        Entry_Data.Note := Note_Value.As_Unbounded_String;
+
+                        if Route_Value.As_String = "fulfills" then
+                           if not Has_Target then
+                              Set_Error
+                                (Diag, Source_Name, Path & ".target",
+                                 "required when route is 'fulfills'", Item);
+                              return False;
+                           end if;
+                           Entry_Data.Route :=
+                             (Kind   => Fulfills,
+                              Target => Target_Value.As_Unbounded_String);
+                        elsif Route_Value.As_String = "not-target" then
+                           if Has_Target then
+                              Set_Error
+                                (Diag, Source_Name, Path & ".target",
+                                 "must be absent when route is 'not-target'",
+                                 Target_Value);
+                              return False;
+                           end if;
+                           Entry_Data.Route := (Kind => Not_Target);
+                        else
+                           Set_Error
+                             (Diag, Source_Name, Path & ".route",
+                              "expected 'fulfills' or 'not-target'",
+                              Route_Value);
+                           return False;
+                        end if;
+
+                        Result.Envelope_History.Fulfillment_Routing.Append
                           (Entry_Data);
                      end;
                   end loop;

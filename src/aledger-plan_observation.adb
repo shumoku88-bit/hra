@@ -90,6 +90,87 @@ package body ALedger.Plan_Observation is
       end loop;
    end Find_Metadata;
 
+   function Admit_Plan_Identities
+     (Plan_Ledger      : ALedger.Ledger.Ledger;
+      Plan_Source_Text : String;
+      Result           : out ALedger.Plan.Plan_Id_Universe;
+      Diag             : out Admission_Diagnostic) return Boolean
+   is
+      Evidence      : ALedger.Journal_Evidence.Journal_Evidence;
+      Evidence_Diag : Evidence_Diagnostic;
+      Output        : ALedger.Plan.Plan_Id_Universe :=
+        ALedger.Plan.Empty_Plan_Id_Universe;
+   begin
+      Result := Output;
+      Diag :=
+        (Status      => Success,
+         Line_Number => 0,
+         Plan_Id     => Null_Unbounded_String,
+         Message     => Null_Unbounded_String);
+
+      if not Extract (Plan_Source_Text, Plan_Ledger, Evidence, Evidence_Diag) then
+         Diag :=
+           (Status      => Plan_Source_Evidence_Error,
+            Line_Number => Evidence_Diag.Line_Number,
+            Plan_Id     => Null_Unbounded_String,
+            Message     => Evidence_Diag.Message);
+         return False;
+      end if;
+
+      for I in 1 .. Natural (Plan_Ledger.Transactions.Length) loop
+         declare
+            Source     : constant Transaction_Source := Evidence.Transactions.Element (I);
+            Plan_Count : Natural;
+            Plan_Meta  : Metadata_Entry;
+            PID        : ALedger.Plan.Plan_Id;
+            PID_Status : ALedger.Plan.Plan_Id_Status;
+         begin
+            Find_Metadata (Source, "plan-id", Plan_Count, Plan_Meta);
+            if Plan_Count = 0 then
+               Diag :=
+                 (Status      => Missing_Plan_Id,
+                  Line_Number => Source.Header_Line,
+                  Plan_Id     => Null_Unbounded_String,
+                  Message     => To_Unbounded_String
+                    ("Plan transaction is missing plan-id metadata"));
+               return False;
+            elsif Plan_Count > 1 then
+               Diag :=
+                 (Status      => Duplicate_Plan_Metadata,
+                  Line_Number => Plan_Meta.Line_Number,
+                  Plan_Id     => Plan_Meta.Value,
+                  Message     => To_Unbounded_String
+                    ("Plan transaction repeats plan-id metadata"));
+               return False;
+            elsif not ALedger.Plan.Create_Plan_Id
+              (To_String (Plan_Meta.Value), PID, PID_Status)
+            then
+               Diag :=
+                 (Status      => Invalid_Plan_Id,
+                  Line_Number => Plan_Meta.Line_Number,
+                  Plan_Id     => Plan_Meta.Value,
+                  Message     => To_Unbounded_String ("invalid plan-id"));
+               return False;
+            end if;
+
+            if ALedger.Plan.Contains (Output, PID) then
+               Diag :=
+                 (Status      => Duplicate_Plan_Id,
+                  Line_Number => Plan_Meta.Line_Number,
+                  Plan_Id     => To_Unbounded_String (ALedger.Plan.Text (PID)),
+                  Message     => To_Unbounded_String
+                    ("plan-id identifies more than one transaction"));
+               return False;
+            end if;
+
+            ALedger.Plan.Include (Output, PID);
+         end;
+      end loop;
+
+      Result := Output;
+      return True;
+   end Admit_Plan_Identities;
+
    function Observe_Open_Plans
      (Plan_Ledger        : ALedger.Ledger.Ledger;
       Plan_Source_Text   : String;

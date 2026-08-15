@@ -2,21 +2,25 @@ with ALedger.Journal;          use ALedger.Journal;
 with ALedger.Canonical_Source; use ALedger.Canonical_Source;
 with ALedger.Config_Support;
 with ALedger.Budget_Source_Adapter;
+with ALedger.Plan;
+with ALedger.Plan_Observation;
+with ALedger.Fulfillment_Routing;
 
 package body ALedger.Household is
 
    function Empty_Household_State return Household_State is
       State : Household_State;
    begin
-      State.Registry          := Empty_Registry;
-      State.Actual_Ledger     := Empty_Ledger;
-      State.Plan_Ledger       := Empty_Ledger;
-      State.Budget_Ledger     := Empty_Ledger;
-      State.Combined_Ledger   := Empty_Ledger;
-      State.Envelope_Registry := ALedger.Envelope.Empty_Registry;
-      State.Routing_History   := ALedger.Envelope_Routing.Empty_History;
-      State.Entitlement       := ALedger.Envelope_Entitlement.Empty_Observation;
-      State.Consumption       := ALedger.Envelope_Consumption.Empty_Consumption;
+      State.Registry            := Empty_Registry;
+      State.Actual_Ledger       := Empty_Ledger;
+      State.Plan_Ledger         := Empty_Ledger;
+      State.Budget_Ledger       := Empty_Ledger;
+      State.Combined_Ledger     := Empty_Ledger;
+      State.Envelope_Registry   := ALedger.Envelope.Empty_Registry;
+      State.Routing_History     := ALedger.Envelope_Routing.Empty_History;
+      State.Fulfillment_History := ALedger.Fulfillment_Routing.Empty_History;
+      State.Entitlement         := ALedger.Envelope_Entitlement.Empty_Observation;
+      State.Consumption         := ALedger.Envelope_Consumption.Empty_Consumption;
       return State;
    end Empty_Household_State;
 
@@ -271,7 +275,7 @@ package body ALedger.Household is
          end if;
       end;
 
-      --  2. Admit Routing History from envelope-history.expense-routing (or budget.toml envelopes)
+      --  2. Admit Expense Routing History.
       declare
          use ALedger.Envelope_Routing;
          R_Entries : Routing_Entry_Vectors.Vector;
@@ -321,7 +325,8 @@ package body ALedger.Household is
                end;
             end loop;
          else
-            --  Fallback: synthesize initial routing from budget.toml envelopes
+            --  Legacy bootstrap only: if no historical Expense routing exists,
+            --  synthesize initial routing from budget.toml envelope definitions.
             for Env_Def of Result.Budget_Policy.Envelopes loop
                declare
                   Target_Id : ALedger.Envelope.Envelope_Id;
@@ -345,14 +350,110 @@ package body ALedger.Household is
             end loop;
          end if;
 
-         if not Admit (R_Entries, Result.Envelope_Registry, Result.Routing_History, H_Status) then
+         if not Admit
+           (R_Entries, Result.Envelope_Registry,
+            Result.Routing_History, H_Status)
+         then
             Error_Msg := To_Unbounded_String
               ("household.toml: failed to admit expense routing history");
             return False;
          end if;
       end;
 
-      --  3. Admit Backing Policy
+      --  3. Admit Fulfillment Routing History only when the source declares
+      --     such coordinates. Households that do not use this source retain
+      --     their previous Plan admission surface unchanged.
+      if not Result.Household_Policy.Envelope_History.Fulfillment_Routing.Is_Empty then
+         declare
+            Known_Plans : ALedger.Plan.Plan_Id_Universe;
+            Plan_Diag   : ALedger.Plan_Observation.Admission_Diagnostic;
+            Decisions   : ALedger.Fulfillment_Routing.Decision_Vectors.Vector;
+            F_Status    : ALedger.Fulfillment_Routing.Admission_Status;
+         begin
+            if not ALedger.Plan_Observation.Admit_Plan_Identities
+              (Result.Plan_Ledger,
+               Text_For (Observation, Plan_Source),
+               Known_Plans,
+               Plan_Diag)
+            then
+               Error_Msg := To_Unbounded_String
+                 ("plan.journal: failed to admit stable Plan identities: " &
+                  ALedger.Plan_Observation.Admission_Status'Image
+                    (Plan_Diag.Status) &
+                  (if Length (Plan_Diag.Message) > 0
+                   then ": " & To_String (Plan_Diag.Message)
+                   else ""));
+               return False;
+            end if;
+
+            for Entry_Data of
+              Result.Household_Policy.Envelope_History.Fulfillment_Routing
+            loop
+               declare
+                  PID        : ALedger.Plan.Plan_Id;
+                  PID_Status : ALedger.Plan.Plan_Id_Status;
+               begin
+                  if not ALedger.Plan.Create_Plan_Id
+                    (To_String (Entry_Data.Plan_ID), PID, PID_Status)
+                  then
+                     Error_Msg := To_Unbounded_String
+                       ("household.toml: invalid fulfillment-routing PlanId: " &
+                        To_String (Entry_Data.Plan_ID));
+                     return False;
+                  end if;
+
+                  case Entry_Data.Route.Kind is
+                     when ALedger.Household_Config.Fulfills =>
+                        declare
+                           Target_Id     : ALedger.Envelope.Envelope_Id;
+                           Target_Status : ALedger.Envelope.Envelope_Id_Status;
+                        begin
+                           if not ALedger.Envelope.Create_Envelope_Id
+                             (To_String (Entry_Data.Route.Target),
+                              Target_Id,
+                              Target_Status)
+                           then
+                              Error_Msg := To_Unbounded_String
+                                ("household.toml: invalid fulfillment-routing EnvelopeId: " &
+                                 To_String (Entry_Data.Route.Target));
+                              return False;
+                           end if;
+
+                           Decisions.Append
+                             (ALedger.Fulfillment_Routing.Fulfillment_Routing_Decision'
+                                (Effective_From => Entry_Data.Effective_From,
+                                 Plan_ID        => PID,
+                                 Route          => ALedger.Fulfillment_Routing.Fulfills (Target_Id),
+                                 Note           => Entry_Data.Note));
+                        end;
+
+                     when ALedger.Household_Config.Not_Target =>
+                        Decisions.Append
+                          (ALedger.Fulfillment_Routing.Fulfillment_Routing_Decision'
+                             (Effective_From => Entry_Data.Effective_From,
+                              Plan_ID        => PID,
+                              Route          => ALedger.Fulfillment_Routing.Not_Target,
+                              Note           => Entry_Data.Note));
+                  end case;
+               end;
+            end loop;
+
+            if not ALedger.Fulfillment_Routing.Admit
+              (Decisions,
+               Known_Plans,
+               Result.Envelope_Registry,
+               Result.Fulfillment_History,
+               F_Status)
+            then
+               Error_Msg := To_Unbounded_String
+                 ("household.toml: failed to admit fulfillment routing history: " &
+                  ALedger.Fulfillment_Routing.Admission_Status'Image (F_Status));
+               return False;
+            end if;
+         end;
+      end if;
+
+      --  4. Admit Backing Policy.
       declare
          P_Status : ALedger.Backing_Policy.Policy_Status;
       begin
@@ -365,7 +466,7 @@ package body ALedger.Household is
          end if;
       end;
 
-      --  4. Calculate Entitlement from budget.journal movements
+      --  5. Calculate Entitlement from budget.journal movements.
       declare
          Ad_Diag : ALedger.Budget_Source_Adapter.Adapter_Diagnostic;
       begin
@@ -382,12 +483,13 @@ package body ALedger.Household is
          end if;
       end;
 
-      --  5. Calculate Consumption from Actual_Ledger
+      --  6. Calculate Consumption from Actual_Ledger.
       Result.Consumption :=
         ALedger.Envelope_Consumption.Observe_Consumption
           (Result.Actual_Ledger, Result.Routing_History);
 
-      --  6. Calculate Backing from State
+      --  7. Calculate base Backing from State. Observation-day Plan
+      --     commitments remain report-time projections.
       Result.Backing :=
         ALedger.Backing_Policy.Observe_Backing
           (Result.Backing_Policy_Spec,

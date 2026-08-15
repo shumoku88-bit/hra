@@ -1,4 +1,5 @@
 with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
+with Ada.Containers.Indefinite_Vectors;
 with ALedger.Money;          use ALedger.Money;
 with ALedger.Account;        use ALedger.Account;
 with ALedger.Ledger;         use ALedger.Ledger;
@@ -10,6 +11,10 @@ package ALedger.Plan is
    --  ========================================================================
 
    type Plan_Id is private;
+
+   function "=" (Left, Right : Plan_Id) return Boolean;
+
+   type Plan_Id_Universe is private;
 
    type Plan_Id_Status is
      (Success,
@@ -27,7 +32,17 @@ package ALedger.Plan is
    function Is_Null (PID : Plan_Id) return Boolean;
    function Text (PID : Plan_Id) return String;
 
-   function "=" (Left, Right : Plan_Id) return Boolean;
+   function Empty_Plan_Id_Universe return Plan_Id_Universe;
+
+   procedure Include
+     (Universe : in out Plan_Id_Universe;
+      PID      : Plan_Id);
+
+   function Contains
+     (Universe : Plan_Id_Universe;
+      PID      : Plan_Id) return Boolean;
+
+   function Length (Universe : Plan_Id_Universe) return Natural;
 
    --  ========================================================================
    --  Plan Lifecycle Status & Retirement
@@ -77,6 +92,15 @@ private
 
    type Plan_Id is record
       ID_Text : Unbounded_String;
+   end record;
+
+   package Plan_Id_Vectors is new Ada.Containers.Indefinite_Vectors
+     (Index_Type   => Positive,
+      Element_Type => Plan_Id,
+      "="          => "=");
+
+   type Plan_Id_Universe is record
+      Items : Plan_Id_Vectors.Vector;
    end record;
 
 end ALedger.Plan;
