@@ -119,7 +119,7 @@ procedure Test_Fulfillment_Routing is
    Actual       : ALedger.Ledger.Ledger;
    Plans        : ALedger.Ledger.Ledger;
    Parse_Error  : Unbounded_String;
-   Known_Plans  : ALedger.Plan.Plan_Id_Vectors.Vector;
+   Known_Plans  : ALedger.Plan.Plan_Id_Universe;
    Plan_Diag    : ALedger.Plan_Observation.Admission_Diagnostic;
    Open_Plans   : ALedger.Plan_Observation.Open_Plan_Vectors.Vector;
    Window       : ALedger.Cycle_Observation.Cycle_Window;
@@ -187,7 +187,7 @@ begin
         (Plans, Plan_Source, Known_Plans, Plan_Diag),
       "Admit stable Plan identity universe from exact Plan source evidence");
    Assert
-     (Natural (Known_Plans.Length) = 4,
+     (ALedger.Plan.Length (Known_Plans) = 4,
       "Stable Plan identity universe retains all lifecycle-independent PlanIds");
 
    Assert

@@ -55,7 +55,7 @@ package ALedger.Fulfillment_Routing is
    --  to Plans that are now completed, cancelled, or superseded.
    function Admit
      (Decisions   : Decision_Vectors.Vector;
-      Known_Plans : ALedger.Plan.Plan_Id_Vectors.Vector;
+      Known_Plans : ALedger.Plan.Plan_Id_Universe;
       Registry    : ALedger.Envelope.Envelope_Registry;
       History     : out Fulfillment_Routing_History;
       Status      : out Admission_Status) return Boolean;

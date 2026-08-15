@@ -58,6 +58,39 @@ package body ALedger.Plan is
       return Left.ID_Text = Right.ID_Text;
    end "=";
 
+   function Empty_Plan_Id_Universe return Plan_Id_Universe is
+   begin
+      return (Items => Plan_Id_Vectors.Empty_Vector);
+   end Empty_Plan_Id_Universe;
+
+   function Contains
+     (Universe : Plan_Id_Universe;
+      PID      : Plan_Id) return Boolean
+   is
+   begin
+      for Existing of Universe.Items loop
+         if Existing = PID then
+            return True;
+         end if;
+      end loop;
+      return False;
+   end Contains;
+
+   procedure Include
+     (Universe : in out Plan_Id_Universe;
+      PID      : Plan_Id)
+   is
+   begin
+      if not Contains (Universe, PID) then
+         Universe.Items.Append (PID);
+      end if;
+   end Include;
+
+   function Length (Universe : Plan_Id_Universe) return Natural is
+   begin
+      return Natural (Universe.Items.Length);
+   end Length;
+
    function Create_Plan_Entry
      (ID_Str   : String;
       Date_Str : String;

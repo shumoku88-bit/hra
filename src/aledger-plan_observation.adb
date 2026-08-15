@@ -93,12 +93,13 @@ package body ALedger.Plan_Observation is
    function Admit_Plan_Identities
      (Plan_Ledger      : ALedger.Ledger.Ledger;
       Plan_Source_Text : String;
-      Result           : out ALedger.Plan.Plan_Id_Vectors.Vector;
+      Result           : out ALedger.Plan.Plan_Id_Universe;
       Diag             : out Admission_Diagnostic) return Boolean
    is
       Evidence      : ALedger.Journal_Evidence.Journal_Evidence;
       Evidence_Diag : Evidence_Diagnostic;
-      Output        : ALedger.Plan.Plan_Id_Vectors.Vector;
+      Output        : ALedger.Plan.Plan_Id_Universe :=
+        ALedger.Plan.Empty_Plan_Id_Universe;
    begin
       Result := Output;
       Diag :=
@@ -152,19 +153,17 @@ package body ALedger.Plan_Observation is
                return False;
             end if;
 
-            for Existing of Output loop
-               if Existing = PID then
-                  Diag :=
-                    (Status      => Duplicate_Plan_Id,
-                     Line_Number => Plan_Meta.Line_Number,
-                     Plan_Id     => To_Unbounded_String (ALedger.Plan.Text (PID)),
-                     Message     => To_Unbounded_String
-                       ("plan-id identifies more than one transaction"));
-                  return False;
-               end if;
-            end loop;
+            if ALedger.Plan.Contains (Output, PID) then
+               Diag :=
+                 (Status      => Duplicate_Plan_Id,
+                  Line_Number => Plan_Meta.Line_Number,
+                  Plan_Id     => To_Unbounded_String (ALedger.Plan.Text (PID)),
+                  Message     => To_Unbounded_String
+                    ("plan-id identifies more than one transaction"));
+               return False;
+            end if;
 
-            Output.Append (PID);
+            ALedger.Plan.Include (Output, PID);
          end;
       end loop;
 

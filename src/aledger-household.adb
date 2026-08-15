@@ -365,7 +365,7 @@ package body ALedger.Household is
       --     their previous Plan admission surface unchanged.
       if not Result.Household_Policy.Envelope_History.Fulfillment_Routing.Is_Empty then
          declare
-            Known_Plans : ALedger.Plan.Plan_Id_Vectors.Vector;
+            Known_Plans : ALedger.Plan.Plan_Id_Universe;
             Plan_Diag   : ALedger.Plan_Observation.Admission_Diagnostic;
             Decisions   : ALedger.Fulfillment_Routing.Decision_Vectors.Vector;
             F_Status    : ALedger.Fulfillment_Routing.Admission_Status;

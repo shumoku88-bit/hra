@@ -46,7 +46,7 @@ package ALedger.Plan_Observation is
    function Admit_Plan_Identities
      (Plan_Ledger      : ALedger.Ledger.Ledger;
       Plan_Source_Text : String;
-      Result           : out ALedger.Plan.Plan_Id_Vectors.Vector;
+      Result           : out ALedger.Plan.Plan_Id_Universe;
       Diag             : out Admission_Diagnostic) return Boolean;
 
    --  Observe whole admitted Plan transactions that remain open at one

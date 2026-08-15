@@ -60,22 +60,9 @@ package body ALedger.Fulfillment_Routing is
          return False;
    end Valid_Date;
 
-   function Contains_Plan
-     (Known_Plans : ALedger.Plan.Plan_Id_Vectors.Vector;
-      Plan_ID     : ALedger.Plan.Plan_Id) return Boolean
-   is
-   begin
-      for Known of Known_Plans loop
-         if Known = Plan_ID then
-            return True;
-         end if;
-      end loop;
-      return False;
-   end Contains_Plan;
-
    function Admit
      (Decisions   : Decision_Vectors.Vector;
-      Known_Plans : ALedger.Plan.Plan_Id_Vectors.Vector;
+      Known_Plans : ALedger.Plan.Plan_Id_Universe;
       Registry    : ALedger.Envelope.Envelope_Registry;
       History     : out Fulfillment_Routing_History;
       Status      : out Admission_Status) return Boolean
@@ -86,7 +73,7 @@ package body ALedger.Fulfillment_Routing is
          if not Valid_Date (To_String (Decision.Effective_From)) then
             Status := Invalid_Effective_Date;
             return False;
-         elsif not Contains_Plan (Known_Plans, Decision.Plan_ID) then
+         elsif not ALedger.Plan.Contains (Known_Plans, Decision.Plan_ID) then
             Status := Unknown_Plan_Reference;
             return False;
          elsif Decision.Route.Kind = Fulfills_Envelope
