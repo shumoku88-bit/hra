@@ -2,6 +2,7 @@ with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
 with Ada.Containers.Indefinite_Vectors;
 with ALedger.Ledger;
 with ALedger.Plan;
+with ALedger.Journal_Evidence;
 
 package ALedger.Plan_Observation is
 
@@ -13,6 +14,21 @@ package ALedger.Plan_Observation is
    package Open_Plan_Vectors is new Ada.Containers.Indefinite_Vectors
      (Index_Type   => Positive,
       Element_Type => Open_Plan);
+
+   --  One whole admitted Plan paired with the explicit Actual transaction that
+   --  completes it. Source evidence comes from the exact bytes already held by
+   --  the canonical Household observation; no posting or amount is reparsed.
+   type Completed_Plan is record
+      ID            : ALedger.Plan.Plan_Id;
+      Plan_Tx       : ALedger.Ledger.Transaction;
+      Actual_Tx     : ALedger.Ledger.Transaction;
+      Plan_Source   : ALedger.Journal_Evidence.Transaction_Source;
+      Actual_Source : ALedger.Journal_Evidence.Transaction_Source;
+   end record;
+
+   package Completed_Plan_Vectors is new Ada.Containers.Indefinite_Vectors
+     (Index_Type   => Positive,
+      Element_Type => Completed_Plan);
 
    type Admission_Status is
      (Success,
@@ -49,11 +65,21 @@ package ALedger.Plan_Observation is
       Result           : out ALedger.Plan.Plan_Id_Universe;
       Diag             : out Admission_Diagnostic) return Boolean;
 
-   --  Observe whole admitted Plan transactions that remain open at one
-   --  inclusive application day. Lifecycle meaning is explicit only:
-   --  Plan cancellation/supersession metadata and Actual plan-id completion.
-   --  Planned date, description, amount, and posting similarity never close a
-   --  Plan. Output preserves source order and the complete accounting shape.
+   --  Observe role-neutral Plan lifecycle once and publish both open Plans and
+   --  explicit completion pairs. Planned date, description, amount, Account
+   --  similarity, and accounting role never create completion evidence.
+   function Observe_Plans
+     (Plan_Ledger        : ALedger.Ledger.Ledger;
+      Plan_Source_Text   : String;
+      Actual_Ledger      : ALedger.Ledger.Ledger;
+      Actual_Source_Text : String;
+      As_Of_Date         : String;
+      Open_Result        : out Open_Plan_Vectors.Vector;
+      Completed_Result   : out Completed_Plan_Vectors.Vector;
+      Diag               : out Admission_Diagnostic) return Boolean;
+
+   --  Compatibility projection for callers that only need open Plans. This is
+   --  a view of Observe_Plans, not a second lifecycle parser.
    function Observe_Open_Plans
      (Plan_Ledger        : ALedger.Ledger.Ledger;
       Plan_Source_Text   : String;
