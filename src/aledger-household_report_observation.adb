@@ -10,21 +10,25 @@ package body ALedger.Household_Report_Observation is
       Result           : out Report_Observation;
       Error_Msg        : out Unbounded_String) return Boolean
    is
-      Plan_Diag    : ALedger.Plan_Observation.Admission_Diagnostic;
-      Cycle_Status : ALedger.Cycle_Observation.Resolve_Status;
-      Commit_Diag  : ALedger.Envelope_Commitment.Observe_Diagnostic;
-      Income_Acc   : constant ALedger.Account.Account :=
+      Plan_Diag       : ALedger.Plan_Observation.Admission_Diagnostic;
+      Cycle_Status    : ALedger.Cycle_Observation.Resolve_Status;
+      Fulfillment_Diag : ALedger.Envelope_Fulfillment.Observe_Diagnostic;
+      Commit_Diag     : ALedger.Envelope_Commitment.Observe_Diagnostic;
+      Income_Acc      : constant ALedger.Account.Account :=
         ALedger.Account.Make_Account
           (To_String (State.Household_Policy.Cycle_Income_Account));
    begin
       Result.Observed_Through := To_Unbounded_String (Observed_Through);
       Result.Open_Plans := ALedger.Plan_Observation.Open_Plan_Vectors.Empty_Vector;
+      Result.Completed_Plans :=
+        ALedger.Plan_Observation.Completed_Plan_Vectors.Empty_Vector;
       Result.Consumption := ALedger.Envelope_Consumption.Empty_Consumption;
+      Result.Fulfillment := ALedger.Envelope_Fulfillment.Empty_Fulfillment;
       Result.Commitment := ALedger.Envelope_Commitment.Empty_Observation;
       Result.Funding_Commitment :=
         ALedger.Backing_Policy.Empty_Funding_Commitment;
 
-      if not ALedger.Plan_Observation.Observe_Open_Plans
+      if not ALedger.Plan_Observation.Observe_Plans
         (State.Plan_Ledger,
          ALedger.Canonical_Source.Text_For
            (State.Sources, ALedger.Canonical_Source.Plan_Source),
@@ -33,6 +37,7 @@ package body ALedger.Household_Report_Observation is
            (State.Sources, ALedger.Canonical_Source.Actual_Source),
          Observed_Through,
          Result.Open_Plans,
+         Result.Completed_Plans,
          Plan_Diag)
       then
          Error_Msg := To_Unbounded_String
@@ -66,6 +71,25 @@ package body ALedger.Household_Report_Observation is
            State.Routing_History,
            Observed_Through);
 
+      if not ALedger.Envelope_Fulfillment.Observe
+        (Result.Completed_Plans,
+         State.Actual_Ledger,
+         State.Registry,
+         State.Fulfillment_History,
+         Observed_Through,
+         Result.Fulfillment,
+         Fulfillment_Diag)
+      then
+         Error_Msg := To_Unbounded_String
+           ("Envelope fulfillment observation failed: " &
+            ALedger.Envelope_Fulfillment.Observe_Status'Image
+              (Fulfillment_Diag.Status) &
+            (if Length (Fulfillment_Diag.Message) > 0
+             then ": " & To_String (Fulfillment_Diag.Message)
+             else ""));
+         return False;
+      end if;
+
       if not ALedger.Envelope_Commitment.Observe
         (Result.Open_Plans,
          State.Registry,
@@ -98,6 +122,7 @@ package body ALedger.Household_Report_Observation is
            State.Actual_Ledger,
            State.Entitlement,
            Result.Consumption,
+           Result.Fulfillment,
            Result.Commitment,
            Result.Funding_Commitment);
 
