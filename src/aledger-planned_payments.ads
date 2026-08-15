@@ -31,6 +31,7 @@ package ALedger.Planned_Payments is
      (Success,
       Plan_Source_Evidence_Error,
       Actual_Source_Evidence_Error,
+      Invalid_Observation_Date,
       Missing_Plan_Id,
       Duplicate_Plan_Metadata,
       Invalid_Plan_Id,
@@ -54,10 +55,8 @@ package ALedger.Planned_Payments is
       Message     : Unbounded_String;
    end record;
 
-   --  Observe open outgoing payment Plans as of one inclusive calendar day.
-   --  Completion is explicit Actual `plan-id` evidence. Cancellation and
-   --  supersession are historical Plan metadata. Date/memo/amount similarity
-   --  is never used as lifecycle evidence.
+   --  Project open role-neutral Plan observations into human payment rows.
+   --  Lifecycle/completion admission belongs to ALedger.Plan_Observation.
    function Observe
      (Plan_Ledger        : ALedger.Ledger.Ledger;
       Plan_Source_Text   : String;
