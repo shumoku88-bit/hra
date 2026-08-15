@@ -1,4 +1,5 @@
 with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
+with Ada.Containers.Indefinite_Vectors;
 with ALedger.Money;          use ALedger.Money;
 with ALedger.Account;        use ALedger.Account;
 with ALedger.Ledger;         use ALedger.Ledger;
@@ -10,6 +11,10 @@ package ALedger.Plan is
    --  ========================================================================
 
    type Plan_Id is private;
+
+   package Plan_Id_Vectors is new Ada.Containers.Indefinite_Vectors
+     (Index_Type   => Positive,
+      Element_Type => Plan_Id);
 
    type Plan_Id_Status is
      (Success,
