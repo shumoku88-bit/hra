@@ -12,9 +12,12 @@ package ALedger.Plan is
 
    type Plan_Id is private;
 
+   function "=" (Left, Right : Plan_Id) return Boolean;
+
    package Plan_Id_Vectors is new Ada.Containers.Indefinite_Vectors
      (Index_Type   => Positive,
-      Element_Type => Plan_Id);
+      Element_Type => Plan_Id,
+      "="          => "=");
 
    type Plan_Id_Status is
      (Success,
@@ -31,8 +34,6 @@ package ALedger.Plan is
    function Null_Plan_Id return Plan_Id;
    function Is_Null (PID : Plan_Id) return Boolean;
    function Text (PID : Plan_Id) return String;
-
-   function "=" (Left, Right : Plan_Id) return Boolean;
 
    --  ========================================================================
    --  Plan Lifecycle Status & Retirement
