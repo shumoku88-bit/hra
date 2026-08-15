@@ -68,6 +68,16 @@ package ALedger.Backing_Policy is
       Total_Assets : Balance;
    end record;
 
+   --  Base admitted-Household view. No application observation day has been
+   --  supplied, so no Plan commitment is deducted from headroom.
+   function Observe_Backing
+     (Policy      : Backing_Policy;
+      L           : Ledger.Ledger;
+      Entitlement : Envelope_Entitlement.Entitlement_Observation;
+      Consumption : Envelope_Consumption.Envelope_Consumption) return Backing_Observation;
+
+   --  Observation-specific view used by reports after current-cycle Plan
+   --  commitment has been resolved from the same admitted Household snapshot.
    function Observe_Backing
      (Policy      : Backing_Policy;
       L           : Ledger.Ledger;
