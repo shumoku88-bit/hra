@@ -6,6 +6,8 @@ with ALedger.Envelope;       use ALedger.Envelope;
 with ALedger.Envelope_Entitlement;
 with ALedger.Envelope_Consumption;
 with ALedger.Envelope_Commitment;
+with ALedger.Plan_Observation;
+with ALedger.Cycle_Observation;
 with ALedger.Budget_Config;
 with ALedger.Ledger;
 with ALedger.Config_Support;
@@ -58,6 +60,29 @@ package ALedger.Backing_Policy is
       Policy   : out Backing_Policy;
       Status   : out Policy_Status) return Boolean;
 
+   package Pool_Balance_Maps is new Ada.Containers.Indefinite_Ordered_Maps
+     (Key_Type     => String,
+      Element_Type => Balance);
+
+   --  Independent funding horizon for open Plans. Destination meaning does not
+   --  enter this projection: every negative posting from an Asset assigned to
+   --  a Backing pool reserves its positive magnitude in that pool.
+   type Funding_Commitment_Observation is record
+      By_Pool : Pool_Balance_Maps.Map;
+   end record;
+
+   function Empty_Funding_Commitment return Funding_Commitment_Observation;
+
+   function Observe_Funding_Commitment
+     (Policy     : Backing_Policy;
+      Open_Plans : ALedger.Plan_Observation.Open_Plan_Vectors.Vector;
+      Window     : ALedger.Cycle_Observation.Cycle_Window)
+      return Funding_Commitment_Observation;
+
+   function Funding_Commitment_For
+     (Obs     : Funding_Commitment_Observation;
+      Pool_Id : String) return Balance;
+
    package Pool_Position_Maps is new Ada.Containers.Indefinite_Ordered_Maps
      (Key_Type     => String,
       Element_Type => Backing_Pool_Position,
@@ -69,21 +94,24 @@ package ALedger.Backing_Policy is
    end record;
 
    --  Base admitted-Household view. No application observation day has been
-   --  supplied, so no Plan commitment is deducted from headroom.
+   --  supplied, so no Plan claims or funding commitments are applied.
    function Observe_Backing
      (Policy      : Backing_Policy;
       L           : Ledger.Ledger;
       Entitlement : Envelope_Entitlement.Entitlement_Observation;
       Consumption : Envelope_Consumption.Envelope_Consumption) return Backing_Observation;
 
-   --  Observation-specific view used by reports after current-cycle Plan
-   --  commitment has been resolved from the same admitted Household snapshot.
+   --  Observation-specific view. Envelope commitment and funding commitment
+   --  are deliberately independent projections of the same role-neutral open
+   --  Plan collection.
    function Observe_Backing
-     (Policy      : Backing_Policy;
-      L           : Ledger.Ledger;
-      Entitlement : Envelope_Entitlement.Entitlement_Observation;
-      Consumption : Envelope_Consumption.Envelope_Consumption;
-      Commitment  : Envelope_Commitment.Commitment_Observation) return Backing_Observation;
+     (Policy             : Backing_Policy;
+      L                  : Ledger.Ledger;
+      Entitlement        : Envelope_Entitlement.Entitlement_Observation;
+      Consumption        : Envelope_Consumption.Envelope_Consumption;
+      Commitment         : Envelope_Commitment.Commitment_Observation;
+      Funding_Commitment : Funding_Commitment_Observation)
+      return Backing_Observation;
 
    function Position_For
      (Obs     : Backing_Observation;
