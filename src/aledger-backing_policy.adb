@@ -109,6 +109,22 @@ package body ALedger.Backing_Policy is
      (Policy      : Backing_Policy;
       L           : Ledger.Ledger;
       Entitlement : Envelope_Entitlement.Entitlement_Observation;
+      Consumption : Envelope_Consumption.Envelope_Consumption)
+      return Backing_Observation
+   is
+   begin
+      return Observe_Backing
+        (Policy,
+         L,
+         Entitlement,
+         Consumption,
+         Envelope_Commitment.Empty_Observation);
+   end Observe_Backing;
+
+   function Observe_Backing
+     (Policy      : Backing_Policy;
+      L           : Ledger.Ledger;
+      Entitlement : Envelope_Entitlement.Entitlement_Observation;
       Consumption : Envelope_Consumption.Envelope_Consumption;
       Commitment  : Envelope_Commitment.Commitment_Observation)
       return Backing_Observation
