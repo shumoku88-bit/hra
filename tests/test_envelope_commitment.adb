@@ -1,10 +1,14 @@
 with Ada.Text_IO; use Ada.Text_IO;
 with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
 with ALedger.Account;
+with ALedger.Backing_Policy;
+with ALedger.Budget_Config;
 with ALedger.Config_Support;
 with ALedger.Cycle_Observation;
 with ALedger.Envelope;
 with ALedger.Envelope_Commitment;
+with ALedger.Envelope_Consumption;
+with ALedger.Envelope_Entitlement;
 with ALedger.Envelope_Routing;
 with ALedger.Journal;
 with ALedger.Ledger;
@@ -14,6 +18,7 @@ with ALedger.Plan_Observation;
 procedure Test_Envelope_Commitment is
    use type ALedger.Cycle_Observation.Resolve_Status;
    use type ALedger.Envelope_Routing.History_Status;
+   use type ALedger.Backing_Policy.Policy_Status;
 
    Passed_Count : Natural := 0;
    Failed_Count : Natural := 0;
@@ -84,6 +89,17 @@ procedure Test_Envelope_Commitment is
      "    expenses:food        999 JPY" & ASCII.LF &
      "    assets:cash         -999 JPY" & ASCII.LF;
 
+   Budget_TOML : constant String :=
+     "[[backing-pools]]" & ASCII.LF &
+     "id = ""liquid""" & ASCII.LF &
+     "asset-accounts = [""assets:cash""]" & ASCII.LF &
+     "[[envelopes]]" & ASCII.LF &
+     "id = ""food""" & ASCII.LF &
+     "label = ""Food""" & ASCII.LF &
+     "pacing = ""daily""" & ASCII.LF &
+     "backing-pool = ""liquid""" & ASCII.LF &
+     "expense-accounts = [""expenses:food""]" & ASCII.LF;
+
    Registry      : ALedger.Account.Account_Registry := ALedger.Account.Empty_Registry;
    Actual        : ALedger.Ledger.Ledger;
    Plans         : ALedger.Ledger.Ledger;
@@ -152,10 +168,22 @@ begin
          Expense   => ALedger.Account.Make_Account ("expenses:food"),
          Route     => ALedger.Envelope_Routing.Managed_Route (Food_Env),
          Note      => Null_Unbounded_String));
+   Route_Entries.Append
+     (ALedger.Envelope_Routing.Routing_Entry'
+        (Effective => ALedger.Envelope_Routing.Dated_Effective ("2026-09-01"),
+         Expense   => ALedger.Account.Make_Account ("expenses:rent"),
+         Route     => ALedger.Envelope_Routing.Managed_Route (Food_Env),
+         Note      => To_Unbounded_String ("future route must not rewrite August")));
    Assert
      (ALedger.Envelope_Routing.Admit
         (Route_Entries, Env_Registry, Routing, Route_Status),
       "Admit historical Expense routing");
+   Assert
+     (ALedger.Envelope_Routing.Has_Routing
+        (Routing, ALedger.Account.Make_Account ("expenses:rent"))
+        and then not ALedger.Envelope_Routing.Has_Routing_At
+          (Routing, ALedger.Account.Make_Account ("expenses:rent"), "2026-08-15"),
+      "Future-only route is not applicable to an earlier observation");
 
    Assert
      (ALedger.Envelope_Commitment.Observe
@@ -171,13 +199,53 @@ begin
      (Commitment.Unrouted.Contains ("expenses:rent")
         and then ALedger.Money.Lookup_Balance
           (Commitment.Unrouted.Element ("expenses:rent"), JPY) = 300.0,
-      "Missing Expense routing remains unrouted attention evidence");
+      "Future-only Expense route remains unrouted before activation");
    Assert
-     (not Commitment.Managed.Contains ("plan-next-food")
-        and then ALedger.Money.Lookup_Balance
-          (ALedger.Envelope_Commitment.Commitment_For (Commitment, Food_Env), JPY)
-            = 300.0,
+     (ALedger.Money.Lookup_Balance
+        (ALedger.Envelope_Commitment.Commitment_For (Commitment, Food_Env), JPY)
+        = 300.0,
       "Next-cycle Plan is excluded at the end-exclusive boundary");
+
+   declare
+      Policy_Config : ALedger.Budget_Config.Budget_Policy;
+      Config_Diag   : ALedger.Config_Support.Config_Diagnostic;
+      Policy        : ALedger.Backing_Policy.Backing_Policy;
+      Policy_Status : ALedger.Backing_Policy.Policy_Status;
+      Entitlement   : ALedger.Envelope_Entitlement.Entitlement_Observation :=
+        ALedger.Envelope_Entitlement.Empty_Observation;
+      Consumption   : ALedger.Envelope_Consumption.Envelope_Consumption :=
+        ALedger.Envelope_Consumption.Empty_Consumption;
+      Backing       : ALedger.Backing_Policy.Backing_Observation;
+      Claim         : ALedger.Backing_Policy.Backed_Envelope_Claim;
+   begin
+      Assert
+        (ALedger.Budget_Config.Parse_Budget_Policy
+           (Budget_TOML, Policy_Config, Config_Diag),
+         "Setup: parse backing policy for commitment headroom");
+      Assert
+        (ALedger.Backing_Policy.Admit_Backing_Policy
+           (Policy_Config, Env_Registry, Policy, Policy_Status)
+           and then Policy_Status = ALedger.Backing_Policy.Success,
+         "Setup: admit backing policy for commitment headroom");
+
+      Entitlement := ALedger.Envelope_Entitlement.Fold_Movement
+        (Entitlement,
+         (Kind    => ALedger.Envelope_Entitlement.Grant_From_Unallocated,
+          Tx_Date => To_Unbounded_String ("2026-08-14"),
+          Amt     => ALedger.Money.Make_Amount (JPY, 1000.0),
+          Target  => Food_Env));
+
+      Backing := ALedger.Backing_Policy.Observe_Backing
+        (Policy, Actual, Entitlement, Consumption, Commitment);
+      Claim := ALedger.Backing_Policy.Claim_For (Backing, Food_Env);
+
+      Assert
+        (ALedger.Money.Lookup_Balance (Claim.Remaining, JPY) = 1000.0,
+         "Backing keeps pre-Plan Remaining at 1,000 JPY");
+      Assert
+        (ALedger.Money.Lookup_Balance (Claim.Headroom, JPY) = 700.0,
+         "Backing deducts 300 JPY Plan reserve from Headroom");
+   end;
 
    Put_Line
      (Natural'Image (Passed_Count) & " passed, " &
