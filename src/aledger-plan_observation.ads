@@ -39,6 +39,16 @@ package ALedger.Plan_Observation is
       Message     : Unbounded_String;
    end record;
 
+   --  Admit the stable PlanId universe from the already admitted Plan ledger
+   --  and the exact source bytes that produced it. Lifecycle state is not part
+   --  of identity existence: completed, cancelled, and superseded Plans remain
+   --  valid stable references for historical relations.
+   function Admit_Plan_Identities
+     (Plan_Ledger      : ALedger.Ledger.Ledger;
+      Plan_Source_Text : String;
+      Result           : out ALedger.Plan.Plan_Id_Vectors.Vector;
+      Diag             : out Admission_Diagnostic) return Boolean;
+
    --  Observe whole admitted Plan transactions that remain open at one
    --  inclusive application day. Lifecycle meaning is explicit only:
    --  Plan cancellation/supersession metadata and Actual plan-id completion.
