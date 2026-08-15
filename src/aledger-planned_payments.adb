@@ -30,19 +30,14 @@ package body ALedger.Planned_Payments is
       end case;
    end Map_Status;
 
-   function Observe
-     (Plan_Ledger        : ALedger.Ledger.Ledger;
-      Plan_Source_Text   : String;
-      Actual_Ledger      : ALedger.Ledger.Ledger;
-      Actual_Source_Text : String;
-      Registry           : ALedger.Account.Account_Registry;
-      As_Of_Date         : String;
-      Result             : out Observation;
-      Diag               : out Admission_Diagnostic) return Boolean
+   function Project
+     (Open_Plans : ALedger.Plan_Observation.Open_Plan_Vectors.Vector;
+      Registry   : ALedger.Account.Account_Registry;
+      As_Of_Date : String;
+      Result     : out Observation;
+      Diag       : out Admission_Diagnostic) return Boolean
    is
-      Open_Plans : ALedger.Plan_Observation.Open_Plan_Vectors.Vector;
-      Plan_Diag  : ALedger.Plan_Observation.Admission_Diagnostic;
-      Output     : Observation;
+      Output : Observation;
 
       procedure Fail
         (Status  : Admission_Status;
@@ -205,6 +200,29 @@ package body ALedger.Planned_Payments is
          Plan_Id     => Null_Unbounded_String,
          Message     => Null_Unbounded_String);
 
+      for P of Open_Plans loop
+         if not Project_Open_Plan (P) then
+            return False;
+         end if;
+      end loop;
+
+      Result := Output;
+      return True;
+   end Project;
+
+   function Observe
+     (Plan_Ledger        : ALedger.Ledger.Ledger;
+      Plan_Source_Text   : String;
+      Actual_Ledger      : ALedger.Ledger.Ledger;
+      Actual_Source_Text : String;
+      Registry           : ALedger.Account.Account_Registry;
+      As_Of_Date         : String;
+      Result             : out Observation;
+      Diag               : out Admission_Diagnostic) return Boolean
+   is
+      Open_Plans : ALedger.Plan_Observation.Open_Plan_Vectors.Vector;
+      Plan_Diag  : ALedger.Plan_Observation.Admission_Diagnostic;
+   begin
       if not ALedger.Plan_Observation.Observe_Open_Plans
         (Plan_Ledger,
          Plan_Source_Text,
@@ -219,17 +237,11 @@ package body ALedger.Planned_Payments is
             Line_Number => Plan_Diag.Line_Number,
             Plan_Id     => Plan_Diag.Plan_Id,
             Message     => Plan_Diag.Message);
+         Result := (Payments => Payment_Vectors.Empty_Vector);
          return False;
       end if;
 
-      for P of Open_Plans loop
-         if not Project_Open_Plan (P) then
-            return False;
-         end if;
-      end loop;
-
-      Result := Output;
-      return True;
+      return Project (Open_Plans, Registry, As_Of_Date, Result, Diag);
    end Observe;
 
 end ALedger.Planned_Payments;
