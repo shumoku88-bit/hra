@@ -108,25 +108,25 @@ package body ALedger.Journal_Evidence is
          end if;
 
          declare
-            Body : constant String := Trim (Text (Text'First + 1 .. Text'Last), Both);
+            Comment_Text : constant String := Trim (Text (Text'First + 1 .. Text'Last), Both);
          begin
-            if Body'Length = 0 then
+            if Comment_Text'Length = 0 then
                return;
             end if;
 
             declare
-               Colon : constant Natural := Index (Body, ":");
+               Colon : constant Natural := Index (Comment_Text, ":");
             begin
-               if Colon = 0 or else Colon = Body'First then
+               if Colon = 0 or else Colon = Comment_Text'First then
                   return;
                end if;
 
                declare
                   Key : constant String :=
-                    Lower_String (Trim (Body (Body'First .. Colon - 1), Both));
+                    Lower_String (Trim (Comment_Text (Comment_Text'First .. Colon - 1), Both));
                   Val : constant String :=
-                    (if Colon = Body'Last then ""
-                     else Trim (Body (Colon + 1 .. Body'Last), Both));
+                    (if Colon = Comment_Text'Last then ""
+                     else Trim (Comment_Text (Colon + 1 .. Comment_Text'Last), Both));
                begin
                   if Key'Length > 0 then
                      Current_Meta.Append

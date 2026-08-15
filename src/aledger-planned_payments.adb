@@ -103,8 +103,8 @@ package body ALedger.Planned_Payments is
       Result             : out Observation;
       Diag               : out Admission_Diagnostic) return Boolean
    is
-      Plan_Evidence   : Journal_Evidence;
-      Actual_Evidence : Journal_Evidence;
+      Plan_Evidence   : ALedger.Journal_Evidence.Journal_Evidence;
+      Actual_Evidence : ALedger.Journal_Evidence.Journal_Evidence;
       Evidence_Diag   : Evidence_Diagnostic;
       Plans           : Admitted_Plan_Vectors.Vector;
       Completions     : Completion_Vectors.Vector;
