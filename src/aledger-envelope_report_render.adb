@@ -91,8 +91,7 @@ package body ALedger.Envelope_Report_Render is
 
          for Cursor in Observation.Consumption.Unmanaged.Iterate loop
             declare
-               Name : constant String :=
-                 Account_Amounts_Maps.Key (Cursor);
+               Name : constant String := Account_Amounts_Maps.Key (Cursor);
                Amts : constant Consumption_Amounts :=
                  Account_Amounts_Maps.Element (Cursor);
                Net_Q : constant Quantity :=
@@ -172,8 +171,10 @@ package body ALedger.Envelope_Report_Render is
             Pool_Name : constant String := Pool_Position_Maps.Key (Cursor);
             Pos       : constant Backing_Pool_Position :=
               Pool_Position_Maps.Element (Cursor);
-            Gross     : constant Balance := Gross_Surplus (Pos);
-            Gross_Q   : constant Quantity := Lookup_Balance (Gross, JPY);
+            Gross_Q : constant Quantity :=
+              Lookup_Balance (Gross_Surplus (Pos), JPY);
+            Available_Q : constant Quantity :=
+              Lookup_Balance (Available_Surplus (Pos), JPY);
          begin
             if Gross_Q < Zero_Quantity then
                All_Fully_Backed := False;
@@ -182,6 +183,18 @@ package body ALedger.Envelope_Report_Render is
               (Buf,
                "Funding balance (" & Pool_Name & ") | " &
                Render_Amount (Lookup_Balance (Pos.Funding_Balance, JPY), "JPY") &
+               ASCII.LF);
+            Append
+              (Buf,
+               "Funding commitment (" & Pool_Name & ") | " &
+               Render_Amount
+                 (Lookup_Balance (Pos.Funding_Commitment, JPY), "JPY") &
+               ASCII.LF);
+            Append
+              (Buf,
+               "Available funding (" & Pool_Name & ") | " &
+               Render_Amount
+                 (Lookup_Balance (Available_Funding (Pos), JPY), "JPY") &
                ASCII.LF);
             Append
               (Buf,
@@ -197,8 +210,12 @@ package body ALedger.Envelope_Report_Render is
                ASCII.LF);
             Append
               (Buf,
-               "Backing surplus (" & Pool_Name & ") | " &
+               "Gross backing surplus (" & Pool_Name & ") | " &
                Render_Amount (Gross_Q, "JPY") & ASCII.LF);
+            Append
+              (Buf,
+               "Available backing surplus (" & Pool_Name & ") | " &
+               Render_Amount (Available_Q, "JPY") & ASCII.LF);
          end;
       end loop;
 
