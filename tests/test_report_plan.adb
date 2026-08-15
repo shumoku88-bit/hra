@@ -49,7 +49,7 @@ procedure Test_Report_Plan is
      "through = ""latest""" & ASCII.LF &
      "count = 7" & ASCII.LF;
 
-   L      : Ledger.Ledger;
+   L      : ALedger.Ledger.Ledger;
    Err    : Unbounded_String;
    Config : ALedger.Report_Config.Report_Configuration;
    Diag   : ALedger.Config_Support.Config_Diagnostic;
