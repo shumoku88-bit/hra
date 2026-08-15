@@ -191,12 +191,19 @@ package body ALedger.Envelope_Fulfillment is
                   Plan_Count   : constant Natural := Natural (Pair.Plan_Tx.Postings.Length);
                   Actual_Count : constant Natural := Natural (Pair.Actual_Tx.Postings.Length);
                   Root_Id      : constant String := To_String (Pair.Actual_Tx.Event_ID);
+                  Reverses_Id  : constant String := To_String (Pair.Actual_Tx.Reverses_ID);
                begin
                   if Root_Id'Length = 0 then
                      Fail
                        (Missing_Completion_Event_Id,
                         Pair.ID,
                         "routed completion Actual requires stable Event_ID");
+                     return False;
+                  elsif Reverses_Id'Length > 0 then
+                     Fail
+                       (Completion_Actual_Is_Reversal,
+                        Pair.ID,
+                        "routed completion Actual must be the non-reversal root of its Fulfillment evidence");
                      return False;
                   elsif Plan_Count /= Actual_Count then
                      Fail
