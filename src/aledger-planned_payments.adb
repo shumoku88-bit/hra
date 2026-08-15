@@ -75,11 +75,11 @@ package body ALedger.Planned_Payments is
      (Source : Transaction_Source;
       Key    : String;
       Count  : out Natural;
-      Entry  : out Metadata_Entry)
+      Found_Entry : out Metadata_Entry)
    is
    begin
       Count := 0;
-      Entry :=
+      Found_Entry :=
         (Key         => Null_Unbounded_String,
          Value       => Null_Unbounded_String,
          Line_Number => Source.Header_Line);
@@ -87,7 +87,7 @@ package body ALedger.Planned_Payments is
          if To_String (Candidate.Key) = Key then
             Count := Count + 1;
             if Count = 1 then
-               Entry := Candidate;
+               Found_Entry := Candidate;
             end if;
          end if;
       end loop;
