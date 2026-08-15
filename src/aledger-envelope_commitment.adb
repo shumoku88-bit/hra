@@ -3,6 +3,7 @@ with ALedger.Money;
 with ALedger.Account;
 with ALedger.Envelope;
 with ALedger.Envelope_Routing;
+with ALedger.Plan;
 
 package body ALedger.Envelope_Commitment is
 
@@ -149,8 +150,8 @@ package body ALedger.Envelope_Commitment is
                               Account_Name : constant String :=
                                 ALedger.Account.Name (Posting.Acc);
                            begin
-                              if not ALedger.Envelope_Routing.Has_Routing
-                                (Routing, Posting.Acc)
+                              if not ALedger.Envelope_Routing.Has_Routing_At
+                                (Routing, Posting.Acc, Observed_Through)
                               then
                                  Add_Account
                                    (Output.Unrouted,
