@@ -5,6 +5,7 @@ with ALedger.Money;          use ALedger.Money;
 with ALedger.Envelope;       use ALedger.Envelope;
 with ALedger.Envelope_Entitlement;
 with ALedger.Envelope_Consumption;
+with ALedger.Envelope_Fulfillment;
 with ALedger.Envelope_Commitment;
 with ALedger.Plan_Observation;
 with ALedger.Cycle_Observation;
@@ -14,7 +15,7 @@ with ALedger.Config_Support;
 
 package ALedger.Backing_Policy is
 
-   --  Remaining = Entitlement - Net Consumption.
+   --  Remaining = Entitlement - Net Consumption - Net Fulfillment.
    --  Headroom = Remaining - current-cycle Envelope Plan Commitment.
    type Backed_Envelope_Claim is record
       Env_Id    : Envelope.Envelope_Id;
@@ -94,21 +95,33 @@ package ALedger.Backing_Policy is
    end record;
 
    --  Base admitted-Household view. No application observation day has been
-   --  supplied, so no Plan claims or funding commitments are applied.
+   --  supplied, so no Plan fulfillment, Plan claims, or funding commitments are
+   --  applied.
    function Observe_Backing
      (Policy      : Backing_Policy;
       L           : Ledger.Ledger;
       Entitlement : Envelope_Entitlement.Entitlement_Observation;
       Consumption : Envelope_Consumption.Envelope_Consumption) return Backing_Observation;
 
-   --  Observation-specific view. Envelope commitment and funding commitment
-   --  are deliberately independent projections of the same role-neutral open
-   --  Plan collection.
+   --  Compatibility observation with no completed Fulfillment evidence.
    function Observe_Backing
      (Policy             : Backing_Policy;
       L                  : Ledger.Ledger;
       Entitlement        : Envelope_Entitlement.Entitlement_Observation;
       Consumption        : Envelope_Consumption.Envelope_Consumption;
+      Commitment         : Envelope_Commitment.Commitment_Observation;
+      Funding_Commitment : Funding_Commitment_Observation)
+      return Backing_Observation;
+
+   --  Observation-specific view. Fulfillment reduces Remaining, while open
+   --  Commitment reduces Headroom. They are separate projections of disjoint
+   --  lifecycle states and therefore cannot double-count one completed Plan.
+   function Observe_Backing
+     (Policy             : Backing_Policy;
+      L                  : Ledger.Ledger;
+      Entitlement        : Envelope_Entitlement.Entitlement_Observation;
+      Consumption        : Envelope_Consumption.Envelope_Consumption;
+      Fulfillment        : Envelope_Fulfillment.Envelope_Fulfillment;
       Commitment         : Envelope_Commitment.Commitment_Observation;
       Funding_Commitment : Funding_Commitment_Observation)
       return Backing_Observation;
