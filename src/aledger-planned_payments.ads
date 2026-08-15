@@ -4,6 +4,7 @@ with ALedger.Money;
 with ALedger.Account;
 with ALedger.Ledger;
 with ALedger.Plan;
+with ALedger.Plan_Observation;
 
 package ALedger.Planned_Payments is
 
@@ -31,6 +32,7 @@ package ALedger.Planned_Payments is
      (Success,
       Plan_Source_Evidence_Error,
       Actual_Source_Evidence_Error,
+      Invalid_Observation_Date,
       Missing_Plan_Id,
       Duplicate_Plan_Metadata,
       Invalid_Plan_Id,
@@ -54,10 +56,18 @@ package ALedger.Planned_Payments is
       Message     : Unbounded_String;
    end record;
 
-   --  Observe open outgoing payment Plans as of one inclusive calendar day.
-   --  Completion is explicit Actual `plan-id` evidence. Cancellation and
-   --  supersession are historical Plan metadata. Date/memo/amount similarity
-   --  is never used as lifecycle evidence.
+   --  Project an already admitted role-neutral open Plan observation into the
+   --  narrower human Planned Payments surface.
+   function Project
+     (Open_Plans : ALedger.Plan_Observation.Open_Plan_Vectors.Vector;
+      Registry   : ALedger.Account.Account_Registry;
+      As_Of_Date : String;
+      Result     : out Observation;
+      Diag       : out Admission_Diagnostic) return Boolean;
+
+   --  Convenience boundary for callers that do not already own the shared
+   --  role-neutral observation. Production Household report composition uses
+   --  Project so lifecycle/completion is not interpreted twice.
    function Observe
      (Plan_Ledger        : ALedger.Ledger.Ledger;
       Plan_Source_Text   : String;

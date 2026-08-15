@@ -1,9 +1,5 @@
 package body ALedger.Envelope_Routing is
 
-   --  ========================================================================
-   --  Route Constructors
-   --  ========================================================================
-
    function Managed_Route
      (Id : Envelope.Envelope_Id) return Expense_Route
    is
@@ -16,10 +12,6 @@ package body ALedger.Envelope_Routing is
       return (Kind => Not_Envelope_Managed);
    end Not_Managed_Route;
 
-   --  ========================================================================
-   --  Effective Date Constructors
-   --  ========================================================================
-
    function Initial_Effective_Date return Effective_Date is
    begin
       return (Kind => Initial);
@@ -29,10 +21,6 @@ package body ALedger.Envelope_Routing is
    begin
       return (Kind => From_Date, Date => To_Unbounded_String (Date));
    end Dated_Effective;
-
-   --  ========================================================================
-   --  Routing History
-   --  ========================================================================
 
    function Empty_History return Routing_History is
    begin
@@ -48,7 +36,6 @@ package body ALedger.Envelope_Routing is
       H : Routing_History;
    begin
       for E of Entries loop
-         --  Validate expense account name is structurally valid
          if Account.Name (E.Expense)'Length = 0 then
             Status := Empty_Expense_Account;
             return False;
@@ -66,7 +53,6 @@ package body ALedger.Envelope_Routing is
             end if;
          end;
 
-         --  Validate envelope target exists in registry (for managed routes)
          if E.Route.Kind = Managed_By_Envelope
            and then not Envelope.Contains
              (Registry, Envelope.Image (E.Route.Target))
@@ -75,7 +61,6 @@ package body ALedger.Envelope_Routing is
             return False;
          end if;
 
-         --  Check duplicate: same Account + same effective date
          for Existing of H.Entries loop
             if Account.Name (Existing.Expense) =
                Account.Name (E.Expense)
@@ -93,10 +78,6 @@ package body ALedger.Envelope_Routing is
       Status  := Success;
       return True;
    end Admit;
-
-   --  ========================================================================
-   --  Resolve
-   --  ========================================================================
 
    function Resolve
      (H       : Routing_History;
@@ -120,24 +101,20 @@ package body ALedger.Envelope_Routing is
                      if not Found then
                         Is_Better := True;
                      elsif not Best_Is_Init then
-                        --  initial loses to any dated entry that applies
                         Is_Better := False;
                      end if;
 
                   when From_Date =>
                      declare
-                        ED : constant String :=
-                          To_String (E.Effective.Date);
+                        ED : constant String := To_String (E.Effective.Date);
                      begin
                         if ED <= Date then
                            Applies := True;
                            if not Found then
                               Is_Better := True;
                            elsif Best_Is_Init then
-                              --  dated applicable beats initial
                               Is_Better := True;
                            elsif ED > To_String (Best_Date) then
-                              --  later date wins
                               Is_Better := True;
                            end if;
                         end if;
@@ -147,8 +124,7 @@ package body ALedger.Envelope_Routing is
                if Applies and then Is_Better then
                   Best         := E.Route;
                   Found        := True;
-                  Best_Is_Init :=
-                    (E.Effective.Kind = Initial);
+                  Best_Is_Init := (E.Effective.Kind = Initial);
                   if E.Effective.Kind = From_Date then
                      Best_Date := E.Effective.Date;
                   end if;
@@ -159,6 +135,27 @@ package body ALedger.Envelope_Routing is
 
       return Best;
    end Resolve;
+
+   function Has_Routing_At
+     (H       : Routing_History;
+      Expense : Account.Account;
+      Date    : String) return Boolean
+   is
+   begin
+      for E of H.Entries loop
+         if Account.Name (E.Expense) = Account.Name (Expense) then
+            case E.Effective.Kind is
+               when Initial =>
+                  return True;
+               when From_Date =>
+                  if To_String (E.Effective.Date) <= Date then
+                     return True;
+                  end if;
+            end case;
+         end if;
+      end loop;
+      return False;
+   end Has_Routing_At;
 
    function Has_Routing
      (H       : Routing_History;

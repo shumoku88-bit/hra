@@ -2,9 +2,7 @@ with ALedger.Account;
 
 package body ALedger.Backing_Policy is
 
-   --  ========================================================================
-   --  Positive Balance (Backing Law)
-   --  ========================================================================
+   use type ALedger.Money.Quantity;
 
    function Positive_Balance (B : Balance) return Balance is
       Result : Balance := Empty_Balance;
@@ -12,15 +10,12 @@ package body ALedger.Backing_Policy is
    begin
       for E of Arr loop
          if E.Val > Zero_Quantity then
-            Result := Add_Balance (Result, Singleton_Balance (Make_Amount (E.Comm, E.Val)));
+            Result := Add_Balance
+              (Result, Singleton_Balance (Make_Amount (E.Comm, E.Val)));
          end if;
       end loop;
       return Result;
    end Positive_Balance;
-
-   --  ========================================================================
-   --  Backing Pool Position Arithmetic
-   --  ========================================================================
 
    function Available_Funding (Pos : Backing_Pool_Position) return Balance is
    begin
@@ -29,17 +24,15 @@ package body ALedger.Backing_Policy is
 
    function Gross_Surplus (Pos : Backing_Pool_Position) return Balance is
    begin
-      return Subtract_Balance (Pos.Funding_Balance, Pos.Gross_Envelope_Required);
+      return Subtract_Balance
+        (Pos.Funding_Balance, Pos.Gross_Envelope_Required);
    end Gross_Surplus;
 
    function Available_Surplus (Pos : Backing_Pool_Position) return Balance is
    begin
-      return Subtract_Balance (Available_Funding (Pos), Pos.Available_Envelope_Required);
+      return Subtract_Balance
+        (Available_Funding (Pos), Pos.Available_Envelope_Required);
    end Available_Surplus;
-
-   --  ========================================================================
-   --  Admit Backing Policy
-   --  ========================================================================
 
    function Admit_Backing_Policy
      (Config   : Budget_Config.Budget_Policy;
@@ -49,7 +42,6 @@ package body ALedger.Backing_Policy is
    is
       P : Backing_Policy;
    begin
-      --  1. Process backing pools
       for Pool_Def of Config.Backing_Pools loop
          declare
             Pool_Name : constant String := To_String (Pool_Def.ID);
@@ -66,7 +58,8 @@ package body ALedger.Backing_Policy is
 
             P.Pool_Ids.Append (Pool_Name);
             P.Assets_By_Pool.Insert (Pool_Name, Pool_Def.Asset_Accounts);
-            P.Envelopes_By_Pool.Insert (Pool_Name, Config_Support.String_Vectors.Empty_Vector);
+            P.Envelopes_By_Pool.Insert
+              (Pool_Name, Config_Support.String_Vectors.Empty_Vector);
 
             for Acc_Name of Pool_Def.Asset_Accounts loop
                if P.Pool_By_Asset.Contains (Acc_Name) then
@@ -78,7 +71,6 @@ package body ALedger.Backing_Policy is
          end;
       end loop;
 
-      --  2. Process envelope assignments
       for Env_Def of Config.Envelopes loop
          declare
             Env_Name  : constant String := To_String (Env_Def.ID);
@@ -115,15 +107,93 @@ package body ALedger.Backing_Policy is
       return True;
    end Admit_Backing_Policy;
 
-   --  ========================================================================
-   --  Observe Backing
-   --  ========================================================================
+   function Empty_Funding_Commitment return Funding_Commitment_Observation is
+   begin
+      return (By_Pool => Pool_Balance_Maps.Empty_Map);
+   end Empty_Funding_Commitment;
+
+   procedure Add_Pool_Commitment
+     (Obs     : in out Funding_Commitment_Observation;
+      Pool_Id : String;
+      Amount  : ALedger.Money.Amount)
+   is
+      Added : Balance := Singleton_Balance (Amount);
+   begin
+      if Obs.By_Pool.Contains (Pool_Id) then
+         Added := Add_Balance (Obs.By_Pool.Element (Pool_Id), Added);
+         Obs.By_Pool.Replace (Pool_Id, Added);
+      else
+         Obs.By_Pool.Insert (Pool_Id, Added);
+      end if;
+   end Add_Pool_Commitment;
+
+   function Observe_Funding_Commitment
+     (Policy     : Backing_Policy;
+      Open_Plans : ALedger.Plan_Observation.Open_Plan_Vectors.Vector;
+      Window     : ALedger.Cycle_Observation.Cycle_Window)
+      return Funding_Commitment_Observation
+   is
+      Result : Funding_Commitment_Observation := Empty_Funding_Commitment;
+   begin
+      for P of Open_Plans loop
+         if To_String (P.Tx.Date_Text) < To_String (Window.End_Exclusive) then
+            for Posting of P.Tx.Postings loop
+               if Posting.Amt.Val < Zero_Quantity then
+                  declare
+                     Account_Name : constant String :=
+                       ALedger.Account.Name (Posting.Acc);
+                  begin
+                     if Policy.Pool_By_Asset.Contains (Account_Name) then
+                        Add_Pool_Commitment
+                          (Result,
+                           Policy.Pool_By_Asset.Element (Account_Name),
+                           Negate_Amount (Posting.Amt));
+                     end if;
+                  end;
+               end if;
+            end loop;
+         end if;
+      end loop;
+      return Result;
+   end Observe_Funding_Commitment;
+
+   function Funding_Commitment_For
+     (Obs     : Funding_Commitment_Observation;
+      Pool_Id : String) return Balance
+   is
+   begin
+      if Obs.By_Pool.Contains (Pool_Id) then
+         return Obs.By_Pool.Element (Pool_Id);
+      else
+         return Empty_Balance;
+      end if;
+   end Funding_Commitment_For;
 
    function Observe_Backing
      (Policy      : Backing_Policy;
       L           : Ledger.Ledger;
       Entitlement : Envelope_Entitlement.Entitlement_Observation;
-      Consumption : Envelope_Consumption.Envelope_Consumption) return Backing_Observation
+      Consumption : Envelope_Consumption.Envelope_Consumption)
+      return Backing_Observation
+   is
+   begin
+      return Observe_Backing
+        (Policy,
+         L,
+         Entitlement,
+         Consumption,
+         Envelope_Commitment.Empty_Observation,
+         Empty_Funding_Commitment);
+   end Observe_Backing;
+
+   function Observe_Backing
+     (Policy             : Backing_Policy;
+      L                  : Ledger.Ledger;
+      Entitlement        : Envelope_Entitlement.Entitlement_Observation;
+      Consumption        : Envelope_Consumption.Envelope_Consumption;
+      Commitment         : Envelope_Commitment.Commitment_Observation;
+      Funding_Commitment : Funding_Commitment_Observation)
+      return Backing_Observation
    is
       Result : Backing_Observation;
    begin
@@ -131,47 +201,55 @@ package body ALedger.Backing_Policy is
 
       for Pool_Name of Policy.Pool_Ids loop
          declare
-            Assets    : constant Config_Support.String_Vectors.Vector :=
+            Assets : constant Config_Support.String_Vectors.Vector :=
               Policy.Assets_By_Pool.Element (Pool_Name);
-            Envs      : constant Config_Support.String_Vectors.Vector :=
+            Envs : constant Config_Support.String_Vectors.Vector :=
               Policy.Envelopes_By_Pool.Element (Pool_Name);
 
-            Funding_Bal   : Balance := Empty_Balance;
-            Gross_Req     : Balance := Empty_Balance;
-            Avail_Req     : Balance := Empty_Balance;
-            Claims_List   : Claim_Vectors.Vector;
+            Funding_Bal : Balance := Empty_Balance;
+            Gross_Req   : Balance := Empty_Balance;
+            Avail_Req   : Balance := Empty_Balance;
+            Claims_List : Claim_Vectors.Vector;
          begin
-            --  Sum asset balances for pool
             for Acc_Str of Assets loop
                declare
-                  Acc_Obj : constant Account.Account := Account.Make_Account (Acc_Str);
-                  Bal     : constant Balance := Ledger.Compute_Account_Balance (L, Acc_Obj);
+                  Acc_Obj : constant Account.Account :=
+                    Account.Make_Account (Acc_Str);
+                  Bal : constant Balance :=
+                    Ledger.Compute_Account_Balance (L, Acc_Obj);
                begin
                   Funding_Bal := Add_Balance (Funding_Bal, Bal);
                end;
             end loop;
-            Result.Total_Assets := Add_Balance (Result.Total_Assets, Funding_Bal);
+            Result.Total_Assets := Add_Balance
+              (Result.Total_Assets, Funding_Bal);
 
-            --  Calculate claims for assigned envelopes
             for Env_Str of Envs loop
                declare
-                  Env_Id   : constant Envelope.Envelope_Id :=
+                  Env_Id : constant Envelope.Envelope_Id :=
                     Envelope.Make_Envelope_Id (Env_Str);
-                  Ent_Bal  : constant Balance :=
-                    Envelope_Entitlement.Entitlement_For (Entitlement, Env_Id);
+                  Ent_Bal : constant Balance :=
+                    Envelope_Entitlement.Entitlement_For
+                      (Entitlement, Env_Id);
                   Net_Cons : constant Balance :=
                     Envelope_Consumption.Net_For (Consumption, Env_Id);
                   Remaining_Bal : constant Balance :=
                     Subtract_Balance (Ent_Bal, Net_Cons);
-                  Headroom      : constant Balance := Remaining_Bal;
-                  Claim         : constant Backed_Envelope_Claim :=
+                  Plan_Reserve : constant Balance :=
+                    Envelope_Commitment.Commitment_For
+                      (Commitment, Env_Id);
+                  Headroom : constant Balance :=
+                    Subtract_Balance (Remaining_Bal, Plan_Reserve);
+                  Claim : constant Backed_Envelope_Claim :=
                     (Env_Id    => Env_Id,
                      Remaining => Remaining_Bal,
                      Headroom  => Headroom);
                begin
                   Claims_List.Append (Claim);
-                  Gross_Req := Add_Balance (Gross_Req, Positive_Balance (Remaining_Bal));
-                  Avail_Req := Add_Balance (Avail_Req, Positive_Balance (Headroom));
+                  Gross_Req := Add_Balance
+                    (Gross_Req, Positive_Balance (Remaining_Bal));
+                  Avail_Req := Add_Balance
+                    (Avail_Req, Positive_Balance (Headroom));
                end;
             end loop;
 
@@ -180,7 +258,8 @@ package body ALedger.Backing_Policy is
                  (Pool_Id                     => To_Unbounded_String (Pool_Name),
                   Claims                      => Claims_List,
                   Funding_Balance             => Funding_Bal,
-                  Funding_Commitment          => Empty_Balance,
+                  Funding_Commitment          =>
+                    Funding_Commitment_For (Funding_Commitment, Pool_Name),
                   Gross_Envelope_Required     => Gross_Req,
                   Available_Envelope_Required => Avail_Req);
             begin
@@ -200,29 +279,65 @@ package body ALedger.Backing_Policy is
       if Obs.Positions.Contains (Pool_Id) then
          return Obs.Positions.Element (Pool_Id);
       else
-         return (Pool_Id                     => To_Unbounded_String (Pool_Id),
-                 Claims                      => Claim_Vectors.Empty_Vector,
-                 Funding_Balance             => Empty_Balance,
-                 Funding_Commitment          => Empty_Balance,
-                 Gross_Envelope_Required     => Empty_Balance,
-                 Available_Envelope_Required => Empty_Balance);
+         return
+           (Pool_Id                     => To_Unbounded_String (Pool_Id),
+            Claims                      => Claim_Vectors.Empty_Vector,
+            Funding_Balance             => Empty_Balance,
+            Funding_Commitment          => Empty_Balance,
+            Gross_Envelope_Required     => Empty_Balance,
+            Available_Envelope_Required => Empty_Balance);
       end if;
    end Position_For;
+
+   function Claim_For
+     (Obs : Backing_Observation;
+      Env : Envelope.Envelope_Id) return Backed_Envelope_Claim
+   is
+   begin
+      for Position_Cursor in Obs.Positions.Iterate loop
+         declare
+            Pos : constant Backing_Pool_Position :=
+              Pool_Position_Maps.Element (Position_Cursor);
+         begin
+            for Claim of Pos.Claims loop
+               if Claim.Env_Id = Env then
+                  return Claim;
+               end if;
+            end loop;
+         end;
+      end loop;
+
+      return
+        (Env_Id    => Env,
+         Remaining => Empty_Balance,
+         Headroom  => Empty_Balance);
+   end Claim_For;
 
    function "=" (Left, Right : Backed_Envelope_Claim) return Boolean is
    begin
       return Left.Env_Id = Right.Env_Id
-        and then Is_Zero_Balance (Subtract_Balance (Left.Remaining, Right.Remaining))
-        and then Is_Zero_Balance (Subtract_Balance (Left.Headroom, Right.Headroom));
+        and then Is_Zero_Balance
+          (Subtract_Balance (Left.Remaining, Right.Remaining))
+        and then Is_Zero_Balance
+          (Subtract_Balance (Left.Headroom, Right.Headroom));
    end "=";
 
    function "=" (Left, Right : Backing_Pool_Position) return Boolean is
    begin
       return Left.Pool_Id = Right.Pool_Id
-        and then Is_Zero_Balance (Subtract_Balance (Left.Funding_Balance, Right.Funding_Balance))
-        and then Is_Zero_Balance (Subtract_Balance (Left.Funding_Commitment, Right.Funding_Commitment))
-        and then Is_Zero_Balance (Subtract_Balance (Left.Gross_Envelope_Required, Right.Gross_Envelope_Required))
-        and then Is_Zero_Balance (Subtract_Balance (Left.Available_Envelope_Required, Right.Available_Envelope_Required));
+        and then Is_Zero_Balance
+          (Subtract_Balance (Left.Funding_Balance, Right.Funding_Balance))
+        and then Is_Zero_Balance
+          (Subtract_Balance
+             (Left.Funding_Commitment, Right.Funding_Commitment))
+        and then Is_Zero_Balance
+          (Subtract_Balance
+             (Left.Gross_Envelope_Required,
+              Right.Gross_Envelope_Required))
+        and then Is_Zero_Balance
+          (Subtract_Balance
+             (Left.Available_Envelope_Required,
+              Right.Available_Envelope_Required));
    end "=";
 
 end ALedger.Backing_Policy;

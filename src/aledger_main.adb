@@ -8,11 +8,12 @@ with ALedger;
 with ALedger.Account;        use ALedger.Account;
 with ALedger.Ledger;         use ALedger.Ledger;
 with ALedger.Household;      use ALedger.Household;
+with ALedger.Household_Report_Observation;
 with ALedger.Render;         use ALedger.Render;
 with ALedger.Report_Plan;    use ALedger.Report_Plan;
 with ALedger.Planned_Payments;
 with ALedger.Planned_Payments_Render;
-with ALedger.Canonical_Source;
+with ALedger.Envelope_Report_Render;
 with ALedger.Issues;         use ALedger.Issues;
 with ALedger.TUI;            use ALedger.TUI;
 with ALedger.Output;         use ALedger.Output;
@@ -38,7 +39,6 @@ procedure ALedger_Main is
 
    function Resolve_Household_Root return String is
    begin
-      --  1. Check command line arguments for --base <path>
       if Argument_Count >= 2 then
          for I in 1 .. Argument_Count - 1 loop
             if Argument (I) = "--base" then
@@ -47,14 +47,12 @@ procedure ALedger_Main is
          end loop;
       end if;
 
-      --  2. Check environment variable LEDGER_DATA_DIR or HKERNEL_LEDGER_DATA_DIR
       if Ada.Environment_Variables.Exists ("LEDGER_DATA_DIR") then
          return Ada.Environment_Variables.Value ("LEDGER_DATA_DIR");
       elsif Ada.Environment_Variables.Exists ("HKERNEL_LEDGER_DATA_DIR") then
          return Ada.Environment_Variables.Value ("HKERNEL_LEDGER_DATA_DIR");
       end if;
 
-      --  3. Default to current working directory or ./ledger-data
       if Exists ("ledger-data") and then Kind ("ledger-data") = Directory then
          return "ledger-data";
       else
@@ -112,6 +110,7 @@ begin
                   Report_Day   : constant String := Local_Today;
                   Plan         : Resolved_Report_Plan;
                   Status       : Resolve_Status;
+                  Household_Obs : ALedger.Household_Report_Observation.Report_Observation;
                   Payments     : ALedger.Planned_Payments.Observation;
                   Payment_Diag : ALedger.Planned_Payments.Admission_Diagnostic;
                begin
@@ -129,20 +128,24 @@ begin
                      return;
                   end if;
 
-                  if not ALedger.Planned_Payments.Observe
-                    (State.Plan_Ledger,
-                     ALedger.Canonical_Source.Text_For
-                       (State.Sources, ALedger.Canonical_Source.Plan_Source),
-                     State.Actual_Ledger,
-                     ALedger.Canonical_Source.Text_For
-                       (State.Sources, ALedger.Canonical_Source.Actual_Source),
+                  if not ALedger.Household_Report_Observation.Observe
+                    (Report_Day, State, Household_Obs, Err)
+                  then
+                     Put_Line
+                       ("Error observing Household report state: " & To_String (Err));
+                     Set_Exit_Status (Failure);
+                     return;
+                  end if;
+
+                  if not ALedger.Planned_Payments.Project
+                    (Household_Obs.Open_Plans,
                      State.Registry,
                      Report_Day,
                      Payments,
                      Payment_Diag)
                   then
                      Put_Line
-                       ("Error observing Planned Payments: " &
+                       ("Error projecting Planned Payments: " &
                         ALedger.Planned_Payments.Admission_Status'Image
                           (Payment_Diag.Status) &
                         (if Length (Payment_Diag.Message) > 0
@@ -173,7 +176,9 @@ begin
                   New_Line;
                   Put (Render_Household_Issues (State.Issues));
                   New_Line;
-                  Put (Render_Budget_Status (State));
+                  Put
+                    (ALedger.Envelope_Report_Render.Render
+                       (State, Household_Obs));
                end;
             end if;
          end;
