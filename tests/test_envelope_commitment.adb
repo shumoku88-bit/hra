@@ -19,6 +19,7 @@ procedure Test_Envelope_Commitment is
    use type ALedger.Cycle_Observation.Resolve_Status;
    use type ALedger.Envelope_Routing.History_Status;
    use type ALedger.Backing_Policy.Policy_Status;
+   use type ALedger.Money.Quantity;
 
    Passed_Count : Natural := 0;
    Failed_Count : Natural := 0;
