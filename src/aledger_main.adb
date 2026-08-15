@@ -2,11 +2,14 @@ with Ada.Command_Line;       use Ada.Command_Line;
 with Ada.Directories;        use Ada.Directories;
 with Ada.Environment_Variables;
 with Ada.Strings.Unbounded;  use Ada.Strings.Unbounded;
+with Ada.Calendar;
+with Ada.Calendar.Formatting;
 with ALedger;
 with ALedger.Account;        use ALedger.Account;
 with ALedger.Ledger;         use ALedger.Ledger;
 with ALedger.Household;      use ALedger.Household;
 with ALedger.Render;         use ALedger.Render;
+with ALedger.Report_Plan;    use ALedger.Report_Plan;
 with ALedger.Issues;         use ALedger.Issues;
 with ALedger.TUI;            use ALedger.TUI;
 with ALedger.Output;         use ALedger.Output;
@@ -56,6 +59,13 @@ procedure ALedger_Main is
       end if;
    end Resolve_Household_Root;
 
+   function Local_Today return String is
+      Stamp : constant String :=
+        Ada.Calendar.Formatting.Image (Ada.Calendar.Clock);
+   begin
+      return Stamp (Stamp'First .. Stamp'First + 9);
+   end Local_Today;
+
 begin
    if Argument_Count = 0 then
       Put_Line ("ALedger: Double-Entry Accounting Kernel (Ada 2022)");
@@ -95,19 +105,46 @@ begin
                Put_Line ("  Registered Accounts : " & Natural'Image (Declarations (State.Registry)'Length));
                Put_Line ("  Open Issues         : " & Natural'Image (Natural (Open_Issues (State.Issues).Length)));
             elsif Cmd = "report" then
-               Put_Line ("WARNING: typed TOML policies are not yet fully applied; this report is not canonical.");
-               Put_Line ("==================================================");
-               Put_Line ("   ALedger Financial Statements");
-               Put_Line ("   Canonical Root: " & Root_Dir);
-               Put_Line ("==================================================");
-               New_Line;
-               Put (Render_Profit_And_Loss (State.Combined_Ledger, "", ""));
-               New_Line;
-               Put (Render_Balance_Sheet (State.Combined_Ledger, ""));
-               New_Line;
-               Put (Render_Household_Issues (State.Issues));
-               New_Line;
-               Put (Render_Budget_Status (State));
+               declare
+                  Report_Day : constant String := Local_Today;
+                  Plan       : Resolved_Report_Plan;
+                  Status     : Resolve_Status;
+               begin
+                  if not Resolve
+                    (Report_Day,
+                     State.Combined_Ledger,
+                     State.Report_Policy.Plan,
+                     Plan,
+                     Status)
+                  then
+                     Put_Line
+                       ("Error resolving report.toml query plan: " &
+                        Resolve_Status'Image (Status));
+                     Set_Exit_Status (Failure);
+                     return;
+                  end if;
+
+                  Put_Line ("WARNING: report policy is only partially applied; this report is not canonical.");
+                  Put_Line ("==================================================");
+                  Put_Line ("   ALedger Financial Statements");
+                  Put_Line ("   Canonical Root: " & Root_Dir);
+                  Put_Line ("==================================================");
+                  New_Line;
+                  Put
+                    (Render_Profit_And_Loss
+                       (State.Combined_Ledger,
+                        To_String (Plan.Profit_And_Loss.From_Date),
+                        To_String (Plan.Profit_And_Loss.Through_Date)));
+                  New_Line;
+                  Put
+                    (Render_Balance_Sheet
+                       (State.Combined_Ledger,
+                        To_String (Plan.Balance_Sheet_As_Of)));
+                  New_Line;
+                  Put (Render_Household_Issues (State.Issues));
+                  New_Line;
+                  Put (Render_Budget_Status (State));
+               end;
             end if;
          end;
       else
