@@ -2,6 +2,8 @@ with ALedger.Account;
 
 package body ALedger.Backing_Policy is
 
+   use type ALedger.Money.Quantity;
+
    function Positive_Balance (B : Balance) return Balance is
       Result : Balance := Empty_Balance;
       Arr    : constant Balance_Entry_Array := Entries (B);
@@ -105,6 +107,68 @@ package body ALedger.Backing_Policy is
       return True;
    end Admit_Backing_Policy;
 
+   function Empty_Funding_Commitment return Funding_Commitment_Observation is
+   begin
+      return (By_Pool => Pool_Balance_Maps.Empty_Map);
+   end Empty_Funding_Commitment;
+
+   procedure Add_Pool_Commitment
+     (Obs     : in out Funding_Commitment_Observation;
+      Pool_Id : String;
+      Amount  : ALedger.Money.Amount)
+   is
+      Added : Balance := Singleton_Balance (Amount);
+   begin
+      if Obs.By_Pool.Contains (Pool_Id) then
+         Added := Add_Balance (Obs.By_Pool.Element (Pool_Id), Added);
+         Obs.By_Pool.Replace (Pool_Id, Added);
+      else
+         Obs.By_Pool.Insert (Pool_Id, Added);
+      end if;
+   end Add_Pool_Commitment;
+
+   function Observe_Funding_Commitment
+     (Policy     : Backing_Policy;
+      Open_Plans : ALedger.Plan_Observation.Open_Plan_Vectors.Vector;
+      Window     : ALedger.Cycle_Observation.Cycle_Window)
+      return Funding_Commitment_Observation
+   is
+      Result : Funding_Commitment_Observation := Empty_Funding_Commitment;
+   begin
+      for P of Open_Plans loop
+         if To_String (P.Tx.Date_Text) < To_String (Window.End_Exclusive) then
+            for Posting of P.Tx.Postings loop
+               if Posting.Amt.Val < Zero_Quantity then
+                  declare
+                     Account_Name : constant String :=
+                       ALedger.Account.Name (Posting.Acc);
+                  begin
+                     if Policy.Pool_By_Asset.Contains (Account_Name) then
+                        Add_Pool_Commitment
+                          (Result,
+                           Policy.Pool_By_Asset.Element (Account_Name),
+                           Negate_Amount (Posting.Amt));
+                     end if;
+                  end;
+               end if;
+            end loop;
+         end if;
+      end loop;
+      return Result;
+   end Observe_Funding_Commitment;
+
+   function Funding_Commitment_For
+     (Obs     : Funding_Commitment_Observation;
+      Pool_Id : String) return Balance
+   is
+   begin
+      if Obs.By_Pool.Contains (Pool_Id) then
+         return Obs.By_Pool.Element (Pool_Id);
+      else
+         return Empty_Balance;
+      end if;
+   end Funding_Commitment_For;
+
    function Observe_Backing
      (Policy      : Backing_Policy;
       L           : Ledger.Ledger;
@@ -118,15 +182,17 @@ package body ALedger.Backing_Policy is
          L,
          Entitlement,
          Consumption,
-         Envelope_Commitment.Empty_Observation);
+         Envelope_Commitment.Empty_Observation,
+         Empty_Funding_Commitment);
    end Observe_Backing;
 
    function Observe_Backing
-     (Policy      : Backing_Policy;
-      L           : Ledger.Ledger;
-      Entitlement : Envelope_Entitlement.Entitlement_Observation;
-      Consumption : Envelope_Consumption.Envelope_Consumption;
-      Commitment  : Envelope_Commitment.Commitment_Observation)
+     (Policy             : Backing_Policy;
+      L                  : Ledger.Ledger;
+      Entitlement        : Envelope_Entitlement.Entitlement_Observation;
+      Consumption        : Envelope_Consumption.Envelope_Consumption;
+      Commitment         : Envelope_Commitment.Commitment_Observation;
+      Funding_Commitment : Funding_Commitment_Observation)
       return Backing_Observation
    is
       Result : Backing_Observation;
@@ -192,7 +258,8 @@ package body ALedger.Backing_Policy is
                  (Pool_Id                     => To_Unbounded_String (Pool_Name),
                   Claims                      => Claims_List,
                   Funding_Balance             => Funding_Bal,
-                  Funding_Commitment          => Empty_Balance,
+                  Funding_Commitment          =>
+                    Funding_Commitment_For (Funding_Commitment, Pool_Name),
                   Gross_Envelope_Required     => Gross_Req,
                   Available_Envelope_Required => Avail_Req);
             begin
