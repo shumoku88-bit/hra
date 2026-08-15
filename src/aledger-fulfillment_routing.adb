@@ -135,24 +135,31 @@ package body ALedger.Fulfillment_Routing is
       Plan_ID : ALedger.Plan.Plan_Id;
       Date    : String) return Fulfillment_Route
    is
-      Found     : Boolean := False;
-      Best_Date : Unbounded_String;
-      Best      : Fulfillment_Route := Not_Target;
+      Best_Index : Natural := 0;
    begin
-      for Decision of History.Decisions loop
-         if Decision.Plan_ID = Plan_ID
-           and then To_String (Decision.Effective_From) <= Date
-         then
-            if not Found
-              or else To_String (Decision.Effective_From) > To_String (Best_Date)
+      for I in 1 .. Natural (History.Decisions.Length) loop
+         declare
+            Decision : constant Fulfillment_Routing_Decision :=
+              History.Decisions.Element (I);
+         begin
+            if Decision.Plan_ID = Plan_ID
+              and then To_String (Decision.Effective_From) <= Date
+              and then
+                (Best_Index = 0
+                 or else To_String (Decision.Effective_From) >
+                   To_String
+                     (History.Decisions.Element (Best_Index).Effective_From))
             then
-               Found := True;
-               Best_Date := Decision.Effective_From;
-               Best := Decision.Route;
+               Best_Index := I;
             end if;
-         end if;
+         end;
       end loop;
-      return Best;
+
+      if Best_Index = 0 then
+         return Not_Target;
+      else
+         return History.Decisions.Element (Best_Index).Route;
+      end if;
    end Resolve;
 
    function Length (History : Fulfillment_Routing_History) return Natural is
