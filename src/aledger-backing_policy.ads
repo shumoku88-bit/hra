@@ -2,22 +2,18 @@ with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
 with Ada.Containers.Indefinite_Ordered_Maps;
 with Ada.Containers.Indefinite_Vectors;
 with ALedger.Money;          use ALedger.Money;
-with ALedger.Envelope;        use ALedger.Envelope;
+with ALedger.Envelope;       use ALedger.Envelope;
 with ALedger.Envelope_Entitlement;
 with ALedger.Envelope_Consumption;
+with ALedger.Envelope_Commitment;
 with ALedger.Budget_Config;
 with ALedger.Ledger;
 with ALedger.Config_Support;
 
 package ALedger.Backing_Policy is
 
-   --  ========================================================================
-   --  Backed Envelope Claim
-   --
    --  Remaining = Entitlement - Net Consumption.
-   --  Headroom = Remaining - Plan Commitment (defaults to Remaining).
-   --  ========================================================================
-
+   --  Headroom = Remaining - current-cycle Envelope Plan Commitment.
    type Backed_Envelope_Claim is record
       Env_Id    : Envelope.Envelope_Id;
       Remaining : Balance;
@@ -30,14 +26,6 @@ package ALedger.Backing_Policy is
      (Index_Type   => Positive,
       Element_Type => Backed_Envelope_Claim,
       "="          => "=");
-
-   --  ========================================================================
-   --  Backing Pool Position
-   --
-   --  Pool-local funding and claim coordinates.
-   --  Gross_Required is the sum of positive Remaining claims.
-   --  Available_Required is the sum of positive Headroom claims.
-   --  ========================================================================
 
    type Backing_Pool_Position is record
       Pool_Id                     : Unbounded_String;
@@ -53,10 +41,6 @@ package ALedger.Backing_Policy is
    function Available_Funding (Pos : Backing_Pool_Position) return Balance;
    function Gross_Surplus (Pos : Backing_Pool_Position) return Balance;
    function Available_Surplus (Pos : Backing_Pool_Position) return Balance;
-
-   --  ========================================================================
-   --  Backing Policy
-   --  ========================================================================
 
    type Backing_Policy is private;
 
@@ -88,11 +72,16 @@ package ALedger.Backing_Policy is
      (Policy      : Backing_Policy;
       L           : Ledger.Ledger;
       Entitlement : Envelope_Entitlement.Entitlement_Observation;
-      Consumption : Envelope_Consumption.Envelope_Consumption) return Backing_Observation;
+      Consumption : Envelope_Consumption.Envelope_Consumption;
+      Commitment  : Envelope_Commitment.Commitment_Observation) return Backing_Observation;
 
    function Position_For
      (Obs     : Backing_Observation;
       Pool_Id : String) return Backing_Pool_Position;
+
+   function Claim_For
+     (Obs : Backing_Observation;
+      Env : Envelope.Envelope_Id) return Backed_Envelope_Claim;
 
    function Positive_Balance (B : Balance) return Balance;
 
