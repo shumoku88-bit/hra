@@ -89,8 +89,8 @@ cycle、Envelope、Account policy、Report query/presentationはcanonical TOML�
 | Envelope Registry | implemented | `ALedger.Envelope.Envelope_Registry` をstable identityとして確立 |
 | Expense Routing | implemented | `ALedger.Envelope_Routing.Routing_History` でeffective-dated route解決 |
 | Entitlement Fold | implemented | `ALedger.Envelope_Entitlement` でbudget.journal movementをfold |
-| Consumption calculation | missing | Actual Ledger + Routing → Consumption 未実装 |
-| Backing by pool | missing | pool別のBacking position 未実装 |
+| Consumption calculation | implemented | `ALedger.Envelope_Consumption` でActual Ledger + Routing → Consumptionを計算 |
+| Backing by pool | implemented | `ALedger.Backing_Policy` でpool別のBacking positionを計算 |
 
 ### Envelope-native migration progress
 
