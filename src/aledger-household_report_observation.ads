@@ -3,6 +3,7 @@ with ALedger.Backing_Policy;
 with ALedger.Cycle_Observation;
 with ALedger.Envelope_Commitment;
 with ALedger.Envelope_Consumption;
+with ALedger.Envelope_Fulfillment;
 with ALedger.Household;
 with ALedger.Plan_Observation;
 
@@ -13,8 +14,10 @@ package ALedger.Household_Report_Observation is
    type Report_Observation is record
       Observed_Through   : Unbounded_String;
       Open_Plans         : ALedger.Plan_Observation.Open_Plan_Vectors.Vector;
+      Completed_Plans    : ALedger.Plan_Observation.Completed_Plan_Vectors.Vector;
       Current_Cycle      : ALedger.Cycle_Observation.Cycle_Window;
       Consumption        : ALedger.Envelope_Consumption.Envelope_Consumption;
+      Fulfillment        : ALedger.Envelope_Fulfillment.Envelope_Fulfillment;
       Commitment         : ALedger.Envelope_Commitment.Commitment_Observation;
       Funding_Commitment : ALedger.Backing_Policy.Funding_Commitment_Observation;
       Backing            : ALedger.Backing_Policy.Backing_Observation;
