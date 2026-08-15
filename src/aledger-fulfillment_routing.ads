@@ -60,16 +60,23 @@ package ALedger.Fulfillment_Routing is
       History     : out Fulfillment_Routing_History;
       Status      : out Admission_Status) return Boolean;
 
-   --  True only when a decision for Plan_ID is effective on or before Date.
-   --  A future decision must not rewrite an earlier observation.
+   --  Resolve the complete latest decision effective on or before Date. This
+   --  preserves effective-from and note provenance without exposing the private
+   --  history container. False means there is no historical decision yet.
+   function Resolve_Decision
+     (History  : Fulfillment_Routing_History;
+      Plan_ID  : ALedger.Plan.Plan_Id;
+      Date     : String;
+      Decision : out Fulfillment_Routing_Decision) return Boolean;
+
    function Has_Routing_At
      (History : Fulfillment_Routing_History;
       Plan_ID : ALedger.Plan.Plan_Id;
       Date    : String) return Boolean;
 
-   --  Resolve the latest applicable decision. Call Has_Routing_At when the
-   --  distinction between no decision and explicit Not_Fulfillment_Target is
-   --  semantically relevant.
+   --  Compatibility route-only projection. Call Resolve_Decision when the
+   --  distinction between no decision and explicit Not_Fulfillment_Target, or
+   --  source provenance, is semantically relevant.
    function Resolve
      (History : Fulfillment_Routing_History;
       Plan_ID : ALedger.Plan.Plan_Id;

@@ -9,6 +9,7 @@ package body ALedger.Plan_Observation is
    type Admitted_Plan is record
       ID               : ALedger.Plan.Plan_Id;
       Tx               : ALedger.Ledger.Transaction;
+      Source           : Transaction_Source;
       Has_Cancellation : Boolean := False;
       Cancelled_On     : Unbounded_String;
       Has_Supersession : Boolean := False;
@@ -21,8 +22,10 @@ package body ALedger.Plan_Observation is
       Element_Type => Admitted_Plan);
 
    type Completion is record
-      ID   : ALedger.Plan.Plan_Id;
-      Date : Unbounded_String;
+      ID     : ALedger.Plan.Plan_Id;
+      Date   : Unbounded_String;
+      Tx     : ALedger.Ledger.Transaction;
+      Source : Transaction_Source;
    end record;
 
    package Completion_Vectors is new Ada.Containers.Indefinite_Vectors
@@ -171,21 +174,23 @@ package body ALedger.Plan_Observation is
       return True;
    end Admit_Plan_Identities;
 
-   function Observe_Open_Plans
+   function Observe_Plans
      (Plan_Ledger        : ALedger.Ledger.Ledger;
       Plan_Source_Text   : String;
       Actual_Ledger      : ALedger.Ledger.Ledger;
       Actual_Source_Text : String;
       As_Of_Date         : String;
-      Result             : out Open_Plan_Vectors.Vector;
+      Open_Result        : out Open_Plan_Vectors.Vector;
+      Completed_Result   : out Completed_Plan_Vectors.Vector;
       Diag               : out Admission_Diagnostic) return Boolean
    is
-      Plan_Evidence   : ALedger.Journal_Evidence.Journal_Evidence;
-      Actual_Evidence : ALedger.Journal_Evidence.Journal_Evidence;
-      Evidence_Diag   : Evidence_Diagnostic;
-      Plans           : Admitted_Plan_Vectors.Vector;
-      Completions     : Completion_Vectors.Vector;
-      Output          : Open_Plan_Vectors.Vector;
+      Plan_Evidence    : ALedger.Journal_Evidence.Journal_Evidence;
+      Actual_Evidence  : ALedger.Journal_Evidence.Journal_Evidence;
+      Evidence_Diag    : Evidence_Diagnostic;
+      Plans            : Admitted_Plan_Vectors.Vector;
+      Completions      : Completion_Vectors.Vector;
+      Open_Output      : Open_Plan_Vectors.Vector;
+      Completed_Output : Completed_Plan_Vectors.Vector;
 
       procedure Fail
         (Status  : Admission_Status;
@@ -221,15 +226,21 @@ package body ALedger.Plan_Observation is
          return False;
       end Completion_Exists;
 
-      function Completed_As_Of (ID : ALedger.Plan.Plan_Id) return Boolean is
+      function Visible_Completion_Index
+        (ID : ALedger.Plan.Plan_Id) return Natural
+      is
       begin
-         for Item of Completions loop
-            if Item.ID = ID and then To_String (Item.Date) <= As_Of_Date then
-               return True;
-            end if;
+         for I in 1 .. Natural (Completions.Length) loop
+            declare
+               Item : constant Completion := Completions.Element (I);
+            begin
+               if Item.ID = ID and then To_String (Item.Date) <= As_Of_Date then
+                  return I;
+               end if;
+            end;
          end loop;
-         return False;
-      end Completed_As_Of;
+         return 0;
+      end Visible_Completion_Index;
 
       function Retired_As_Of (P : Admitted_Plan) return Boolean is
       begin
@@ -260,7 +271,8 @@ package body ALedger.Plan_Observation is
       end Supersession_Cycle_From;
 
    begin
-      Result := Output;
+      Open_Result := Open_Output;
+      Completed_Result := Completed_Output;
       Diag :=
         (Status      => Success,
          Line_Number => 0,
@@ -338,6 +350,7 @@ package body ALedger.Plan_Observation is
             P :=
               (ID               => PID,
                Tx               => Tx,
+               Source           => Source,
                Has_Cancellation => False,
                Cancelled_On     => Null_Unbounded_String,
                Has_Supersession => False,
@@ -425,20 +438,63 @@ package body ALedger.Plan_Observation is
                      return False;
                   end if;
                   Completions.Append
-                    (Completion'(ID => PID, Date => Tx.Date_Text));
+                    (Completion'
+                       (ID     => PID,
+                        Date   => Tx.Date_Text,
+                        Tx     => Tx,
+                        Source => Source));
                end;
             end if;
          end;
       end loop;
 
       for P of Plans loop
-         if not Retired_As_Of (P) and then not Completed_As_Of (P.ID) then
-            Output.Append (Open_Plan'(ID => P.ID, Tx => P.Tx));
-         end if;
+         declare
+            C_Index : constant Natural := Visible_Completion_Index (P.ID);
+         begin
+            if C_Index > 0 then
+               declare
+                  C : constant Completion := Completions.Element (C_Index);
+               begin
+                  Completed_Output.Append
+                    (Completed_Plan'
+                       (ID            => P.ID,
+                        Plan_Tx       => P.Tx,
+                        Actual_Tx     => C.Tx,
+                        Plan_Source   => P.Source,
+                        Actual_Source => C.Source));
+               end;
+            elsif not Retired_As_Of (P) then
+               Open_Output.Append (Open_Plan'(ID => P.ID, Tx => P.Tx));
+            end if;
+         end;
       end loop;
 
-      Result := Output;
+      Open_Result := Open_Output;
+      Completed_Result := Completed_Output;
       return True;
+   end Observe_Plans;
+
+   function Observe_Open_Plans
+     (Plan_Ledger        : ALedger.Ledger.Ledger;
+      Plan_Source_Text   : String;
+      Actual_Ledger      : ALedger.Ledger.Ledger;
+      Actual_Source_Text : String;
+      As_Of_Date         : String;
+      Result             : out Open_Plan_Vectors.Vector;
+      Diag               : out Admission_Diagnostic) return Boolean
+   is
+      Completed : Completed_Plan_Vectors.Vector;
+   begin
+      return Observe_Plans
+        (Plan_Ledger,
+         Plan_Source_Text,
+         Actual_Ledger,
+         Actual_Source_Text,
+         As_Of_Date,
+         Result,
+         Completed,
+         Diag);
    end Observe_Open_Plans;
 
 end ALedger.Plan_Observation;

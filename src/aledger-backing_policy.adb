@@ -182,6 +182,7 @@ package body ALedger.Backing_Policy is
          L,
          Entitlement,
          Consumption,
+         Envelope_Fulfillment.Empty_Fulfillment,
          Envelope_Commitment.Empty_Observation,
          Empty_Funding_Commitment);
    end Observe_Backing;
@@ -191,6 +192,27 @@ package body ALedger.Backing_Policy is
       L                  : Ledger.Ledger;
       Entitlement        : Envelope_Entitlement.Entitlement_Observation;
       Consumption        : Envelope_Consumption.Envelope_Consumption;
+      Commitment         : Envelope_Commitment.Commitment_Observation;
+      Funding_Commitment : Funding_Commitment_Observation)
+      return Backing_Observation
+   is
+   begin
+      return Observe_Backing
+        (Policy,
+         L,
+         Entitlement,
+         Consumption,
+         Envelope_Fulfillment.Empty_Fulfillment,
+         Commitment,
+         Funding_Commitment);
+   end Observe_Backing;
+
+   function Observe_Backing
+     (Policy             : Backing_Policy;
+      L                  : Ledger.Ledger;
+      Entitlement        : Envelope_Entitlement.Entitlement_Observation;
+      Consumption        : Envelope_Consumption.Envelope_Consumption;
+      Fulfillment        : Envelope_Fulfillment.Envelope_Fulfillment;
       Commitment         : Envelope_Commitment.Commitment_Observation;
       Funding_Commitment : Funding_Commitment_Observation)
       return Backing_Observation
@@ -233,8 +255,11 @@ package body ALedger.Backing_Policy is
                       (Entitlement, Env_Id);
                   Net_Cons : constant Balance :=
                     Envelope_Consumption.Net_For (Consumption, Env_Id);
+                  Net_Fulfillment : constant Balance :=
+                    Envelope_Fulfillment.Net_For (Fulfillment, Env_Id);
                   Remaining_Bal : constant Balance :=
-                    Subtract_Balance (Ent_Bal, Net_Cons);
+                    Subtract_Balance
+                      (Subtract_Balance (Ent_Bal, Net_Cons), Net_Fulfillment);
                   Plan_Reserve : constant Balance :=
                     Envelope_Commitment.Commitment_For
                       (Commitment, Env_Id);

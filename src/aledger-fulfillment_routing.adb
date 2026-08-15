@@ -101,39 +101,24 @@ package body ALedger.Fulfillment_Routing is
       return True;
    end Admit;
 
-   function Has_Routing_At
-     (History : Fulfillment_Routing_History;
-      Plan_ID : ALedger.Plan.Plan_Id;
-      Date    : String) return Boolean
-   is
-   begin
-      for Decision of History.Decisions loop
-         if Decision.Plan_ID = Plan_ID
-           and then To_String (Decision.Effective_From) <= Date
-         then
-            return True;
-         end if;
-      end loop;
-      return False;
-   end Has_Routing_At;
-
-   function Resolve
-     (History : Fulfillment_Routing_History;
-      Plan_ID : ALedger.Plan.Plan_Id;
-      Date    : String) return Fulfillment_Route
+   function Resolve_Decision
+     (History  : Fulfillment_Routing_History;
+      Plan_ID  : ALedger.Plan.Plan_Id;
+      Date     : String;
+      Decision : out Fulfillment_Routing_Decision) return Boolean
    is
       Best_Index : Natural := 0;
    begin
       for I in 1 .. Natural (History.Decisions.Length) loop
          declare
-            Decision : constant Fulfillment_Routing_Decision :=
+            Candidate : constant Fulfillment_Routing_Decision :=
               History.Decisions.Element (I);
          begin
-            if Decision.Plan_ID = Plan_ID
-              and then To_String (Decision.Effective_From) <= Date
+            if Candidate.Plan_ID = Plan_ID
+              and then To_String (Candidate.Effective_From) <= Date
               and then
                 (Best_Index = 0
-                 or else To_String (Decision.Effective_From) >
+                 or else To_String (Candidate.Effective_From) >
                    To_String
                      (History.Decisions.Element (Best_Index).Effective_From))
             then
@@ -143,9 +128,39 @@ package body ALedger.Fulfillment_Routing is
       end loop;
 
       if Best_Index = 0 then
-         return Not_Target;
+         Decision :=
+           (Effective_From => Null_Unbounded_String,
+            Plan_ID        => ALedger.Plan.Null_Plan_Id,
+            Route          => Not_Target,
+            Note           => Null_Unbounded_String);
+         return False;
+      end if;
+
+      Decision := History.Decisions.Element (Best_Index);
+      return True;
+   end Resolve_Decision;
+
+   function Has_Routing_At
+     (History : Fulfillment_Routing_History;
+      Plan_ID : ALedger.Plan.Plan_Id;
+      Date    : String) return Boolean
+   is
+      Decision : Fulfillment_Routing_Decision;
+   begin
+      return Resolve_Decision (History, Plan_ID, Date, Decision);
+   end Has_Routing_At;
+
+   function Resolve
+     (History : Fulfillment_Routing_History;
+      Plan_ID : ALedger.Plan.Plan_Id;
+      Date    : String) return Fulfillment_Route
+   is
+      Decision : Fulfillment_Routing_Decision;
+   begin
+      if Resolve_Decision (History, Plan_ID, Date, Decision) then
+         return Decision.Route;
       else
-         return History.Decisions.Element (Best_Index).Route;
+         return Not_Target;
       end if;
    end Resolve;
 
