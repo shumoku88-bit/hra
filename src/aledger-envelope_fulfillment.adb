@@ -126,7 +126,7 @@ package body ALedger.Envelope_Fulfillment is
         (Candidate, Root : ALedger.Ledger.Transaction) return Boolean
       is
       begin
-         if Candidate.Postings.Length /= Root.Postings.Length then
+         if Natural (Candidate.Postings.Length) /= Natural (Root.Postings.Length) then
             return False;
          end if;
 
