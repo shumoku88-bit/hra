@@ -11,12 +11,13 @@ package ALedger.Household_Report_Observation is
    --  One report-time semantic observation derived from an already admitted
    --  Household snapshot. No source is reread and no clock is captured here.
    type Report_Observation is record
-      Observed_Through : Unbounded_String;
-      Open_Plans       : ALedger.Plan_Observation.Open_Plan_Vectors.Vector;
-      Current_Cycle    : ALedger.Cycle_Observation.Cycle_Window;
-      Consumption     : ALedger.Envelope_Consumption.Envelope_Consumption;
-      Commitment      : ALedger.Envelope_Commitment.Commitment_Observation;
-      Backing         : ALedger.Backing_Policy.Backing_Observation;
+      Observed_Through   : Unbounded_String;
+      Open_Plans         : ALedger.Plan_Observation.Open_Plan_Vectors.Vector;
+      Current_Cycle      : ALedger.Cycle_Observation.Cycle_Window;
+      Consumption        : ALedger.Envelope_Consumption.Envelope_Consumption;
+      Commitment         : ALedger.Envelope_Commitment.Commitment_Observation;
+      Funding_Commitment : ALedger.Backing_Policy.Funding_Commitment_Observation;
+      Backing            : ALedger.Backing_Policy.Backing_Observation;
    end record;
 
    function Observe
