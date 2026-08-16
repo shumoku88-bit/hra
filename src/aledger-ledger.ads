@@ -92,6 +92,13 @@ package ALedger.Ledger is
      (L   : Ledger;
       Acc : Account.Account) return Balance;
 
+   --  Inclusive as-of observation. Future-dated Transactions remain admitted
+   --  Ledger facts but do not contribute to this projected Account balance.
+   function Compute_Account_Balance_Through
+     (L       : Ledger;
+      Acc     : Account.Account;
+      Through : ALedger.Dates.Date) return Balance;
+
    function Compute_Total_Balance (L : Ledger) return Balance;
 
 end ALedger.Ledger;
