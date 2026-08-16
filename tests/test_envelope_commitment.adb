@@ -10,6 +10,7 @@ with ALedger.Envelope;
 with ALedger.Envelope_Commitment;
 with ALedger.Envelope_Consumption;
 with ALedger.Envelope_Entitlement;
+with ALedger.Envelope_Fulfillment;
 with ALedger.Envelope_Routing;
 with ALedger.Fulfillment_Routing;
 with ALedger.Journal;
@@ -265,7 +266,13 @@ begin
       Funding := ALedger.Backing_Policy.Observe_Funding_Commitment
         (Policy, Open_Plans, Window);
       Backing := ALedger.Backing_Policy.Observe_Backing
-        (Policy, Actual, Entitlement, Consumption, Commitment, Funding);
+        (Policy,
+         Actual,
+         Entitlement,
+         Consumption,
+         ALedger.Envelope_Fulfillment.Empty_Fulfillment (D ("2026-08-15")),
+         Commitment,
+         Funding);
       Claim := ALedger.Backing_Policy.Claim_For (Backing, Food_Env);
       Position := ALedger.Backing_Policy.Position_For (Backing, "liquid");
 
