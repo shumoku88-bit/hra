@@ -55,7 +55,8 @@ package ALedger.Envelope_Fulfillment is
       Evidence         : Evidence_Vectors.Vector;
    end record;
 
-   function Empty_Fulfillment return Envelope_Fulfillment;
+   function Empty_Fulfillment
+     (Observed_Through : ALedger.Dates.Date) return Envelope_Fulfillment;
 
    type Observe_Status is
      (Success,

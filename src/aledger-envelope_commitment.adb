@@ -5,12 +5,14 @@ package body ALedger.Envelope_Commitment is
    use type ALedger.Account.Account_Type;
    use type ALedger.Dates.Date;
 
-   function Empty_Observation return Commitment_Observation is
-      Default_Date : ALedger.Dates.Date;
+   function Empty_Observation
+     (Observed_Through    : ALedger.Dates.Date;
+      Cycle_End_Exclusive : ALedger.Dates.Date) return Commitment_Observation
+   is
    begin
       return
-        (Observed_Through    => Default_Date,
-         Cycle_End_Exclusive => Default_Date,
+        (Observed_Through    => Observed_Through,
+         Cycle_End_Exclusive => Cycle_End_Exclusive,
          Managed             => Envelope_Balance_Maps.Empty_Map,
          Unmanaged           => Account_Balance_Maps.Empty_Map,
          Unrouted            => Account_Balance_Maps.Empty_Map);
@@ -50,34 +52,16 @@ package body ALedger.Envelope_Commitment is
      (Open_Plans       : ALedger.Plan_Observation.Open_Plan_Vectors.Vector;
       Registry         : ALedger.Account.Account_Registry;
       Routing          : ALedger.Envelope_Routing.Routing_History;
-      Window           : ALedger.Cycle_Observation.Cycle_Window;
-      Observed_Through : ALedger.Dates.Date;
-      Result           : out Commitment_Observation;
-      Diag             : out Observe_Diagnostic) return Boolean
-   is
-   begin
-      return Observe
-        (Open_Plans,
-         Registry,
-         Routing,
-         ALedger.Fulfillment_Routing.Empty_History,
-         Window,
-         Observed_Through,
-         Result,
-         Diag);
-   end Observe;
-
-   function Observe
-     (Open_Plans       : ALedger.Plan_Observation.Open_Plan_Vectors.Vector;
-      Registry         : ALedger.Account.Account_Registry;
-      Routing          : ALedger.Envelope_Routing.Routing_History;
       Fulfillment      : ALedger.Fulfillment_Routing.Fulfillment_Routing_History;
       Window           : ALedger.Cycle_Observation.Cycle_Window;
       Observed_Through : ALedger.Dates.Date;
       Result           : out Commitment_Observation;
       Diag             : out Observe_Diagnostic) return Boolean
    is
-      Output : Commitment_Observation := Empty_Observation;
+      Cycle_Limit : constant ALedger.Dates.Date :=
+        ALedger.Cycle_Observation.End_Exclusive (Window);
+      Output      : Commitment_Observation :=
+        Empty_Observation (Observed_Through, Cycle_Limit);
 
       procedure Fail
         (Status  : Observe_Status;
@@ -105,9 +89,6 @@ package body ALedger.Envelope_Commitment is
             "observation day is outside the resolved current cycle");
          return False;
       end if;
-
-      Output.Observed_Through := Observed_Through;
-      Output.Cycle_End_Exclusive := ALedger.Cycle_Observation.End_Exclusive (Window);
 
       for P of Open_Plans loop
          if P.Tx.Date < ALedger.Cycle_Observation.End_Exclusive (Window) then

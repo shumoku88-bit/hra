@@ -32,11 +32,11 @@ package body ALedger.Envelope_Fulfillment is
       return Subtract_Balance (Amounts.Applied, Amounts.Reversed);
    end Net_Fulfillment;
 
-   function Empty_Fulfillment return Envelope_Fulfillment is
-      Default_Date : ALedger.Dates.Date;
+   function Empty_Fulfillment
+     (Observed_Through : ALedger.Dates.Date) return Envelope_Fulfillment is
    begin
       return
-        (Observed_Through => Default_Date,
+        (Observed_Through => Observed_Through,
          Managed          => Envelope_Amounts_Maps.Empty_Map,
          Evidence         => Evidence_Vectors.Empty_Vector);
    end Empty_Fulfillment;
@@ -65,7 +65,7 @@ package body ALedger.Envelope_Fulfillment is
       Result           : out Envelope_Fulfillment;
       Diag             : out Observe_Diagnostic) return Boolean
    is
-      Output           : Envelope_Fulfillment := Empty_Fulfillment;
+      Output           : Envelope_Fulfillment := Empty_Fulfillment (Observed_Through);
       Event_Index      : String_Natural_Maps.Map;
       Reversal_Targets : String_Maps.Map;
 

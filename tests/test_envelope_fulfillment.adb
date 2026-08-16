@@ -319,7 +319,8 @@ begin
          Entitlement,
          ALedger.Envelope_Consumption.Empty_Consumption,
          Fulfillment,
-         ALedger.Envelope_Commitment.Empty_Observation,
+         ALedger.Envelope_Commitment.Empty_Observation
+           (D ("2026-08-18"), D ("2026-08-18")),
          ALedger.Backing_Policy.Empty_Funding_Commitment);
       Claim := ALedger.Backing_Policy.Claim_For (Backing, Savings_Env);
 

@@ -170,6 +170,8 @@ package body ALedger.Backing_Policy is
       end if;
    end Funding_Commitment_For;
 
+   use type ALedger.Envelope_Consumption.Consumption_Scope_Kind;
+
    function Observe_Backing
      (Policy      : Backing_Policy;
       L           : Ledger.Ledger;
@@ -177,14 +179,30 @@ package body ALedger.Backing_Policy is
       Consumption : Envelope_Consumption.Envelope_Consumption)
       return Backing_Observation
    is
+      Through : ALedger.Dates.Date;
    begin
+      if Consumption.Scope.Kind = Envelope_Consumption.Through_Date then
+         Through := Consumption.Scope.Through;
+      elsif not L.Transactions.Is_Empty then
+         Through := L.Transactions.Last_Element.Date;
+      else
+         declare
+            Status : ALedger.Dates.Date_Status;
+            Ok     : constant Boolean :=
+              ALedger.Dates.Parse ("1970-01-01", Through, Status);
+            pragma Unreferenced (Ok);
+         begin
+            null;
+         end;
+      end if;
+
       return Observe_Backing
         (Policy,
          L,
          Entitlement,
          Consumption,
-         Envelope_Fulfillment.Empty_Fulfillment,
-         Envelope_Commitment.Empty_Observation,
+         Envelope_Fulfillment.Empty_Fulfillment (Through),
+         Envelope_Commitment.Empty_Observation (Through, Through),
          Empty_Funding_Commitment);
    end Observe_Backing;
 
@@ -203,7 +221,7 @@ package body ALedger.Backing_Policy is
          L,
          Entitlement,
          Consumption,
-         Envelope_Fulfillment.Empty_Fulfillment,
+         Envelope_Fulfillment.Empty_Fulfillment (Commitment.Observed_Through),
          Commitment,
          Funding_Commitment);
    end Observe_Backing;

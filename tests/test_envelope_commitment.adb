@@ -11,13 +11,16 @@ with ALedger.Envelope_Commitment;
 with ALedger.Envelope_Consumption;
 with ALedger.Envelope_Entitlement;
 with ALedger.Envelope_Routing;
+with ALedger.Fulfillment_Routing;
 with ALedger.Journal;
 with ALedger.Ledger;
 with ALedger.Money;
+with ALedger.Plan;
 with ALedger.Plan_Observation;
 
 procedure Test_Envelope_Commitment is
    use type ALedger.Backing_Policy.Policy_Status;
+   use type ALedger.Fulfillment_Routing.Admission_Status;
    use type ALedger.Money.Quantity;
 
    Passed_Count : Natural := 0;
@@ -125,8 +128,10 @@ procedure Test_Envelope_Commitment is
    Food_Env      : ALedger.Envelope.Envelope_Id;
    Route_Entries : ALedger.Envelope_Routing.Routing_Entry_Vectors.Vector;
    Routing       : ALedger.Envelope_Routing.Routing_History;
-   Route_Status  : ALedger.Envelope_Routing.History_Status;
-   Commitment    : ALedger.Envelope_Commitment.Commitment_Observation;
+   Route_Status    : ALedger.Envelope_Routing.History_Status;
+   Fulfill_History : ALedger.Fulfillment_Routing.Fulfillment_Routing_History;
+   Fulfill_Status  : ALedger.Fulfillment_Routing.Admission_Status;
+   Commitment      : ALedger.Envelope_Commitment.Commitment_Observation;
    Commit_Diag   : ALedger.Envelope_Commitment.Observe_Diagnostic;
    JPY           : constant ALedger.Money.Commodity := ALedger.Money.Make_Commodity ("JPY");
 
@@ -172,6 +177,16 @@ begin
      (ALedger.Envelope.Lookup (Env_Registry, "food", Food_Env),
       "Lookup food Envelope");
 
+   Assert
+     (ALedger.Fulfillment_Routing.Admit
+        (ALedger.Fulfillment_Routing.Decision_Vectors.Empty_Vector,
+         ALedger.Plan.Empty_Plan_Id_Universe,
+         Env_Registry,
+         Fulfill_History,
+         Fulfill_Status)
+      and then Fulfill_Status = ALedger.Fulfillment_Routing.Success,
+      "Setup: admit empty Fulfillment routing history");
+
    Route_Entries.Append
      (ALedger.Envelope_Routing.Routing_Entry'
         (Effective => ALedger.Envelope_Routing.Initial_Effective_Date,
@@ -197,7 +212,7 @@ begin
 
    Assert
      (ALedger.Envelope_Commitment.Observe
-        (Open_Plans, Registry, Routing, Window, D ("2026-08-15"),
+        (Open_Plans, Registry, Routing, Fulfill_History, Window, D ("2026-08-15"),
          Commitment, Commit_Diag),
       "Observe current-cycle Envelope commitments");
    Assert

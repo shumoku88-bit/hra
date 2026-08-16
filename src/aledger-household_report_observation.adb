@@ -23,8 +23,6 @@ package body ALedger.Household_Report_Observation is
       Result.Completed_Plans :=
         ALedger.Plan_Observation.Completed_Plan_Vectors.Empty_Vector;
       Result.Consumption := ALedger.Envelope_Consumption.Empty_Consumption;
-      Result.Fulfillment := ALedger.Envelope_Fulfillment.Empty_Fulfillment;
-      Result.Commitment := ALedger.Envelope_Commitment.Empty_Observation;
       Result.Funding_Commitment :=
         ALedger.Backing_Policy.Empty_Funding_Commitment;
 

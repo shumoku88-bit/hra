@@ -27,7 +27,9 @@ package ALedger.Envelope_Commitment is
       Unrouted            : Account_Balance_Maps.Map;
    end record;
 
-   function Empty_Observation return Commitment_Observation;
+   function Empty_Observation
+     (Observed_Through    : ALedger.Dates.Date;
+      Cycle_End_Exclusive : ALedger.Dates.Date) return Commitment_Observation;
 
    type Observe_Status is
      (Success,
@@ -40,17 +42,6 @@ package ALedger.Envelope_Commitment is
       Plan_Id : Unbounded_String;
       Message : Unbounded_String;
    end record;
-
-   --  Compatibility observation with no Fulfillment routing. Non-Expense
-   --  postings therefore create no Envelope claim.
-   function Observe
-     (Open_Plans       : ALedger.Plan_Observation.Open_Plan_Vectors.Vector;
-      Registry         : ALedger.Account.Account_Registry;
-      Routing          : ALedger.Envelope_Routing.Routing_History;
-      Window           : ALedger.Cycle_Observation.Cycle_Window;
-      Observed_Through : ALedger.Dates.Date;
-      Result           : out Commitment_Observation;
-      Diag             : out Observe_Diagnostic) return Boolean;
 
    --  Observe open Plan claims inside the current cycle horizon. Positive
    --  Expense postings route by Account through Expense routing. Positive
