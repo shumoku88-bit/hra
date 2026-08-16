@@ -517,8 +517,10 @@ package body ALedger.Household is
       end;
 
       Result.Consumption :=
-        ALedger.Envelope_Consumption.Observe_Consumption
-          (Result.Actual_Ledger, Result.Routing_History);
+        ALedger.Envelope_Consumption.Observe_Stock_Consumption
+          (Result.Actual_Ledger,
+           Result.Routing_History,
+           Result.Entitlement);
 
       Result.Backing :=
         ALedger.Backing_Policy.Observe_Backing
