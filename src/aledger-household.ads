@@ -6,6 +6,7 @@ with ALedger.Canonical_Source;
 with ALedger.Budget_Config;
 with ALedger.Household_Config;
 with ALedger.Report_Config;
+with ALedger.Journal_Evidence;
 with ALedger.Envelope;
 with ALedger.Envelope_Routing;
 with ALedger.Fulfillment_Routing;
@@ -37,7 +38,9 @@ package ALedger.Household is
       Report_Policy       : ALedger.Report_Config.Report_Configuration;
       Registry            : Account_Registry;
       Actual_Ledger       : Ledger.Ledger;
+      Actual_Evidence     : ALedger.Journal_Evidence.Journal_Evidence;
       Plan_Ledger         : Ledger.Ledger;
+      Plan_Evidence       : ALedger.Journal_Evidence.Journal_Evidence;
       Budget_Ledger       : Ledger.Ledger;
       Combined_Ledger     : Ledger.Ledger;
       Issues              : Issues_Inventory;
