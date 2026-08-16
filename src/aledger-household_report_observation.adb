@@ -97,7 +97,7 @@ package body ALedger.Household_Report_Observation is
         ALedger.Envelope_Consumption.Observe_Consumption
           (State.Actual_Ledger,
            State.Routing_History,
-           Observed_Text);
+           Observed_Through);
 
       if not ALedger.Envelope_Fulfillment.Observe
         (Result.Completed_Plans,
