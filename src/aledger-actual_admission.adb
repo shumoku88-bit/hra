@@ -50,6 +50,7 @@ package body ALedger.Actual_Admission is
    function Empty_Observation return Actual_Observation is
       Result : Actual_Observation;
    begin
+      Result.Value := ALedger.Ledger.Empty_Ledger;
       Result.Identified.Clear;
       Result.Reversals.Clear;
       return Result;
@@ -257,12 +258,29 @@ package body ALedger.Actual_Admission is
          return False;
       end if;
 
+      --  The Journal parser owns accounting syntax, but durable Actual identity
+      --  is admitted only from retained source evidence here. Start from the
+      --  validated Ledger and erase parser-projected identity fields so no
+      --  display-text reconstruction can remain an authority path downstream.
+      Output.Value := Actual_Ledger;
+      for I in 1 .. Natural (Output.Value.Transactions.Length) loop
+         declare
+            Tx : ALedger.Ledger.Transaction :=
+              Output.Value.Transactions.Element (I);
+         begin
+            Tx.Event_ID    := Null_Unbounded_String;
+            Tx.Reverses_ID := Null_Unbounded_String;
+            Output.Value.Transactions.Replace_Element (I, Tx);
+         end;
+      end loop;
+
       for I in 1 .. Natural (Actual_Ledger.Transactions.Length) loop
          declare
             Tx     : constant ALedger.Ledger.Transaction :=
               Actual_Ledger.Transactions.Element (I);
             Source : constant Transaction_Source :=
               Actual_Evidence.Transactions.Element (I);
+            Normalized_Tx : ALedger.Ledger.Transaction := Tx;
             Event_Count, Plan_Count, Reverses_Count : Natural;
             Event_Meta, Plan_Meta, Reverses_Meta : Metadata_Entry;
             Event_ID, Derived_ID, Target_ID : Actual_Id;
@@ -271,6 +289,9 @@ package body ALedger.Actual_Admission is
             PID_Status : ALedger.Plan.Plan_Id_Status;
             Has_Event, Has_Derived, Has_Target : Boolean := False;
          begin
+            Normalized_Tx.Event_ID    := Null_Unbounded_String;
+            Normalized_Tx.Reverses_ID := Null_Unbounded_String;
+
             Find_Metadata (Source, "event-id", Event_Count, Event_Meta);
             Find_Metadata (Source, "plan-id", Plan_Count, Plan_Meta);
             Find_Metadata (Source, "reverses", Reverses_Count, Reverses_Meta);
@@ -345,6 +366,8 @@ package body ALedger.Actual_Admission is
                   return False;
                end if;
                Has_Target := True;
+               Normalized_Tx.Reverses_ID :=
+                 To_Unbounded_String (Text (Target_ID));
             end if;
 
             if Has_Event or else Has_Derived then
@@ -359,10 +382,12 @@ package body ALedger.Actual_Admission is
                      return False;
                   end if;
 
+                  Normalized_Tx.Event_ID :=
+                    To_Unbounded_String (Text (Effective_ID));
                   Output.Identified.Append
                     (Identified_Actual'
                        (ID     => Effective_ID,
-                        Tx     => Tx,
+                        Tx     => Normalized_Tx,
                         Source => Source));
                end;
             end if;
@@ -380,6 +405,8 @@ package body ALedger.Actual_Admission is
                     (Reversal_ID => Event_ID,
                      Target_ID   => Target_ID));
             end if;
+
+            Output.Value.Transactions.Replace_Element (I, Normalized_Tx);
          end;
       end loop;
 
