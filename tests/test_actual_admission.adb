@@ -121,8 +121,8 @@ begin
      (Admit_Source (Valid_Source, Observation, Diag),
       "Explicit reversal may target Plan-derived Actual identity");
    Assert
-     (Natural (Observation.Identified.Length) = 2 and then
-      Natural (Observation.Reversals.Length) = 1,
+     (ALedger.Actual_Admission.Identified_Count (Observation) = 2 and then
+      ALedger.Actual_Admission.Reversal_Count (Observation) = 1,
       "Actual admission retains identified transactions and reversal edge");
    Assert
      (Natural (Observation.Value.Transactions.Length) = 2 and then
