@@ -11,6 +11,7 @@ with ALedger.Ledger;         use ALedger.Ledger;
 procedure Test_Account_Admission is
    Passed_Count : Natural := 0;
    Failed_Count : Natural := 0;
+   Quote        : constant Character := Character'Val (34);
 
    procedure Assert (Condition : Boolean; Test_Name : String) is
    begin
@@ -216,45 +217,45 @@ begin
       Write_File
         (To_String (Paths.Budget_TOML),
          "[[backing-pools]]" & ASCII.LF &
-         "id = \"liquid\"" & ASCII.LF &
-         "asset-accounts = [\"assets:wallet\"]" & ASCII.LF &
+         "id = " & Quote & "liquid" & Quote & ASCII.LF &
+         "asset-accounts = [" & Quote & "assets:wallet" & Quote & "]" & ASCII.LF &
          "[[envelopes]]" & ASCII.LF &
-         "id = \"coffee\"" & ASCII.LF &
-         "label = \"Coffee\"" & ASCII.LF &
-         "pacing = \"daily\"" & ASCII.LF &
-         "backing-pool = \"liquid\"" & ASCII.LF &
-         "expense-accounts = [\"expenses:coffee\"]" & ASCII.LF);
+         "id = " & Quote & "coffee" & Quote & ASCII.LF &
+         "label = " & Quote & "Coffee" & Quote & ASCII.LF &
+         "pacing = " & Quote & "daily" & Quote & ASCII.LF &
+         "backing-pool = " & Quote & "liquid" & Quote & ASCII.LF &
+         "expense-accounts = [" & Quote & "expenses:coffee" & Quote & "]" & ASCII.LF);
 
       Write_File
         (To_String (Paths.Household_TOML),
          "[cycle]" & ASCII.LF &
-         "mode = \"income-anchor\"" & ASCII.LF &
-         "income-account = \"income:salary\"" & ASCII.LF &
+         "mode = " & Quote & "income-anchor" & Quote & ASCII.LF &
+         "income-account = " & Quote & "income:salary" & Quote & ASCII.LF &
          "[money]" & ASCII.LF &
-         "primary-commodity = \"JPY\"" & ASCII.LF &
+         "primary-commodity = " & Quote & "JPY" & Quote & ASCII.LF &
          "[budget]" & ASCII.LF &
-         "unassigned-accounts = [\"budget:unassigned\"]" & ASCII.LF &
+         "unassigned-accounts = [" & Quote & "budget:unassigned" & Quote & "]" & ASCII.LF &
          "[[budget.envelopes]]" & ASCII.LF &
-         "id = \"coffee\"" & ASCII.LF &
-         "allocation-account = \"budget:coffee\"" & ASCII.LF);
+         "id = " & Quote & "coffee" & Quote & ASCII.LF &
+         "allocation-account = " & Quote & "budget:coffee" & Quote & ASCII.LF);
 
       Write_File
         (To_String (Paths.Report_TOML),
          "[reports.trial-balance]" & ASCII.LF &
-         "as-of = \"latest\"" & ASCII.LF &
+         "as-of = " & Quote & "latest" & Quote & ASCII.LF &
          "[reports.balance-sheet]" & ASCII.LF &
-         "as-of = \"latest\"" & ASCII.LF &
+         "as-of = " & Quote & "latest" & Quote & ASCII.LF &
          "[reports.profit-and-loss]" & ASCII.LF &
-         "from = \"beginning\"" & ASCII.LF &
-         "through = \"latest\"" & ASCII.LF &
+         "from = " & Quote & "beginning" & Quote & ASCII.LF &
+         "through = " & Quote & "latest" & Quote & ASCII.LF &
          "[reports.daily-flow]" & ASCII.LF &
-         "from = \"beginning\"" & ASCII.LF &
-         "through = \"latest\"" & ASCII.LF &
+         "from = " & Quote & "beginning" & Quote & ASCII.LF &
+         "through = " & Quote & "latest" & Quote & ASCII.LF &
          "[reports.monthly-accounts]" & ASCII.LF &
-         "from = \"beginning\"" & ASCII.LF &
-         "through = \"latest\"" & ASCII.LF &
+         "from = " & Quote & "beginning" & Quote & ASCII.LF &
+         "through = " & Quote & "latest" & Quote & ASCII.LF &
          "[reports.recent-transactions]" & ASCII.LF &
-         "through = \"latest\"" & ASCII.LF &
+         "through = " & Quote & "latest" & Quote & ASCII.LF &
          "count = 10" & ASCII.LF);
 
       Write_File
