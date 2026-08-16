@@ -1,5 +1,4 @@
 with Ada.Characters.Handling; use Ada.Characters.Handling;
-with Ada.Containers.Indefinite_Vectors;
 with ALedger.Dates;
 with ALedger.Money; use ALedger.Money;
 with ALedger.Account; use ALedger.Account;
@@ -140,7 +139,7 @@ package body ALedger.Actual_Admission is
 
    function Coordinate_Total
      (Tx     : ALedger.Ledger.Transaction;
-      Acc    : Account;
+      Acc    : ALedger.Account.Account;
       Comm   : Commodity;
       Result : out Quantity) return Boolean
    is
@@ -167,7 +166,7 @@ package body ALedger.Actual_Admission is
      (Left, Right : ALedger.Ledger.Transaction) return Boolean
    is
       function Coordinate_Is_Inverse
-        (Acc : Account; Comm : Commodity) return Boolean
+        (Acc : ALedger.Account.Account; Comm : Commodity) return Boolean
       is
          L_Total : Quantity;
          R_Total : Quantity;
