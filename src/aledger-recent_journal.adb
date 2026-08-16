@@ -52,8 +52,9 @@ package body ALedger.Recent_Journal is
          begin
             if To_String (Tx.Date_Text) <= Through_Date then
                Result.Entries.Append
-                 ((Value  => Tx,
-                   Source => Actual_Evidence.Transactions.Element (Index)));
+                 (Entry'
+                    (Value  => Tx,
+                     Source => Actual_Evidence.Transactions.Element (Index)));
                Selected := Selected + 1;
             end if;
          end;
