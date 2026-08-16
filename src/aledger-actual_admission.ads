@@ -41,6 +41,7 @@ package ALedger.Actual_Admission is
       Element_Type => Reversal_Declaration);
 
    type Actual_Observation is record
+      Value      : ALedger.Ledger.Ledger;
       Identified : Identified_Actual_Vectors.Vector;
       Reversals  : Reversal_Vectors.Vector;
    end record;
