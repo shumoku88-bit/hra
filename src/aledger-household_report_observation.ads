@@ -6,13 +6,19 @@ with ALedger.Envelope_Consumption;
 with ALedger.Envelope_Fulfillment;
 with ALedger.Household;
 with ALedger.Plan_Observation;
+with ALedger.Recent_Journal;
+with ALedger.Report_Plan;
 
 package ALedger.Household_Report_Observation is
 
    --  One report-time semantic observation derived from an already admitted
    --  Household snapshot. No source is reread and no clock is captured here.
+   --  Report query coordinates are resolved against Actual evidence here so
+   --  the CLI renderer does not choose source ownership or date semantics.
    type Report_Observation is record
       Observed_Through   : Unbounded_String;
+      Query_Plan         : ALedger.Report_Plan.Resolved_Report_Plan;
+      Recent_Journal     : ALedger.Recent_Journal.Observation;
       Open_Plans         : ALedger.Plan_Observation.Open_Plan_Vectors.Vector;
       Completed_Plans    : ALedger.Plan_Observation.Completed_Plan_Vectors.Vector;
       Current_Cycle      : ALedger.Cycle_Observation.Cycle_Window;

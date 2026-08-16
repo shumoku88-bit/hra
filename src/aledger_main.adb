@@ -10,7 +10,7 @@ with ALedger.Ledger;         use ALedger.Ledger;
 with ALedger.Household;      use ALedger.Household;
 with ALedger.Household_Report_Observation;
 with ALedger.Render;         use ALedger.Render;
-with ALedger.Report_Plan;    use ALedger.Report_Plan;
+with ALedger.Recent_Journal_Render;
 with ALedger.Planned_Payments;
 with ALedger.Planned_Payments_Render;
 with ALedger.Envelope_Report_Render;
@@ -26,7 +26,7 @@ procedure ALedger_Main is
       New_Line;
       Put_Line ("Commands:");
       Put_Line ("  check    Validate the fixed 8-source topology, typed policy, and balance laws");
-      Put_Line ("  report   Render P&L, Balance Sheet, Planned Payments, open Issues, and Budget status");
+      Put_Line ("  report   Render the currently admitted Household report portfolio");
       Put_Line ("  tui      Launch the experimental native terminal UI");
       Put_Line ("  version  Show version information");
       Put_Line ("  help     Show this help message");
@@ -34,7 +34,9 @@ procedure ALedger_Main is
       Put_Line ("Household root precedence:");
       Put_Line ("  --base, LEDGER_DATA_DIR, HKERNEL_LEDGER_DATA_DIR, ./ledger-data, .");
       New_Line;
-      Put_Line ("WARNING: report policy is not yet fully applied; report output is not canonical.");
+      Put_Line
+        ("WARNING: daily-flow, monthly-accounts, and presentation policy are " &
+         "not yet fully applied; report output is not canonical.");
    end Print_Help;
 
    function Resolve_Household_Root return String is
@@ -107,27 +109,11 @@ begin
                Put_Line ("  Open Issues         : " & Natural'Image (Natural (Open_Issues (State.Issues).Length)));
             elsif Cmd = "report" then
                declare
-                  Report_Day   : constant String := Local_Today;
-                  Plan         : Resolved_Report_Plan;
-                  Status       : Resolve_Status;
+                  Report_Day    : constant String := Local_Today;
                   Household_Obs : ALedger.Household_Report_Observation.Report_Observation;
-                  Payments     : ALedger.Planned_Payments.Observation;
-                  Payment_Diag : ALedger.Planned_Payments.Admission_Diagnostic;
+                  Payments      : ALedger.Planned_Payments.Observation;
+                  Payment_Diag  : ALedger.Planned_Payments.Admission_Diagnostic;
                begin
-                  if not Resolve
-                    (Report_Day,
-                     State.Combined_Ledger,
-                     State.Report_Policy.Plan,
-                     Plan,
-                     Status)
-                  then
-                     Put_Line
-                       ("Error resolving report.toml query plan: " &
-                        Resolve_Status'Image (Status));
-                     Set_Exit_Status (Failure);
-                     return;
-                  end if;
-
                   if not ALedger.Household_Report_Observation.Observe
                     (Report_Day, State, Household_Obs, Err)
                   then
@@ -155,30 +141,49 @@ begin
                      return;
                   end if;
 
-                  Put_Line ("WARNING: report policy is only partially applied; this report is not canonical.");
+                  Put_Line
+                    ("WARNING: daily-flow, monthly-accounts, and presentation " &
+                     "policy remain partial; this report book is not canonical.");
                   Put_Line ("==================================================");
-                  Put_Line ("   ALedger Financial Statements");
+                  Put_Line ("   ALedger Household Reports");
                   Put_Line ("   Canonical Root: " & Root_Dir);
                   Put_Line ("==================================================");
                   New_Line;
+
+                  --  Current renderable portfolio follows the shared report
+                  --  order. Each section consumes an already admitted semantic
+                  --  observation; no renderer selects source files or dates.
                   Put
-                    (Render_Profit_And_Loss
-                       (State.Combined_Ledger,
-                        To_String (Plan.Profit_And_Loss.From_Date),
-                        To_String (Plan.Profit_And_Loss.Through_Date)));
+                    (ALedger.Envelope_Report_Render.Render
+                       (State, Household_Obs));
+                  New_Line;
+                  Put
+                    (Render_Account_Balances
+                       (State.Actual_Ledger,
+                        To_String
+                          (Household_Obs.Query_Plan.Trial_Balance_As_Of)));
                   New_Line;
                   Put
                     (Render_Balance_Sheet
-                       (State.Combined_Ledger,
-                        To_String (Plan.Balance_Sheet_As_Of)));
+                       (State.Actual_Ledger,
+                        To_String
+                          (Household_Obs.Query_Plan.Balance_Sheet_As_Of)));
+                  New_Line;
+                  Put
+                    (Render_Profit_And_Loss
+                       (State.Actual_Ledger,
+                        To_String
+                          (Household_Obs.Query_Plan.Profit_And_Loss.From_Date),
+                        To_String
+                          (Household_Obs.Query_Plan.Profit_And_Loss.Through_Date)));
+                  New_Line;
+                  Put
+                    (ALedger.Recent_Journal_Render.Render
+                       (Household_Obs.Recent_Journal));
                   New_Line;
                   Put (ALedger.Planned_Payments_Render.Render (Payments));
                   New_Line;
                   Put (Render_Household_Issues (State.Issues));
-                  New_Line;
-                  Put
-                    (ALedger.Envelope_Report_Render.Render
-                       (State, Household_Obs));
                end;
             end if;
          end;
