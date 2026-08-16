@@ -1,4 +1,4 @@
-with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
+with ALedger.Dates;
 with ALedger.Ledger;         use ALedger.Ledger;
 with ALedger.Report_Config;
 
@@ -6,83 +6,73 @@ package body ALedger.Report_Plan is
 
    function Resolve_Closed_Boundary
      (Boundary    : ALedger.Report_Config.Date_Boundary;
-      Latest_Date : String;
-      Result      : out Unbounded_String) return Boolean
+      Latest_Date : ALedger.Dates.Date;
+      Result      : out ALedger.Dates.Date) return Boolean
    is
       use ALedger.Report_Config;
    begin
       case Boundary.Kind is
          when Latest =>
-            Result := To_Unbounded_String (Latest_Date);
+            Result := Latest_Date;
             return True;
          when Exact_Date =>
-            Result := Boundary.Date;
+            Result := Boundary.Value;
             return True;
          when Beginning =>
-            Result := Null_Unbounded_String;
             return False;
       end case;
    end Resolve_Closed_Boundary;
 
    function Journal_Beginning_Through
      (L            : Ledger.Ledger;
-      Through_Date : String) return String
+      Through_Date : ALedger.Dates.Date) return ALedger.Dates.Date
    is
       Cursor : Transaction_Vectors.Cursor := L.Transactions.First;
       Found  : Boolean := False;
-      First  : Unbounded_String := To_Unbounded_String (Through_Date);
+      First  : ALedger.Dates.Date := Through_Date;
    begin
       while Transaction_Vectors.Has_Element (Cursor) loop
          declare
-            Tx      : constant Transaction := Transaction_Vectors.Element (Cursor);
-            Tx_Date : constant String := To_String (Tx.Date_Text);
+            Tx : constant Transaction := Transaction_Vectors.Element (Cursor);
          begin
-            if Tx_Date <= Through_Date
-              and then (not Found or else Tx_Date < To_String (First))
+            if Tx.Date <= Through_Date
+              and then (not Found or else Tx.Date < First)
             then
-               First := To_Unbounded_String (Tx_Date);
+               First := Tx.Date;
                Found := True;
             end if;
          end;
          Transaction_Vectors.Next (Cursor);
       end loop;
 
-      return To_String (First);
+      return First;
    end Journal_Beginning_Through;
 
    function Resolve_Range
      (Spec        : ALedger.Report_Config.Range_Spec;
-      Latest_Date : String;
+      Latest_Date : ALedger.Dates.Date;
       L           : Ledger.Ledger;
-      Result      : out Resolved_Range) return Boolean
+      Result      : out ALedger.Dates.Closed_Period) return Boolean
    is
       use ALedger.Report_Config;
-      Through : Unbounded_String;
-      Start   : Unbounded_String;
+      Through : ALedger.Dates.Date;
+      Start   : ALedger.Dates.Date;
    begin
       if not Resolve_Closed_Boundary (Spec.Through, Latest_Date, Through) then
          return False;
       end if;
 
       if Spec.From.Kind = Beginning then
-         Start := To_Unbounded_String
-           (Journal_Beginning_Through (L, To_String (Through)));
+         Start := Journal_Beginning_Through (L, Through);
       elsif not Resolve_Closed_Boundary (Spec.From, Latest_Date, Start) then
          return False;
       end if;
 
-      if To_String (Start) > To_String (Through) then
-         return False;
-      end if;
-
-      Result :=
-        (From_Date    => Start,
-         Through_Date => Through);
-      return True;
+      return ALedger.Dates.Make_Closed_Period (Start, Through, Result);
    end Resolve_Range;
 
    function Resolve
-     (Latest_Date : String;
+     (Latest_Date : ALedger.Dates.Date;
       L           : Ledger.Ledger;
       Plan        : ALedger.Report_Config.Report_Plan;
       Result      : out Resolved_Report_Plan;
@@ -151,6 +141,24 @@ package body ALedger.Report_Plan is
       Result := Resolved;
       Status := Success;
       return True;
+   end Resolve;
+
+   function Resolve
+     (Latest_Date : String;
+      L           : Ledger.Ledger;
+      Plan        : ALedger.Report_Config.Report_Plan;
+      Result      : out Resolved_Report_Plan;
+      Status      : out Resolve_Status) return Boolean
+   is
+      Date_Value  : ALedger.Dates.Date;
+      Date_Status : ALedger.Dates.Date_Status;
+   begin
+      if not ALedger.Dates.Parse (Latest_Date, Date_Value, Date_Status) then
+         Status := Invalid_Latest_Date;
+         return False;
+      end if;
+
+      return Resolve (Date_Value, L, Plan, Result, Status);
    end Resolve;
 
 end ALedger.Report_Plan;
