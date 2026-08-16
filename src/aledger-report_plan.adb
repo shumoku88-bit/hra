@@ -4,6 +4,8 @@ with ALedger.Report_Config;
 
 package body ALedger.Report_Plan is
 
+   use type ALedger.Dates.Date;
+
    function Resolve_Closed_Boundary
      (Boundary    : ALedger.Report_Config.Date_Boundary;
       Latest_Date : ALedger.Dates.Date;
