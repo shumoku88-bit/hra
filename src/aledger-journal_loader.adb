@@ -1,120 +1,31 @@
 with Ada.Containers.Indefinite_Vectors;
-with Ada.Directories;          use Ada.Directories;
-with Ada.Streams;              use Ada.Streams;
+with Ada.Directories; use Ada.Directories;
+with Ada.Directories.Hierarchical_File_Names;
+with Ada.IO_Exceptions;
+with Ada.Streams; use Ada.Streams;
 with Ada.Streams.Stream_IO;
-with Ada.Strings.Unbounded;    use Ada.Strings.Unbounded;
-with ALedger.Journal;          use ALedger.Journal;
+with Ada.Strings; use Ada.Strings;
+with Ada.Strings.Fixed; use Ada.Strings.Fixed;
+with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
+with ALedger.Journal; use ALedger.Journal;
+with ALedger.Journal.Document;
 with ALedger.Journal_Evidence; use ALedger.Journal_Evidence;
 
 package body ALedger.Journal_Loader is
 
+   package HFN renames Ada.Directories.Hierarchical_File_Names;
+
    package String_Vectors is new Ada.Containers.Indefinite_Vectors
      (Index_Type   => Positive,
       Element_Type => String);
-
-   type Include_Line_Kind is
-     (Not_Include, Valid_Include, Invalid_Include);
-
-   function Lower_String (Value : String) return String is
-      Result : String := Value;
-   begin
-      for I in Result'Range loop
-         if Result (I) in 'A' .. 'Z' then
-            Result (I) := Character'Val (Character'Pos (Result (I)) + 32);
-         end if;
-      end loop;
-      return Result;
-   end Lower_String;
-
-   function Is_Outer_Whitespace (C : Character) return Boolean is
-     (C = ' ' or else C = ASCII.HT or else C = ASCII.CR);
-
-   function Trim_Whitespace (Value : String) return String is
-      First : Integer := Value'First;
-      Last  : Integer := Value'Last;
-   begin
-      while First <= Last and then Is_Outer_Whitespace (Value (First)) loop
-         First := First + 1;
-      end loop;
-      while Last >= First and then Is_Outer_Whitespace (Value (Last)) loop
-         Last := Last - 1;
-      end loop;
-
-      if First > Last then
-         return "";
-      end if;
-      return Value (First .. Last);
-   end Trim_Whitespace;
-
-   function Parse_Include_Line
-     (Line : String;
-      Path : out Unbounded_String) return Include_Line_Kind
-   is
-      Clean      : constant String := Trim_Whitespace (Line);
-      Comment_At : Natural := 0;
-   begin
-      Path := Null_Unbounded_String;
-
-      if Line'Length = 0
-        or else Line (Line'First) = ' '
-        or else Line (Line'First) = ASCII.HT
-        or else Clean'Length < 7
-      then
-         return Not_Include;
-      end if;
-
-      if Lower_String (Clean (Clean'First .. Clean'First + 6)) /= "include" then
-         return Not_Include;
-      end if;
-
-      if Clean'Length > 7
-        and then Clean (Clean'First + 7) /= ' '
-        and then Clean (Clean'First + 7) /= ASCII.HT
-      then
-         return Invalid_Include;
-      end if;
-
-      if Clean'Length = 7 then
-         return Invalid_Include;
-      end if;
-
-      declare
-         Remainder : constant String :=
-           Trim_Whitespace (Clean (Clean'First + 7 .. Clean'Last));
-      begin
-         for I in Remainder'Range loop
-            if Remainder (I) = ';' then
-               Comment_At := I;
-               exit;
-            end if;
-         end loop;
-
-         declare
-            Include_Path : constant String :=
-              (if Comment_At = 0 then
-                  Trim_Whitespace (Remainder)
-               elsif Comment_At = Remainder'First then
-                  ""
-               else
-                  Trim_Whitespace
-                    (Remainder (Remainder'First .. Comment_At - 1)));
-         begin
-            if Include_Path'Length = 0 then
-               return Invalid_Include;
-            end if;
-            Path := To_Unbounded_String (Include_Path);
-            return Valid_Include;
-         end;
-      end;
-   end Parse_Include_Line;
 
    function Contains
      (Items : String_Vectors.Vector;
       Value : String) return Boolean
    is
    begin
-      for I in 1 .. Natural (Items.Length) loop
-         if Items.Element (I) = Value then
+      for Item of Items loop
+         if Item = Value then
             return True;
          end if;
       end loop;
@@ -136,26 +47,20 @@ package body ALedger.Journal_Loader is
 
    function Trace_Image (Trace : String_Vectors.Vector) return String is
       Result : Unbounded_String := Null_Unbounded_String;
+      First  : Boolean := True;
    begin
-      for I in 1 .. Natural (Trace.Length) loop
-         if I > 1 then
+      for Item of Trace loop
+         if not First then
             Append (Result, " -> ");
          end if;
-         Append (Result, Trace.Element (I));
+         Append (Result, Item);
+         First := False;
       end loop;
       return To_String (Result);
    end Trace_Image;
 
-   function Is_Absolute_Path (Path : String) return Boolean is
-   begin
-      if Path'Length = 0 then
-         return False;
-      end if;
-      if Path (Path'First) = '/' or else Path (Path'First) = '\' then
-         return True;
-      end if;
-      return Path'Length >= 2 and then Path (Path'First + 1) = ':';
-   end Is_Absolute_Path;
+   function Line_Image (Line : Positive) return String is
+     (Trim (Positive'Image (Line), Both));
 
    function Resolve_Include_Path
      (Parent_Path  : String;
@@ -163,22 +68,41 @@ package body ALedger.Journal_Loader is
       Resolved     : out Unbounded_String;
       Error_Msg    : out Unbounded_String) return Boolean
    is
-      Candidate : constant String :=
-        (if Is_Absolute_Path (Include_Path) then Include_Path
-         else Compose (Containing_Directory (Parent_Path), Include_Path));
+      Candidate : Unbounded_String := Null_Unbounded_String;
    begin
-      if not Exists (Candidate) or else Kind (Candidate) /= Ordinary_File then
+      Resolved  := Null_Unbounded_String;
+      Error_Msg := Null_Unbounded_String;
+
+      if HFN.Is_Full_Name (Include_Path) then
+         Candidate := To_Unbounded_String (Include_Path);
+      elsif HFN.Is_Relative_Name (Include_Path) then
+         Candidate := To_Unbounded_String
+           (HFN.Compose
+              (Directory     => Containing_Directory (Parent_Path),
+               Relative_Name => Include_Path));
+      else
          Error_Msg := To_Unbounded_String
-           ("included journal is missing or not a regular file: " & Candidate);
+           ("include path is neither a full nor relative hierarchical name: " &
+            Include_Path);
          return False;
       end if;
 
-      Resolved := To_Unbounded_String (Full_Name (Candidate));
+      if not Exists (To_String (Candidate))
+        or else Kind (To_String (Candidate)) /= Ordinary_File
+      then
+         Error_Msg := To_Unbounded_String
+           ("included journal is missing or not a regular file: " &
+            To_String (Candidate));
+         return False;
+      end if;
+
+      Resolved := To_Unbounded_String (Full_Name (To_String (Candidate)));
       return True;
    exception
-      when others =>
+      when Ada.IO_Exceptions.Name_Error | Ada.IO_Exceptions.Use_Error =>
+         Resolved := Null_Unbounded_String;
          Error_Msg := To_Unbounded_String
-           ("cannot resolve included journal: " & Candidate);
+           ("cannot resolve included journal: " & Include_Path);
          return False;
    end Resolve_Include_Path;
 
@@ -191,13 +115,19 @@ package body ALedger.Journal_Loader is
       use type SIO.Count;
       File : SIO.File_Type;
    begin
+      Text      := Null_Unbounded_String;
+      Error_Msg := Null_Unbounded_String;
       SIO.Open (File, SIO.In_File, Path);
+
       declare
          Byte_Count : constant SIO.Count := SIO.Size (File);
       begin
-         if Byte_Count = 0 then
-            Text := Null_Unbounded_String;
-         else
+         if Byte_Count > SIO.Count (Natural'Last) then
+            SIO.Close (File);
+            Error_Msg := To_Unbounded_String
+              ("included journal is too large to load: " & Path);
+            return False;
+         elsif Byte_Count > 0 then
             declare
                Bytes : Stream_Element_Array
                  (1 .. Stream_Element_Offset (Byte_Count));
@@ -219,11 +149,15 @@ package body ALedger.Journal_Loader is
             end;
          end if;
       end;
+
       SIO.Close (File);
-      Error_Msg := Null_Unbounded_String;
       return True;
    exception
-      when others =>
+      when Ada.IO_Exceptions.Name_Error
+         | Ada.IO_Exceptions.Use_Error
+         | Ada.IO_Exceptions.Device_Error
+         | Ada.IO_Exceptions.End_Error
+         | Ada.IO_Exceptions.Data_Error =>
          if SIO.Is_Open (File) then
             SIO.Close (File);
          end if;
@@ -239,10 +173,10 @@ package body ALedger.Journal_Loader is
       Observation : out Journal_Observation;
       Error_Msg   : out Unbounded_String) return Boolean
    is
-      Trace         : String_Vectors.Vector;
-      Loaded_Paths  : String_Vectors.Vector;
-      Loaded_Traces : String_Vectors.Vector;
-      Expanded      : Unbounded_String := Null_Unbounded_String;
+      Trace          : String_Vectors.Vector;
+      Loaded_Paths   : String_Vectors.Vector;
+      Loaded_Traces  : String_Vectors.Vector;
+      Expanded       : Unbounded_String := Null_Unbounded_String;
       Graph_Evidence : ALedger.Journal_Evidence.Journal_Evidence;
 
       function Expand_Document
@@ -255,6 +189,7 @@ package body ALedger.Journal_Loader is
       is
          Canonical_Path : Unbounded_String;
          Existing       : Natural;
+         Local_Document : ALedger.Journal.Document.Parsed_Document;
          Check_Ledger   : ALedger.Ledger.Ledger;
          Local_Evidence : ALedger.Journal_Evidence.Journal_Evidence;
          Evidence_Diag  : Evidence_Diagnostic;
@@ -262,11 +197,12 @@ package body ALedger.Journal_Loader is
          Line_Start     : Natural := Text'First;
          Line_Number    : Natural := 0;
          Evidence_Index : Natural := 1;
+         Include_Index  : Natural := 1;
       begin
          begin
             Canonical_Path := To_Unbounded_String (Full_Name (Path));
          exception
-            when others =>
+            when Ada.IO_Exceptions.Name_Error | Ada.IO_Exceptions.Use_Error =>
                Error_Msg := To_Unbounded_String
                  ("cannot normalize journal path: " & Path);
                return False;
@@ -294,10 +230,19 @@ package body ALedger.Journal_Loader is
          Loaded_Paths.Append (To_String (Canonical_Path));
          Loaded_Traces.Append (Trace_Image (Trace));
 
-         --  Parse each physical document from its exact bytes before
-         --  substitution. The current Journal parser treats include lines as
-         --  structural boundaries, so this yields exactly the transactions
-         --  physically owned by this document.
+         --  Journal syntax owns include recognition and validation. The loader
+         --  consumes only typed source coordinates and performs graph I/O.
+         if not ALedger.Journal.Document.Parse
+           (Text, To_String (Canonical_Path), Local_Document, Diag)
+         then
+            Error_Msg := To_Unbounded_String (Format_Diagnostic (Diag));
+            Trace.Delete_Last;
+            return False;
+         end if;
+
+         --  Parse each physical document from its exact bytes before graph
+         --  substitution. This retains the local semantic value paired with
+         --  source evidence from the same physical document.
          if not Parse_Journal_Text
            (Text, To_String (Canonical_Path), Check_Ledger, Diag)
          then
@@ -331,10 +276,6 @@ package body ALedger.Journal_Loader is
                   Line_End := Line_End + 1;
                end loop;
 
-               --  Retain physical transaction evidence at exactly the point
-               --  where this document contributes the transaction to the
-               --  resolved graph. Recursive include evidence therefore lands
-               --  between surrounding parent transactions in source order.
                if Evidence_Index <= Natural (Local_Evidence.Transactions.Length)
                  and then Local_Evidence.Transactions.Element
                    (Evidence_Index).Header_Line = Line_Number
@@ -344,64 +285,54 @@ package body ALedger.Journal_Loader is
                   Evidence_Index := Evidence_Index + 1;
                end if;
 
-               declare
-                  Raw_Line : constant String := Text (Line_Start .. Line_End - 1);
-                  Include_Path : Unbounded_String;
-                  Include_Kind : constant Include_Line_Kind :=
-                    Parse_Include_Line (Raw_Line, Include_Path);
-               begin
-                  case Include_Kind is
-                     when Not_Include =>
-                        Append (Expanded, Raw_Line);
-                        Append (Expanded, ASCII.LF);
-
-                     when Invalid_Include =>
+               if Include_Index <= Natural (Local_Document.Includes.Length)
+                 and then Local_Document.Includes.Element
+                   (Include_Index).Line_Number = Line_Number
+               then
+                  declare
+                     Directive  : constant ALedger.Journal.Document.Include_Directive :=
+                       Local_Document.Includes.Element (Include_Index);
+                     Child_Path : Unbounded_String;
+                     Child_Text : Unbounded_String;
+                  begin
+                     if not Resolve_Include_Path
+                       (To_String (Canonical_Path),
+                        To_String (Directive.Path),
+                        Child_Path,
+                        Error_Msg)
+                     then
                         Error_Msg := To_Unbounded_String
                           (To_String (Canonical_Path) & ":" &
-                           Natural'Image (Line_Number) &
-                           ": invalid include directive");
+                           Line_Image (Directive.Line_Number) & ": " &
+                           To_String (Error_Msg));
                         Trace.Delete_Last;
                         return False;
+                     end if;
 
-                     when Valid_Include =>
-                        declare
-                           Child_Path : Unbounded_String;
-                           Child_Text : Unbounded_String;
-                        begin
-                           if not Resolve_Include_Path
-                             (To_String (Canonical_Path),
-                              To_String (Include_Path),
-                              Child_Path,
-                              Error_Msg)
-                           then
-                              Error_Msg := To_Unbounded_String
-                                (To_String (Canonical_Path) & ":" &
-                                 Natural'Image (Line_Number) & ": " &
-                                 To_String (Error_Msg));
-                              Trace.Delete_Last;
-                              return False;
-                           end if;
+                     if not Read_Exact_Text
+                       (To_String (Child_Path), Child_Text, Error_Msg)
+                     then
+                        Error_Msg := To_Unbounded_String
+                          (To_String (Canonical_Path) & ":" &
+                           Line_Image (Directive.Line_Number) & ": " &
+                           To_String (Error_Msg));
+                        Trace.Delete_Last;
+                        return False;
+                     end if;
 
-                           if not Read_Exact_Text
-                             (To_String (Child_Path), Child_Text, Error_Msg)
-                           then
-                              Error_Msg := To_Unbounded_String
-                                (To_String (Canonical_Path) & ":" &
-                                 Natural'Image (Line_Number) & ": " &
-                                 To_String (Error_Msg));
-                              Trace.Delete_Last;
-                              return False;
-                           end if;
+                     if not Expand_Document
+                       (To_String (Child_Path), To_String (Child_Text))
+                     then
+                        Trace.Delete_Last;
+                        return False;
+                     end if;
 
-                           if not Expand_Document
-                             (To_String (Child_Path), To_String (Child_Text))
-                           then
-                              Trace.Delete_Last;
-                              return False;
-                           end if;
-                        end;
-                  end case;
-               end;
+                     Include_Index := Include_Index + 1;
+                  end;
+               else
+                  Append (Expanded, Text (Line_Start .. Line_End - 1));
+                  Append (Expanded, ASCII.LF);
+               end if;
 
                Line_Start := Line_End + 1;
             end;
@@ -411,6 +342,12 @@ package body ALedger.Journal_Loader is
             Error_Msg := To_Unbounded_String
               (To_String (Canonical_Path) &
                ": transaction evidence was not placed into resolved graph");
+            Trace.Delete_Last;
+            return False;
+         elsif Include_Index <= Natural (Local_Document.Includes.Length) then
+            Error_Msg := To_Unbounded_String
+              (To_String (Canonical_Path) &
+               ": include directive was not placed into resolved graph");
             Trace.Delete_Last;
             return False;
          end if;
@@ -457,7 +394,7 @@ package body ALedger.Journal_Loader is
                Error_Msg := To_Unbounded_String
                  ("resolved Journal evidence does not align at " &
                   To_String (Source.Source_Path) & ":" &
-                  Positive'Image (Source.Header_Line));
+                  Line_Image (Source.Header_Line));
                return False;
             end if;
          end;
@@ -465,13 +402,6 @@ package body ALedger.Journal_Loader is
 
       Observation.Evidence := Graph_Evidence;
       return True;
-   exception
-      when others =>
-         Observation.Value := ALedger.Ledger.Empty_Ledger;
-         Observation.Evidence.Transactions.Clear;
-         Error_Msg := To_Unbounded_String
-           ("failed to admit journal include graph rooted at: " & Root_Path);
-         return False;
    end Load_From_Root_Source;
 
    function Load_From_Root_Source
