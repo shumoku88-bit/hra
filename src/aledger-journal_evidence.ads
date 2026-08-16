@@ -15,6 +15,7 @@ package ALedger.Journal_Evidence is
       Element_Type => Metadata_Entry);
 
    type Transaction_Source is record
+      Source_Path : Unbounded_String;
       Header_Line : Positive;
       Date_Text   : Unbounded_String;
       Description : Unbounded_String;
@@ -43,5 +44,14 @@ package ALedger.Journal_Evidence is
       L        : ALedger.Ledger.Ledger;
       Evidence : out Journal_Evidence;
       Diag     : out Evidence_Diagnostic) return Boolean;
+
+   --  Source-aware form used by Journal graph admission. Every transaction
+   --  retains the physical document path and line that owned its metadata.
+   function Extract
+     (Input       : String;
+      Source_Path : String;
+      L           : ALedger.Ledger.Ledger;
+      Evidence    : out Journal_Evidence;
+      Diag        : out Evidence_Diagnostic) return Boolean;
 
 end ALedger.Journal_Evidence;
