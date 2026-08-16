@@ -59,10 +59,13 @@ private
    subtype Month_Number is Positive range 1 .. 12;
    subtype Day_Number   is Positive range 1 .. 31;
 
+   --  Defaults are valid private representation values so temporary records and
+   --  out parameters never contain range-invalid scalar components. Domain
+   --  construction still goes through Parse / period constructors.
    type Date is record
-      Y : Year_Number;
-      M : Month_Number;
-      D : Day_Number;
+      Y : Year_Number  := 1;
+      M : Month_Number := 1;
+      D : Day_Number   := 1;
    end record;
 
    type Closed_Period is record
