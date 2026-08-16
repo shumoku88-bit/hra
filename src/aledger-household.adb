@@ -85,23 +85,6 @@ package body ALedger.Household is
          return True;
       end Validate_Account;
 
-      function Validate_Declared_Account
-        (Name : String; Path : String) return Boolean
-      is
-         Acc    : Account.Account;
-         Status : Account_Status;
-         Decl   : Account_Declaration;
-      begin
-         if not Create_Account (Name, Acc, Status)
-           or else not Lookup_Declaration (Result.Registry, Acc, Decl)
-         then
-            Error_Msg := To_Unbounded_String
-              (Path & ": Account is not declared in accounts.journal: " & Name);
-            return False;
-         end if;
-         return True;
-      end Validate_Declared_Account;
-
       function Validate_Ledger_Accounts
         (From : Ledger.Ledger; Path : String) return Boolean
       is
@@ -132,50 +115,96 @@ package body ALedger.Household is
       begin
          for Pool of Result.Budget_Policy.Backing_Pools loop
             for Name of Pool.Asset_Accounts loop
-               if not Validate_Account (Name, Asset, "budget.toml backing pool") then return False; end if;
+               if not Validate_Account
+                 (Name, Asset, "budget.toml backing pool")
+               then
+                  return False;
+               end if;
             end loop;
          end loop;
-         for Envelope of Result.Budget_Policy.Envelopes loop
-            for Name of Envelope.Expense_Accounts loop
-               if not Validate_Account (Name, Expense, "budget.toml envelope") then return False; end if;
-            end loop;
-         end loop;
-         if not Validate_Account (To_String (H.Cycle_Income_Account), Income, "household.toml cycle") then return False; end if;
-         for Name of H.Unassigned_Accounts loop
-            if not Validate_Account (Name, Budget, "household.toml unassigned account") then return False; end if;
-         end loop;
-         for Envelope of H.Envelopes loop
-            if not Validate_Account (To_String (Envelope.Allocation_Account), Budget, "household.toml allocation account") then return False; end if;
-            for Name of Envelope.Plan_Destination_Accounts loop
-               if not Validate_Declared_Account (Name, "household.toml Plan destination") then return False; end if;
-            end loop;
-         end loop;
-         for Selection of H.Daily_Target_Assets loop
-            if not Validate_Account (To_String (Selection.Account), Asset, "household.toml Daily Target") then return False; end if;
-         end loop;
-         if H.Has_Account_Policy then
-            for Name of H.Accounts.Liquid_Assets loop if not Validate_Account (Name, Asset, "household.toml Asset policy") then return False; end if; end loop;
-            for Name of H.Accounts.Savings_Assets loop if not Validate_Account (Name, Asset, "household.toml Asset policy") then return False; end if; end loop;
-            for Name of H.Accounts.Investment_Assets loop if not Validate_Account (Name, Asset, "household.toml Asset policy") then return False; end if; end loop;
-            for Name of H.Accounts.Opening_Budget loop if not Validate_Account (Name, Budget, "household.toml Budget policy") then return False; end if; end loop;
-            for Name of H.Accounts.Unassigned_Budget loop if not Validate_Account (Name, Budget, "household.toml Budget policy") then return False; end if; end loop;
-            for Name of H.Accounts.Spent_Budget loop if not Validate_Account (Name, Budget, "household.toml Budget policy") then return False; end if; end loop;
-            for Name of H.Accounts.Envelope_Budget loop if not Validate_Account (Name, Budget, "household.toml Budget policy") then return False; end if; end loop;
-            for Name of H.Accounts.Unassigned_Role loop if not Validate_Account (Name, Budget, "household.toml Budget role") then return False; end if; end loop;
-            for Name of H.Accounts.Dynamic_Role loop if not Validate_Account (Name, Budget, "household.toml Budget role") then return False; end if; end loop;
-            for Name of H.Accounts.Execution_Role loop if not Validate_Account (Name, Budget, "household.toml Budget role") then return False; end if; end loop;
-            for Name of H.Accounts.Daily_Group loop if not Validate_Account (Name, Budget, "household.toml Budget group") then return False; end if; end loop;
-            for Name of H.Accounts.Flex_Group loop if not Validate_Account (Name, Budget, "household.toml Budget group") then return False; end if; end loop;
-            for Name of H.Accounts.Reserve_Group loop if not Validate_Account (Name, Budget, "household.toml Budget group") then return False; end if; end loop;
-            for Name of H.Accounts.Fixed_Expenses loop if not Validate_Account (Name, Expense, "household.toml Expense policy") then return False; end if; end loop;
-            for Name of H.Accounts.Variable_Expenses loop if not Validate_Account (Name, Expense, "household.toml Expense policy") then return False; end if; end loop;
+
+         if not Validate_Account
+           (To_String (H.Cycle_Income_Account), Income, "household.toml cycle")
+         then
+            return False;
          end if;
+
+         for Name of H.Opening_Accounts loop
+            if not Validate_Account
+              (Name, Budget, "household.toml opening account")
+            then
+               return False;
+            end if;
+         end loop;
+
+         for Name of H.Unassigned_Accounts loop
+            if not Validate_Account
+              (Name, Budget, "household.toml unassigned account")
+            then
+               return False;
+            end if;
+         end loop;
+
+         for Env_Coord of H.Envelopes loop
+            if not Validate_Account
+              (To_String (Env_Coord.Allocation_Account),
+               Budget,
+               "household.toml allocation account")
+            then
+               return False;
+            end if;
+         end loop;
+
+         for Entry of H.Envelope_History.Expense_Routing loop
+            if not Validate_Account
+              (To_String (Entry.Expense_Account),
+               Expense,
+               "household.toml expense routing")
+            then
+               return False;
+            end if;
+         end loop;
+
+         for Selection of H.Daily_Target_Assets loop
+            if not Validate_Account
+              (To_String (Selection.Account), Asset, "household.toml Daily Target")
+            then
+               return False;
+            end if;
+         end loop;
+
          return True;
       end Validate_Config_Accounts;
+
+      function Validate_Envelope_References return Boolean is
+         H : ALedger.Household_Config.Household_Configuration
+           renames Result.Household_Policy;
+         Env_Id : ALedger.Envelope.Envelope_Id;
+      begin
+         for Env_Def of Result.Budget_Policy.Envelopes loop
+            if not ALedger.Envelope.Lookup
+              (Result.Envelope_Registry, To_String (Env_Def.ID), Env_Id)
+            then
+               Error_Msg := To_Unbounded_String
+                 ("budget.toml: current Envelope missing from " &
+                  "envelope-history.identities: " & To_String (Env_Def.ID));
+               return False;
+            end if;
+         end loop;
+
+         for Env_Coord of H.Envelopes loop
+            if not ALedger.Envelope.Lookup
+              (Result.Envelope_Registry, To_String (Env_Coord.ID), Env_Id)
+            then
+               Error_Msg := To_Unbounded_String
+                 ("household.toml: allocation Envelope missing from " &
+                  "envelope-history.identities: " & To_String (Env_Coord.ID));
+               return False;
+            end if;
+         end loop;
+         return True;
+      end Validate_Envelope_References;
    begin
-      --  One complete eight-root observation precedes source-specific admission.
-      --  Journal include I/O is then owned by Journal_Loader, starting from the
-      --  exact root bytes already captured here.
       if not Observe_Canonical_Sources
         (Root_Dir, Observation, Error_Msg)
       then
@@ -279,118 +308,85 @@ package body ALedger.Household is
          return False;
       end if;
 
-      --  accounts.journal is the sole Account declaration authority. The
-      --  source-specific Journal registries are parser-local observations and
-      --  are replaced only after their posting references have been checked.
       Result.Combined_Ledger.Registry := Result.Registry;
       Result.Actual_Ledger.Registry   := Result.Registry;
       Result.Plan_Ledger.Registry     := Result.Registry;
       Result.Budget_Ledger.Registry   := Result.Registry;
 
-      --  =====================================================================
-      --  Envelope-Native Domain Admission & Calculation
-      --  =====================================================================
+      --  Envelope identity is historical source data. Never infer the stable
+      --  registry from current budget.toml membership.
+      if not ALedger.Envelope.Admit_Registry
+        (Result.Household_Policy.Envelope_History.Identities,
+         Result.Envelope_Registry,
+         Config_Diag)
+      then
+         Error_Msg := To_Unbounded_String
+           (ALedger.Config_Support.Format_Diagnostic (Config_Diag));
+         return False;
+      end if;
 
-      --  1. Admit Envelope Registry from envelope-history.identities (or budget.toml envelopes)
-      declare
-         Env_Ids : ALedger.Config_Support.String_Vectors.Vector :=
-           Result.Household_Policy.Envelope_History.Identities;
-      begin
-         if Env_Ids.Is_Empty then
-            for Env_Def of Result.Budget_Policy.Envelopes loop
-               Env_Ids.Append (To_String (Env_Def.ID));
-            end loop;
-         end if;
+      if not Validate_Envelope_References then
+         return False;
+      end if;
 
-         if not Env_Ids.Is_Empty then
-            if not ALedger.Envelope.Admit_Registry
-              (Env_Ids, Result.Envelope_Registry, Config_Diag)
-            then
-               Error_Msg := To_Unbounded_String
-                 (ALedger.Config_Support.Format_Diagnostic (Config_Diag));
-               return False;
-            end if;
-         end if;
-      end;
-
-      --  2. Admit Expense Routing History.
+      --  Historical Expense meaning comes only from explicit routing history.
       declare
          use ALedger.Envelope_Routing;
          R_Entries : Routing_Entry_Vectors.Vector;
          H_Status  : History_Status;
       begin
-         if not Result.Household_Policy.Envelope_History.Expense_Routing.Is_Empty then
-            for Entry_Data of Result.Household_Policy.Envelope_History.Expense_Routing loop
-               declare
-                  Eff   : Effective_Date;
-                  Route : Expense_Route;
-               begin
-                  case Entry_Data.Effective.Kind is
-                     when ALedger.Household_Config.Initial =>
-                        Eff := Initial_Effective_Date;
-                     when ALedger.Household_Config.From_Date =>
-                        Eff := Dated_Effective (Entry_Data.Effective.Date);
-                  end case;
+         for Entry_Data of
+           Result.Household_Policy.Envelope_History.Expense_Routing
+         loop
+            declare
+               Eff   : Effective_Date;
+               Route : Expense_Route;
+            begin
+               case Entry_Data.Effective.Kind is
+                  when ALedger.Household_Config.Initial =>
+                     Eff := Initial_Effective_Date;
+                  when ALedger.Household_Config.From_Date =>
+                     Eff := Dated_Effective (Entry_Data.Effective.Date);
+               end case;
 
-                  case Entry_Data.Route.Kind is
-                     when ALedger.Household_Config.Managed =>
-                        declare
-                           Target_Id : ALedger.Envelope.Envelope_Id;
-                           Found     : constant Boolean :=
-                             ALedger.Envelope.Lookup
-                               (Result.Envelope_Registry,
-                                To_String (Entry_Data.Route.Target),
-                                Target_Id);
-                        begin
-                           if not Found then
-                              Error_Msg := To_Unbounded_String
-                                ("household.toml: routing target envelope not found in registry: " &
-                                 To_String (Entry_Data.Route.Target));
-                              return False;
-                           end if;
-                           Route := Managed_Route (Target_Id);
-                        end;
-                     when ALedger.Household_Config.Not_Managed =>
-                        Route := Not_Managed_Route;
-                  end case;
+               case Entry_Data.Route.Kind is
+                  when ALedger.Household_Config.Managed =>
+                     declare
+                        Target_Id : ALedger.Envelope.Envelope_Id;
+                        Found     : constant Boolean :=
+                          ALedger.Envelope.Lookup
+                            (Result.Envelope_Registry,
+                             To_String (Entry_Data.Route.Target),
+                             Target_Id);
+                     begin
+                        if not Found then
+                           Error_Msg := To_Unbounded_String
+                             ("household.toml: routing target envelope not " &
+                              "found in registry: " &
+                              To_String (Entry_Data.Route.Target));
+                           return False;
+                        end if;
+                        Route := Managed_Route (Target_Id);
+                     end;
+                  when ALedger.Household_Config.Not_Managed =>
+                     Route := Not_Managed_Route;
+               end case;
 
-                  R_Entries.Append
-                    (Routing_Entry'
-                       (Effective => Eff,
-                        Expense   => Account.Make_Account (To_String (Entry_Data.Expense_Account)),
-                        Route     => Route,
-                        Note      => Entry_Data.Note));
-               end;
-            end loop;
-         else
-            --  Legacy bootstrap only: if no historical Expense routing exists,
-            --  synthesize initial routing from budget.toml envelope definitions.
-            for Env_Def of Result.Budget_Policy.Envelopes loop
-               declare
-                  Target_Id : ALedger.Envelope.Envelope_Id;
-                  Found     : constant Boolean :=
-                    ALedger.Envelope.Lookup
-                      (Result.Envelope_Registry,
-                       To_String (Env_Def.ID),
-                       Target_Id);
-               begin
-                  if Found then
-                     for Exp_Acc of Env_Def.Expense_Accounts loop
-                        R_Entries.Append
-                          (Routing_Entry'
-                             (Effective => Initial_Effective_Date,
-                              Expense   => Account.Make_Account (Exp_Acc),
-                              Route     => Managed_Route (Target_Id),
-                              Note      => Null_Unbounded_String));
-                     end loop;
-                  end if;
-               end;
-            end loop;
-         end if;
+               R_Entries.Append
+                 (Routing_Entry'
+                    (Effective => Eff,
+                     Expense   => Account.Make_Account
+                       (To_String (Entry_Data.Expense_Account)),
+                     Route     => Route,
+                     Note      => Entry_Data.Note));
+            end;
+         end loop;
 
          if not Admit
-           (R_Entries, Result.Envelope_Registry,
-            Result.Routing_History, H_Status)
+           (R_Entries,
+            Result.Envelope_Registry,
+            Result.Routing_History,
+            H_Status)
          then
             Error_Msg := To_Unbounded_String
               ("household.toml: failed to admit expense routing history");
@@ -398,9 +394,6 @@ package body ALedger.Household is
          end if;
       end;
 
-      --  3. Admit Fulfillment Routing History only when the source declares
-      --     such coordinates. Stable Plan identity comes from the already
-      --     admitted Plan graph evidence, never from a second raw-text scan.
       if not Result.Household_Policy.Envelope_History.Fulfillment_Routing.Is_Empty then
          declare
             Known_Plans : ALedger.Plan.Plan_Id_Universe;
@@ -461,7 +454,8 @@ package body ALedger.Household is
                              (ALedger.Fulfillment_Routing.Fulfillment_Routing_Decision'
                                 (Effective_From => Entry_Data.Effective_From,
                                  Plan_ID        => PID,
-                                 Route          => ALedger.Fulfillment_Routing.Fulfills (Target_Id),
+                                 Route          =>
+                                   ALedger.Fulfillment_Routing.Fulfills (Target_Id),
                                  Note           => Entry_Data.Note));
                         end;
 
@@ -491,12 +485,14 @@ package body ALedger.Household is
          end;
       end if;
 
-      --  4. Admit Backing Policy.
       declare
          P_Status : ALedger.Backing_Policy.Policy_Status;
       begin
          if not ALedger.Backing_Policy.Admit_Backing_Policy
-           (Result.Budget_Policy, Result.Envelope_Registry, Result.Backing_Policy_Spec, P_Status)
+           (Result.Budget_Policy,
+            Result.Envelope_Registry,
+            Result.Backing_Policy_Spec,
+            P_Status)
          then
             Error_Msg := To_Unbounded_String
               ("budget.toml: failed to admit backing policy");
@@ -504,7 +500,6 @@ package body ALedger.Household is
          end if;
       end;
 
-      --  5. Calculate Entitlement from budget.journal movements.
       declare
          Ad_Diag : ALedger.Budget_Source_Adapter.Adapter_Diagnostic;
       begin
@@ -521,13 +516,10 @@ package body ALedger.Household is
          end if;
       end;
 
-      --  6. Calculate Consumption from Actual_Ledger.
       Result.Consumption :=
         ALedger.Envelope_Consumption.Observe_Consumption
           (Result.Actual_Ledger, Result.Routing_History);
 
-      --  7. Calculate base Backing from State. Observation-day Plan
-      --     commitments remain report-time projections.
       Result.Backing :=
         ALedger.Backing_Policy.Observe_Backing
           (Result.Backing_Policy_Spec,
