@@ -18,6 +18,8 @@ with ALedger.Envelope;       use ALedger.Envelope;
 
 package ALedger.Envelope_Entitlement is
 
+   use type ALedger.Dates.Date;
+
    type Entitlement_Kind is
      (Grant_From_Unallocated,
       Transfer_Between_Envelopes,
