@@ -1,5 +1,6 @@
 with ALedger.Envelope;
 with ALedger.Account;
+with ALedger.Dates;
 with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
 with Ada.Containers.Indefinite_Vectors;
 
@@ -30,13 +31,17 @@ package ALedger.Envelope_Routing is
          when Initial =>
             null;
          when From_Date =>
-            Date : Unbounded_String;
+            Date : ALedger.Dates.Date;
       end case;
    end record;
 
    function Initial_Effective_Date return Effective_Date
      with Post => Initial_Effective_Date'Result.Kind = Initial;
 
+   function Dated_Effective (Date : ALedger.Dates.Date) return Effective_Date
+     with Post => Dated_Effective'Result.Kind = From_Date;
+
+   --  Programmatic text boundary. Invalid text is rejected rather than stored.
    function Dated_Effective (Date : String) return Effective_Date
      with Pre  => Date'Length > 0,
           Post => Dated_Effective'Result.Kind = From_Date;
@@ -68,22 +73,26 @@ package ALedger.Envelope_Routing is
       History  : out Routing_History;
       Status   : out History_Status) return Boolean;
 
-   --  Resolve the latest applicable route. If no route is applicable this
-   --  legacy value-returning query yields Not_Envelope_Managed; callers that
-   --  must distinguish missing evidence use Has_Routing_At first.
+   function Resolve
+     (H       : Routing_History;
+      Expense : Account.Account;
+      Date    : ALedger.Dates.Date) return Expense_Route;
+
    function Resolve
      (H       : Routing_History;
       Expense : Account.Account;
       Date    : String) return Expense_Route;
 
-   --  True if at least one route for Expense is applicable on Date. An initial
-   --  route always applies; a dated route applies only on/after effective-from.
+   function Has_Routing_At
+     (H       : Routing_History;
+      Expense : Account.Account;
+      Date    : ALedger.Dates.Date) return Boolean;
+
    function Has_Routing_At
      (H       : Routing_History;
       Expense : Account.Account;
       Date    : String) return Boolean;
 
-   --  True if any routing entry exists for this Account at any point in history.
    function Has_Routing
      (H       : Routing_History;
       Expense : Account.Account) return Boolean;
