@@ -1,9 +1,11 @@
-with Ada.Text_IO;          use Ada.Text_IO;
+with Ada.Strings.Fixed;     use Ada.Strings.Fixed;
+with Ada.Text_IO;           use Ada.Text_IO;
 with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
 with ALedger.Journal;       use ALedger.Journal;
 with ALedger.Journal_Evidence;
 with ALedger.Ledger;
 with ALedger.Recent_Journal;
+with ALedger.Recent_Journal_Render;
 
 procedure Test_Recent_Journal is
    use type ALedger.Recent_Journal.Observe_Status;
@@ -72,6 +74,8 @@ begin
            Result.Entries.Element (1);
          Older  : constant ALedger.Recent_Journal.Entry :=
            Result.Entries.Element (2);
+         Rendered : constant String :=
+           ALedger.Recent_Journal_Render.Render (Result);
       begin
          Assert
            (To_String (Newest.Value.Date_Text) = "2026-07-20"
@@ -81,6 +85,11 @@ begin
            (To_String (Newest.Source.Source_Path) = "fixtures/actual.journal"
               and then Newest.Source.Header_Line = 5,
             "Selected entry retains physical source path and header line");
+         Assert
+           (Index (Rendered, "2026-07-20 Second") > 0
+              and then Index (Rendered, "2026-06-10 First") > 0
+              and then Index (Rendered, "2026-09-01 Future") = 0,
+            "Renderer consumes bounded semantic result instead of raw Ledger");
       end;
    end if;
 
