@@ -21,32 +21,18 @@ package ALedger.Actual_Admission is
    function Text (ID : Actual_Id) return String;
    function "=" (Left, Right : Actual_Id) return Boolean;
 
-   type Identified_Actual is record
-      ID     : Actual_Id;
-      Tx     : ALedger.Ledger.Transaction;
-      Source : ALedger.Journal_Evidence.Transaction_Source;
-   end record;
-
-   package Identified_Actual_Vectors is new Ada.Containers.Indefinite_Vectors
-     (Index_Type   => Positive,
-      Element_Type => Identified_Actual);
-
-   type Reversal_Declaration is record
-      Reversal_ID : Actual_Id;
-      Target_ID   : Actual_Id;
-   end record;
-
-   package Reversal_Vectors is new Ada.Containers.Indefinite_Vectors
-     (Index_Type   => Positive,
-      Element_Type => Reversal_Declaration);
-
-   type Actual_Observation is record
-      Value      : ALedger.Ledger.Ledger;
-      Identified : Identified_Actual_Vectors.Vector;
-      Reversals  : Reversal_Vectors.Vector;
-   end record;
+   --  Durable identity/provenance is intentionally opaque at the package
+   --  boundary. Callers may consume the normalized Ledger and observation
+   --  cardinalities without learning which container represents identities.
+   type Actual_Observation is private;
 
    function Empty_Observation return Actual_Observation;
+
+   function Ledger_Value
+     (Observation : Actual_Observation) return ALedger.Ledger.Ledger;
+
+   function Identified_Count (Observation : Actual_Observation) return Natural;
+   function Reversal_Count (Observation : Actual_Observation) return Natural;
 
    type Admission_Status is
      (Success,
@@ -80,6 +66,31 @@ private
 
    type Actual_Id is record
       ID_Text : Unbounded_String;
+   end record;
+
+   type Identified_Actual is record
+      ID     : Actual_Id;
+      Tx     : ALedger.Ledger.Transaction;
+      Source : ALedger.Journal_Evidence.Transaction_Source;
+   end record;
+
+   package Identified_Actual_Vectors is new Ada.Containers.Indefinite_Vectors
+     (Index_Type   => Positive,
+      Element_Type => Identified_Actual);
+
+   type Reversal_Declaration is record
+      Reversal_ID : Actual_Id;
+      Target_ID   : Actual_Id;
+   end record;
+
+   package Reversal_Vectors is new Ada.Containers.Indefinite_Vectors
+     (Index_Type   => Positive,
+      Element_Type => Reversal_Declaration);
+
+   type Actual_Observation is record
+      Value      : ALedger.Ledger.Ledger;
+      Identified : Identified_Actual_Vectors.Vector;
+      Reversals  : Reversal_Vectors.Vector;
    end record;
 
 end ALedger.Actual_Admission;
