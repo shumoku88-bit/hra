@@ -1,20 +1,15 @@
 with Ada.Strings.Fixed;
+with ALedger.Dates;
 
 package body ALedger.Envelope_Entitlement is
 
-   --  ========================================================================
-   --  Empty Observation
-   --  ========================================================================
+   use type ALedger.Dates.Date;
 
    function Empty_Observation return Entitlement_Observation is
    begin
       return (Per_Envelope => Envelope_Balance_Maps.Empty_Map,
               Unallocated  => Empty_Balance);
    end Empty_Observation;
-
-   --  ========================================================================
-   --  Helpers
-   --  ========================================================================
 
    function Add_To_Map
      (Map : Envelope_Balance_Maps.Map;
@@ -30,10 +25,6 @@ package body ALedger.Envelope_Entitlement is
       end if;
       return Result;
    end Add_To_Map;
-
-   --  ========================================================================
-   --  Fold Movement
-   --  ========================================================================
 
    function Fold_Movement
      (Obs      : Entitlement_Observation;
@@ -74,10 +65,6 @@ package body ALedger.Envelope_Entitlement is
 
       return Result;
    end Fold_Movement;
-
-   --  ========================================================================
-   --  Query
-   --  ========================================================================
 
    function Entitlement_For
      (Obs : Entitlement_Observation;
