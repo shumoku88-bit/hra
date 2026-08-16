@@ -16,8 +16,8 @@ package ALedger.Plan_Observation is
       Element_Type => Open_Plan);
 
    --  One whole admitted Plan paired with the explicit Actual transaction that
-   --  completes it. Source evidence comes from the exact bytes already held by
-   --  the canonical Household observation; no posting or amount is reparsed.
+   --  completes it. Source evidence stays attached to the physical Journal
+   --  documents that owned the metadata.
    type Completed_Plan is record
       ID            : ALedger.Plan.Plan_Id;
       Plan_Tx       : ALedger.Ledger.Transaction;
@@ -55,19 +55,37 @@ package ALedger.Plan_Observation is
       Message     : Unbounded_String;
    end record;
 
-   --  Admit the stable PlanId universe from the already admitted Plan ledger
-   --  and the exact source bytes that produced it. Lifecycle state is not part
-   --  of identity existence: completed, cancelled, and superseded Plans remain
-   --  valid stable references for historical relations.
+   --  Core identity admission consumes already-admitted Journal evidence.
+   --  Lifecycle state is not part of identity existence: completed, cancelled,
+   --  and superseded Plans remain valid stable references.
+   function Admit_Plan_Identities
+     (Plan_Ledger   : ALedger.Ledger.Ledger;
+      Plan_Evidence : ALedger.Journal_Evidence.Journal_Evidence;
+      Result        : out ALedger.Plan.Plan_Id_Universe;
+      Diag          : out Admission_Diagnostic) return Boolean;
+
+   --  Compatibility wrapper for root-only callers. Production graph admission
+   --  should pass Journal_Evidence directly and must not re-extract raw text.
    function Admit_Plan_Identities
      (Plan_Ledger      : ALedger.Ledger.Ledger;
       Plan_Source_Text : String;
       Result           : out ALedger.Plan.Plan_Id_Universe;
       Diag             : out Admission_Diagnostic) return Boolean;
 
-   --  Observe role-neutral Plan lifecycle once and publish both open Plans and
-   --  explicit completion pairs. Planned date, description, amount, Account
-   --  similarity, and accounting role never create completion evidence.
+   --  Core role-neutral lifecycle observation. Ledger and Evidence are one
+   --  admitted pair for each source. Planned similarity never creates
+   --  completion evidence; only explicit Actual plan-id metadata does.
+   function Observe_Plans
+     (Plan_Ledger       : ALedger.Ledger.Ledger;
+      Plan_Evidence     : ALedger.Journal_Evidence.Journal_Evidence;
+      Actual_Ledger     : ALedger.Ledger.Ledger;
+      Actual_Evidence   : ALedger.Journal_Evidence.Journal_Evidence;
+      As_Of_Date        : String;
+      Open_Result       : out Open_Plan_Vectors.Vector;
+      Completed_Result  : out Completed_Plan_Vectors.Vector;
+      Diag              : out Admission_Diagnostic) return Boolean;
+
+   --  Compatibility wrapper for root-only callers.
    function Observe_Plans
      (Plan_Ledger        : ALedger.Ledger.Ledger;
       Plan_Source_Text   : String;
@@ -78,8 +96,17 @@ package ALedger.Plan_Observation is
       Completed_Result   : out Completed_Plan_Vectors.Vector;
       Diag               : out Admission_Diagnostic) return Boolean;
 
-   --  Compatibility projection for callers that only need open Plans. This is
-   --  a view of Observe_Plans, not a second lifecycle parser.
+   --  Evidence-native projection for callers that only need open Plans.
+   function Observe_Open_Plans
+     (Plan_Ledger      : ALedger.Ledger.Ledger;
+      Plan_Evidence    : ALedger.Journal_Evidence.Journal_Evidence;
+      Actual_Ledger    : ALedger.Ledger.Ledger;
+      Actual_Evidence  : ALedger.Journal_Evidence.Journal_Evidence;
+      As_Of_Date       : String;
+      Result           : out Open_Plan_Vectors.Vector;
+      Diag             : out Admission_Diagnostic) return Boolean;
+
+   --  Compatibility projection for root-only callers.
    function Observe_Open_Plans
      (Plan_Ledger        : ALedger.Ledger.Ledger;
       Plan_Source_Text   : String;
