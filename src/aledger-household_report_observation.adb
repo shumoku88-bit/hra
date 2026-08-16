@@ -1,10 +1,11 @@
 with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
 with ALedger.Account;
+with ALedger.Dates;
 
 package body ALedger.Household_Report_Observation is
 
    function Observe
-     (Observed_Through : String;
+     (Observed_Through : ALedger.Dates.Date;
       State            : ALedger.Household.Household_State;
       Result           : out Report_Observation;
       Error_Msg        : out Unbounded_String) return Boolean
@@ -18,8 +19,9 @@ package body ALedger.Household_Report_Observation is
       Income_Acc       : constant ALedger.Account.Account :=
         ALedger.Account.Make_Account
           (To_String (State.Household_Policy.Cycle_Income_Account));
+      Observed_Text    : constant String := ALedger.Dates.Image (Observed_Through);
    begin
-      Result.Observed_Through := To_Unbounded_String (Observed_Through);
+      Result.Observed_Through := Observed_Through;
       Result.Open_Plans := ALedger.Plan_Observation.Open_Plan_Vectors.Empty_Vector;
       Result.Completed_Plans :=
         ALedger.Plan_Observation.Completed_Plan_Vectors.Empty_Vector;
@@ -29,9 +31,6 @@ package body ALedger.Household_Report_Observation is
       Result.Funding_Commitment :=
         ALedger.Backing_Policy.Empty_Funding_Commitment;
 
-      --  report.toml query coordinates are Actual-report coordinates.  Resolve
-      --  "beginning" against admitted Actual Transactions only; Budget movement
-      --  dates must not silently widen accounting report periods.
       if not ALedger.Report_Plan.Resolve
         (Observed_Through,
          State.Actual_Ledger,
@@ -48,7 +47,7 @@ package body ALedger.Household_Report_Observation is
       if not ALedger.Recent_Journal.Observe
         (State.Actual_Ledger,
          State.Actual_Evidence,
-         To_String (Result.Query_Plan.Recent_Transactions_Through),
+         Result.Query_Plan.Recent_Transactions_Through,
          Result.Query_Plan.Recent_Transactions_Count,
          Result.Recent_Journal,
          Recent_Status)
@@ -98,14 +97,14 @@ package body ALedger.Household_Report_Observation is
         ALedger.Envelope_Consumption.Observe_Consumption
           (State.Actual_Ledger,
            State.Routing_History,
-           Observed_Through);
+           Observed_Text);
 
       if not ALedger.Envelope_Fulfillment.Observe
         (Result.Completed_Plans,
          State.Actual_Ledger,
          State.Registry,
          State.Fulfillment_History,
-         Observed_Through,
+         Observed_Text,
          Result.Fulfillment,
          Fulfillment_Diag)
       then
@@ -125,7 +124,7 @@ package body ALedger.Household_Report_Observation is
          State.Routing_History,
          State.Fulfillment_History,
          Result.Current_Cycle,
-         Observed_Through,
+         Observed_Text,
          Result.Commitment,
          Commit_Diag)
       then
@@ -157,6 +156,24 @@ package body ALedger.Household_Report_Observation is
 
       Error_Msg := Null_Unbounded_String;
       return True;
+   end Observe;
+
+   function Observe
+     (Observed_Through : String;
+      State            : ALedger.Household.Household_State;
+      Result           : out Report_Observation;
+      Error_Msg        : out Unbounded_String) return Boolean
+   is
+      Date_Value  : ALedger.Dates.Date;
+      Date_Status : ALedger.Dates.Date_Status;
+   begin
+      if not ALedger.Dates.Parse (Observed_Through, Date_Value, Date_Status) then
+         Error_Msg := To_Unbounded_String
+           ("invalid report observation date: " & Observed_Through);
+         return False;
+      end if;
+
+      return Observe (Date_Value, State, Result, Error_Msg);
    end Observe;
 
 end ALedger.Household_Report_Observation;
