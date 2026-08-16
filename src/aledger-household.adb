@@ -4,7 +4,6 @@ with ALedger.Config_Support;
 with ALedger.Budget_Source_Adapter;
 with ALedger.Plan;
 with ALedger.Plan_Observation;
-with ALedger.Fulfillment_Routing;
 
 package body ALedger.Household is
 

@@ -130,7 +130,7 @@ begin
       Err : Unbounded_String;
    begin
       Assert
-        (not Parse_Journal_Text (Duplicate, "accounts.journal", L, Err)
+        (not Parse_Journal_Text (Duplicate, L, Err)
            and then Index (To_String (Err), "Duplicate account declaration") > 0,
          "duplicate Journal declaration fails admission");
    end;
