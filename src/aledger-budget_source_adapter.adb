@@ -1,7 +1,10 @@
 with ALedger.Account;
+with ALedger.Dates;
 with ALedger.Money; use ALedger.Money;
 
 package body ALedger.Budget_Source_Adapter is
+
+   use type ALedger.Dates.Date;
 
    type Source_Endpoint_Kind is
      (Endpoint_Envelope,
@@ -198,9 +201,9 @@ package body ALedger.Budget_Source_Adapter is
          return False;
       end if;
 
-      --  Adapt_Budget_Journal has admitted the complete binary source shape and
-      --  every endpoint. The earliest transaction day for each Commodity is the
-      --  source-owned opening boundary, even when its amount is zero.
+      --  The complete source has already passed endpoint admission. Its earliest
+      --  transaction day per Commodity is the source-owned opening boundary,
+      --  even when that movement carries zero quantity.
       for Tx of Transactions loop
          Obs := Envelope_Entitlement.Record_Origin
            (Obs,
@@ -210,6 +213,46 @@ package body ALedger.Budget_Source_Adapter is
 
       for M of Movements loop
          Obs := Envelope_Entitlement.Fold_Movement (Obs, M);
+      end loop;
+
+      Observation := Obs;
+      return True;
+   end Observe_Entitlements;
+
+   function Observe_Entitlements
+     (Transactions : Ledger.Transaction_Vectors.Vector;
+      Config       : Household_Config.Household_Configuration;
+      Registry     : Envelope.Envelope_Registry;
+      Through_Date : ALedger.Dates.Date;
+      Observation  : out Envelope_Entitlement.Entitlement_Observation;
+      Diag         : out Adapter_Diagnostic) return Boolean
+   is
+      Movements : Movement_Vectors.Vector;
+      Obs       : Envelope_Entitlement.Entitlement_Observation :=
+        Envelope_Entitlement.Empty_Observation;
+   begin
+      --  Validate the complete admitted Budget source, not only the historical
+      --  prefix. A future malformed coordinate must not become a hidden fallback
+      --  merely because the requested observation is earlier.
+      if not Adapt_Budget_Journal
+        (Transactions, Config, Registry, Movements, Diag)
+      then
+         return False;
+      end if;
+
+      for Tx of Transactions loop
+         if Tx.Date <= Through_Date then
+            Obs := Envelope_Entitlement.Record_Origin
+              (Obs,
+               Tx.Postings.Element (1).Amt.Comm,
+               Tx.Date);
+         end if;
+      end loop;
+
+      for M of Movements loop
+         if M.Tx_Date <= Through_Date then
+            Obs := Envelope_Entitlement.Fold_Movement (Obs, M);
+         end if;
       end loop;
 
       Observation := Obs;
