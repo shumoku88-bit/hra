@@ -293,6 +293,12 @@ package body ALedger.Household is
             return False;
          end if;
       end;
+
+      --  From this point forward, production consumers see only identity and
+      --  reversal coordinates admitted from retained Journal source evidence.
+      --  The Journal parser's description-derived compatibility fields cannot
+      --  become a second authority path.
+      Result.Actual_Ledger := Result.Actual_Identity.Value;
       if not Merge_Transactions (Result.Actual_Ledger) then
          return False;
       end if;
@@ -358,6 +364,7 @@ package body ALedger.Household is
 
       Result.Combined_Ledger.Registry := Result.Registry;
       Result.Actual_Ledger.Registry   := Result.Registry;
+      Result.Actual_Identity.Value.Registry := Result.Registry;
       Result.Plan_Ledger.Registry     := Result.Registry;
       Result.Budget_Ledger.Registry   := Result.Registry;
 
