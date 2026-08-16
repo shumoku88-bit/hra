@@ -9,14 +9,14 @@ with ALedger.Ledger;
 --  Transaction; renderers do not reread or reparse source text.
 package ALedger.Recent_Journal is
 
-   type Entry is record
+   type Recent_Entry is record
       Value  : ALedger.Ledger.Transaction;
       Source : ALedger.Journal_Evidence.Transaction_Source;
    end record;
 
    package Entry_Vectors is new Ada.Containers.Indefinite_Vectors
      (Index_Type   => Positive,
-      Element_Type => Entry);
+      Element_Type => Recent_Entry);
 
    type Observation is record
       Through_Date : Unbounded_String;

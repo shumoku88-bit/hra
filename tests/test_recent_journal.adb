@@ -70,9 +70,9 @@ begin
 
    if Natural (Result.Entries.Length) = 2 then
       declare
-         Newest : constant ALedger.Recent_Journal.Entry :=
+         Newest : constant ALedger.Recent_Journal.Recent_Entry :=
            Result.Entries.Element (1);
-         Older  : constant ALedger.Recent_Journal.Entry :=
+         Older  : constant ALedger.Recent_Journal.Recent_Entry :=
            Result.Entries.Element (2);
          Rendered : constant String :=
            ALedger.Recent_Journal_Render.Render (Result);
