@@ -1,8 +1,10 @@
 with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
+with ALedger.Dates;
 with ALedger.Plan_Observation;
 
 package body ALedger.Planned_Payments is
 
+   use type ALedger.Dates.Date;
    use type ALedger.Money.Quantity;
    use type ALedger.Account.Account_Type;
 
@@ -33,7 +35,7 @@ package body ALedger.Planned_Payments is
    function Project
      (Open_Plans : ALedger.Plan_Observation.Open_Plan_Vectors.Vector;
       Registry   : ALedger.Account.Account_Registry;
-      As_Of_Date : String;
+      As_Of_Date : ALedger.Dates.Date;
       Result     : out Observation;
       Diag       : out Admission_Diagnostic) return Boolean
    is
@@ -178,14 +180,14 @@ package body ALedger.Planned_Payments is
             Output.Payments.Append
               (Planned_Payment'
                  (ID          => P.ID,
-                  Due_Date    => P.Tx.Date_Text,
+                  Due_Date    => P.Tx.Date,
                   Memo        => P.Tx.Code_Or_Payee,
                   Amt         => Payment_Amount,
                   Source      => Source_Acc,
                   Destination => Destination_Acc,
                   Timing      =>
-                    (if To_String (P.Tx.Date_Text) < As_Of_Date then Overdue
-                     elsif To_String (P.Tx.Date_Text) = As_Of_Date then Due_Today
+                    (if P.Tx.Date < As_Of_Date then Overdue
+                     elsif P.Tx.Date = As_Of_Date then Due_Today
                      else Upcoming)));
          end;
 
@@ -208,6 +210,28 @@ package body ALedger.Planned_Payments is
 
       Result := Output;
       return True;
+   end Project;
+
+   function Project
+     (Open_Plans : ALedger.Plan_Observation.Open_Plan_Vectors.Vector;
+      Registry   : ALedger.Account.Account_Registry;
+      As_Of_Date : String;
+      Result     : out Observation;
+      Diag       : out Admission_Diagnostic) return Boolean
+   is
+      Date_Value  : ALedger.Dates.Date;
+      Date_Status : ALedger.Dates.Date_Status;
+   begin
+      if not ALedger.Dates.Parse (As_Of_Date, Date_Value, Date_Status) then
+         Result := (Payments => Payment_Vectors.Empty_Vector);
+         Diag :=
+           (Status      => Invalid_Observation_Date,
+            Line_Number => 0,
+            Plan_Id     => Null_Unbounded_String,
+            Message     => To_Unbounded_String ("invalid observation date"));
+         return False;
+      end if;
+      return Project (Open_Plans, Registry, Date_Value, Result, Diag);
    end Project;
 
    function Observe
