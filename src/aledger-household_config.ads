@@ -1,6 +1,7 @@
 with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
 with Ada.Containers.Indefinite_Vectors;
 with ALedger.Config_Support; use ALedger.Config_Support;
+with ALedger.Dates;
 with ALedger.Budget_Config;
 with ALedger.Money;
 
@@ -51,7 +52,7 @@ package ALedger.Household_Config is
    type Effective_Date_Data (Kind : Effective_Date_Kind := Initial) is record
       case Kind is
          when Initial   => null;
-         when From_Date => Date : Unbounded_String;
+         when From_Date => Date : ALedger.Dates.Date;
       end case;
    end record;
 
@@ -87,7 +88,7 @@ package ALedger.Household_Config is
    end record;
 
    type Fulfillment_Routing_Entry_Data is record
-      Effective_From : Unbounded_String;
+      Effective_From : ALedger.Dates.Date;
       Plan_ID        : Unbounded_String;
       Route          : Fulfillment_Route_Data;
       Note           : Unbounded_String;

@@ -6,10 +6,10 @@ with Ada.Streams; use Ada.Streams;
 with Ada.Streams.Stream_IO;
 with Ada.Strings; use Ada.Strings;
 with Ada.Strings.Fixed; use Ada.Strings.Fixed;
-with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
 with ALedger.Journal; use ALedger.Journal;
 with ALedger.Journal.Document;
 with ALedger.Journal_Evidence; use ALedger.Journal_Evidence;
+with ALedger.Dates;
 
 package body ALedger.Journal_Loader is
 
@@ -388,7 +388,7 @@ package body ALedger.Journal_Loader is
             Tx : constant ALedger.Ledger.Transaction :=
               Observation.Value.Transactions.Element (I);
          begin
-            if To_String (Source.Date_Text) /= To_String (Tx.Date_Text)
+            if To_String (Source.Date_Text) /= ALedger.Dates.Image (Tx.Date)
               or else To_String (Source.Description) /= To_String (Tx.Code_Or_Payee)
             then
                Error_Msg := To_Unbounded_String

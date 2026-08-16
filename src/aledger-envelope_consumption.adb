@@ -1,11 +1,9 @@
-with Ada.Containers.Indefinite_Ordered_Maps;
+with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
 with ALedger.Account; use ALedger.Account;
 
 package body ALedger.Envelope_Consumption is
 
-   --  ========================================================================
-   --  Consumption Amounts
-   --  ========================================================================
+   use type ALedger.Dates.Date;
 
    function Empty_Amounts return Consumption_Amounts is
    begin
@@ -34,16 +32,12 @@ package body ALedger.Envelope_Consumption is
         and then Is_Zero_Balance (Subtract_Balance (Left.Refunds, Right.Refunds));
    end "=";
 
-   --  ========================================================================
-   --  Envelope Consumption Observation
-   --  ========================================================================
-
    function Empty_Consumption return Envelope_Consumption is
    begin
-      return (Observed_Through => Null_Unbounded_String,
-              Managed          => Envelope_Amounts_Maps.Empty_Map,
-              Unmanaged        => Account_Amounts_Maps.Empty_Map,
-              Unrouted         => Account_Amounts_Maps.Empty_Map);
+      return (Scope     => (Kind => All_Transactions),
+              Managed   => Envelope_Amounts_Maps.Empty_Map,
+              Unmanaged => Account_Amounts_Maps.Empty_Map,
+              Unrouted  => Account_Amounts_Maps.Empty_Map);
    end Empty_Consumption;
 
    function Add_To_Envelope_Map
@@ -76,33 +70,40 @@ package body ALedger.Envelope_Consumption is
       return Result;
    end Add_To_Account_Map;
 
+   package Date_Maps is new Ada.Containers.Indefinite_Ordered_Maps
+     (Key_Type     => String,
+      Element_Type => ALedger.Dates.Date);
+
    package String_Maps is new Ada.Containers.Indefinite_Ordered_Maps
      (Key_Type     => String,
       Element_Type => String);
 
-   function Observe_Consumption
-     (L            : Ledger.Ledger;
-      Routing      : Envelope_Routing.Routing_History;
-      Through_Date : String := "") return Envelope_Consumption
+   function Observe_Internal
+     (L         : Ledger.Ledger;
+      Routing   : Envelope_Routing.Routing_History;
+      Scope     : Consumption_Scope) return Envelope_Consumption
    is
-      Result            : Envelope_Consumption := Empty_Consumption;
-      Dates_By_Id       : String_Maps.Map;
-      Reversal_Targets  : String_Maps.Map;
+      Result           : Envelope_Consumption := Empty_Consumption;
+      Dates_By_Id      : Date_Maps.Map;
+      Reversal_Targets : String_Maps.Map;
 
-      function Resolve_Root_Date (Event_Id, Own_Date : String) return String is
-         Current_Id : String := Event_Id;
+      function Resolve_Root_Date
+        (Event_Id : String;
+         Own_Date : ALedger.Dates.Date) return ALedger.Dates.Date
+      is
+         Current_Id : Unbounded_String := To_Unbounded_String (Event_Id);
       begin
-         if Current_Id'Length = 0 then
+         if Event_Id'Length = 0 then
             return Own_Date;
          end if;
 
-         --  Follow reversal chain to root
-         while Reversal_Targets.Contains (Current_Id) loop
-            Current_Id := Reversal_Targets.Element (Current_Id);
+         while Reversal_Targets.Contains (To_String (Current_Id)) loop
+            Current_Id := To_Unbounded_String
+              (Reversal_Targets.Element (To_String (Current_Id)));
          end loop;
 
-         if Dates_By_Id.Contains (Current_Id) then
-            return Dates_By_Id.Element (Current_Id);
+         if Dates_By_Id.Contains (To_String (Current_Id)) then
+            return Dates_By_Id.Element (To_String (Current_Id));
          else
             return Own_Date;
          end if;
@@ -111,33 +112,29 @@ package body ALedger.Envelope_Consumption is
       function Is_Expense_Account (Acc : Account.Account) return Boolean is
          Cat : Account_Type;
       begin
-         if Account_Type_For (L.Registry, Acc, Cat) then
-            return Cat = Expense;
-         else
-            --  Fallback check on name prefix for undeclared accounts
-            declare
-               Acc_Name : constant String := Account.Name (Acc);
-            begin
-               return Acc_Name'Length >= 9
-                 and then Acc_Name (Acc_Name'First .. Acc_Name'First + 8) = "expenses:";
-            end;
-         end if;
+         return Account_Type_For (L.Registry, Acc, Cat) and then Cat = Expense;
       end Is_Expense_Account;
 
-   begin
-      if Through_Date'Length > 0 then
-         Result.Observed_Through := To_Unbounded_String (Through_Date);
-      end if;
+      function In_Scope (Date : ALedger.Dates.Date) return Boolean is
+      begin
+         case Scope.Kind is
+            when All_Transactions =>
+               return True;
+            when Through_Date =>
+               return Date <= Scope.Through;
+         end case;
+      end In_Scope;
 
-      --  Pass 1: Build identity and reversal index
+   begin
+      Result.Scope := Scope;
+
       for Tx of L.Transactions loop
          declare
             Ev_Id  : constant String := To_String (Tx.Event_ID);
             Rev_Id : constant String := To_String (Tx.Reverses_ID);
-            D_Text : constant String := To_String (Tx.Date_Text);
          begin
             if Ev_Id'Length > 0 then
-               Dates_By_Id.Include (Ev_Id, D_Text);
+               Dates_By_Id.Include (Ev_Id, Tx.Date);
                if Rev_Id'Length > 0 then
                   Reversal_Targets.Include (Ev_Id, Rev_Id);
                end if;
@@ -145,68 +142,78 @@ package body ALedger.Envelope_Consumption is
          end;
       end loop;
 
-      --  Pass 2: Accumulate expense postings
       for Tx of L.Transactions loop
-         declare
-            Tx_Date : constant String := To_String (Tx.Date_Text);
-         begin
-            --  Date filter
-            if Through_Date'Length = 0 or else Tx_Date <= Through_Date then
-               declare
-                  Ev_Id     : constant String := To_String (Tx.Event_ID);
-                  Root_Date : constant String := Resolve_Root_Date (Ev_Id, Tx_Date);
-               begin
-                  for P of Tx.Postings loop
-                     if Is_Expense_Account (P.Acc) and then not Is_Zero (P.Amt.Val) then
-                        declare
-                           Amounts : Consumption_Amounts;
-                           Acc_Str : constant String := Account.Name (P.Acc);
-                        begin
-                           if P.Amt.Val > 0.0 then
-                              Amounts :=
-                                (Charges => Singleton_Balance (P.Amt),
-                                 Refunds => Empty_Balance);
-                           else
-                              Amounts :=
-                                (Charges => Empty_Balance,
-                                 Refunds => Singleton_Balance (Negate_Amount (P.Amt)));
-                           end if;
+         if In_Scope (Tx.Date) then
+            declare
+               Ev_Id     : constant String := To_String (Tx.Event_ID);
+               Root_Date : constant ALedger.Dates.Date :=
+                 Resolve_Root_Date (Ev_Id, Tx.Date);
+            begin
+               for P of Tx.Postings loop
+                  if Is_Expense_Account (P.Acc) and then not Is_Zero (P.Amt.Val) then
+                     declare
+                        Amounts : Consumption_Amounts;
+                        Acc_Str : constant String := Account.Name (P.Acc);
+                     begin
+                        if P.Amt.Val > 0.0 then
+                           Amounts :=
+                             (Charges => Singleton_Balance (P.Amt),
+                              Refunds => Empty_Balance);
+                        else
+                           Amounts :=
+                             (Charges => Empty_Balance,
+                              Refunds => Singleton_Balance (Negate_Amount (P.Amt)));
+                        end if;
 
-                           if not Envelope_Routing.Has_Routing (Routing, P.Acc) then
-                              --  Missing route is attention evidence (Unrouted)
-                              Result.Unrouted :=
-                                Add_To_Account_Map (Result.Unrouted, Acc_Str, Amounts);
-                           else
-                              declare
-                                 Route : constant Envelope_Routing.Expense_Route :=
-                                   Envelope_Routing.Resolve (Routing, P.Acc, Root_Date);
-                              begin
-                                 case Route.Kind is
-                                    when Envelope_Routing.Managed_By_Envelope =>
-                                       declare
-                                          Env_Name : constant String :=
-                                            Envelope.Image (Route.Target);
-                                       begin
-                                          Result.Managed :=
-                                            Add_To_Envelope_Map
-                                              (Result.Managed, Env_Name, Amounts);
-                                       end;
-                                    when Envelope_Routing.Not_Envelope_Managed =>
-                                       Result.Unmanaged :=
-                                         Add_To_Account_Map
-                                           (Result.Unmanaged, Acc_Str, Amounts);
-                                 end case;
-                              end;
-                           end if;
-                        end;
-                     end if;
-                  end loop;
-               end;
-            end if;
-         end;
+                        if not Envelope_Routing.Has_Routing (Routing, P.Acc) then
+                           Result.Unrouted :=
+                             Add_To_Account_Map (Result.Unrouted, Acc_Str, Amounts);
+                        else
+                           declare
+                              Route : constant Envelope_Routing.Expense_Route :=
+                                Envelope_Routing.Resolve
+                                  (Routing, P.Acc, Root_Date);
+                           begin
+                              case Route.Kind is
+                                 when Envelope_Routing.Managed_By_Envelope =>
+                                    Result.Managed :=
+                                      Add_To_Envelope_Map
+                                        (Result.Managed,
+                                         Envelope.Image (Route.Target),
+                                         Amounts);
+                                 when Envelope_Routing.Not_Envelope_Managed =>
+                                    Result.Unmanaged :=
+                                      Add_To_Account_Map
+                                        (Result.Unmanaged, Acc_Str, Amounts);
+                              end case;
+                           end;
+                        end if;
+                     end;
+                  end if;
+               end loop;
+            end;
+         end if;
       end loop;
 
       return Result;
+   end Observe_Internal;
+
+   function Observe_Consumption
+     (L       : Ledger.Ledger;
+      Routing : Envelope_Routing.Routing_History) return Envelope_Consumption
+   is
+   begin
+      return Observe_Internal (L, Routing, (Kind => All_Transactions));
+   end Observe_Consumption;
+
+   function Observe_Consumption
+     (L            : Ledger.Ledger;
+      Routing      : Envelope_Routing.Routing_History;
+      Through_Date : ALedger.Dates.Date) return Envelope_Consumption
+   is
+   begin
+      return Observe_Internal
+        (L, Routing, (Kind => ALedger.Envelope_Consumption.Through_Date, Through => Through_Date));
    end Observe_Consumption;
 
    function Consumption_For

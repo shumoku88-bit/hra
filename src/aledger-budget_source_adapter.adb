@@ -25,7 +25,6 @@ package body ALedger.Budget_Source_Adapter is
       Registry : Envelope.Envelope_Registry) return Source_Endpoint
    is
    begin
-      --  1. Check Config.Envelopes for matching Allocation_Account
       for Env_Coord of Config.Envelopes loop
          if To_String (Env_Coord.Allocation_Account) = Acc_Name then
             declare
@@ -42,7 +41,6 @@ package body ALedger.Budget_Source_Adapter is
          end if;
       end loop;
 
-      --  2. Check Unassigned Accounts
       for Unassigned_Acc of Config.Unassigned_Accounts loop
          if Unassigned_Acc = Acc_Name then
             return (Kind => Endpoint_Unallocated);
@@ -59,7 +57,6 @@ package body ALedger.Budget_Source_Adapter is
          return (Kind => Endpoint_Unallocated);
       end if;
 
-      --  3. Check Opening Accounts
       if Config.Has_Account_Policy then
          for Opening_Acc of Config.Accounts.Opening_Budget loop
             if Opening_Acc = Acc_Name then
@@ -71,7 +68,6 @@ package body ALedger.Budget_Source_Adapter is
          return (Kind => Endpoint_Opening);
       end if;
 
-      --  4. Check Spent / Execution Accounts
       if Config.Has_Account_Policy then
          for Spent_Acc of Config.Accounts.Spent_Budget loop
             if Spent_Acc = Acc_Name then
@@ -101,7 +97,6 @@ package body ALedger.Budget_Source_Adapter is
       for Tx of Transactions loop
          Idx := Idx + 1;
 
-         --  Must have exactly 2 postings
          if Natural (Tx.Postings.Length) /= 2 then
             Diag :=
               (Status            => Transaction_Not_Binary,
@@ -115,7 +110,6 @@ package body ALedger.Budget_Source_Adapter is
             P1 : constant Ledger.Posting := Tx.Postings.Element (1);
             P2 : constant Ledger.Posting := Tx.Postings.Element (2);
          begin
-            --  Postings must be exact opposites
             if P1.Amt.Val /= -P2.Amt.Val
               or else not (P1.Amt.Comm = P2.Amt.Comm)
             then
@@ -127,7 +121,6 @@ package body ALedger.Budget_Source_Adapter is
                return False;
             end if;
 
-            --  Skip zero amounts
             if not Is_Zero (P2.Amt.Val) then
                declare
                   From_Acc_Name : Unbounded_String;
@@ -168,22 +161,21 @@ package body ALedger.Budget_Source_Adapter is
                         return False;
                      end if;
 
-                     --  Project endpoints to Entitlement_Movement
                      if From_Ep.Kind = Endpoint_Envelope
                        and then To_Ep.Kind = Endpoint_Execution
                      then
-                        null; -- Spent execution movement does not affect entitlement
+                        null;
                      elsif From_Ep.Kind = Endpoint_Execution
                        and then To_Ep.Kind = Endpoint_Envelope
                      then
-                        null; -- Reverse execution movement does not affect entitlement
+                        null;
                      elsif From_Ep.Kind = Endpoint_Envelope
                        and then To_Ep.Kind = Endpoint_Envelope
                      then
                         Result.Append
                           (Envelope_Entitlement.Entitlement_Movement'
                              (Kind          => Envelope_Entitlement.Transfer_Between_Envelopes,
-                              Tx_Date       => Tx.Date_Text,
+                              Tx_Date       => Tx.Date,
                               Amt           => Amt,
                               From_Envelope => From_Ep.Target_Envelope,
                               To_Envelope   => To_Ep.Target_Envelope));
@@ -191,18 +183,18 @@ package body ALedger.Budget_Source_Adapter is
                         Result.Append
                           (Envelope_Entitlement.Entitlement_Movement'
                              (Kind    => Envelope_Entitlement.Return_To_Unallocated,
-                              Tx_Date => Tx.Date_Text,
+                              Tx_Date => Tx.Date,
                               Amt     => Amt,
                               Source  => From_Ep.Target_Envelope));
                      elsif To_Ep.Kind = Endpoint_Envelope then
                         Result.Append
                           (Envelope_Entitlement.Entitlement_Movement'
                              (Kind    => Envelope_Entitlement.Grant_From_Unallocated,
-                              Tx_Date => Tx.Date_Text,
+                              Tx_Date => Tx.Date,
                               Amt     => Amt,
                               Target  => To_Ep.Target_Envelope));
                      else
-                        null; -- Non-envelope movement (e.g. Opening -> Unallocated)
+                        null;
                      end if;
                   end;
                end;

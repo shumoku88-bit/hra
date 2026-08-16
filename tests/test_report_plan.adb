@@ -1,5 +1,6 @@
 with Ada.Text_IO;          use Ada.Text_IO;
 with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
+with ALedger.Dates;
 with ALedger.Journal;       use ALedger.Journal;
 with ALedger.Ledger;        use ALedger.Ledger;
 with ALedger.Report_Config;
@@ -20,6 +21,16 @@ procedure Test_Report_Plan is
          Failed_Count := Failed_Count + 1;
       end if;
    end Assert;
+
+   function D (S : String) return ALedger.Dates.Date is
+      Val    : ALedger.Dates.Date;
+      Status : ALedger.Dates.Date_Status;
+   begin
+      if not ALedger.Dates.Parse (S, Val, Status) then
+         raise Program_Error with "Invalid date in test: " & S;
+      end if;
+      return Val;
+   end D;
 
    Journal_Text : constant String :=
      "2026-06-10 First" & ASCII.LF &
@@ -68,34 +79,34 @@ begin
       "Setup: parse symbolic report plan");
 
    Assert
-     (Resolve ("2026-08-15", L, Config.Plan, Result, Status),
+     (Resolve (D ("2026-08-15"), L, Config.Plan, Result, Status),
       "Resolve symbolic report plan");
    Assert
-     (To_String (Result.Trial_Balance_As_Of) = "2026-08-15"
-        and then To_String (Result.Balance_Sheet_As_Of) = "2026-08-15",
+     (ALedger.Dates.Image (Result.Trial_Balance_As_Of) = "2026-08-15"
+        and then ALedger.Dates.Image (Result.Balance_Sheet_As_Of) = "2026-08-15",
       "latest resolves to application date");
    Assert
-     (To_String (Result.Profit_And_Loss.From_Date) = "2026-06-10"
-        and then To_String (Result.Profit_And_Loss.Through_Date) = "2026-08-15",
+     (ALedger.Dates.Image (ALedger.Dates.First (Result.Profit_And_Loss)) = "2026-06-10"
+        and then ALedger.Dates.Image (ALedger.Dates.Last (Result.Profit_And_Loss)) = "2026-08-15",
       "beginning resolves to earliest transaction through end date");
    Assert
-     (To_String (Result.Recent_Transactions_Through) = "2026-08-15"
+     (ALedger.Dates.Image (Result.Recent_Transactions_Through) = "2026-08-15"
         and then Result.Recent_Transactions_Count = 7,
       "recent report keeps resolved through date and configured count");
 
    Config.Plan.Balance_Sheet.Value :=
-     (Kind => ALedger.Report_Config.Exact_Date,
-      Date => To_Unbounded_String ("2026-07-31"));
+     (Kind  => ALedger.Report_Config.Exact_Date,
+      Value => D ("2026-07-31"));
    Assert
-     (Resolve ("2026-08-15", L, Config.Plan, Result, Status)
-        and then To_String (Result.Balance_Sheet_As_Of) = "2026-07-31",
+     (Resolve (D ("2026-08-15"), L, Config.Plan, Result, Status)
+        and then ALedger.Dates.Image (Result.Balance_Sheet_As_Of) = "2026-07-31",
       "exact as-of date survives resolution");
 
    Config.Plan.Profit_And_Loss.From :=
-     (Kind => ALedger.Report_Config.Exact_Date,
-      Date => To_Unbounded_String ("2026-09-01"));
+     (Kind  => ALedger.Report_Config.Exact_Date,
+      Value => D ("2026-09-01"));
    Assert
-     (not Resolve ("2026-08-15", L, Config.Plan, Result, Status)
+     (not Resolve (D ("2026-08-15"), L, Config.Plan, Result, Status)
         and then Status = Invalid_Profit_And_Loss_Range,
       "reject resolved range whose start is after through date");
 

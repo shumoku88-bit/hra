@@ -1,10 +1,10 @@
 with Ada.Containers.Indefinite_Vectors;
-with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
+with ALedger.Dates;
 with ALedger.Journal_Evidence;
 with ALedger.Ledger;
 
 --  Semantic Recent Journal result over one already-admitted Actual observation.
---  Selection is bounded by an explicit through date and source order.  The
+--  Selection is bounded by an explicit through date and source order. The
 --  result retains the physical Journal evidence aligned with every selected
 --  Transaction; renderers do not reread or reparse source text.
 package ALedger.Recent_Journal is
@@ -19,7 +19,7 @@ package ALedger.Recent_Journal is
       Element_Type => Recent_Entry);
 
    type Observation is record
-      Through_Date : Unbounded_String;
+      Through_Date : ALedger.Dates.Date;
       Requested    : Positive := 5;
       Entries      : Entry_Vectors.Vector;
    end record;
@@ -32,10 +32,9 @@ package ALedger.Recent_Journal is
    function Observe
      (Actual_Ledger   : ALedger.Ledger.Ledger;
       Actual_Evidence : ALedger.Journal_Evidence.Journal_Evidence;
-      Through_Date    : String;
+      Through_Date    : ALedger.Dates.Date;
       Count           : Positive;
       Result          : out Observation;
-      Status          : out Observe_Status) return Boolean
-     with Pre => Through_Date'Length > 0;
+      Status          : out Observe_Status) return Boolean;
 
 end ALedger.Recent_Journal;

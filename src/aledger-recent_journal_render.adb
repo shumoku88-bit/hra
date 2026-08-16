@@ -2,6 +2,7 @@ with Ada.Strings;           use Ada.Strings;
 with Ada.Strings.Fixed;     use Ada.Strings.Fixed;
 with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
 with ALedger.Account;       use ALedger.Account;
+with ALedger.Dates;
 with ALedger.Money;         use ALedger.Money;
 
 package body ALedger.Recent_Journal_Render is
@@ -19,7 +20,7 @@ package body ALedger.Recent_Journal_Render is
       Append
         (Buf,
          "== Recent Journal ==" & ASCII.LF &
-         "Through: " & To_String (Recent.Through_Date) &
+         "Through: " & ALedger.Dates.Image (Recent.Through_Date) &
          " | Requested: " & Trim (Positive'Image (Recent.Requested), Both) &
          " | Displayed: " &
          Trim (Natural'Image (Natural (Recent.Entries.Length)), Both) &
@@ -28,7 +29,7 @@ package body ALedger.Recent_Journal_Render is
       for Item of Recent.Entries loop
          Append
            (Buf,
-            To_String (Item.Value.Date_Text) & " " &
+            ALedger.Dates.Image (Item.Value.Date) & " " &
             To_String (Item.Value.Code_Or_Payee) & ASCII.LF);
          for Posting of Item.Value.Postings loop
             Append

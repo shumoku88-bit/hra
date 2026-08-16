@@ -1,6 +1,7 @@
 with Ada.Strings.Fixed;     use Ada.Strings.Fixed;
 with Ada.Text_IO;           use Ada.Text_IO;
 with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
+with ALedger.Dates;
 with ALedger.Journal;       use ALedger.Journal;
 with ALedger.Journal_Evidence;
 with ALedger.Ledger;
@@ -23,6 +24,16 @@ procedure Test_Recent_Journal is
          Failed_Count := Failed_Count + 1;
       end if;
    end Assert;
+
+   function D (S : String) return ALedger.Dates.Date is
+      Val    : ALedger.Dates.Date;
+      Status : ALedger.Dates.Date_Status;
+   begin
+      if not ALedger.Dates.Parse (S, Val, Status) then
+         raise Program_Error with "Invalid date in test: " & S;
+      end if;
+      return Val;
+   end D;
 
    Journal_Text : constant String :=
      "2026-06-10 First" & ASCII.LF &
@@ -61,7 +72,7 @@ begin
 
    Assert
      (ALedger.Recent_Journal.Observe
-        (L, Evidence, "2026-08-15", 2, Result, Status),
+        (L, Evidence, D ("2026-08-15"), 2, Result, Status),
       "Observe bounded Recent Journal");
    Assert
      (Status = ALedger.Recent_Journal.Success
@@ -78,8 +89,8 @@ begin
            ALedger.Recent_Journal_Render.Render (Result);
       begin
          Assert
-           (To_String (Newest.Value.Date_Text) = "2026-07-20"
-              and then To_String (Older.Value.Date_Text) = "2026-06-10",
+           (ALedger.Dates.Image (Newest.Value.Date) = "2026-07-20"
+              and then ALedger.Dates.Image (Older.Value.Date) = "2026-06-10",
             "Selection excludes future Actual and returns newest source entry first");
          Assert
            (To_String (Newest.Source.Source_Path) = "fixtures/actual.journal"
@@ -99,7 +110,7 @@ begin
       Bad_Evidence.Transactions.Delete_Last;
       Assert
         (not ALedger.Recent_Journal.Observe
-           (L, Bad_Evidence, "2026-08-15", 2, Result, Status)
+           (L, Bad_Evidence, D ("2026-08-15"), 2, Result, Status)
            and then Status = ALedger.Recent_Journal.Evidence_Count_Mismatch,
          "Reject Ledger/Evidence count drift");
    end;
@@ -113,7 +124,7 @@ begin
       Bad_Evidence.Transactions.Replace_Element (1, Source);
       Assert
         (not ALedger.Recent_Journal.Observe
-           (L, Bad_Evidence, "2026-08-15", 2, Result, Status)
+           (L, Bad_Evidence, D ("2026-08-15"), 2, Result, Status)
            and then Status = ALedger.Recent_Journal.Evidence_Alignment_Mismatch,
          "Reject Ledger/Evidence transaction alignment drift");
    end;

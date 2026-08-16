@@ -42,16 +42,42 @@ package body ALedger.Render is
 
    function Render_Account_Balances
      (L          : Ledger.Ledger;
-      As_Of_Date : String) return String
+      As_Of_Date : ALedger.Dates.Date) return String
    is
       Buf : Unbounded_String;
-      TB  : constant Trial_Balance :=
-        (if As_Of_Date'Length > 0
-         then Generate_Trial_Balance_As_Of (L, As_Of_Date)
-         else Generate_Trial_Balance (L));
+      TB  : constant Trial_Balance := Generate_Trial_Balance_As_Of (L, As_Of_Date);
    begin
       Append (Buf, "== Account Balances (aledger Engine) ==" & ASCII.LF);
-      Append (Buf, "As of: " & (if As_Of_Date'Length > 0 then As_Of_Date else "all transactions") & ASCII.LF);
+      Append (Buf, "As of: " & ALedger.Dates.Image (As_Of_Date) & ASCII.LF);
+      Append (Buf, ASCII.LF);
+      Append (Buf, "Account         |      Balance" & ASCII.LF);
+      Append (Buf, "------------------------------" & ASCII.LF);
+
+      for Line of TB.Lines loop
+         if not Is_Zero_Balance (Line.Bal) then
+            Append (Buf, Name (Line.Acc) & " | ");
+            Append (Buf, Render_Multi_Balance (Line.Bal) & ASCII.LF);
+         end if;
+      end loop;
+
+      Append (Buf, ASCII.LF);
+      if Is_Zero_Balance (TB.Total) then
+         Append (Buf, "Balanced: YES" & ASCII.LF);
+      else
+         Append (Buf, "Balanced: NO" & ASCII.LF);
+      end if;
+
+      return To_String (Buf);
+   end Render_Account_Balances;
+
+   function Render_Account_Balances
+     (L : Ledger.Ledger) return String
+   is
+      Buf : Unbounded_String;
+      TB  : constant Trial_Balance := Generate_Trial_Balance (L);
+   begin
+      Append (Buf, "== Account Balances (aledger Engine) ==" & ASCII.LF);
+      Append (Buf, "As of: all transactions" & ASCII.LF);
       Append (Buf, ASCII.LF);
       Append (Buf, "Account         |      Balance" & ASCII.LF);
       Append (Buf, "------------------------------" & ASCII.LF);
@@ -75,16 +101,61 @@ package body ALedger.Render is
 
    function Render_Balance_Sheet
      (L          : Ledger.Ledger;
-      As_Of_Date : String) return String
+      As_Of_Date : ALedger.Dates.Date) return String
    is
       Buf : Unbounded_String;
-      BS  : constant Balance_Sheet :=
-        (if As_Of_Date'Length > 0
-         then Generate_Balance_Sheet_As_Of (L, As_Of_Date)
-         else Generate_Balance_Sheet (L));
+      BS  : constant Balance_Sheet := Generate_Balance_Sheet_As_Of (L, As_Of_Date);
    begin
       Append (Buf, "== Balance Sheet (aledger Engine) ==" & ASCII.LF);
-      Append (Buf, "As of: " & (if As_Of_Date'Length > 0 then As_Of_Date else "all transactions") & ASCII.LF);
+      Append (Buf, "As of: " & ALedger.Dates.Image (As_Of_Date) & ASCII.LF);
+      Append (Buf, ASCII.LF);
+      Append (Buf, "Assets" & ASCII.LF);
+      Append (Buf, "Account      |    Balance" & ASCII.LF);
+      Append (Buf, "-------------------------" & ASCII.LF);
+
+      for Line of BS.Asset_Lines loop
+         Append (Buf, Name (Line.Acc) & " | " & Render_Multi_Balance (Line.Bal) & ASCII.LF);
+      end loop;
+      Append (Buf, "Total assets | " & Render_Multi_Balance (BS.Total_Assets) & ASCII.LF);
+      Append (Buf, ASCII.LF);
+
+      Append (Buf, "Liabilities" & ASCII.LF);
+      Append (Buf, "Account           | Balance" & ASCII.LF);
+      Append (Buf, "---------------------------" & ASCII.LF);
+      for Line of BS.Liability_Lines loop
+         Append (Buf, Name (Line.Acc) & " | " & Render_Multi_Balance (Line.Bal) & ASCII.LF);
+      end loop;
+      Append (Buf, "Total liabilities | " & Render_Multi_Balance (BS.Total_Liabilities) & ASCII.LF);
+      Append (Buf, ASCII.LF);
+
+      Append (Buf, "Equity" & ASCII.LF);
+      Append (Buf, "Account          |    Balance" & ASCII.LF);
+      Append (Buf, "-----------------------------" & ASCII.LF);
+      for Line of BS.Equity_Lines loop
+         Append (Buf, Name (Line.Acc) & " | " & Render_Multi_Balance (Line.Bal) & ASCII.LF);
+      end loop;
+      Append (Buf, "Total equity     | " & Render_Multi_Balance (BS.Total_Equity) & ASCII.LF);
+      Append (Buf, ASCII.LF);
+
+      Append (Buf, "Current earnings | " & Render_Multi_Balance (BS.Current_Earnings) & ASCII.LF);
+      Append (Buf, "Accounting Equation (Assets = Liabilities + Equity): ");
+      if Is_Zero_Balance (BS.Accounting_Equation_Delta) then
+         Append (Buf, "BALANCED (delta is strictly ZERO)" & ASCII.LF);
+      else
+         Append (Buf, "UNBALANCED" & ASCII.LF);
+      end if;
+
+      return To_String (Buf);
+   end Render_Balance_Sheet;
+
+   function Render_Balance_Sheet
+     (L : Ledger.Ledger) return String
+   is
+      Buf : Unbounded_String;
+      BS  : constant Balance_Sheet := Generate_Balance_Sheet (L);
+   begin
+      Append (Buf, "== Balance Sheet (aledger Engine) ==" & ASCII.LF);
+      Append (Buf, "As of: all transactions" & ASCII.LF);
       Append (Buf, ASCII.LF);
       Append (Buf, "Assets" & ASCII.LF);
       Append (Buf, "Account      |    Balance" & ASCII.LF);
@@ -126,22 +197,48 @@ package body ALedger.Render is
    end Render_Balance_Sheet;
 
    function Render_Profit_And_Loss
-     (L          : Ledger.Ledger;
-      Start_Date : String;
-      End_Date   : String) return String
+     (L      : Ledger.Ledger;
+      Period : ALedger.Dates.Closed_Period) return String
    is
       Buf : Unbounded_String;
-      PL  : constant Profit_And_Loss :=
-        (if Start_Date'Length > 0 or End_Date'Length > 0
-         then Generate_Profit_And_Loss_Period (L, Start_Date, End_Date)
-         else Generate_Profit_And_Loss (L));
+      PL  : constant Profit_And_Loss := Generate_Profit_And_Loss_Period (L, Period);
    begin
       Append (Buf, "== Profit & Loss Statement (aledger Engine) ==" & ASCII.LF);
-      if Start_Date'Length = 0 and then End_Date'Length = 0 then
-         Append (Buf, "Period: all transactions" & ASCII.LF);
-      else
-         Append (Buf, "Period: " & Start_Date & ".." & End_Date & ASCII.LF);
-      end if;
+      Append (Buf, "Period: " &
+              ALedger.Dates.Image (ALedger.Dates.First (Period)) & ".." &
+              ALedger.Dates.Image (ALedger.Dates.Last (Period)) & ASCII.LF);
+      Append (Buf, ASCII.LF);
+
+      Append (Buf, "Income" & ASCII.LF);
+      Append (Buf, "Account       |    Amount" & ASCII.LF);
+      Append (Buf, "-------------------------" & ASCII.LF);
+      for Line of PL.Income_Lines loop
+         Append (Buf, Name (Line.Acc) & " | " & Render_Multi_Balance (Line.Bal) & ASCII.LF);
+      end loop;
+      Append (Buf, "Total Income  | " & Render_Multi_Balance (PL.Total_Income) & ASCII.LF);
+      Append (Buf, ASCII.LF);
+
+      Append (Buf, "Expenses" & ASCII.LF);
+      Append (Buf, "Account                        |    Amount" & ASCII.LF);
+      Append (Buf, "------------------------------------------" & ASCII.LF);
+      for Line of PL.Expense_Lines loop
+         Append (Buf, Name (Line.Acc) & " | " & Render_Multi_Balance (Line.Bal) & ASCII.LF);
+      end loop;
+      Append (Buf, "Total Expenses                 | " & Render_Multi_Balance (PL.Total_Expenses) & ASCII.LF);
+      Append (Buf, "------------------------------------------" & ASCII.LF);
+      Append (Buf, "Net Profit (Income - Expenses) | " & Render_Multi_Balance (PL.Net_Income) & ASCII.LF);
+
+      return To_String (Buf);
+   end Render_Profit_And_Loss;
+
+   function Render_Profit_And_Loss
+     (L : Ledger.Ledger) return String
+   is
+      Buf : Unbounded_String;
+      PL  : constant Profit_And_Loss := Generate_Profit_And_Loss (L);
+   begin
+      Append (Buf, "== Profit & Loss Statement (aledger Engine) ==" & ASCII.LF);
+      Append (Buf, "Period: all transactions" & ASCII.LF);
       Append (Buf, ASCII.LF);
 
       Append (Buf, "Income" & ASCII.LF);
@@ -169,7 +266,6 @@ package body ALedger.Render is
    function Render_Budget_Status
      (State : ALedger.Household.Household_State) return String
    is
-      use ALedger.Household;
       use ALedger.Envelope;
       use ALedger.Envelope_Entitlement;
       use ALedger.Envelope_Consumption;
@@ -188,8 +284,8 @@ package body ALedger.Render is
       All_Fully_Backed : Boolean := True;
    begin
       Append (Buf, "== Envelope & Backing ==" & ASCII.LF);
-      if Length (State.Consumption.Observed_Through) > 0 then
-         Append (Buf, "Observed through: " & To_String (State.Consumption.Observed_Through) & ASCII.LF);
+      if State.Consumption.Scope.Kind = Through_Date then
+         Append (Buf, "Observed through: " & ALedger.Dates.Image (State.Consumption.Scope.Through) & ASCII.LF);
       end if;
       Append (Buf, ASCII.LF);
       Append (Buf, "Envelope      | Entitlement | Consumption |   Refunds |   Remaining | Plan reserve |    Headroom" & ASCII.LF);
@@ -339,7 +435,7 @@ package body ALedger.Render is
          declare
             Tx : constant Transaction := L.Transactions.Element (I);
          begin
-            Append (Buf, To_String (Tx.Date_Text) & " " & To_String (Tx.Code_Or_Payee) & ASCII.LF);
+            Append (Buf, ALedger.Dates.Image (Tx.Date) & " " & To_String (Tx.Code_Or_Payee) & ASCII.LF);
             for P of Tx.Postings loop
                Append (Buf, "    " & Name (P.Acc) & "    " & Render_Amount_Or_Paren (P.Amt.Val, Code (P.Amt.Comm)) & ASCII.LF);
             end loop;

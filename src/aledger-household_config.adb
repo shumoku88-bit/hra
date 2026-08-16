@@ -399,9 +399,21 @@ package body ALedger.Household_Config is
                         if Effective_Value.As_String = "initial" then
                            Entry_Data.Effective := (Kind => Initial);
                         else
-                           Entry_Data.Effective :=
-                             (Kind => From_Date,
-                              Date => Effective_Value.As_Unbounded_String);
+                           declare
+                              Parsed_Date : ALedger.Dates.Date;
+                              D_Status    : ALedger.Dates.Date_Status;
+                           begin
+                              if not ALedger.Dates.Parse (Effective_Value.As_String, Parsed_Date, D_Status) then
+                                 Set_Error
+                                   (Diag, Source_Name, Path & ".effective-from",
+                                    "invalid Gregorian date: " & Effective_Value.As_String,
+                                    Effective_Value);
+                                 return False;
+                              end if;
+                              Entry_Data.Effective :=
+                                (Kind => From_Date,
+                                 Date => Parsed_Date);
+                           end;
                         end if;
 
                         Entry_Data.Expense_Account :=
@@ -499,8 +511,19 @@ package body ALedger.Household_Config is
                            return False;
                         end if;
 
-                        Entry_Data.Effective_From :=
-                          Effective_Value.As_Unbounded_String;
+                        declare
+                           Parsed_Date : ALedger.Dates.Date;
+                           D_Status    : ALedger.Dates.Date_Status;
+                        begin
+                           if not ALedger.Dates.Parse (Effective_Value.As_String, Parsed_Date, D_Status) then
+                              Set_Error
+                                (Diag, Source_Name, Path & ".effective-from",
+                                 "invalid Gregorian date: " & Effective_Value.As_String,
+                                 Effective_Value);
+                              return False;
+                           end if;
+                           Entry_Data.Effective_From := Parsed_Date;
+                        end;
                         Entry_Data.Plan_ID := Plan_Value.As_Unbounded_String;
                         Entry_Data.Note := Note_Value.As_Unbounded_String;
 

@@ -1,5 +1,6 @@
 with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
 with Ada.Containers.Indefinite_Vectors;
+with ALedger.Dates;
 with ALedger.Money;          use ALedger.Money;
 with ALedger.Account;        use ALedger.Account;
 with ALedger.Ledger;         use ALedger.Ledger;
@@ -56,7 +57,7 @@ package ALedger.Plan is
 
    type Plan_Entry is record
       ID         : Plan_Id;
-      Date_Text  : Unbounded_String;
+      Date       : ALedger.Dates.Date;
       Memo       : Unbounded_String;
       Amt        : Amount;
       From_Acc   : Account.Account;  --  Asset Account
@@ -67,7 +68,7 @@ package ALedger.Plan is
 
    function Create_Plan_Entry
      (ID_Str    : String;
-      Date_Str  : String;
+      Date_Val  : ALedger.Dates.Date;
       Memo_Str  : String;
       Amt       : Amount;
       From_Acc  : Account.Account;
@@ -76,16 +77,16 @@ package ALedger.Plan is
 
    function Complete_Plan
      (P              : in out Plan_Entry;
-      Execution_Date : String;
+      Execution_Date : ALedger.Dates.Date;
       Tx             : out Transaction) return Boolean;
 
    procedure Cancel_Plan
-     (P        : in out Plan_Entry;
-      Date_Str : String);
+     (P    : in out Plan_Entry;
+      Date : ALedger.Dates.Date);
 
    procedure Supersede_Plan
      (P            : in out Plan_Entry;
-      Date_Str     : String;
+      Date         : ALedger.Dates.Date;
       Successor_ID : Plan_Id);
 
 private

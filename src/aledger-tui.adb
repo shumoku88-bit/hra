@@ -91,16 +91,16 @@ package body ALedger.TUI is
                   Clear_Screen;
                   Put_Line (Bold & "--- Financial Statements ---" & Reset);
                   New_Line;
-                  Put (Render_Profit_And_Loss (State.Combined_Ledger, "2026-01-01", "2026-12-31"));
+                  Put (Render_Profit_And_Loss (State.Combined_Ledger));
                   New_Line;
-                  Put (Render_Balance_Sheet (State.Combined_Ledger, "2026-12-31"));
+                  Put (Render_Balance_Sheet (State.Combined_Ledger));
                   Pause_For_User;
 
                when '2' =>
                   Clear_Screen;
                   Put_Line (Bold & "--- Account Balances ---" & Reset);
                   New_Line;
-                  Put (Render_Account_Balances (State.Combined_Ledger, "2026-12-31"));
+                  Put (Render_Account_Balances (State.Combined_Ledger));
                   Pause_For_User;
 
                when '3' =>

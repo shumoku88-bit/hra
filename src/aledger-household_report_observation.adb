@@ -1,10 +1,9 @@
-with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
 with ALedger.Account;
 
 package body ALedger.Household_Report_Observation is
 
    function Observe
-     (Observed_Through : String;
+     (Observed_Through : ALedger.Dates.Date;
       State            : ALedger.Household.Household_State;
       Result           : out Report_Observation;
       Error_Msg        : out Unbounded_String) return Boolean
@@ -19,19 +18,14 @@ package body ALedger.Household_Report_Observation is
         ALedger.Account.Make_Account
           (To_String (State.Household_Policy.Cycle_Income_Account));
    begin
-      Result.Observed_Through := To_Unbounded_String (Observed_Through);
+      Result.Observed_Through := Observed_Through;
       Result.Open_Plans := ALedger.Plan_Observation.Open_Plan_Vectors.Empty_Vector;
       Result.Completed_Plans :=
         ALedger.Plan_Observation.Completed_Plan_Vectors.Empty_Vector;
       Result.Consumption := ALedger.Envelope_Consumption.Empty_Consumption;
-      Result.Fulfillment := ALedger.Envelope_Fulfillment.Empty_Fulfillment;
-      Result.Commitment := ALedger.Envelope_Commitment.Empty_Observation;
       Result.Funding_Commitment :=
         ALedger.Backing_Policy.Empty_Funding_Commitment;
 
-      --  report.toml query coordinates are Actual-report coordinates.  Resolve
-      --  "beginning" against admitted Actual Transactions only; Budget movement
-      --  dates must not silently widen accounting report periods.
       if not ALedger.Report_Plan.Resolve
         (Observed_Through,
          State.Actual_Ledger,
@@ -48,7 +42,7 @@ package body ALedger.Household_Report_Observation is
       if not ALedger.Recent_Journal.Observe
         (State.Actual_Ledger,
          State.Actual_Evidence,
-         To_String (Result.Query_Plan.Recent_Transactions_Through),
+         Result.Query_Plan.Recent_Transactions_Through,
          Result.Query_Plan.Recent_Transactions_Count,
          Result.Recent_Journal,
          Recent_Status)

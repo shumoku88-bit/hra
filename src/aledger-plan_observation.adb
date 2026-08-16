@@ -1,9 +1,8 @@
-with Ada.Containers.Indefinite_Vectors;
-with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
 with ALedger.Journal_Evidence; use ALedger.Journal_Evidence;
 
 package body ALedger.Plan_Observation is
 
+   use type ALedger.Dates.Date;
    use type ALedger.Plan.Plan_Id;
 
    type Admitted_Plan is record
@@ -11,9 +10,9 @@ package body ALedger.Plan_Observation is
       Tx               : ALedger.Ledger.Transaction;
       Source           : Transaction_Source;
       Has_Cancellation : Boolean := False;
-      Cancelled_On     : Unbounded_String;
+      Cancelled_On     : ALedger.Dates.Date;
       Has_Supersession : Boolean := False;
-      Superseded_On    : Unbounded_String;
+      Superseded_On    : ALedger.Dates.Date;
       Superseded_By    : ALedger.Plan.Plan_Id;
    end record;
 
@@ -23,7 +22,7 @@ package body ALedger.Plan_Observation is
 
    type Completion is record
       ID     : ALedger.Plan.Plan_Id;
-      Date   : Unbounded_String;
+      Date   : ALedger.Dates.Date;
       Tx     : ALedger.Ledger.Transaction;
       Source : Transaction_Source;
    end record;
@@ -31,45 +30,6 @@ package body ALedger.Plan_Observation is
    package Completion_Vectors is new Ada.Containers.Indefinite_Vectors
      (Index_Type   => Positive,
       Element_Type => Completion);
-
-   function Is_Leap (Year : Positive) return Boolean is
-     (Year mod 400 = 0 or else (Year mod 4 = 0 and then Year mod 100 /= 0));
-
-   function Valid_Date (Text : String) return Boolean is
-      Year, Month, Day, Max_Day : Natural;
-   begin
-      if Text'Length /= 10
-        or else Text (Text'First + 4) /= '-'
-        or else Text (Text'First + 7) /= '-'
-      then
-         return False;
-      end if;
-
-      for Offset in 0 .. 9 loop
-         if Offset /= 4 and then Offset /= 7
-           and then Text (Text'First + Offset) not in '0' .. '9'
-         then
-            return False;
-         end if;
-      end loop;
-
-      Year  := Natural'Value (Text (Text'First .. Text'First + 3));
-      Month := Natural'Value (Text (Text'First + 5 .. Text'First + 6));
-      Day   := Natural'Value (Text (Text'First + 8 .. Text'First + 9));
-      if Year = 0 or else Month not in 1 .. 12 then
-         return False;
-      end if;
-
-      Max_Day :=
-        (case Month is
-            when 2 => (if Is_Leap (Year) then 29 else 28),
-            when 4 | 6 | 9 | 11 => 30,
-            when others => 31);
-      return Day in 1 .. Max_Day;
-   exception
-      when Constraint_Error =>
-         return False;
-   end Valid_Date;
 
    procedure Find_Metadata
      (Source      : Transaction_Source;
@@ -123,7 +83,7 @@ package body ALedger.Plan_Observation is
                   " at " & To_String (Source.Source_Path) & ":" &
                   Positive'Image (Source.Header_Line));
          begin
-            if To_String (Source.Date_Text) /= To_String (Tx.Date_Text)
+            if To_String (Source.Date_Text) /= ALedger.Dates.Image (Tx.Date)
               or else To_String (Source.Description) /= To_String (Tx.Code_Or_Payee)
             then
                Diag :=
@@ -244,7 +204,7 @@ package body ALedger.Plan_Observation is
       Plan_Evidence    : ALedger.Journal_Evidence.Journal_Evidence;
       Actual_Ledger    : ALedger.Ledger.Ledger;
       Actual_Evidence  : ALedger.Journal_Evidence.Journal_Evidence;
-      As_Of_Date       : String;
+      As_Of_Date       : ALedger.Dates.Date;
       Open_Result      : out Open_Plan_Vectors.Vector;
       Completed_Result : out Completed_Plan_Vectors.Vector;
       Diag             : out Admission_Diagnostic) return Boolean
@@ -296,7 +256,7 @@ package body ALedger.Plan_Observation is
             declare
                Item : constant Completion := Completions.Element (I);
             begin
-               if Item.ID = ID and then To_String (Item.Date) <= As_Of_Date then
+               if Item.ID = ID and then Item.Date <= As_Of_Date then
                   return I;
                end if;
             end;
@@ -307,9 +267,9 @@ package body ALedger.Plan_Observation is
       function Retired_As_Of (P : Admitted_Plan) return Boolean is
       begin
          return
-           (P.Has_Cancellation and then To_String (P.Cancelled_On) <= As_Of_Date)
+           (P.Has_Cancellation and then P.Cancelled_On <= As_Of_Date)
            or else
-           (P.Has_Supersession and then To_String (P.Superseded_On) <= As_Of_Date);
+           (P.Has_Supersession and then P.Superseded_On <= As_Of_Date);
       end Retired_As_Of;
 
       function Supersession_Cycle_From (Start : Positive) return Boolean is
@@ -340,11 +300,6 @@ package body ALedger.Plan_Observation is
          Line_Number => 0,
          Plan_Id     => Null_Unbounded_String,
          Message     => Null_Unbounded_String);
-
-      if not Valid_Date (As_Of_Date) then
-         Fail (Invalid_Observation_Date, 0, "", "invalid observation date");
-         return False;
-      end if;
 
       if not Evidence_Aligns
         (Plan_Ledger, Plan_Evidence, Plan_Source_Evidence_Error, Diag)
@@ -431,33 +386,41 @@ package body ALedger.Plan_Observation is
                return False;
             end if;
 
-            P :=
-              (ID               => PID,
-               Tx               => Tx,
-               Source           => Source,
-               Has_Cancellation => False,
-               Cancelled_On     => Null_Unbounded_String,
-               Has_Supersession => False,
-               Superseded_On    => Null_Unbounded_String,
-               Superseded_By    => ALedger.Plan.Null_Plan_Id);
+            P.ID := PID;
+            P.Tx := Tx;
+            P.Source := Source;
+            P.Has_Cancellation := False;
+            P.Has_Supersession := False;
+            P.Superseded_By := ALedger.Plan.Null_Plan_Id;
 
             if Cancel_Count = 1 then
-               if not Valid_Date (To_String (Cancel_Meta.Value)) then
-                  Fail
-                    (Invalid_Lifecycle_Date,
-                     Cancel_Meta.Line_Number,
-                     ALedger.Plan.Text (PID),
-                     "invalid cancelled-on date");
-                  return False;
-               end if;
-               P.Has_Cancellation := True;
-               P.Cancelled_On := Cancel_Meta.Value;
+               declare
+                  Lifecycle_Date : ALedger.Dates.Date;
+                  Date_Status    : ALedger.Dates.Date_Status;
+               begin
+                  if not ALedger.Dates.Parse
+                    (To_String (Cancel_Meta.Value), Lifecycle_Date, Date_Status)
+                  then
+                     Fail
+                       (Invalid_Lifecycle_Date,
+                        Cancel_Meta.Line_Number,
+                        ALedger.Plan.Text (PID),
+                        "invalid cancelled-on date");
+                     return False;
+                  end if;
+                  P.Has_Cancellation := True;
+                  P.Cancelled_On := Lifecycle_Date;
+               end;
             elsif Sup_On_Count = 1 then
                declare
                   Successor        : ALedger.Plan.Plan_Id;
                   Successor_Status : ALedger.Plan.Plan_Id_Status;
+                  Lifecycle_Date   : ALedger.Dates.Date;
+                  Date_Status      : ALedger.Dates.Date_Status;
                begin
-                  if not Valid_Date (To_String (Sup_On_Meta.Value)) then
+                  if not ALedger.Dates.Parse
+                    (To_String (Sup_On_Meta.Value), Lifecycle_Date, Date_Status)
+                  then
                      Fail
                        (Invalid_Lifecycle_Date,
                         Sup_On_Meta.Line_Number,
@@ -482,7 +445,7 @@ package body ALedger.Plan_Observation is
                      return False;
                   end if;
                   P.Has_Supersession := True;
-                  P.Superseded_On := Sup_On_Meta.Value;
+                  P.Superseded_On := Lifecycle_Date;
                   P.Superseded_By := Successor;
                end;
             end if;
@@ -565,7 +528,7 @@ package body ALedger.Plan_Observation is
                   Completions.Append
                     (Completion'
                        (ID     => PID,
-                        Date   => Tx.Date_Text,
+                        Date   => Tx.Date,
                         Tx     => Tx,
                         Source => Source));
                end;
@@ -605,7 +568,7 @@ package body ALedger.Plan_Observation is
       Plan_Source_Text   : String;
       Actual_Ledger      : ALedger.Ledger.Ledger;
       Actual_Source_Text : String;
-      As_Of_Date         : String;
+      As_Of_Date         : ALedger.Dates.Date;
       Open_Result        : out Open_Plan_Vectors.Vector;
       Completed_Result   : out Completed_Plan_Vectors.Vector;
       Diag               : out Admission_Diagnostic) return Boolean
@@ -613,11 +576,9 @@ package body ALedger.Plan_Observation is
       Plan_Evidence    : ALedger.Journal_Evidence.Journal_Evidence;
       Actual_Evidence  : ALedger.Journal_Evidence.Journal_Evidence;
       Evidence_Diag    : Evidence_Diagnostic;
-      Empty_Open       : Open_Plan_Vectors.Vector;
-      Empty_Completed  : Completed_Plan_Vectors.Vector;
    begin
-      Open_Result := Empty_Open;
-      Completed_Result := Empty_Completed;
+      Open_Result.Clear;
+      Completed_Result.Clear;
 
       if not Extract (Plan_Source_Text, Plan_Ledger, Plan_Evidence, Evidence_Diag) then
          Diag :=
@@ -655,7 +616,7 @@ package body ALedger.Plan_Observation is
       Plan_Evidence   : ALedger.Journal_Evidence.Journal_Evidence;
       Actual_Ledger   : ALedger.Ledger.Ledger;
       Actual_Evidence : ALedger.Journal_Evidence.Journal_Evidence;
-      As_Of_Date      : String;
+      As_Of_Date      : ALedger.Dates.Date;
       Result          : out Open_Plan_Vectors.Vector;
       Diag            : out Admission_Diagnostic) return Boolean
    is
@@ -677,7 +638,7 @@ package body ALedger.Plan_Observation is
       Plan_Source_Text   : String;
       Actual_Ledger      : ALedger.Ledger.Ledger;
       Actual_Source_Text : String;
-      As_Of_Date         : String;
+      As_Of_Date         : ALedger.Dates.Date;
       Result             : out Open_Plan_Vectors.Vector;
       Diag               : out Admission_Diagnostic) return Boolean
    is

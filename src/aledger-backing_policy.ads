@@ -103,15 +103,6 @@ package ALedger.Backing_Policy is
       Entitlement : Envelope_Entitlement.Entitlement_Observation;
       Consumption : Envelope_Consumption.Envelope_Consumption) return Backing_Observation;
 
-   --  Compatibility observation with no completed Fulfillment evidence.
-   function Observe_Backing
-     (Policy             : Backing_Policy;
-      L                  : Ledger.Ledger;
-      Entitlement        : Envelope_Entitlement.Entitlement_Observation;
-      Consumption        : Envelope_Consumption.Envelope_Consumption;
-      Commitment         : Envelope_Commitment.Commitment_Observation;
-      Funding_Commitment : Funding_Commitment_Observation)
-      return Backing_Observation;
 
    --  Observation-specific view. Fulfillment reduces Remaining, while open
    --  Commitment reduces Headroom. They are separate projections of disjoint

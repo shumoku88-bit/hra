@@ -1,6 +1,7 @@
 with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
 with ALedger.Backing_Policy;
 with ALedger.Cycle_Observation;
+with ALedger.Dates;
 with ALedger.Envelope_Commitment;
 with ALedger.Envelope_Consumption;
 with ALedger.Envelope_Fulfillment;
@@ -11,12 +12,8 @@ with ALedger.Report_Plan;
 
 package ALedger.Household_Report_Observation is
 
-   --  One report-time semantic observation derived from an already admitted
-   --  Household snapshot. No source is reread and no clock is captured here.
-   --  Report query coordinates are resolved against Actual evidence here so
-   --  the CLI renderer does not choose source ownership or date semantics.
    type Report_Observation is record
-      Observed_Through   : Unbounded_String;
+      Observed_Through   : ALedger.Dates.Date;
       Query_Plan         : ALedger.Report_Plan.Resolved_Report_Plan;
       Recent_Journal     : ALedger.Recent_Journal.Observation;
       Open_Plans         : ALedger.Plan_Observation.Open_Plan_Vectors.Vector;
@@ -30,7 +27,7 @@ package ALedger.Household_Report_Observation is
    end record;
 
    function Observe
-     (Observed_Through : String;
+     (Observed_Through : ALedger.Dates.Date;
       State            : ALedger.Household.Household_State;
       Result           : out Report_Observation;
       Error_Msg        : out Unbounded_String) return Boolean;

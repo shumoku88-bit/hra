@@ -1,4 +1,5 @@
 with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
+with ALedger.Dates;
 with ALedger.Money;
 with ALedger.Account;
 with ALedger.Plan;
@@ -32,7 +33,7 @@ package body ALedger.Planned_Payments_Render is
       for Payment of Value.Payments loop
          Append
            (Result,
-            To_String (Payment.Due_Date) & "  " &
+            ALedger.Dates.Image (Payment.Due_Date) & "  " &
             Timing_Image (Payment.Timing) & "  " &
             ALedger.Money.Render_Quantity (Payment.Amt.Val) & " " &
             ALedger.Money.Code (Payment.Amt.Comm) & ASCII.LF);

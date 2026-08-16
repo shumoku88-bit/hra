@@ -1,5 +1,6 @@
 with Ada.Strings;       use Ada.Strings;
 with Ada.Strings.Fixed; use Ada.Strings.Fixed;
+with ALedger.Dates;
 
 package body ALedger.Journal_Evidence is
 
@@ -222,7 +223,7 @@ package body ALedger.Journal_Evidence is
             Source : constant Transaction_Source := Result.Transactions.Element (I);
             Tx     : constant ALedger.Ledger.Transaction := L.Transactions.Element (I);
          begin
-            if To_String (Source.Date_Text) /= To_String (Tx.Date_Text)
+            if To_String (Source.Date_Text) /= ALedger.Dates.Image (Tx.Date)
               or else To_String (Source.Description) /= To_String (Tx.Code_Or_Payee)
             then
                Fail

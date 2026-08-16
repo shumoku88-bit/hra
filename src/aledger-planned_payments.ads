@@ -1,5 +1,6 @@
 with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
 with Ada.Containers.Indefinite_Vectors;
+with ALedger.Dates;
 with ALedger.Money;
 with ALedger.Account;
 with ALedger.Ledger;
@@ -12,7 +13,7 @@ package ALedger.Planned_Payments is
 
    type Planned_Payment is record
       ID          : ALedger.Plan.Plan_Id;
-      Due_Date    : Unbounded_String;
+      Due_Date    : ALedger.Dates.Date;
       Memo        : Unbounded_String;
       Amt         : ALedger.Money.Amount;
       Source      : ALedger.Account.Account;
@@ -56,25 +57,20 @@ package ALedger.Planned_Payments is
       Message     : Unbounded_String;
    end record;
 
-   --  Project an already admitted role-neutral open Plan observation into the
-   --  narrower human Planned Payments surface.
    function Project
      (Open_Plans : ALedger.Plan_Observation.Open_Plan_Vectors.Vector;
       Registry   : ALedger.Account.Account_Registry;
-      As_Of_Date : String;
+      As_Of_Date : ALedger.Dates.Date;
       Result     : out Observation;
       Diag       : out Admission_Diagnostic) return Boolean;
 
-   --  Convenience boundary for callers that do not already own the shared
-   --  role-neutral observation. Production Household report composition uses
-   --  Project so lifecycle/completion is not interpreted twice.
    function Observe
      (Plan_Ledger        : ALedger.Ledger.Ledger;
       Plan_Source_Text   : String;
       Actual_Ledger      : ALedger.Ledger.Ledger;
       Actual_Source_Text : String;
       Registry           : ALedger.Account.Account_Registry;
-      As_Of_Date         : String;
+      As_Of_Date         : ALedger.Dates.Date;
       Result             : out Observation;
       Diag               : out Admission_Diagnostic) return Boolean;
 

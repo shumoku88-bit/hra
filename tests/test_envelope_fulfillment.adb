@@ -5,6 +5,7 @@ with ALedger.Backing_Policy;
 with ALedger.Budget_Config;
 with ALedger.Config_Support;
 with ALedger.Cycle_Observation;
+with ALedger.Dates;
 with ALedger.Envelope;
 with ALedger.Envelope_Commitment;
 with ALedger.Envelope_Consumption;
@@ -36,6 +37,25 @@ procedure Test_Envelope_Fulfillment is
          Failed_Count := Failed_Count + 1;
       end if;
    end Assert;
+
+   function D (S : String) return ALedger.Dates.Date is
+      Val    : ALedger.Dates.Date;
+      Status : ALedger.Dates.Date_Status;
+   begin
+      if not ALedger.Dates.Parse (S, Val, Status) then
+         raise Program_Error with "Invalid date in test: " & S;
+      end if;
+      return Val;
+   end D;
+
+   function H (S1, S2 : String) return ALedger.Dates.Half_Open_Period is
+      Res : ALedger.Dates.Half_Open_Period;
+   begin
+      if not ALedger.Dates.Make_Half_Open_Period (D (S1), D (S2), Res) then
+         raise Program_Error with "Invalid half-open period: [" & S1 & ", " & S2 & ")";
+      end if;
+      return Res;
+   end H;
 
    procedure Register
      (Registry : in out ALedger.Account.Account_Registry;
@@ -136,7 +156,7 @@ begin
    Assert
      (ALedger.Plan_Observation.Observe_Plans
         (Plans, Plan_Source, Actual, Actual_Source,
-         "2026-08-18", Open_Plans, Completed, Plan_Diag),
+         D ("2026-08-18"), Open_Plans, Completed, Plan_Diag),
       "Observe open/completed Plan lifecycle once");
    Assert
      (Natural (Open_Plans.Length) = 0
@@ -159,19 +179,19 @@ begin
 
    Decisions.Append
      (ALedger.Fulfillment_Routing.Fulfillment_Routing_Decision'
-        (Effective_From => To_Unbounded_String ("2026-08-01"),
+        (Effective_From => D ("2026-08-01"),
          Plan_ID        => ALedger.Plan.Make_Plan_Id ("plan-save"),
          Route          => ALedger.Fulfillment_Routing.Fulfills (Savings_Env),
          Note           => To_Unbounded_String ("save Plan fulfills savings")));
    Decisions.Append
      (ALedger.Fulfillment_Routing.Fulfillment_Routing_Decision'
-        (Effective_From => To_Unbounded_String ("2026-09-01"),
+        (Effective_From => D ("2026-09-01"),
          Plan_ID        => ALedger.Plan.Make_Plan_Id ("plan-save"),
          Route          => ALedger.Fulfillment_Routing.Not_Target,
          Note           => To_Unbounded_String ("future intent change")));
    Decisions.Append
      (ALedger.Fulfillment_Routing.Fulfillment_Routing_Decision'
-        (Effective_From => To_Unbounded_String ("2026-08-01"),
+        (Effective_From => D ("2026-08-01"),
          Plan_ID        => ALedger.Plan.Make_Plan_Id ("plan-food"),
          Route          => ALedger.Fulfillment_Routing.Fulfills (Savings_Env),
          Note           => To_Unbounded_String ("must not steal Expense ownership")));
@@ -184,7 +204,7 @@ begin
 
    Assert
      (ALedger.Envelope_Fulfillment.Observe
-        (Completed, Actual, Registry, Routing, "2026-08-16",
+        (Completed, Actual, Registry, Routing, D ("2026-08-16"),
          Fulfillment, Fulfill_Diag),
       "Observe root completed Actual Fulfillment");
    declare
@@ -203,7 +223,7 @@ begin
 
    Assert
      (ALedger.Envelope_Fulfillment.Observe
-        (Completed, Actual, Registry, Routing, "2026-08-17",
+        (Completed, Actual, Registry, Routing, D ("2026-08-17"),
          Fulfillment, Fulfill_Diag),
       "Observe explicit reversal of Fulfillment");
    Assert
@@ -214,7 +234,7 @@ begin
 
    Assert
      (ALedger.Envelope_Fulfillment.Observe
-        (Completed, Actual, Registry, Routing, "2026-09-02",
+        (Completed, Actual, Registry, Routing, D ("2026-09-02"),
          Fulfillment, Fulfill_Diag),
       "Observe reversal-of-reversal after later routing change");
    declare
@@ -231,7 +251,7 @@ begin
              (ALedger.Envelope_Fulfillment.Net_Fulfillment (Amounts), JPY) = 450.0,
          "reversal chain restores root Fulfillment exactly");
       Assert
-        (To_String (Evidence.Route_Effective_From) = "2026-08-01"
+        (ALedger.Dates.Image (Evidence.Route_Effective_From) = "2026-08-01"
            and then To_String (Evidence.Route_Note) =
              "save Plan fulfills savings",
          "completion-day route is frozen with historical provenance");
@@ -244,8 +264,7 @@ begin
 
    declare
       Window : constant ALedger.Cycle_Observation.Cycle_Window :=
-        (Start_Date    => To_Unbounded_String ("2026-08-01"),
-         End_Exclusive => To_Unbounded_String ("2026-10-01"));
+        H ("2026-08-01", "2026-10-01");
       Commitment  : ALedger.Envelope_Commitment.Commitment_Observation;
       Commit_Diag : ALedger.Envelope_Commitment.Observe_Diagnostic;
    begin
@@ -256,7 +275,7 @@ begin
             ALedger.Envelope_Routing.Empty_History,
             Routing,
             Window,
-            "2026-08-18",
+            D ("2026-08-18"),
             Commitment,
             Commit_Diag),
          "Observe Commitment from the same role-neutral lifecycle result");
@@ -290,7 +309,7 @@ begin
       Entitlement := ALedger.Envelope_Entitlement.Fold_Movement
         (Entitlement,
          (Kind    => ALedger.Envelope_Entitlement.Grant_From_Unallocated,
-          Tx_Date => To_Unbounded_String ("2026-08-01"),
+          Tx_Date => D ("2026-08-01"),
           Amt     => ALedger.Money.Make_Amount (JPY, 1000.0),
           Target  => Savings_Env));
 
@@ -300,7 +319,8 @@ begin
          Entitlement,
          ALedger.Envelope_Consumption.Empty_Consumption,
          Fulfillment,
-         ALedger.Envelope_Commitment.Empty_Observation,
+         ALedger.Envelope_Commitment.Empty_Observation
+           (D ("2026-08-18"), D ("2026-08-18")),
          ALedger.Backing_Policy.Empty_Funding_Commitment);
       Claim := ALedger.Backing_Policy.Claim_For (Backing, Savings_Env);
 

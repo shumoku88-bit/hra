@@ -4,12 +4,13 @@ with Ada.Directories;        use Ada.Directories;
 with Ada.Strings.Fixed;      use Ada.Strings.Fixed;
 with Ada.Strings.Unbounded;  use Ada.Strings.Unbounded;
 with ALedger;
+with ALedger.Dates;
 with ALedger.Money;          use ALedger.Money;
 with ALedger.Account;        use ALedger.Account;
 with ALedger.Ledger;         use ALedger.Ledger;
 with ALedger.Journal;        use ALedger.Journal;
 with ALedger.Report;         use ALedger.Report;
-with ALedger.Household;         use ALedger.Household;
+with ALedger.Household;      use ALedger.Household;
 with ALedger.Household_Config;
 with ALedger.Canonical_Source; use ALedger.Canonical_Source;
 with ALedger.Config_Support;
@@ -40,6 +41,25 @@ procedure Test_Runner is
          Failed_Count := Failed_Count + 1;
       end if;
    end Assert;
+
+   function D (S : String) return ALedger.Dates.Date is
+      Val    : ALedger.Dates.Date;
+      Status : ALedger.Dates.Date_Status;
+   begin
+      if not ALedger.Dates.Parse (S, Val, Status) then
+         raise Program_Error with "Invalid date in test: " & S;
+      end if;
+      return Val;
+   end D;
+
+   function P (S1, S2 : String) return ALedger.Dates.Closed_Period is
+      Res : ALedger.Dates.Closed_Period;
+   begin
+      if not ALedger.Dates.Make_Closed_Period (D (S1), D (S2), Res) then
+         raise Program_Error with "Invalid closed period: " & S1 & ".." & S2;
+      end if;
+      return Res;
+   end P;
 
    procedure Test_Proof_Core is
       package Proof renames ALedger.Proof_Core;
@@ -178,7 +198,7 @@ procedure Test_Runner is
       Postings.Append (Make_Posting (Acc_Food, Make_Amount (JPY, Q_1000)));
       Postings.Append (Make_Posting (Acc_Cash, Make_Amount (JPY, Q_M1000)));
 
-      Assert (Create_Transaction ("2026-08-13", "Grocery Purchase", Postings, Tx, T_Status), "Create balanced transaction");
+      Assert (Create_Transaction (D ("2026-08-13"), "Grocery Purchase", Postings, Tx, T_Status), "Create balanced transaction");
       Assert (Is_Balanced (Tx), "Verify transaction balance law (sum = 0)");
 
       Assert (Add_Transaction (L, Tx, T_Status), "Add balanced transaction to ledger");
@@ -610,11 +630,11 @@ procedure Test_Runner is
       Assert (not Create_Plan_Id ("plan 2026", PID, P_Stat) and then P_Stat = Plan_Id_Contains_Whitespace, "Reject plan-id with whitespace");
 
       Assert (Parse_Quantity ("80000", Q_80k), "Parse 80000");
-      Assert (Create_Plan_Entry ("plan-2026-08-001", "2026-08-25", "Rent Payment August", Make_Amount (JPY, Q_80k), Acc_Bank, Acc_Rent, PE), "Create Plan_Entry");
+      Assert (Create_Plan_Entry ("plan-2026-08-001", D ("2026-08-25"), "Rent Payment August", Make_Amount (JPY, Q_80k), Acc_Bank, Acc_Rent, PE), "Create Plan_Entry");
       Assert (PE.Status = Pending, "New plan entry status is Pending");
 
       --  Complete Plan (converts plan to actual transaction linking plan-id)
-      Assert (Complete_Plan (PE, "2026-08-25", Actual_Tx), "Complete Plan -> Actual Transaction conversion");
+      Assert (Complete_Plan (PE, D ("2026-08-25"), Actual_Tx), "Complete Plan -> Actual Transaction conversion");
       Assert (PE.Status = Completed, "Completed plan status changes to Completed");
       Assert (Is_Balanced (Actual_Tx), "Generated actual transaction preserves strict balance law");
 
@@ -763,12 +783,12 @@ procedure Test_Runner is
       Assert (Parse_Journal_Text (Golden_Journal_Text, L, Err), "Parse h-kernel report contract journal text");
 
       declare
-         Bal_Report : constant String := Render_Account_Balances (L, "2026-07-31");
-         BS_Report  : constant String := Render_Balance_Sheet (L, "2026-07-31");
-         PL_Report  : constant String := Render_Profit_And_Loss (L, "2026-07-01", "2026-07-31");
+         Bal_Report : constant String := Render_Account_Balances (L, D ("2026-07-31"));
+         BS_Report  : constant String := Render_Balance_Sheet (L, D ("2026-07-31"));
+         PL_Report  : constant String := Render_Profit_And_Loss (L, P ("2026-07-01", "2026-07-31"));
 
-         BS_Obj     : constant Balance_Sheet := Generate_Balance_Sheet_As_Of (L, "2026-07-31");
-         PL_Obj     : constant Profit_And_Loss := Generate_Profit_And_Loss_Period (L, "2026-07-01", "2026-07-31");
+         BS_Obj     : constant Balance_Sheet := Generate_Balance_Sheet_As_Of (L, D ("2026-07-31"));
+         PL_Obj     : constant Profit_And_Loss := Generate_Profit_And_Loss_Period (L, P ("2026-07-01", "2026-07-31"));
       begin
          --  Verify Account Balances as-of 2026-07-31 (excluding 2026-08-01 transaction)
          Assert (Index (Bal_Report, "assets:cash | 13,000 JPY") > 0, "Equivalence: assets:cash = 13,000 JPY as of 2026-07-31");
@@ -984,7 +1004,7 @@ procedure Test_Runner is
 
       --  Resolve: food should be managed
       declare
-         R : constant Expense_Route := Resolve (Hist, Food_Acc, "2026-08-15");
+         R : constant Expense_Route := Resolve (Hist, Food_Acc, D ("2026-08-15"));
       begin
          Assert (R.Kind = Managed_By_Envelope, "Resolve food: managed");
          Assert (Image (R.Target) = "food", "Resolve food: target is food");
@@ -992,7 +1012,7 @@ procedure Test_Runner is
 
       --  Resolve: rent should be not managed
       declare
-         R : constant Expense_Route := Resolve (Hist, Rent_Acc, "2026-08-15");
+         R : constant Expense_Route := Resolve (Hist, Rent_Acc, D ("2026-08-15"));
       begin
          Assert (R.Kind = Not_Envelope_Managed, "Resolve rent: not managed");
       end;
@@ -1000,7 +1020,7 @@ procedure Test_Runner is
       --  Resolve: unknown account should be not managed
       declare
          Unknown_Acc : constant Account := Make_Account ("expenses:unknown");
-         R : constant Expense_Route := Resolve (Hist, Unknown_Acc, "2026-08-15");
+         R : constant Expense_Route := Resolve (Hist, Unknown_Acc, D ("2026-08-15"));
       begin
          Assert (R.Kind = Not_Envelope_Managed,
                  "Resolve unknown: not managed (no routing)");
@@ -1092,7 +1112,7 @@ procedure Test_Runner is
          Dated_Entries.Append (E);
 
          --  From 2026-09-01: food -> tabaco
-         E := (Effective => Dated_Effective ("2026-09-01"),
+         E := (Effective => Dated_Effective (D ("2026-09-01")),
                Expense   => Food_Acc,
                Route     => Managed_Route (Tabaco_Id),
                Note      => Null_Unbounded_String);
@@ -1104,7 +1124,7 @@ procedure Test_Runner is
 
          --  Before 2026-09-01: should resolve to food
          declare
-            R : constant Expense_Route := Resolve (Dated_Hist, Food_Acc, "2026-08-15");
+            R : constant Expense_Route := Resolve (Dated_Hist, Food_Acc, D ("2026-08-15"));
          begin
             Assert (R.Kind = Managed_By_Envelope
                     and then Image (R.Target) = "food",
@@ -1113,7 +1133,7 @@ procedure Test_Runner is
 
          --  On 2026-09-01: should resolve to tabaco
          declare
-            R : constant Expense_Route := Resolve (Dated_Hist, Food_Acc, "2026-09-01");
+            R : constant Expense_Route := Resolve (Dated_Hist, Food_Acc, D ("2026-09-01"));
          begin
             Assert (R.Kind = Managed_By_Envelope
                     and then Image (R.Target) = "tabaco",
@@ -1122,7 +1142,7 @@ procedure Test_Runner is
 
          --  After 2026-09-01: should still resolve to tabaco
          declare
-            R : constant Expense_Route := Resolve (Dated_Hist, Food_Acc, "2026-12-31");
+            R : constant Expense_Route := Resolve (Dated_Hist, Food_Acc, D ("2026-12-31"));
          begin
             Assert (R.Kind = Managed_By_Envelope
                     and then Image (R.Target) = "tabaco",
@@ -1147,11 +1167,11 @@ procedure Test_Runner is
       Postings.Append (Make_Posting (Acc_Expense, Make_Amount (JPY, Q_5000)));
       Postings.Append (Make_Posting (Acc_Asset, Make_Amount (JPY, -Q_5000)));
 
-      Assert (Create_Transaction ("2026-08-10", "Gadget Purchase [event-id: evt-2026-001]", Postings, Orig_Tx, Status), "Create original transaction");
+      Assert (Create_Transaction (D ("2026-08-10"), "Gadget Purchase [event-id: evt-2026-001]", Postings, Orig_Tx, Status), "Create original transaction");
       Orig_Tx.Event_ID := To_Unbounded_String ("evt-2026-001");
       Assert (Add_Transaction (L, Orig_Tx, Status), "Add original transaction to ledger");
 
-      Assert (Create_Reversal_Transaction (Orig_Tx, "evt-2026-002", "2026-08-11", "Return gadget", Rev_Tx, Status), "Create reversal transaction via Reversal Law");
+      Assert (Create_Reversal_Transaction (Orig_Tx, "evt-2026-002", D ("2026-08-11"), "Return gadget", Rev_Tx, Status), "Create reversal transaction via Reversal Law");
       Assert (Is_Reversal_Of (Rev_Tx, Orig_Tx), "Verify Is_Reversal_Of relation");
 
       declare
@@ -1227,7 +1247,7 @@ procedure Test_Runner is
       Obs := Fold_Movement
         (Obs,
          (Kind    => Grant_From_Unallocated,
-          Tx_Date => To_Unbounded_String ("2026-06-07"),
+          Tx_Date => D ("2026-06-07"),
           Amt     => Make_Amount (JPY, 1000.0),
           Target  => Food_Id));
       Assert
@@ -1240,7 +1260,7 @@ procedure Test_Runner is
       Obs := Fold_Movement
         (Obs,
          (Kind    => Grant_From_Unallocated,
-          Tx_Date => To_Unbounded_String ("2026-06-07"),
+          Tx_Date => D ("2026-06-07"),
           Amt     => Make_Amount (USD, 500.0),
           Target  => Food_Id));
       Assert
@@ -1251,7 +1271,7 @@ procedure Test_Runner is
       Obs := Fold_Movement
         (Obs,
          (Kind          => Transfer_Between_Envelopes,
-          Tx_Date       => To_Unbounded_String ("2026-06-08"),
+          Tx_Date       => D ("2026-06-08"),
           Amt           => Make_Amount (JPY, 300.0),
           From_Envelope => Food_Id,
           To_Envelope   => Gen_Id));
@@ -1265,7 +1285,7 @@ procedure Test_Runner is
       Obs := Fold_Movement
         (Obs,
          (Kind    => Return_To_Unallocated,
-          Tx_Date => To_Unbounded_String ("2026-06-09"),
+          Tx_Date => D ("2026-06-09"),
           Amt     => Make_Amount (JPY, 100.0),
           Source  => Food_Id));
       Assert
@@ -1464,6 +1484,15 @@ procedure Test_Runner is
       H_Status  : History_Status;
 
       Actual_Journal_Text : constant String :=
+        "account assets:cash" & ASCII.LF &
+        "    type: asset" & ASCII.LF &
+        "account expenses:food" & ASCII.LF &
+        "    type: expense" & ASCII.LF &
+        "account expenses:rent" & ASCII.LF &
+        "    type: expense" & ASCII.LF &
+        "account expenses:other" & ASCII.LF &
+        "    type: expense" & ASCII.LF &
+        "" & ASCII.LF &
         "2026-08-10 Grocery Store [event-id: evt-001]" & ASCII.LF &
         "    assets:cash        -3000 JPY" & ASCII.LF &
         "    expenses:food       3000 JPY" & ASCII.LF &
@@ -1509,7 +1538,7 @@ procedure Test_Runner is
             Note      => To_Unbounded_String ("initial food")));
       R_Entries.Append
         (Routing_Entry'
-           (Effective => Dated_Effective ("2026-08-15"),
+           (Effective => Dated_Effective (D ("2026-08-15")),
             Expense   => Make_Account ("expenses:food"),
             Route     => Managed_Route (Tabaco_Id),
             Note      => To_Unbounded_String ("switched to tabaco")));
@@ -1584,7 +1613,7 @@ procedure Test_Runner is
       -- Date filter test (Through 2026-08-15)
       declare
          Through_Obs : constant Envelope_Consumption :=
-           Observe_Consumption (L, History, "2026-08-15");
+           Observe_Consumption (L, History, D ("2026-08-15"));
       begin
          Assert
            (Lookup_Balance (Consumption_For (Through_Obs, Food_Id).Charges, JPY) = 3000.0,
@@ -1680,8 +1709,8 @@ procedure Test_Runner is
            (ALedger.Budget_Config.Parse_Budget_Policy (Budget_TOML, B_Policy, B_Diag),
             "Setup: Parse Budget Policy for Backing");
 
-         Ids.Append (Food_UTF8);
-         Ids.Append (Daily_UTF8);
+         Ids.Append (New_Item => Food_UTF8);
+         Ids.Append (New_Item => Daily_UTF8);
          Assert
            (Admit_Registry (Ids, Reg, Reg_Diag),
             "Setup: Admit Registry for Backing");
@@ -1701,7 +1730,7 @@ procedure Test_Runner is
          Ent_Obs := Fold_Movement
            (Ent_Obs,
             (Kind    => Grant_From_Unallocated,
-             Tx_Date => To_Unbounded_String ("2026-08-01"),
+             Tx_Date => D ("2026-08-01"),
              Amt     => Make_Amount (JPY, 10000.0),
              Target  => Food_Id));
          Cons_Obs.Managed :=
@@ -1716,7 +1745,7 @@ procedure Test_Runner is
          Ent_Obs := Fold_Movement
            (Ent_Obs,
             (Kind    => Grant_From_Unallocated,
-             Tx_Date => To_Unbounded_String ("2026-08-01"),
+             Tx_Date => D ("2026-08-01"),
              Amt     => Make_Amount (JPY, 5000.0),
              Target  => Daily_Id));
          Cons_Obs.Managed.Insert

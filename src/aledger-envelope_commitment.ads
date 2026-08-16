@@ -1,5 +1,6 @@
 with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
 with Ada.Containers.Indefinite_Ordered_Maps;
+with ALedger.Dates;
 with ALedger.Money; use ALedger.Money;
 with ALedger.Account;
 with ALedger.Envelope;
@@ -19,14 +20,16 @@ package ALedger.Envelope_Commitment is
       Element_Type => Balance);
 
    type Commitment_Observation is record
-      Observed_Through    : Unbounded_String;
-      Cycle_End_Exclusive : Unbounded_String;
+      Observed_Through    : ALedger.Dates.Date;
+      Cycle_End_Exclusive : ALedger.Dates.Date;
       Managed             : Envelope_Balance_Maps.Map;
       Unmanaged           : Account_Balance_Maps.Map;
       Unrouted            : Account_Balance_Maps.Map;
    end record;
 
-   function Empty_Observation return Commitment_Observation;
+   function Empty_Observation
+     (Observed_Through    : ALedger.Dates.Date;
+      Cycle_End_Exclusive : ALedger.Dates.Date) return Commitment_Observation;
 
    type Observe_Status is
      (Success,
@@ -40,17 +43,6 @@ package ALedger.Envelope_Commitment is
       Message : Unbounded_String;
    end record;
 
-   --  Compatibility observation with no Fulfillment routing. Non-Expense
-   --  postings therefore create no Envelope claim.
-   function Observe
-     (Open_Plans       : ALedger.Plan_Observation.Open_Plan_Vectors.Vector;
-      Registry         : ALedger.Account.Account_Registry;
-      Routing          : ALedger.Envelope_Routing.Routing_History;
-      Window           : ALedger.Cycle_Observation.Cycle_Window;
-      Observed_Through : String;
-      Result           : out Commitment_Observation;
-      Diag             : out Observe_Diagnostic) return Boolean;
-
    --  Observe open Plan claims inside the current cycle horizon. Positive
    --  Expense postings route by Account through Expense routing. Positive
    --  non-Expense postings route only through the stable PlanId Fulfillment
@@ -62,7 +54,7 @@ package ALedger.Envelope_Commitment is
       Routing          : ALedger.Envelope_Routing.Routing_History;
       Fulfillment      : ALedger.Fulfillment_Routing.Fulfillment_Routing_History;
       Window           : ALedger.Cycle_Observation.Cycle_Window;
-      Observed_Through : String;
+      Observed_Through : ALedger.Dates.Date;
       Result           : out Commitment_Observation;
       Diag             : out Observe_Diagnostic) return Boolean;
 

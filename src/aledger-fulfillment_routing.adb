@@ -1,7 +1,6 @@
-with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
-
 package body ALedger.Fulfillment_Routing is
 
+   use type ALedger.Dates.Date;
    use type ALedger.Plan.Plan_Id;
 
    function Fulfills
@@ -21,45 +20,6 @@ package body ALedger.Fulfillment_Routing is
       return (Decisions => Decision_Vectors.Empty_Vector);
    end Empty_History;
 
-   function Is_Leap (Year : Positive) return Boolean is
-     (Year mod 400 = 0 or else (Year mod 4 = 0 and then Year mod 100 /= 0));
-
-   function Valid_Date (Text : String) return Boolean is
-      Year, Month, Day, Max_Day : Natural;
-   begin
-      if Text'Length /= 10
-        or else Text (Text'First + 4) /= '-'
-        or else Text (Text'First + 7) /= '-'
-      then
-         return False;
-      end if;
-
-      for Offset in 0 .. 9 loop
-         if Offset /= 4 and then Offset /= 7
-           and then Text (Text'First + Offset) not in '0' .. '9'
-         then
-            return False;
-         end if;
-      end loop;
-
-      Year  := Natural'Value (Text (Text'First .. Text'First + 3));
-      Month := Natural'Value (Text (Text'First + 5 .. Text'First + 6));
-      Day   := Natural'Value (Text (Text'First + 8 .. Text'First + 9));
-      if Year = 0 or else Month not in 1 .. 12 then
-         return False;
-      end if;
-
-      Max_Day :=
-        (case Month is
-            when 2 => (if Is_Leap (Year) then 29 else 28),
-            when 4 | 6 | 9 | 11 => 30,
-            when others => 31);
-      return Day in 1 .. Max_Day;
-   exception
-      when Constraint_Error =>
-         return False;
-   end Valid_Date;
-
    function Admit
      (Decisions   : Decision_Vectors.Vector;
       Known_Plans : ALedger.Plan.Plan_Id_Universe;
@@ -70,10 +30,7 @@ package body ALedger.Fulfillment_Routing is
       Result : Fulfillment_Routing_History := Empty_History;
    begin
       for Decision of Decisions loop
-         if not Valid_Date (To_String (Decision.Effective_From)) then
-            Status := Invalid_Effective_Date;
-            return False;
-         elsif not ALedger.Plan.Contains (Known_Plans, Decision.Plan_ID) then
+         if not ALedger.Plan.Contains (Known_Plans, Decision.Plan_ID) then
             Status := Unknown_Plan_Reference;
             return False;
          elsif Decision.Route.Kind = Fulfills_Envelope
@@ -104,7 +61,7 @@ package body ALedger.Fulfillment_Routing is
    function Resolve_Decision
      (History  : Fulfillment_Routing_History;
       Plan_ID  : ALedger.Plan.Plan_Id;
-      Date     : String;
+      Date     : ALedger.Dates.Date;
       Decision : out Fulfillment_Routing_Decision) return Boolean
    is
       Best_Index : Natural := 0;
@@ -115,12 +72,11 @@ package body ALedger.Fulfillment_Routing is
               History.Decisions.Element (I);
          begin
             if Candidate.Plan_ID = Plan_ID
-              and then To_String (Candidate.Effective_From) <= Date
+              and then Candidate.Effective_From <= Date
               and then
                 (Best_Index = 0
-                 or else To_String (Candidate.Effective_From) >
-                   To_String
-                     (History.Decisions.Element (Best_Index).Effective_From))
+                 or else Candidate.Effective_From >
+                   History.Decisions.Element (Best_Index).Effective_From)
             then
                Best_Index := I;
             end if;
@@ -128,11 +84,6 @@ package body ALedger.Fulfillment_Routing is
       end loop;
 
       if Best_Index = 0 then
-         Decision :=
-           (Effective_From => Null_Unbounded_String,
-            Plan_ID        => ALedger.Plan.Null_Plan_Id,
-            Route          => Not_Target,
-            Note           => Null_Unbounded_String);
          return False;
       end if;
 
@@ -143,7 +94,7 @@ package body ALedger.Fulfillment_Routing is
    function Has_Routing_At
      (History : Fulfillment_Routing_History;
       Plan_ID : ALedger.Plan.Plan_Id;
-      Date    : String) return Boolean
+      Date    : ALedger.Dates.Date) return Boolean
    is
       Decision : Fulfillment_Routing_Decision;
    begin
@@ -153,7 +104,7 @@ package body ALedger.Fulfillment_Routing is
    function Resolve
      (History : Fulfillment_Routing_History;
       Plan_ID : ALedger.Plan.Plan_Id;
-      Date    : String) return Fulfillment_Route
+      Date    : ALedger.Dates.Date) return Fulfillment_Route
    is
       Decision : Fulfillment_Routing_Decision;
    begin

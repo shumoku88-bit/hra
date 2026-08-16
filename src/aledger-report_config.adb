@@ -6,46 +6,27 @@ package body ALedger.Report_Config is
 
    Source_Name : constant String := "report.toml";
 
-   function Is_Leap (Year : Positive) return Boolean is
-     (Year mod 400 = 0 or else (Year mod 4 = 0 and then Year mod 100 /= 0));
-
-   function Valid_Date (Text : String) return Boolean is
-      Year, Month, Day, Max_Day : Natural;
-   begin
-      if Text'Length /= 10
-        or else Text (Text'First + 4) /= '-'
-        or else Text (Text'First + 7) /= '-'
-      then return False; end if;
-      for Offset in 0 .. 9 loop
-         if Offset /= 4 and then Offset /= 7
-           and then Text (Text'First + Offset) not in '0' .. '9'
-         then return False; end if;
-      end loop;
-      Year := Natural'Value (Text (Text'First .. Text'First + 3));
-      Month := Natural'Value (Text (Text'First + 5 .. Text'First + 6));
-      Day := Natural'Value (Text (Text'First + 8 .. Text'First + 9));
-      if Year = 0 or else Month not in 1 .. 12 then return False; end if;
-      Max_Day := (case Month is
-         when 2 => (if Is_Leap (Year) then 29 else 28),
-         when 4 | 6 | 9 | 11 => 30,
-         when others => 31);
-      return Day in 1 .. Max_Day;
-   exception
-      when Constraint_Error => return False;
-   end Valid_Date;
-
    function Parse_Boundary
      (Value : TOML.TOML_Value; Path : String; Allow_Beginning : Boolean;
       Result : out Date_Boundary; Diag : out Config_Diagnostic) return Boolean
    is
-      Text : constant String := Value.As_String;
+      Text        : constant String := Value.As_String;
+      Date_Value  : ALedger.Dates.Date;
+      Date_Status : ALedger.Dates.Date_Status;
    begin
-      if Text = "latest" then Result := (Kind => Latest, Date => Null_Unbounded_String);
-      elsif Text = "beginning" and then Allow_Beginning then Result := (Kind => Beginning, Date => Null_Unbounded_String);
-      elsif Valid_Date (Text) then Result := (Kind => Exact_Date, Date => To_Unbounded_String (Text));
+      if Text = "latest" then
+         Result := (Kind => Latest);
+      elsif Text = "beginning" and then Allow_Beginning then
+         Result := (Kind => Beginning);
+      elsif ALedger.Dates.Parse (Text, Date_Value, Date_Status) then
+         Result := (Kind => Exact_Date, Value => Date_Value);
       else
-         Set_Error (Diag, Source_Name, Path,
-           (if Allow_Beginning then "expected latest, beginning, or YYYY-MM-DD" else "expected latest or YYYY-MM-DD"), Value);
+         Set_Error
+           (Diag, Source_Name, Path,
+            (if Allow_Beginning
+             then "expected latest, beginning, or YYYY-MM-DD"
+             else "expected latest or YYYY-MM-DD"),
+            Value);
          return False;
       end if;
       return True;
