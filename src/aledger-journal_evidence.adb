@@ -70,6 +70,22 @@ package body ALedger.Journal_Evidence is
       Evidence : out Journal_Evidence;
       Diag     : out Evidence_Diagnostic) return Boolean
    is
+   begin
+      return Extract
+        (Input       => Input,
+         Source_Path => "",
+         L           => L,
+         Evidence    => Evidence,
+         Diag        => Diag);
+   end Extract;
+
+   function Extract
+     (Input       : String;
+      Source_Path : String;
+      L           : ALedger.Ledger.Ledger;
+      Evidence    : out Journal_Evidence;
+      Diag        : out Evidence_Diagnostic) return Boolean
+   is
       Result       : Journal_Evidence;
       Line_Start   : Natural := Input'First;
       Line_Number  : Natural := 0;
@@ -93,7 +109,8 @@ package body ALedger.Journal_Evidence is
 
          Result.Transactions.Append
            (Transaction_Source'
-              (Header_Line => Header_Line,
+              (Source_Path => To_Unbounded_String (Source_Path),
+               Header_Line => Header_Line,
                Date_Text   => Current_Date,
                Description => Current_Desc,
                Metadata    => Current_Meta));
@@ -108,7 +125,8 @@ package body ALedger.Journal_Evidence is
          end if;
 
          declare
-            Comment_Text : constant String := Trim (Text (Text'First + 1 .. Text'Last), Both);
+            Comment_Text : constant String :=
+              Trim (Text (Text'First + 1 .. Text'Last), Both);
          begin
             if Comment_Text'Length = 0 then
                return;
@@ -123,10 +141,13 @@ package body ALedger.Journal_Evidence is
 
                declare
                   Key : constant String :=
-                    Lower_String (Trim (Comment_Text (Comment_Text'First .. Colon - 1), Both));
+                    Lower_String
+                      (Trim
+                         (Comment_Text (Comment_Text'First .. Colon - 1), Both));
                   Val : constant String :=
                     (if Colon = Comment_Text'Last then ""
-                     else Trim (Comment_Text (Colon + 1 .. Comment_Text'Last), Both));
+                     else Trim
+                       (Comment_Text (Colon + 1 .. Comment_Text'Last), Both));
                begin
                   if Key'Length > 0 then
                      Current_Meta.Append
@@ -156,11 +177,15 @@ package body ALedger.Journal_Evidence is
             declare
                Raw_Slice : constant String := Input (Line_Start .. Line_End - 1);
                Last_Idx  : constant Natural :=
-                 (if Raw_Slice'Length > 0 and then Raw_Slice (Raw_Slice'Last) = ASCII.CR
-                  then Raw_Slice'Last - 1 else Raw_Slice'Last);
+                 (if Raw_Slice'Length > 0
+                    and then Raw_Slice (Raw_Slice'Last) = ASCII.CR
+                  then Raw_Slice'Last - 1
+                  else Raw_Slice'Last);
                Raw_Line  : constant String :=
-                 (if Raw_Slice'Length > 0 and then Last_Idx >= Raw_Slice'First
-                  then Raw_Slice (Raw_Slice'First .. Last_Idx) else "");
+                 (if Raw_Slice'Length > 0
+                    and then Last_Idx >= Raw_Slice'First
+                  then Raw_Slice (Raw_Slice'First .. Last_Idx)
+                  else "");
                Trimmed   : constant String := Trim (Raw_Line, Both);
             begin
                if Trimmed'Length = 0 then
