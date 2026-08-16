@@ -14,9 +14,16 @@ package ALedger.Report_Config is
       end case;
    end record;
 
-   type Range_Spec is record
-      From    : Date_Boundary;
-      Through : Date_Boundary;
+   type Range_Kind is (Explicit_Range, Current_Cycle_To_Date);
+
+   type Range_Spec (Kind : Range_Kind := Explicit_Range) is record
+      case Kind is
+         when Explicit_Range =>
+            From    : Date_Boundary;
+            Through : Date_Boundary;
+         when Current_Cycle_To_Date =>
+            null;
+      end case;
    end record;
 
    type As_Of_Spec is record
