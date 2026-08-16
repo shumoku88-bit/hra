@@ -24,8 +24,8 @@ package ALedger.Actual_Admission is
    --  Durable identity/provenance collections stay opaque. The normalized
    --  Ledger remains an explicit observation coordinate because downstream
    --  accounting projections consume it directly.
-   type Identified_Actual_Collection is private;
-   type Reversal_Collection is private;
+   type Identified_Actual_Collection is tagged private;
+   type Reversal_Collection is tagged private;
 
    type Actual_Observation is record
       Value      : ALedger.Ledger.Ledger;
