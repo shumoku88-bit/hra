@@ -42,9 +42,13 @@ package ALedger.Ledger is
 
    type Transaction_Error is
      (Success,
+      Invalid_Date,
       Empty_Postings,
       Unbalanced_Transaction);
 
+   --  Typed construction is the semantic core. The String overload is a text
+   --  admission boundary: it parses through ALedger.Dates and never stores the
+   --  source text as a second Transaction date authority.
    function Create_Transaction
      (Date_Value : ALedger.Dates.Date;
       Payee      : String;
@@ -53,10 +57,27 @@ package ALedger.Ledger is
       Status     : out Transaction_Error) return Boolean
      with Post => (if Create_Transaction'Result then Status = Success and then Is_Balanced (Tx));
 
+   function Create_Transaction
+     (Date_Str : String;
+      Payee    : String;
+      Postings : Posting_Vectors.Vector;
+      Tx       : out Transaction;
+      Status   : out Transaction_Error) return Boolean
+     with Post => (if Create_Transaction'Result then Status = Success and then Is_Balanced (Tx));
+
    function Create_Reversal_Transaction
      (Target_Tx       : Transaction;
       Reversal_ID     : String;
       Reversal_Date   : ALedger.Dates.Date;
+      Reversal_Reason : String;
+      Rev_Tx          : out Transaction;
+      Status          : out Transaction_Error) return Boolean
+     with Post => (if Create_Reversal_Transaction'Result then Status = Success and then Is_Balanced (Rev_Tx));
+
+   function Create_Reversal_Transaction
+     (Target_Tx       : Transaction;
+      Reversal_ID     : String;
+      Reversal_Date   : String;
       Reversal_Reason : String;
       Rev_Tx          : out Transaction;
       Status          : out Transaction_Error) return Boolean
