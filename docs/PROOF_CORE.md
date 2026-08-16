@@ -151,13 +151,27 @@ negative Envelopeが別Envelopeのpositive claimを相殺してrequired funding�
 ## 5. Current production connection state
 
 - production Envelope Remaining / Headroom: `ALedger.Envelope_Position` 経由で `ALedger.Proof_Core.Evaluate_Envelope` へ接続完了（Phase C）
+- multi-Commodity coordinate evaluation: 各 Envelope 内で 4 入力（Entitlement, Net Consumption, Net Fulfillment, Plan Commitment）の Commodity 座標の union を構成し、各 Commodity 座標ごとに `ALedger.Proof_Money_Bridge` を介して `Proof_Core.Evaluate_Envelope` で評価（接続完了）
+- dated report observation axis:
+  ```text
+  Observed_Through
+    -> dated Entitlement (Budget_Source_Adapter.Observe_Entitlements through Observed_Through)
+    -> dated stock Consumption (Envelope_Consumption.Observe_Stock_Consumption)
+    -> dated stock Fulfillment (Envelope_Fulfillment.Observe_Stock)
+    -> Plan Commitment (Envelope_Commitment.Observe)
+    -> proof-backed Envelope Position (Envelope_Position.Observe)
+    -> dated Funding (Backing_Policy.Observe_Funding_Commitment)
+    -> Backing (Backing_Policy.Observe_Backing)
+  ```
+  `State.Entitlement` への fallback を禁止し、すべての金額観測は `Observed_Through` を基準とする dated pipeline を通る。
+- `ALedger.Backing_Policy` は `Envelope_Position.Observation` から Position を必須取得し、missing position 時は fail-loud（`Program_Error`）で異常停止し、Gross/Available Required を過小計算したまま成功することを禁止。
 - production Backing proof connection: Phase D（未接続）
 
 未接続または未証明:
 
 - production `Backing_Policy`へのproof result接続（Phase D）
-- canonical Account/Commodityとproof IDのbijection / Commodity proof ID assignment
-- multi-Commodity orchestration
+- 複数 Envelope 間にまたがる global proof ID orchestration / bijection / cross-envelope proof ID assignment（Phase D/E）
+- multi-Commodity cross-envelope proof orchestration
 - Budget movementからEntitlementへのfoldそのもの
 - stock origin / Observed_Through selection
 - Expense routingとConsumption classification
@@ -195,9 +209,11 @@ negative Envelopeが別Envelopeのpositive claimを相殺してrequired funding�
 - current Envelope membership authority は typed `Budget_Policy.Envelopes`
 - stable identity universe は `Envelope_Registry` が所有し、retired identity は current observation に混入しない
 - 4入力（Entitlement、Net Consumption、Net Fulfillment、Plan Commitment）の各 Entries から独立に Commodity union を構成（合算相殺による座標消失の防止）
-- `ALedger.Backing_Policy` は Remaining/Headroom の計算責任を完全に手放し、`Envelope_Position.Observation` を入力として消費するのみ
+- 各 Commodity 座標ごとに `Proof_Money_Bridge` 経由で `Proof_Core.Evaluate_Envelope` を呼び出し、結果を `Balance` へ合成
+- dated report pipeline: `Observed_Through` に基づく dated Entitlement / stock Consumption / stock Fulfillment / Position 評価
+- `ALedger.Backing_Policy` は Remaining/Headroom の計算責任を完全に手放し、`Envelope_Position.Observation` を入力として消費するのみ。要求 Envelope の Position 欠損時は fail-loud
 - Backing proof そのものは Phase D（未接続）として維持
-- focused tests (`tests/test_envelope_position.adb`) で Law A〜J を網羅
+- focused tests (`tests/test_envelope_position.adb`) で Law A〜L を網羅
 
 ### Phase D: Backing production connection
 

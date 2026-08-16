@@ -4,6 +4,7 @@ with ALedger.Cycle_Observation;
 with ALedger.Dates;
 with ALedger.Envelope_Commitment;
 with ALedger.Envelope_Consumption;
+with ALedger.Envelope_Entitlement;
 with ALedger.Envelope_Fulfillment;
 with ALedger.Envelope_Position;
 with ALedger.Household;
@@ -20,6 +21,7 @@ package ALedger.Household_Report_Observation is
       Open_Plans         : ALedger.Plan_Observation.Open_Plan_Vectors.Vector;
       Completed_Plans    : ALedger.Plan_Observation.Completed_Plan_Vectors.Vector;
       Current_Cycle      : ALedger.Cycle_Observation.Cycle_Window;
+      Entitlement        : ALedger.Envelope_Entitlement.Entitlement_Observation;
       Consumption        : ALedger.Envelope_Consumption.Envelope_Consumption;
       Fulfillment        : ALedger.Envelope_Fulfillment.Envelope_Fulfillment;
       Commitment         : ALedger.Envelope_Commitment.Commitment_Observation;

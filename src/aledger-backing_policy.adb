@@ -231,18 +231,22 @@ package body ALedger.Backing_Policy is
                   Env_Id : constant Envelope.Envelope_Id :=
                     Envelope.Make_Envelope_Id (Env_Str);
                begin
-                  if ALedger.Envelope_Position.Has_Position (Positions, Env_Id) then
-                     declare
-                        Pos : constant ALedger.Envelope_Position.Position :=
-                          ALedger.Envelope_Position.Position_For (Positions, Env_Id);
-                     begin
-                        Claims_List.Append (Pos);
-                        Gross_Req := Add_Balance
-                          (Gross_Req, Positive_Balance (Pos.Remaining));
-                        Avail_Req := Add_Balance
-                          (Avail_Req, Positive_Balance (Pos.Headroom));
-                     end;
+                  if not ALedger.Envelope_Position.Has_Position (Positions, Env_Id) then
+                     raise Program_Error with
+                       "Backing observation missing required current envelope position: " &
+                       Env_Str;
                   end if;
+
+                  declare
+                     Pos : constant ALedger.Envelope_Position.Position :=
+                       ALedger.Envelope_Position.Position_For (Positions, Env_Id);
+                  begin
+                     Claims_List.Append (Pos);
+                     Gross_Req := Add_Balance
+                       (Gross_Req, Positive_Balance (Pos.Remaining));
+                     Avail_Req := Add_Balance
+                       (Avail_Req, Positive_Balance (Pos.Headroom));
+                  end;
                end;
             end loop;
 

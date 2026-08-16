@@ -65,7 +65,8 @@ package body ALedger.Envelope_Report_Render is
          declare
             Env_Name : constant String := To_String (Env_Def.ID);
             Env_Id   : constant Envelope_Id := Make_Envelope_Id (Env_Name);
-            Ent_Bal  : constant Balance := Entitlement_For (State.Entitlement, Env_Id);
+            Ent_Bal  : constant Balance :=
+              Entitlement_For (Observation.Entitlement, Env_Id);
             Amts     : constant Consumption_Amounts :=
               Consumption_For (Observation.Consumption, Env_Id);
             Fulfill  : constant Fulfillment_Amounts :=
