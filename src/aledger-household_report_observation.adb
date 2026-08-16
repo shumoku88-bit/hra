@@ -1,6 +1,5 @@
 with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
 with ALedger.Account;
-with ALedger.Canonical_Source;
 
 package body ALedger.Household_Report_Observation is
 
@@ -10,11 +9,11 @@ package body ALedger.Household_Report_Observation is
       Result           : out Report_Observation;
       Error_Msg        : out Unbounded_String) return Boolean
    is
-      Plan_Diag       : ALedger.Plan_Observation.Admission_Diagnostic;
-      Cycle_Status    : ALedger.Cycle_Observation.Resolve_Status;
+      Plan_Diag        : ALedger.Plan_Observation.Admission_Diagnostic;
+      Cycle_Status     : ALedger.Cycle_Observation.Resolve_Status;
       Fulfillment_Diag : ALedger.Envelope_Fulfillment.Observe_Diagnostic;
-      Commit_Diag     : ALedger.Envelope_Commitment.Observe_Diagnostic;
-      Income_Acc      : constant ALedger.Account.Account :=
+      Commit_Diag      : ALedger.Envelope_Commitment.Observe_Diagnostic;
+      Income_Acc       : constant ALedger.Account.Account :=
         ALedger.Account.Make_Account
           (To_String (State.Household_Policy.Cycle_Income_Account));
    begin
@@ -30,11 +29,9 @@ package body ALedger.Household_Report_Observation is
 
       if not ALedger.Plan_Observation.Observe_Plans
         (State.Plan_Ledger,
-         ALedger.Canonical_Source.Text_For
-           (State.Sources, ALedger.Canonical_Source.Plan_Source),
+         State.Plan_Evidence,
          State.Actual_Ledger,
-         ALedger.Canonical_Source.Text_For
-           (State.Sources, ALedger.Canonical_Source.Actual_Source),
+         State.Actual_Evidence,
          Observed_Through,
          Result.Open_Plans,
          Result.Completed_Plans,
