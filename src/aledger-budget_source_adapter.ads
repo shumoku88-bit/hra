@@ -28,8 +28,7 @@ package ALedger.Budget_Source_Adapter is
      (Success,
       Transaction_Not_Binary,
       Postings_Not_Opposites,
-      Unrecognized_Budget_Account,
-      Unknown_Envelope_Identity);
+      Unrecognized_Budget_Account);
 
    type Adapter_Diagnostic is record
       Status            : Adapter_Status := Success;
