@@ -3,6 +3,7 @@ with Ada.Strings.Fixed;      use Ada.Strings.Fixed;
 with Ada.Strings.Unbounded;  use Ada.Strings.Unbounded;
 with Ada.Text_IO;            use Ada.Text_IO;
 with ALedger.Account;        use ALedger.Account;
+with ALedger.Household;      use ALedger.Household;
 with ALedger.Journal;        use ALedger.Journal;
 with ALedger.Journal_Loader;
 with ALedger.Ledger;         use ALedger.Ledger;
@@ -34,12 +35,12 @@ begin
    Put_Line ("--- Testing ALedger Account admission laws ---");
 
    declare
-      Reg       : Account_Registry := Empty_Registry;
-      Status    : Registry_Status;
-      Decl      : Account_Declaration;
-      Zeta      : constant Account := Make_Account ("expenses:zeta");
-      Alpha     : constant Account := Make_Account ("assets:alpha");
-      Middle    : constant Account := Make_Account ("income:middle");
+      Reg        : Account_Registry := Empty_Registry;
+      Status     : Registry_Status;
+      Decl       : Account_Declaration;
+      Zeta       : constant Account := Make_Account ("expenses:zeta");
+      Alpha      : constant Account := Make_Account ("assets:alpha");
+      Middle     : constant Account := Make_Account ("income:middle");
       Undeclared : constant Account := Make_Account ("income:undeclared");
    begin
       Assert
@@ -91,7 +92,7 @@ begin
       Assert
         (Parse_Journal_Text (Text, L, Err),
          "Journal admits explicit Account declarations");
-      if Natural (Declarations (L.Registry)'Length) = 3 then
+      if Declarations (L.Registry)'Length = 3 then
          declare
             Items : constant Declaration_Array := Declarations (L.Registry);
          begin
@@ -134,10 +135,10 @@ begin
    end;
 
    declare
-      Tmp_Dir   : constant String := "/tmp/aledger_account_admission";
-      Root_Path : constant String := Tmp_Dir & "/accounts.journal";
+      Tmp_Dir    : constant String := "/tmp/aledger_account_admission";
+      Root_Path  : constant String := Tmp_Dir & "/accounts.journal";
       Child_Path : constant String := Tmp_Dir & "/child.journal";
-      Root_Text : constant String :=
+      Root_Text  : constant String :=
         "account expenses:root-first" & ASCII.LF &
         "  ; type: Expense" & ASCII.LF &
         "include child.journal" & ASCII.LF &
@@ -171,6 +172,102 @@ begin
               and then Name (Items (3).Acc) = "assets:root-last",
             "include expansion preserves source-admitted Account order");
       end;
+
+      Delete_Tree (Tmp_Dir);
+   end;
+
+   --  A declaration in Actual is parser-local evidence only. It cannot expand
+   --  the canonical Account universe owned by accounts.journal.
+   declare
+      Tmp_Dir : constant String := "/tmp/aledger_account_authority";
+      Paths   : constant Source_Paths := Resolve_Source_Paths (Tmp_Dir);
+      State   : Household_State;
+      Err     : Unbounded_String;
+   begin
+      if Exists (Tmp_Dir) then
+         Delete_Tree (Tmp_Dir);
+      end if;
+      Create_Path (Tmp_Dir);
+
+      Write_File
+        (To_String (Paths.Accounts_Journal),
+         "account assets:wallet" & ASCII.LF &
+         "  ; type: Asset" & ASCII.LF &
+         "account expenses:coffee" & ASCII.LF &
+         "  ; type: Expense" & ASCII.LF &
+         "account income:salary" & ASCII.LF &
+         "  ; type: Income" & ASCII.LF &
+         "account budget:coffee" & ASCII.LF &
+         "  ; type: Budget" & ASCII.LF &
+         "account budget:unassigned" & ASCII.LF &
+         "  ; type: Budget" & ASCII.LF);
+
+      Write_File
+        (To_String (Paths.Actual_Journal),
+         "account expenses:actual-only" & ASCII.LF &
+         "  ; type: Expense" & ASCII.LF &
+         "2026-08-13 Actual-only Account" & ASCII.LF &
+         "    expenses:actual-only       500 JPY" & ASCII.LF &
+         "    assets:wallet             -500 JPY" & ASCII.LF);
+
+      Write_File (To_String (Paths.Plan_Journal), "");
+      Write_File (To_String (Paths.Budget_Journal), "");
+
+      Write_File
+        (To_String (Paths.Budget_TOML),
+         "[[backing-pools]]" & ASCII.LF &
+         "id = \"liquid\"" & ASCII.LF &
+         "asset-accounts = [\"assets:wallet\"]" & ASCII.LF &
+         "[[envelopes]]" & ASCII.LF &
+         "id = \"coffee\"" & ASCII.LF &
+         "label = \"Coffee\"" & ASCII.LF &
+         "pacing = \"daily\"" & ASCII.LF &
+         "backing-pool = \"liquid\"" & ASCII.LF &
+         "expense-accounts = [\"expenses:coffee\"]" & ASCII.LF);
+
+      Write_File
+        (To_String (Paths.Household_TOML),
+         "[cycle]" & ASCII.LF &
+         "mode = \"income-anchor\"" & ASCII.LF &
+         "income-account = \"income:salary\"" & ASCII.LF &
+         "[money]" & ASCII.LF &
+         "primary-commodity = \"JPY\"" & ASCII.LF &
+         "[budget]" & ASCII.LF &
+         "unassigned-accounts = [\"budget:unassigned\"]" & ASCII.LF &
+         "[[budget.envelopes]]" & ASCII.LF &
+         "id = \"coffee\"" & ASCII.LF &
+         "allocation-account = \"budget:coffee\"" & ASCII.LF);
+
+      Write_File
+        (To_String (Paths.Report_TOML),
+         "[reports.trial-balance]" & ASCII.LF &
+         "as-of = \"latest\"" & ASCII.LF &
+         "[reports.balance-sheet]" & ASCII.LF &
+         "as-of = \"latest\"" & ASCII.LF &
+         "[reports.profit-and-loss]" & ASCII.LF &
+         "from = \"beginning\"" & ASCII.LF &
+         "through = \"latest\"" & ASCII.LF &
+         "[reports.daily-flow]" & ASCII.LF &
+         "from = \"beginning\"" & ASCII.LF &
+         "through = \"latest\"" & ASCII.LF &
+         "[reports.monthly-accounts]" & ASCII.LF &
+         "from = \"beginning\"" & ASCII.LF &
+         "through = \"latest\"" & ASCII.LF &
+         "[reports.recent-transactions]" & ASCII.LF &
+         "through = \"latest\"" & ASCII.LF &
+         "count = 10" & ASCII.LF);
+
+      Write_File
+        (To_String (Paths.Issues_TSV),
+         "issue_id" & ASCII.HT & "status" & ASCII.LF);
+
+      Assert
+        (not Load_Canonical_Household (Tmp_Dir, State, Err)
+           and then Index
+             (To_String (Err),
+              "actual.journal: Account is not declared in accounts.journal: " &
+              "expenses:actual-only") > 0,
+         "Actual declaration cannot expand canonical Account authority");
 
       Delete_Tree (Tmp_Dir);
    end;
