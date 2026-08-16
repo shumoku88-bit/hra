@@ -1,4 +1,4 @@
-with ALedger.Journal;          use ALedger.Journal;
+with ALedger.Journal_Loader;
 with ALedger.Canonical_Source; use ALedger.Canonical_Source;
 with ALedger.Config_Support;
 with ALedger.Budget_Source_Adapter;
@@ -13,7 +13,9 @@ package body ALedger.Household is
    begin
       State.Registry            := Empty_Registry;
       State.Actual_Ledger       := Empty_Ledger;
+      State.Actual_Evidence.Transactions.Clear;
       State.Plan_Ledger         := Empty_Ledger;
+      State.Plan_Evidence.Transactions.Clear;
       State.Budget_Ledger       := Empty_Ledger;
       State.Combined_Ledger     := Empty_Ledger;
       State.Envelope_Registry   := ALedger.Envelope.Empty_Registry;
@@ -31,7 +33,6 @@ package body ALedger.Household is
    is
       Result      : Household_State := Empty_Household_State;
       Observation : Source_Observation;
-      Diag        : Parse_Diagnostic;
       Config_Diag : ALedger.Config_Support.Config_Diagnostic;
 
       procedure Merge_Declarations (From : Ledger.Ledger) is
@@ -57,22 +58,18 @@ package body ALedger.Household is
          return True;
       end Merge_Transactions;
 
-      function Parse_Named_Journal
+      function Load_Named_Journal
         (Source : Source_Name;
-         Target : out Ledger.Ledger) return Boolean
+         Loaded : out ALedger.Journal_Loader.Journal_Observation)
+         return Boolean
       is
       begin
-         if not Parse_Journal_Text
-           (Text_For (Observation, Source),
-            Path_For (Observation.Paths, Source),
-            Target,
-            Diag)
-         then
-            Error_Msg := To_Unbounded_String (Format_Diagnostic (Diag));
-            return False;
-         end if;
-         return True;
-      end Parse_Named_Journal;
+         return ALedger.Journal_Loader.Load_From_Root_Source
+           (Root_Path   => Path_For (Observation.Paths, Source),
+            Root_Text   => Text_For (Observation, Source),
+            Observation => Loaded,
+            Error_Msg   => Error_Msg);
+      end Load_Named_Journal;
 
       function Validate_Account
         (Name : String; Expected : Account_Type; Path : String) return Boolean
@@ -160,8 +157,9 @@ package body ALedger.Household is
          return True;
       end Validate_Config_Accounts;
    begin
-      --  One complete eight-source observation precedes semantic admission.
-      --  No source-specific fallback or second filesystem read is allowed.
+      --  One complete eight-root observation precedes source-specific admission.
+      --  Journal include I/O is then owned by Journal_Loader, starting from the
+      --  exact root bytes already captured here.
       if not Observe_Canonical_Sources
         (Root_Dir, Observation, Error_Msg)
       then
@@ -173,12 +171,12 @@ package body ALedger.Household is
       Result.Sources   := Observation;
 
       declare
-         Accounts : Ledger.Ledger;
+         Accounts : ALedger.Journal_Loader.Journal_Observation;
       begin
-         if not Parse_Named_Journal (Accounts_Source, Accounts) then
+         if not Load_Named_Journal (Accounts_Source, Accounts) then
             return False;
          end if;
-         Result.Registry := Accounts.Registry;
+         Result.Registry := Accounts.Value.Registry;
       end;
 
       if not ALedger.Budget_Config.Parse_Budget_Policy
@@ -212,24 +210,39 @@ package body ALedger.Household is
          return False;
       end if;
 
-      if not Parse_Named_Journal (Actual_Source, Result.Actual_Ledger) then
-         return False;
-      end if;
+      declare
+         Actual : ALedger.Journal_Loader.Journal_Observation;
+      begin
+         if not Load_Named_Journal (Actual_Source, Actual) then
+            return False;
+         end if;
+         Result.Actual_Ledger   := Actual.Value;
+         Result.Actual_Evidence := Actual.Evidence;
+      end;
       Merge_Declarations (Result.Actual_Ledger);
       if not Merge_Transactions (Result.Actual_Ledger) then
          return False;
       end if;
 
-      if not Parse_Named_Journal (Plan_Source, Result.Plan_Ledger) then
-         return False;
-      end if;
+      declare
+         Plan : ALedger.Journal_Loader.Journal_Observation;
+      begin
+         if not Load_Named_Journal (Plan_Source, Plan) then
+            return False;
+         end if;
+         Result.Plan_Ledger   := Plan.Value;
+         Result.Plan_Evidence := Plan.Evidence;
+      end;
       Merge_Declarations (Result.Plan_Ledger);
 
-      if not Parse_Named_Journal
-        (Budget_Journal_Source, Result.Budget_Ledger)
-      then
-         return False;
-      end if;
+      declare
+         Budget : ALedger.Journal_Loader.Journal_Observation;
+      begin
+         if not Load_Named_Journal (Budget_Journal_Source, Budget) then
+            return False;
+         end if;
+         Result.Budget_Ledger := Budget.Value;
+      end;
       Merge_Declarations (Result.Budget_Ledger);
       if not Merge_Transactions (Result.Budget_Ledger) then
          return False;
@@ -361,8 +374,8 @@ package body ALedger.Household is
       end;
 
       --  3. Admit Fulfillment Routing History only when the source declares
-      --     such coordinates. Households that do not use this source retain
-      --     their previous Plan admission surface unchanged.
+      --     such coordinates. Stable Plan identity comes from the already
+      --     admitted Plan graph evidence, never from a second raw-text scan.
       if not Result.Household_Policy.Envelope_History.Fulfillment_Routing.Is_Empty then
          declare
             Known_Plans : ALedger.Plan.Plan_Id_Universe;
@@ -372,7 +385,7 @@ package body ALedger.Household is
          begin
             if not ALedger.Plan_Observation.Admit_Plan_Identities
               (Result.Plan_Ledger,
-               Text_For (Observation, Plan_Source),
+               Result.Plan_Evidence,
                Known_Plans,
                Plan_Diag)
             then
