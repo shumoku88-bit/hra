@@ -5,9 +5,12 @@ package body ALedger.Backing_Policy is
 
    use type ALedger.Dates.Date;
 
-   type Funding_Scope_Kind is (All_Funding_Dates, Funding_Through_Date);
+   type Funding_Observation_Scope_Kind is
+     (All_Funding_Dates, Funding_Through_Date);
 
-   type Funding_Scope (Kind : Funding_Scope_Kind := All_Funding_Dates) is record
+   type Funding_Observation_Scope
+     (Kind : Funding_Observation_Scope_Kind := All_Funding_Dates)
+   is record
       case Kind is
          when All_Funding_Dates =>
             null;
@@ -248,12 +251,12 @@ package body ALedger.Backing_Policy is
    end Pool_Adjustment_Balance;
 
    function Calculate_Backing
-     (Policy        : Backing_Policy;
-      L             : Ledger.Ledger;
-      Funding_Scope : ALedger.Backing_Policy.Funding_Scope;
-      Entitlement   : Envelope_Entitlement.Entitlement_Observation;
-      Consumption   : Envelope_Consumption.Envelope_Consumption;
-      Adjustments   : Backing_Adjustments) return Backing_Observation
+     (Policy      : Backing_Policy;
+      L           : Ledger.Ledger;
+      Scope       : Funding_Observation_Scope;
+      Entitlement : Envelope_Entitlement.Entitlement_Observation;
+      Consumption : Envelope_Consumption.Envelope_Consumption;
+      Adjustments : Backing_Adjustments) return Backing_Observation
    is
       Result : Backing_Observation;
    begin
@@ -277,12 +280,12 @@ package body ALedger.Backing_Policy is
                     Account.Make_Account (Acc_Str);
                   Bal : Balance;
                begin
-                  case Funding_Scope.Kind is
+                  case Scope.Kind is
                      when All_Funding_Dates =>
                         Bal := Ledger.Compute_Account_Balance (L, Acc_Obj);
                      when Funding_Through_Date =>
                         Bal := Ledger.Compute_Account_Balance_Through
-                          (L, Acc_Obj, Funding_Scope.Through);
+                          (L, Acc_Obj, Scope.Through);
                   end case;
                   Funding_Bal := Add_Balance (Funding_Bal, Bal);
                end;
