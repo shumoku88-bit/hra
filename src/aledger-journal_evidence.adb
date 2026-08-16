@@ -119,6 +119,33 @@ package body ALedger.Journal_Evidence is
          In_Tx := False;
       end Flush;
 
+      procedure Append_Metadata
+        (Text : String;
+         Line : Positive)
+      is
+         Colon : constant Natural := Index (Text, ":");
+      begin
+         if Text'Length = 0 or else Colon = 0 or else Colon = Text'First then
+            return;
+         end if;
+
+         declare
+            Key : constant String :=
+              Lower_String (Trim (Text (Text'First .. Colon - 1), Both));
+            Val : constant String :=
+              (if Colon = Text'Last then ""
+               else Trim (Text (Colon + 1 .. Text'Last), Both));
+         begin
+            if Key'Length > 0 then
+               Current_Meta.Append
+                 (Metadata_Entry'
+                    (Key         => To_Unbounded_String (Key),
+                     Value       => To_Unbounded_String (Val),
+                     Line_Number => Line));
+            end if;
+         end;
+      end Append_Metadata;
+
       procedure Admit_Metadata (Text : String) is
       begin
          if not Is_Comment (Text) or else Text'Length = 1 then
@@ -129,38 +156,48 @@ package body ALedger.Journal_Evidence is
             Comment_Text : constant String :=
               Trim (Text (Text'First + 1 .. Text'Last), Both);
          begin
-            if Comment_Text'Length = 0 then
-               return;
-            end if;
-
-            declare
-               Colon : constant Natural := Index (Comment_Text, ":");
-            begin
-               if Colon = 0 or else Colon = Comment_Text'First then
-                  return;
-               end if;
-
-               declare
-                  Key : constant String :=
-                    Lower_String
-                      (Trim
-                         (Comment_Text (Comment_Text'First .. Colon - 1), Both));
-                  Val : constant String :=
-                    (if Colon = Comment_Text'Last then ""
-                     else Trim
-                       (Comment_Text (Colon + 1 .. Comment_Text'Last), Both));
-               begin
-                  if Key'Length > 0 then
-                     Current_Meta.Append
-                       (Metadata_Entry'
-                          (Key         => To_Unbounded_String (Key),
-                           Value       => To_Unbounded_String (Val),
-                           Line_Number => Positive (Line_Number)));
-                  end if;
-               end;
-            end;
+            Append_Metadata (Comment_Text, Positive (Line_Number));
          end;
       end Admit_Metadata;
+
+      procedure Admit_Header_Metadata (Text : String) is
+         Cursor : Natural := Text'First;
+      begin
+         while Cursor <= Text'Last loop
+            declare
+               Open_Idx  : Natural := 0;
+               Close_Idx : Natural := 0;
+            begin
+               for I in Cursor .. Text'Last loop
+                  if Text (I) = '[' then
+                     Open_Idx := I;
+                     exit;
+                  end if;
+               end loop;
+
+               exit when Open_Idx = 0;
+
+               if Open_Idx < Text'Last then
+                  for I in Open_Idx + 1 .. Text'Last loop
+                     if Text (I) = ']' then
+                        Close_Idx := I;
+                        exit;
+                     end if;
+                  end loop;
+               end if;
+
+               exit when Close_Idx = 0;
+
+               if Close_Idx > Open_Idx + 1 then
+                  Append_Metadata
+                    (Trim (Text (Open_Idx + 1 .. Close_Idx - 1), Both),
+                     Positive (Line_Number));
+               end if;
+
+               Cursor := Close_Idx + 1;
+            end;
+         end loop;
+      end Admit_Header_Metadata;
 
    begin
       Evidence := Result;
@@ -197,6 +234,7 @@ package body ALedger.Journal_Evidence is
                      In_Tx := True;
                      Header_Line := Positive (Line_Number);
                      Split_Header (Trimmed, Current_Date, Current_Desc);
+                     Admit_Header_Metadata (Trimmed);
                   else
                      Flush;
                   end if;
