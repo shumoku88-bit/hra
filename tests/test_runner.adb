@@ -529,10 +529,10 @@ procedure Test_Runner is
       Put_Line (F, "identities = [""coffee""]");
       Put_Line (F, "[[envelope-history.expense-routing]]");
       Put_Line (F, "effective-from = ""initial""");
-      Put_Line (F, "expense-account = ""expenses:coffee"");
+      Put_Line (F, "expense-account = ""expenses:coffee""");
       Put_Line (F, "route = ""managed""");
-      Put_Line (F, "target = ""coffee"");
-      Put_Line (F, "note = ""canonical clean routing"");
+      Put_Line (F, "target = ""coffee""");
+      Put_Line (F, "note = ""canonical clean routing""");
       Close (F);
       Create (F, Out_File, To_String (Paths.Report_TOML));
       Put_Line (F, "[presentation.amounts]");

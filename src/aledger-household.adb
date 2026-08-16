@@ -155,9 +155,9 @@ package body ALedger.Household is
             end if;
          end loop;
 
-         for Entry of H.Envelope_History.Expense_Routing loop
+         for Routing_Entry of H.Envelope_History.Expense_Routing loop
             if not Validate_Account
-              (To_String (Entry.Expense_Account),
+              (To_String (Routing_Entry.Expense_Account),
                Expense,
                "household.toml expense routing")
             then
