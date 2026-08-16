@@ -189,8 +189,19 @@ begin
       Assert
         (not ALedger.Journal_Loader.Load_From_Root_Source
            (Root_Path, Empty_Include, L, Err)
-           and then Index (To_String (Err), "invalid include directive") > 0,
+           and then Index (To_String (Err), "requires a path") > 0,
          "reject empty include path instead of silently ignoring it");
+   end;
+
+   declare
+      Malformed_Include : constant String :=
+        "includeXYZ sub/child.journal" & ASCII.LF;
+   begin
+      Assert
+        (not ALedger.Journal_Loader.Load_From_Root_Source
+           (Root_Path, Malformed_Include, L, Err)
+           and then Index (To_String (Err), "invalid include directive") > 0,
+         "reject malformed include token boundary");
    end;
 
    Delete_Tree (Temp_Dir);
