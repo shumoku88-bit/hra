@@ -148,13 +148,13 @@ negative Envelopeが別Envelopeのpositive claimを相殺してrequired funding�
 
 旧`Unreserved_Obligation / Already_Excluded` helperも現在のproduction Plan Commitment ownerに対応しないためproof coreから除く。productionに存在しない将来用の計算をproof kernelへ保存しない。
 
-## 5. Not proved yet
+## 5. Current production connection state
 
-現在のproof packageはまだproduction calculationから直接呼ばれていない。したがってReportのEnvelope/Backing計算がSPARKで証明済みだとはまだ主張しない。
+- production Envelope Remaining / Headroom: `ALedger.Envelope_Position` 経由で `ALedger.Proof_Core.Evaluate_Envelope` へ接続完了（Phase C）
+- production Backing proof connection: Phase D（未接続）
 
 未接続または未証明:
 
-- production Envelopeへのproof core接続（Phase C）
 - production `Backing_Policy`へのproof result接続（Phase D）
 - canonical Account/Commodityとproof IDのbijection / Commodity proof ID assignment
 - multi-Commodity orchestration
@@ -187,16 +187,17 @@ negative Envelopeが別Envelopeのpositive claimを相殺してrequired funding�
 - one-Commodity Balance coordinate bridge（指定された既知Commodityの一座標のみをexactに取り出し、欠損座標は`Money.Lookup_Balance`のcanonical zeroとして扱う。`To_Singleton_Balance`によるsingleton balance復元）
 - round-trip / boundary / scale characterization test (`tests/test_proof_money_bridge.adb`)
 
-### Phase C: Envelope production connection
+### Phase C: Envelope production connection (completed)
 
-ordinary Adaが既にadmitした、同じ`Observed_Through`に属する次の4値をCommodityごとにproof inputへ変換する。
-
-- Entitlement
-- Net Consumption
-- Net Fulfillment
-- Plan Commitment
-
-production Remaining / Headroomはproof coreの結果をauthorityとして使う。通常Ada版とproof版を二重実装し続けない。
+- `ALedger.Envelope_Position` が production Remaining / Headroom observation owner
+- scalar arithmetic authority は `ALedger.Proof_Core.Evaluate_Envelope`
+- `ALedger.Proof_Money_Bridge` が唯一の Money ↔ quanta conversion boundary
+- current Envelope membership authority は typed `Budget_Policy.Envelopes`
+- stable identity universe は `Envelope_Registry` が所有し、retired identity は current observation に混入しない
+- 4入力（Entitlement、Net Consumption、Net Fulfillment、Plan Commitment）の各 Entries から独立に Commodity union を構成（合算相殺による座標消失の防止）
+- `ALedger.Backing_Policy` は Remaining/Headroom の計算責任を完全に手放し、`Envelope_Position.Observation` を入力として消費するのみ
+- Backing proof そのものは Phase D（未接続）として維持
+- focused tests (`tests/test_envelope_position.adb`) で Law A〜J を網羅
 
 ### Phase D: Backing production connection
 

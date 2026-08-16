@@ -4,8 +4,7 @@ with ALedger.Proof_Money_Bridge;
 
 package body ALedger.Envelope_Position is
 
-   use type ALedger.Money.Quantity;
-   use type ALedger.Proof_Core.Atomic_Quanta;
+   use type ALedger.Envelope.Envelope_Id;
 
    package Commodity_Vectors is new Ada.Containers.Vectors
      (Index_Type   => Positive,
@@ -42,8 +41,7 @@ package body ALedger.Envelope_Position is
    end Set_Diagnostic;
 
    function Status_For
-     (Status : ALedger.Proof_Money_Bridge.Bridge_Status;
-      Output : Boolean) return Observe_Status
+     (Status : ALedger.Proof_Money_Bridge.Bridge_Status) return Observe_Status
    is
    begin
       case Status is
@@ -99,7 +97,7 @@ package body ALedger.Envelope_Position is
 
          Set_Diagnostic
            (Diag,
-            Status_For (Bridge_Status, False),
+            Status_For (Bridge_Status),
             Env_Text,
             ALedger.Money.Code (Commodity),
             Role);
@@ -120,7 +118,7 @@ package body ALedger.Envelope_Position is
          then
             Set_Diagnostic
               (Diag,
-               Status_For (Bridge_Status, True),
+               Status_For (Bridge_Status),
                Env_Text,
                ALedger.Money.Code (Commodity),
                Role);

@@ -11,6 +11,7 @@ with ALedger.Envelope_Commitment;
 with ALedger.Envelope_Consumption;
 with ALedger.Envelope_Entitlement;
 with ALedger.Envelope_Fulfillment;
+with ALedger.Envelope_Position;
 with ALedger.Envelope_Routing;
 with ALedger.Fulfillment_Routing;
 with ALedger.Journal;
@@ -242,7 +243,9 @@ begin
         ALedger.Envelope_Consumption.Empty_Consumption;
       Funding       : ALedger.Backing_Policy.Funding_Commitment_Observation;
       Backing       : ALedger.Backing_Policy.Backing_Observation;
-      Claim         : ALedger.Backing_Policy.Backed_Envelope_Claim;
+      Positions     : ALedger.Envelope_Position.Observation;
+      Pos_Diag      : ALedger.Envelope_Position.Observe_Diagnostic;
+      Claim         : ALedger.Envelope_Position.Position;
       Position      : ALedger.Backing_Policy.Backing_Pool_Position;
    begin
       Assert
@@ -262,26 +265,36 @@ begin
           Amt     => ALedger.Money.Make_Amount (JPY, 1000.0),
           Target  => Food_Env));
 
+      Assert
+        (ALedger.Envelope_Position.Observe
+           (Policy_Config,
+            Env_Registry,
+            Entitlement,
+            Consumption,
+            ALedger.Envelope_Fulfillment.Empty_Fulfillment (D ("2026-08-15")),
+            Commitment,
+            Positions,
+            Pos_Diag),
+         "Observe Envelope positions for commitment");
+
+      Claim := ALedger.Envelope_Position.Position_For (Positions, Food_Env);
+
       Funding := ALedger.Backing_Policy.Observe_Funding_Commitment
         (Policy, Open_Plans, Window);
       Backing := ALedger.Backing_Policy.Observe_Backing
         (Policy,
          Actual,
          D ("2026-08-15"),
-         Entitlement,
-         Consumption,
-         ALedger.Envelope_Fulfillment.Empty_Fulfillment (D ("2026-08-15")),
-         Commitment,
+         Positions,
          Funding);
-      Claim := ALedger.Backing_Policy.Claim_For (Backing, Food_Env);
       Position := ALedger.Backing_Policy.Position_For (Backing, "liquid");
 
       Assert
         (ALedger.Money.Lookup_Balance (Claim.Remaining, JPY) = 1000.0,
-         "Backing keeps pre-Plan Remaining at 1,000 JPY");
+         "Envelope position keeps pre-Plan Remaining at 1,000 JPY");
       Assert
         (ALedger.Money.Lookup_Balance (Claim.Headroom, JPY) = 700.0,
-         "Backing deducts 300 JPY Envelope Plan reserve from Headroom");
+         "Envelope position deducts 300 JPY Envelope Plan reserve from Headroom");
       Assert
         (ALedger.Money.Lookup_Balance (Position.Funding_Balance, JPY) = 1950.0,
          "Backing sees 1,950 JPY observed Asset funding");
@@ -312,11 +325,7 @@ begin
            (Policy,
             Future_Ledger,
             D ("2026-08-15"),
-            Entitlement,
-            Consumption,
-            ALedger.Envelope_Fulfillment.Empty_Fulfillment
-              (D ("2026-08-15")),
-            Commitment,
+            Positions,
             Funding);
          Position := ALedger.Backing_Policy.Position_For (Backing, "liquid");
          Assert
@@ -327,11 +336,7 @@ begin
            (Policy,
             Future_Ledger,
             D ("2026-08-16"),
-            Entitlement,
-            Consumption,
-            ALedger.Envelope_Fulfillment.Empty_Fulfillment
-              (D ("2026-08-16")),
-            Commitment,
+            Positions,
             Funding);
          Position := ALedger.Backing_Policy.Position_For (Backing, "liquid");
          Assert

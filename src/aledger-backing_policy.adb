@@ -1,9 +1,9 @@
 with ALedger.Account;
-with ALedger.Dates;
 
 package body ALedger.Backing_Policy is
 
    use type ALedger.Dates.Date;
+   use type Claim_Vectors.Vector;
 
    type Funding_Observation_Scope_Kind is
      (All_Funding_Dates, Funding_Through_Date);
@@ -184,79 +184,12 @@ package body ALedger.Backing_Policy is
       end if;
    end Funding_Commitment_For;
 
-   package Envelope_Balance_Maps renames
-     Envelope_Commitment.Envelope_Balance_Maps;
-
-   --  Date-free adjustments applied to base Entitlement and Consumption.
-   --  Base view uses zero adjustments. Observation-specific view projects
-   --  completed Fulfillment, open Commitment, and Funding Commitment.
-   type Backing_Adjustments is record
-      Net_Fulfillment_By_Envelope : Envelope_Balance_Maps.Map;
-      Commitment_By_Envelope      : Envelope_Balance_Maps.Map;
-      Funding_Commitment_By_Pool  : Pool_Balance_Maps.Map;
-   end record;
-
-   function Zero_Adjustments return Backing_Adjustments is
-     ((Net_Fulfillment_By_Envelope => Envelope_Balance_Maps.Empty_Map,
-       Commitment_By_Envelope      => Envelope_Balance_Maps.Empty_Map,
-       Funding_Commitment_By_Pool  => Pool_Balance_Maps.Empty_Map));
-
-   function Projected_Adjustments
-     (Fulfillment        : Envelope_Fulfillment.Envelope_Fulfillment;
-      Commitment         : Envelope_Commitment.Commitment_Observation;
-      Funding_Commitment : Funding_Commitment_Observation)
-      return Backing_Adjustments
-   is
-      Result : Backing_Adjustments;
-   begin
-      for Position in Fulfillment.Managed.Iterate loop
-         declare
-            Env_Name : constant String :=
-              Envelope_Fulfillment.Envelope_Amounts_Maps.Key (Position);
-            Amounts  : constant Envelope_Fulfillment.Fulfillment_Amounts :=
-              Envelope_Fulfillment.Envelope_Amounts_Maps.Element (Position);
-         begin
-            Result.Net_Fulfillment_By_Envelope.Insert
-              (Env_Name, Envelope_Fulfillment.Net_Fulfillment (Amounts));
-         end;
-      end loop;
-
-      Result.Commitment_By_Envelope := Commitment.Managed;
-      Result.Funding_Commitment_By_Pool := Funding_Commitment.By_Pool;
-      return Result;
-   end Projected_Adjustments;
-
-   function Adjustment_Balance
-     (Map : Envelope_Balance_Maps.Map;
-      Key : String) return Balance
-   is
-   begin
-      if Map.Contains (Key) then
-         return Map.Element (Key);
-      else
-         return Empty_Balance;
-      end if;
-   end Adjustment_Balance;
-
-   function Pool_Adjustment_Balance
-     (Map : Pool_Balance_Maps.Map;
-      Key : String) return Balance
-   is
-   begin
-      if Map.Contains (Key) then
-         return Map.Element (Key);
-      else
-         return Empty_Balance;
-      end if;
-   end Pool_Adjustment_Balance;
-
    function Calculate_Backing
-     (Policy      : Backing_Policy;
-      L           : Ledger.Ledger;
-      Scope       : Funding_Observation_Scope;
-      Entitlement : Envelope_Entitlement.Entitlement_Observation;
-      Consumption : Envelope_Consumption.Envelope_Consumption;
-      Adjustments : Backing_Adjustments) return Backing_Observation
+     (Policy             : Backing_Policy;
+      L                  : Ledger.Ledger;
+      Scope              : Funding_Observation_Scope;
+      Positions          : ALedger.Envelope_Position.Observation;
+      Funding_Commitment : Funding_Commitment_Observation) return Backing_Observation
    is
       Result : Backing_Observation;
    begin
@@ -297,32 +230,19 @@ package body ALedger.Backing_Policy is
                declare
                   Env_Id : constant Envelope.Envelope_Id :=
                     Envelope.Make_Envelope_Id (Env_Str);
-                  Ent_Bal : constant Balance :=
-                    Envelope_Entitlement.Entitlement_For
-                      (Entitlement, Env_Id);
-                  Net_Cons : constant Balance :=
-                    Envelope_Consumption.Net_For (Consumption, Env_Id);
-                  Net_Fulfill : constant Balance :=
-                    Adjustment_Balance
-                      (Adjustments.Net_Fulfillment_By_Envelope, Env_Str);
-                  Remaining_Bal : constant Balance :=
-                    Subtract_Balance
-                      (Subtract_Balance (Ent_Bal, Net_Cons), Net_Fulfill);
-                  Plan_Reserve : constant Balance :=
-                    Adjustment_Balance
-                      (Adjustments.Commitment_By_Envelope, Env_Str);
-                  Headroom : constant Balance :=
-                    Subtract_Balance (Remaining_Bal, Plan_Reserve);
-                  Claim : constant Backed_Envelope_Claim :=
-                    (Env_Id    => Env_Id,
-                     Remaining => Remaining_Bal,
-                     Headroom  => Headroom);
                begin
-                  Claims_List.Append (Claim);
-                  Gross_Req := Add_Balance
-                    (Gross_Req, Positive_Balance (Remaining_Bal));
-                  Avail_Req := Add_Balance
-                    (Avail_Req, Positive_Balance (Headroom));
+                  if ALedger.Envelope_Position.Has_Position (Positions, Env_Id) then
+                     declare
+                        Pos : constant ALedger.Envelope_Position.Position :=
+                          ALedger.Envelope_Position.Position_For (Positions, Env_Id);
+                     begin
+                        Claims_List.Append (Pos);
+                        Gross_Req := Add_Balance
+                          (Gross_Req, Positive_Balance (Pos.Remaining));
+                        Avail_Req := Add_Balance
+                          (Avail_Req, Positive_Balance (Pos.Headroom));
+                     end;
+                  end if;
                end;
             end loop;
 
@@ -332,8 +252,7 @@ package body ALedger.Backing_Policy is
                   Claims                      => Claims_List,
                   Funding_Balance             => Funding_Bal,
                   Funding_Commitment          =>
-                    Pool_Adjustment_Balance
-                      (Adjustments.Funding_Commitment_By_Pool, Pool_Name),
+                    Funding_Commitment_For (Funding_Commitment, Pool_Name),
                   Gross_Envelope_Required     => Gross_Req,
                   Available_Envelope_Required => Avail_Req);
             begin
@@ -346,10 +265,9 @@ package body ALedger.Backing_Policy is
    end Calculate_Backing;
 
    function Observe_Backing
-     (Policy      : Backing_Policy;
-      L           : Ledger.Ledger;
-      Entitlement : Envelope_Entitlement.Entitlement_Observation;
-      Consumption : Envelope_Consumption.Envelope_Consumption)
+     (Policy    : Backing_Policy;
+      L         : Ledger.Ledger;
+      Positions : ALedger.Envelope_Position.Observation)
       return Backing_Observation
    is
    begin
@@ -357,19 +275,15 @@ package body ALedger.Backing_Policy is
         (Policy,
          L,
          (Kind => All_Funding_Dates),
-         Entitlement,
-         Consumption,
-         Zero_Adjustments);
+         Positions,
+         Empty_Funding_Commitment);
    end Observe_Backing;
 
    function Observe_Backing
      (Policy             : Backing_Policy;
       L                  : Ledger.Ledger;
       Observed_Through   : ALedger.Dates.Date;
-      Entitlement        : Envelope_Entitlement.Entitlement_Observation;
-      Consumption        : Envelope_Consumption.Envelope_Consumption;
-      Fulfillment        : Envelope_Fulfillment.Envelope_Fulfillment;
-      Commitment         : Envelope_Commitment.Commitment_Observation;
+      Positions          : ALedger.Envelope_Position.Observation;
       Funding_Commitment : Funding_Commitment_Observation)
       return Backing_Observation
    is
@@ -378,12 +292,8 @@ package body ALedger.Backing_Policy is
         (Policy,
          L,
          (Kind => Funding_Through_Date, Through => Observed_Through),
-         Entitlement,
-         Consumption,
-         Projected_Adjustments
-           (Fulfillment,
-            Commitment,
-            Funding_Commitment));
+         Positions,
+         Funding_Commitment);
    end Observe_Backing;
 
    function Position_For
@@ -404,42 +314,10 @@ package body ALedger.Backing_Policy is
       end if;
    end Position_For;
 
-   function Claim_For
-     (Obs : Backing_Observation;
-      Env : Envelope.Envelope_Id) return Backed_Envelope_Claim
-   is
-   begin
-      for Position_Cursor in Obs.Positions.Iterate loop
-         declare
-            Pos : constant Backing_Pool_Position :=
-              Pool_Position_Maps.Element (Position_Cursor);
-         begin
-            for Claim of Pos.Claims loop
-               if Claim.Env_Id = Env then
-                  return Claim;
-               end if;
-            end loop;
-         end;
-      end loop;
-
-      return
-        (Env_Id    => Env,
-         Remaining => Empty_Balance,
-         Headroom  => Empty_Balance);
-   end Claim_For;
-
-   function "=" (Left, Right : Backed_Envelope_Claim) return Boolean is
-   begin
-      return Left.Env_Id = Right.Env_Id
-        and then Is_Zero_Balance
-          (Subtract_Balance (Left.Remaining, Right.Remaining))
-        and then Is_Zero_Balance
-          (Subtract_Balance (Left.Headroom, Right.Headroom));
-   end "=";
-
    function "=" (Left, Right : Backing_Pool_Position) return Boolean is
    begin
       return Left.Pool_Id = Right.Pool_Id
+        and then Left.Claims = Right.Claims
         and then Is_Zero_Balance
           (Subtract_Balance (Left.Funding_Balance, Right.Funding_Balance))
         and then Is_Zero_Balance

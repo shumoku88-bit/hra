@@ -7,6 +7,7 @@ with ALedger.Household;
 with ALedger.Envelope;
 with ALedger.Envelope_Entitlement;
 with ALedger.Envelope_Consumption;
+with ALedger.Envelope_Position;
 with ALedger.Backing_Policy;
 
 package body ALedger.Render is
@@ -269,12 +270,11 @@ package body ALedger.Render is
       use ALedger.Envelope;
       use ALedger.Envelope_Entitlement;
       use ALedger.Envelope_Consumption;
+      use ALedger.Envelope_Position;
       use ALedger.Backing_Policy;
 
       Buf : Unbounded_String;
       JPY : constant Commodity := Make_Commodity ("JPY");
-
-      All_Envs : constant Envelope_Id_Array := All_Ids (State.Envelope_Registry);
 
       Total_Entitlement : Balance := Empty_Balance;
       Total_Consumption : Balance := Empty_Balance;
@@ -291,26 +291,27 @@ package body ALedger.Render is
       Append (Buf, "Envelope      | Entitlement | Consumption |   Refunds |   Remaining | Plan reserve |    Headroom" & ASCII.LF);
       Append (Buf, "------------------------------------------------------------------------------------------------" & ASCII.LF);
 
-      for Env_Id of All_Envs loop
+      for Env_Def of State.Budget_Policy.Envelopes loop
          declare
-            Env_Name : constant String := Image (Env_Id);
+            Env_Name : constant String := To_String (Env_Def.ID);
+            Env_Id   : constant Envelope_Id := Make_Envelope_Id (Env_Name);
             Ent_Bal  : constant Balance := Entitlement_For (State.Entitlement, Env_Id);
             Amts     : constant Consumption_Amounts := Consumption_For (State.Consumption, Env_Id);
-            Rem_Bal  : constant Balance := Subtract_Balance (Ent_Bal, Net_Consumption (Amts));
+            Pos      : constant ALedger.Envelope_Position.Position :=
+              Position_For (State.Envelope_Positions, Env_Id);
             Res_Bal  : constant Balance := Empty_Balance;
-            Hdr_Bal  : constant Balance := Rem_Bal;
 
             Ent_Q : constant Quantity := Lookup_Balance (Ent_Bal, JPY);
             Con_Q : constant Quantity := Lookup_Balance (Amts.Charges, JPY);
             Ref_Q : constant Quantity := Lookup_Balance (Amts.Refunds, JPY);
-            Rem_Q : constant Quantity := Lookup_Balance (Rem_Bal, JPY);
+            Rem_Q : constant Quantity := Lookup_Balance (Pos.Remaining, JPY);
             Res_Q : constant Quantity := Lookup_Balance (Res_Bal, JPY);
-            Hdr_Q : constant Quantity := Lookup_Balance (Hdr_Bal, JPY);
+            Hdr_Q : constant Quantity := Lookup_Balance (Pos.Headroom, JPY);
          begin
             Total_Entitlement := Add_Balance (Total_Entitlement, Ent_Bal);
             Total_Consumption := Add_Balance (Total_Consumption, Amts.Charges);
             Total_Refunds     := Add_Balance (Total_Refunds, Amts.Refunds);
-            Total_Remaining   := Add_Balance (Total_Remaining, Rem_Bal);
+            Total_Remaining   := Add_Balance (Total_Remaining, Pos.Remaining);
 
             Append (Buf, Env_Name & " | ");
             Append (Buf, Render_Amount_Or_Paren (Ent_Q, "JPY") & " | ");

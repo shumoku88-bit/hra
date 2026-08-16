@@ -26,6 +26,7 @@ with ALedger.Envelope_Routing;
 with ALedger.Envelope_Entitlement;
 with ALedger.Budget_Source_Adapter;
 with ALedger.Envelope_Consumption;
+with ALedger.Envelope_Position;
 with ALedger.Backing_Policy;
 
 procedure Test_Runner is
@@ -1958,7 +1959,16 @@ procedure Test_Runner is
               (Charges => Singleton_Balance (Make_Amount (JPY, 6000.0)),
                Refunds => Empty_Balance));
 
-         Back_Obs := Observe_Backing (Policy, L, Ent_Obs, Cons_Obs);
+         declare
+            Positions : ALedger.Envelope_Position.Observation;
+            Pos_Diag  : ALedger.Envelope_Position.Observe_Diagnostic;
+         begin
+            Assert
+              (ALedger.Envelope_Position.Observe_Base
+                 (B_Policy, Reg, Ent_Obs, Cons_Obs, Positions, Pos_Diag),
+               "Observe Base Envelope Positions for Backing");
+            Back_Obs := Observe_Backing (Policy, L, Positions);
+         end;
 
          declare
             Liquid_Pos : constant Backing_Pool_Position :=
