@@ -361,6 +361,7 @@ begin
       Backing := ALedger.Backing_Policy.Observe_Backing
         (Policy,
          Actual,
+         D ("2026-09-02"),
          Entitlement,
          ALedger.Envelope_Consumption.Empty_Consumption,
          Fulfillment,
