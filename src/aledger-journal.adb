@@ -11,7 +11,7 @@ package body ALedger.Journal is
       if Diag.Line_Number > 0 then
          if Length (Diag.Raw_Text) > 0 then
             return FName & ":" & Trim (Natural'Image (Diag.Line_Number), Ada.Strings.Both) &
-                   ": " & To_String (Diag.Message) & " [Context: \"" & To_String (Diag.Raw_Text) & "\"]";
+                   ": " & To_String (Diag.Message) & " [Context: " & To_String (Diag.Raw_Text) & "]";
          else
             return FName & ":" & Trim (Natural'Image (Diag.Line_Number), Ada.Strings.Both) &
                    ": " & To_String (Diag.Message);
@@ -212,11 +212,11 @@ package body ALedger.Journal is
       Tx_Payee         : Unbounded_String;
       Current_Posts    : Posting_Vectors.Vector;
 
-      In_Account_Decl     : Boolean := False;
-      Current_Acc_Decl    : Account_Declaration;
+      In_Account_Decl      : Boolean := False;
+      Current_Acc_Decl     : Account_Declaration;
       Current_Acc_Has_Type : Boolean := False;
-      Current_Acc_Line    : Natural := 0;
-      Current_Acc_Raw     : Unbounded_String := Null_Unbounded_String;
+      Current_Acc_Line     : Natural := 0;
+      Current_Acc_Raw      : Unbounded_String := Null_Unbounded_String;
 
       procedure Set_Error (Msg : String) is
       begin
