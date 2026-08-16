@@ -1,63 +1,58 @@
 # SPARK proof core contract
 
 ステータス: active foundation  
-更新日: 2026-08-13  
-Owner: Actual、Plan reserve、Envelope、Backingに共通する証明可能な金額計算境界
+更新日: 2026-08-16  
+Owner: Actual、Envelope、Plan commitment、Backingに共通する証明可能な金額計算境界
 
 ## 1. 目的
 
-aledgerで最も損失リスクが高い領域は次の連携である。
-
-```text
-Actual記帳
-+ open Plan / completion
-+ Budget movement / Envelope consumption
-+ funding / backing reconciliation
-```
-
-parser、filesystem、Report、TUIを全面SPARK化せず、この連携が最終的に通る小さなpure arithmetic kernelをSPARKで証明する。
-
-SPARKは仕様の意味が正しいことを自動発見しない。したがって二種類の証拠を併用する。
-
-1. **SPARK proof**: overflow、range/index error、contract違反がない
-2. **semantic parity**: h-kernel / bqn-ledgerと同じfacts、期間、符号、分類から同じ結果へ到達する
-
-## 2. Boundary
+aledgerでは、parser、filesystem、Report、TUIを全面SPARK化しない。ordinary Adaがsource-specific admissionとcross-source validationを所有し、その結果から作られた小さなbounded factsだけをpure arithmetic kernelへ渡す。
 
 ```text
 canonical 8-source exact observation
-  -> ordinary Ada source-specific admission
-  -> cross-source validation
+  -> ordinary Ada admission / validation
   -> normalized proof facts
   -> ALedger.Proof_Core (SPARK_Mode)
   -> typed semantic result
-  -> ordinary Ada Report / Editor / TUI
+  -> ordinary Ada Observation / Report / Editor / TUI
 ```
+
+SPARKの目的は「家計が望ましい状態であること」を証明することではない。negative Remaining、negative Headroom、under-backed fundingなどは有効なHousehold observationである。証明するのは、admitted factsからその状態をexactに、overflowやrange/index errorなしで計算していることである。
+
+証拠は二種類を併用する。
+
+1. **SPARK proof**: overflow、range/index error、contract違反がない
+2. **semantic parity**: h-kernel / bqn-ledgerと同じfacts、観測範囲、符号、分類から同じ結果へ到達する
+
+## 2. Boundary
 
 ### Ordinary Ada owner
 
 - UTF-8、Journal、TOML、TSV parser
 - include graphとfilesystem
 - StringからDate、Account、Commodity、identityへのadmission
-- canonical Account/Commodityをbounded numeric IDへ割り当てること
-- proof rangeへ変換できない値の明示的拒否
-- lifecycle、durable identity、provenance、source location
-- CLI、TUI、rendering、writer effect
+- durable identity、provenance、source location
+- stock originとObserved_Throughによるsource selection
+- Expense / Fulfillment routing
+- Actual consumption / refund classification
+- Plan open/completed lifecycleとcommitment classification
+- canonical Account/Commodityからproof coordinateを作るadapter
+- proof rangeへexact conversionできない値の明示的拒否
+- CLI、TUI、rendering、proposal、writer effect
 
 ### SPARK owner
 
 - exact scaled integer arithmetic
 - Commodity別Transaction balance predicate
 - generated reversalのordered inverse predicate
-- bounded Plan obligationからalready-excluded reservationを一度だけ引くこと
 - Envelope Remaining
 - post-Plan Headroom
-- positive-part Backing Required
-- Signed Envelope Total
-- Funding、Backing Surplus、Reconciliation Delta
+- positive-part Gross / Available Envelope Required
+- Available Funding
+- Gross / Available Surplus
 - 上記計算のoverflow/range/index safetyと公開postcondition
 
-IDは一回のvalidated observation内で使うproof-facing coordinateであり、canonical sourceのdurable identityではない。
+proof coreはdurable identityやsource authorityを所有しない。proof-facing IDは一回のvalidated observation内のbounded coordinateである。
 
 ## 3. Exact quantity representation
 
@@ -68,16 +63,16 @@ source decimal Quantity
   <-> exact integer quanta (value * 100,000,000)
 ```
 
-binary floating pointを使わず、変換時に丸めない。小数点以下9桁以上、範囲外、非exact conversionはadmission failureとする。
+binary floating pointを使わず、変換時に丸めない。小数点以下9桁以上、範囲外、non-exact conversionはadmission failureとする。
 
 現在のproof foundationは次の明示上限を持つ。
 
 - 一回のfoldの最大contributor数: `256`
 - Commodity ID: `1 .. 4096`
 - Account ID: `1 .. 65535`
-- 64-bit環境で一つのatomic amountは約`45,035,996.27370495`以下
+- 64-bit環境で一つのatomic proof inputは約`45,035,996.27370495`以下
 
-この上限はcanonical source semanticsではなく、機械整数上で証明可能な最初のoperational profileである。境界で黙ってtruncateまたはsaturateしない。実データや将来の住宅購入等に不足する場合は、proofを保ったままrange設計またはmulti-precision representationを変更する。
+この上限はcanonical source semanticsではなく、機械整数上で証明可能なoperational profileである。境界で黙ってtruncateまたはsaturateしない。実データに不足する場合は、proofを保ったままrange設計またはrepresentationを変更する。
 
 ## 4. Current proved laws
 
@@ -96,7 +91,7 @@ Balanced(Transaction)
 
 ### Generated reversal
 
-最初のnarrow lawは、元と同じPosting order、Account、Commodityを保持し、Quantityだけを正確に反転したTransactionをgenerated reversalとする。
+現在のnarrow lawは、元と同じPosting order、Account、Commodityを保持し、Quantityだけをexactに反転したgenerated reversalを扱う。
 
 ```text
 Rev[i].Account   = Original[i].Account
@@ -104,111 +99,113 @@ Rev[i].Commodity = Original[i].Commodity
 Rev[i].Quantity  = -Original[i].Quantity
 ```
 
-`event-id`と`reverses` relationの存在・一意性・参照整合性はordinary Ada admissionが所有する。順序を変更した外部sourceのreversal admissionは、Journal parity時に別のmultiset lawが必要かをh-kernel contractから決める。
-
-### Plan obligation
-
-一つのopen Plan obligationに対するalready-excluded reservation evidenceはnon-negativeかつPlan amount以下でなければならない。
-
-```text
-Unreserved Obligation
-  = Plan Amount - Already Excluded
-  >= 0
-```
-
-Plan selection、一意なreservation relation、open/completed lifecycleはordinary Ada admissionが所有する。proof coreはvalidated evidenceに対するexact deductionを所有する。
+`event-id`と`reverses` relationの存在・一意性・参照整合性はordinary Ada admissionが所有する。
 
 ### Envelope
 
+production Householdのstock observationと同じ式を使う。
+
 ```text
 Remaining
-  = Entitlement - Consumption + Refunds
+  = Entitlement
+  - Net Consumption
+  - Net Fulfillment
 
 Post-Plan Headroom
-  = Remaining - Plan Reserve
+  = Remaining
+  - Plan Commitment
 ```
 
-Consumption、Refund、Plan Reserveはnon-negative evidenceとして入力する。overspent Remainingとnegative Headroomは有効な結果であり、zeroへ丸めない。
+`Net Consumption`と`Net Fulfillment`はsignedである。refundやreversalによりnegativeになり得る。`Plan Commitment`だけはnon-negative claimとしてadmitし、RemainingではなくHeadroomだけを減らす。
+
+negative Remainingとnegative Headroomは有効な観測結果であり、zeroへ丸めず、proof failureにも変換しない。
 
 ### Backing
 
+production `Backing_Policy`と同じ二つの視点を証明する。
+
 ```text
-Signed Total
-  = sum Envelope Remaining
+Gross Envelope Required
+  = sum positivePart(Remaining)
 
-Backing Required
-  = sum positivePart(Envelope Remaining)
+Available Envelope Required
+  = sum positivePart(Post-Plan Headroom)
 
-Backing Surplus
-  = Funding Balance - Backing Required
+Available Funding
+  = Funding Balance - Funding Commitment
 
-Reconciliation Delta
-  = Backing Surplus - Unassigned Balance
+Gross Surplus
+  = Funding Balance - Gross Envelope Required
 
-Under Backed
-  <=> Backing Surplus < 0
+Available Surplus
+  = Available Funding - Available Envelope Required
 ```
 
-negative Envelopeが別Envelopeのpositive claimを相殺してBacking Requiredを減らさない。
+negative Envelopeが別Envelopeのpositive claimを相殺してrequired fundingを減らさない。Funding CommitmentがFunding Balanceを上回ることやSurplusがnegativeになることは合法な観測状態である。
+
+旧proof foundationにあった`Unassigned Balance -> Reconciliation Delta`は現在のproduction Backing lawではないためproof coreから除く。Unallocated / UnassignedはHousehold observationとして別に明示し、Backingへ暗黙に混ぜない。
+
+旧`Unreserved_Obligation / Already_Excluded` helperも現在のproduction Plan Commitment ownerに対応しないためproof coreから除く。productionに存在しない将来用の計算をproof kernelへ保存しない。
 
 ## 5. Not proved yet
 
-現在のproof packageはfoundationであり、production `ALedger.Money`、`Ledger`、`Budget`からまだ呼ばれていない。したがって現在のReport計算がSPARKで証明済みだとは主張しない。
+現在のproof packageはまだproduction calculationから直接呼ばれていない。したがってReportのEnvelope/Backing計算がSPARKで証明済みだとはまだ主張しない。
 
-次は未証明である。
+未接続または未証明:
 
-- source `Quantity`とproof quantaのexact conversion
+- `ALedger.Money.Quantity`とproof quantaのexact checked bridge
+- multi-Commodity `Balance`とCommodityごとのproof evaluationのbridge
 - canonical Account/Commodityとproof IDのbijection
-- Date/Period selection
-- Expense→Envelope routing
-- Actual consumption/refund classification
-- Plan open/completed lifecycle、reservation一意性、複数Plan集計の二重計上防止
-- Plan completionで生成するActualのbalance
-- Plan→Budget syncのconservation
-- Budget movementからEntitlementへのfold
-- multi-Commodity Envelope/Backing全体
+- Budget movementからEntitlementへのfoldそのもの
+- stock origin / Observed_Through selection
+- Expense routingとConsumption classification
+- Fulfillment routingとcompletion-root stock membership
+- open Plan Commitment classification
+- Asset funding observation through date
+- production `Backing_Policy`へのproof result接続
 - durable identity、completion、reversal provenance
-- cross-file writer effect
+- writer effect
 
 ## 6. Migration plan
 
-### Phase A — foundation（現在）
+### Phase A: current Household proof foundation
 
 - proof-only normalized types
 - strict standalone proof project
-- Transaction、Envelope、Backingの最小law
-- ordinary runtime characterization test
+- Transaction / reversal laws
+- current Envelope Remaining / Headroom law
+- current Backing Gross / Available law
+- stale proof-only compatibility lawを残さない
 
-### Phase B — Money bridge
+### Phase B: Money bridge
 
 - `ALedger.Money.Quantity`とのexact checked conversion
-- canonical Commodity tableからproof IDを作るbounded adapter
-- round-trip testとrange rejection
-- production Balance algebraとのparity
+- round-trip test
+- range rejection
+- multi-Commodity Balanceから一つのCommodity coordinateをexactに取り出すbridge
 
-### Phase C — Actual
+### Phase C: Envelope production connection
 
-- admitted Postingをproof factsへ変換
-- `Create_Transaction` / `Add_Transaction`がproof resultを要求
-- generated reversalをproof ownerへ接続
-- durable relationをordinary admissionで検証
+ordinary Adaが既にadmitした、同じ`Observed_Through`に属する次の4値をCommodityごとにproof inputへ変換する。
 
-### Phase D — Envelope and Plan
+- Entitlement
+- Net Consumption
+- Net Fulfillment
+- Plan Commitment
 
-- h-kernel parityでEntitlement/Consumption/Refund/Reserveのownerを確定
-- Envelope resultをproof coreから取得
-- open Plan reserveとcompletionの重複を状態transition contractで防ぐ
-- Plan completion ActualとBudget syncのconservation lawを追加
+production Remaining / Headroomはproof coreの結果をauthorityとして使う。通常Ada版とproof版を二重実装し続けない。
 
-### Phase E — Backing
+### Phase D: Backing production connection
 
-- policy指定Asset funding
-- positive-part required
-- unassigned reconciliation
-- Commodityごとに独立したresult
-- Report rendererを証明済みsemantic resultへ接続
+同じEnvelope proof resultsと、同じ観測日のFunding Balance / Funding Commitmentからproof coreがGross / Available requiredとsurplusを返す。`Backing_Policy`はこの結果をproduction authorityとして組み立てる。
 
-Editor/TUIへ金額計算を追加する前に、対象operationがこの境界を通るようにする。
+### Phase E: Actual balance / generated reversal connection
+
+admitted Postingをproof factsへ変換し、transaction balanceとgenerated reversalのproduction validationをproof ownerへ接続する。durable relation validationはordinary Adaに残す。
+
+### Phase F: interactive proposal preview
+
+Envelope allocation、Plan、funding actionなどのproposal previewも、final production observationと同じdomain calculationを通す。UIやAIにpreview専用の金額計算を複製しない。
 
 ## 7. Verification
 
@@ -230,7 +227,7 @@ alr exec -- gnatprove \
   --checks-as-errors=on
 ```
 
-`--checks-as-errors=on`により未証明checkを成功扱いしない。proof objectとsessionはGit管理しない。
+`--checks-as-errors=on`により未証明checkを成功扱いしない。
 
 通常検証も別に実行する。
 
@@ -240,7 +237,7 @@ alr build
 ./bin/aledger check --base /path/to/private-household-root
 ```
 
-proof、runtime test、cross-engine parityは互いの代替ではない。
+proof、runtime test、canonical rehearsal、cross-engine parityは互いの代替ではない。
 
 ## 8. Change rule
 
@@ -249,7 +246,7 @@ Actual、Plan、Budget、Envelope、Backingの金額式またはproof-facing bou
 - `ALedger.Proof_Core` contract/body
 - `./tools/prove`成功
 - focused runtime test
-- 必要なh-kernel/BQN parity evidence
+- 必要なh-kernel / BQN parity evidence
 - この文書のcurrent proved / not-proved境界
 
-parserやTUIをSPARKへ入れるためにproof coreを汎用framework化しない。証明対象は小さく、pureで、金額法則を直接読める形に保つ。
+parserやTUIをSPARKへ入れるためにproof coreを汎用framework化しない。証明対象は小さく、pureで、productionで使う金額法則を直接読める形に保つ。

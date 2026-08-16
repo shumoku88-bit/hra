@@ -1,7 +1,7 @@
 package ALedger.Proof_Core
   with Pure, SPARK_Mode => On
 is
-   --  Proof-facing quantities are exact 10^-8 quanta.  The deliberately
+   --  Proof-facing quantities are exact 10^-8 quanta. The deliberately
    --  bounded range leaves enough headroom to prove every fold and derived
    --  equation free of machine-integer overflow.
    Decimal_Scale : constant := 100_000_000;
@@ -68,7 +68,7 @@ is
                     Sum_For (Postings, Postings (I).Commodity) = 0));
 
    --  This is the narrow generated-reversal law: Posting order and identity
-   --  are retained while every exact quantity is negated.  Admission owns the
+   --  are retained while every exact quantity is negated. Admission owns the
    --  durable reverses relation separately.
    function Is_Ordered_Inverse
      (Original  : Posting_Array;
@@ -87,33 +87,17 @@ is
                     and then Original (I).Commodity = Reversal (I).Commodity
                     and then Original (I).Quantity = -Reversal (I).Quantity));
 
-   type Plan_Obligation_Input is record
-      Amount           : Atomic_Quanta;
-      Already_Excluded : Atomic_Quanta;
-   end record
-     with Dynamic_Predicate =>
-       Plan_Obligation_Input.Amount > 0
-       and then Plan_Obligation_Input.Already_Excluded >= 0
-       and then Plan_Obligation_Input.Already_Excluded <=
-         Plan_Obligation_Input.Amount;
-
-   function Unreserved_Obligation
-     (Input : Plan_Obligation_Input) return Atomic_Quanta
-     with Post =>
-       Unreserved_Obligation'Result =
-         Input.Amount - Input.Already_Excluded
-       and then Unreserved_Obligation'Result >= 0;
-
+   --  Inputs are already admitted, stock-horizon observations for one
+   --  Envelope/Commodity coordinate. Net consumption and net fulfillment are
+   --  signed: reversals/refunds may make either negative. Open Plan commitment
+   --  is a non-negative claim and affects Headroom, not Remaining.
    type Envelope_Input is record
-      Entitlement : Atomic_Quanta;
-      Consumption : Atomic_Quanta;
-      Refunds     : Atomic_Quanta;
-      Plan_Reserve : Atomic_Quanta;
+      Entitlement     : Atomic_Quanta;
+      Net_Consumption : Atomic_Quanta;
+      Net_Fulfillment : Atomic_Quanta;
+      Plan_Commitment : Atomic_Quanta;
    end record
-     with Dynamic_Predicate =>
-       Envelope_Input.Consumption >= 0
-       and then Envelope_Input.Refunds >= 0
-       and then Envelope_Input.Plan_Reserve >= 0;
+     with Dynamic_Predicate => Envelope_Input.Plan_Commitment >= 0;
 
    type Envelope_Result is record
       Remaining          : Derived_Quanta;
@@ -123,9 +107,11 @@ is
    function Evaluate_Envelope (Input : Envelope_Input) return Envelope_Result
      with Post =>
        Evaluate_Envelope'Result.Remaining =
-         Input.Entitlement - Input.Consumption + Input.Refunds
+         Input.Entitlement
+         - Input.Net_Consumption
+         - Input.Net_Fulfillment
        and then Evaluate_Envelope'Result.Post_Plan_Headroom =
-         Evaluate_Envelope'Result.Remaining - Input.Plan_Reserve;
+         Evaluate_Envelope'Result.Remaining - Input.Plan_Commitment;
 
    function Positive_Part (Value : Derived_Quanta) return Derived_Quanta
      with Post =>
@@ -137,7 +123,7 @@ is
    type Envelope_Result_Array is
      array (Positive range <>) of Envelope_Result;
 
-   function Model_Signed_Total
+   function Model_Gross_Envelope_Required
      (Lines : Envelope_Result_Array;
       Count : Contributor_Count) return Long_Long_Integer
      with Ghost,
@@ -145,42 +131,45 @@ is
             and then Lines'Length <= Max_Contributors
             and then Count <= Lines'Length,
           Post =>
-            Model_Signed_Total'Result in
-              -(Long_Long_Integer (Count) * 4 * Max_Atomic_Quanta) ..
-               Long_Long_Integer (Count) * 4 * Max_Atomic_Quanta
-            and then Model_Signed_Total'Result =
-              (if Count = 0 then 0
-               else Model_Signed_Total (Lines, Count - 1) +
-                    Lines (Positive (Count)).Remaining),
-          Subprogram_Variant => (Decreases => Count);
-
-   function Model_Backing_Required
-     (Lines : Envelope_Result_Array;
-      Count : Contributor_Count) return Long_Long_Integer
-     with Ghost,
-          Pre => Lines'First = 1
-            and then Lines'Length <= Max_Contributors
-            and then Count <= Lines'Length,
-          Post =>
-            Model_Backing_Required'Result in
+            Model_Gross_Envelope_Required'Result in
               0 .. Long_Long_Integer (Count) * 4 * Max_Atomic_Quanta
-            and then Model_Backing_Required'Result =
+            and then Model_Gross_Envelope_Required'Result =
               (if Count = 0 then 0
-               else Model_Backing_Required (Lines, Count - 1) +
+               else Model_Gross_Envelope_Required (Lines, Count - 1) +
                     Positive_Part (Lines (Positive (Count)).Remaining)),
           Subprogram_Variant => (Decreases => Count);
 
+   function Model_Available_Envelope_Required
+     (Lines : Envelope_Result_Array;
+      Count : Contributor_Count) return Long_Long_Integer
+     with Ghost,
+          Pre => Lines'First = 1
+            and then Lines'Length <= Max_Contributors
+            and then Count <= Lines'Length,
+          Post =>
+            Model_Available_Envelope_Required'Result in
+              0 .. Long_Long_Integer (Count) * 4 * Max_Atomic_Quanta
+            and then Model_Available_Envelope_Required'Result =
+              (if Count = 0 then 0
+               else Model_Available_Envelope_Required (Lines, Count - 1) +
+                    Positive_Part
+                      (Lines (Positive (Count)).Post_Plan_Headroom)),
+          Subprogram_Variant => (Decreases => Count);
+
    type Backing_Input is record
-      Funding_Balance   : Derived_Quanta;
-      Unassigned_Balance : Derived_Quanta;
-   end record;
+      Funding_Balance    : Derived_Quanta;
+      Funding_Commitment : Derived_Quanta;
+   end record
+     with Dynamic_Predicate => Backing_Input.Funding_Commitment >= 0;
 
    type Backing_Result is record
-      Signed_Total        : Long_Long_Integer;
-      Backing_Required    : Long_Long_Integer;
-      Backing_Surplus     : Long_Long_Integer;
-      Reconciliation_Delta : Long_Long_Integer;
-      Is_Under_Backed     : Boolean;
+      Gross_Envelope_Required     : Long_Long_Integer;
+      Available_Envelope_Required : Long_Long_Integer;
+      Available_Funding           : Long_Long_Integer;
+      Gross_Surplus               : Long_Long_Integer;
+      Available_Surplus           : Long_Long_Integer;
+      Is_Gross_Under_Backed       : Boolean;
+      Is_Available_Under_Backed   : Boolean;
    end record;
 
    function Evaluate_Backing
@@ -189,19 +178,23 @@ is
      with Pre => Lines'First = 1
             and then Lines'Length <= Max_Contributors,
           Post =>
-            Evaluate_Backing'Result.Signed_Total =
-              Model_Signed_Total
+            Evaluate_Backing'Result.Gross_Envelope_Required =
+              Model_Gross_Envelope_Required
                 (Lines, Contributor_Count (Lines'Length))
-            and then Evaluate_Backing'Result.Backing_Required =
-              Model_Backing_Required
+            and then Evaluate_Backing'Result.Available_Envelope_Required =
+              Model_Available_Envelope_Required
                 (Lines, Contributor_Count (Lines'Length))
-            and then Evaluate_Backing'Result.Backing_Surplus =
+            and then Evaluate_Backing'Result.Available_Funding =
+              Input.Funding_Balance - Input.Funding_Commitment
+            and then Evaluate_Backing'Result.Gross_Surplus =
               Input.Funding_Balance -
-              Evaluate_Backing'Result.Backing_Required
-            and then Evaluate_Backing'Result.Reconciliation_Delta =
-              Evaluate_Backing'Result.Backing_Surplus -
-              Input.Unassigned_Balance
-            and then Evaluate_Backing'Result.Is_Under_Backed =
-              (Evaluate_Backing'Result.Backing_Surplus < 0);
+              Evaluate_Backing'Result.Gross_Envelope_Required
+            and then Evaluate_Backing'Result.Available_Surplus =
+              Evaluate_Backing'Result.Available_Funding -
+              Evaluate_Backing'Result.Available_Envelope_Required
+            and then Evaluate_Backing'Result.Is_Gross_Under_Backed =
+              (Evaluate_Backing'Result.Gross_Surplus < 0)
+            and then Evaluate_Backing'Result.Is_Available_Under_Backed =
+              (Evaluate_Backing'Result.Available_Surplus < 0);
 
 end ALedger.Proof_Core;

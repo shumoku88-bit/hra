@@ -73,36 +73,111 @@ procedure Test_Runner is
          2 => (Account => 2, Commodity => 1, Quantity => 1_000),
          3 => (Account => 1, Commodity => 2, Quantity => -50),
          4 => (Account => 3, Commodity => 2, Quantity => 50)];
-      Unreserved : constant Proof.Atomic_Quanta :=
-        Proof.Unreserved_Obligation
-          ((Amount => 500, Already_Excluded => 150));
-      Envelope : constant Proof.Envelope_Result := Proof.Evaluate_Envelope
-        ((Entitlement => 1_000,
-          Consumption => 400,
-          Refunds => 100,
-          Plan_Reserve => 200));
-      Lines : constant Proof.Envelope_Result_Array :=
-        [1 => Envelope,
+
+      --  Standard Envelope characterization:
+      --  Remaining = Entitlement - Net_Consumption - Net_Fulfillment (1000 - 300 - 100 = 600)
+      --  Post_Plan_Headroom = Remaining - Plan_Commitment (600 - 200 = 400)
+      Envelope_1 : constant Proof.Envelope_Result := Proof.Evaluate_Envelope
+        ((Entitlement     => 1_000,
+          Net_Consumption => 300,
+          Net_Fulfillment => 100,
+          Plan_Commitment => 200));
+
+      --  Negative Remaining preserved under overconsumption
+      Envelope_Overspent : constant Proof.Envelope_Result := Proof.Evaluate_Envelope
+        ((Entitlement     => 100,
+          Net_Consumption => 250,
+          Net_Fulfillment => 0,
+          Plan_Commitment => 50));
+
+      --  Signed Net_Consumption (reversal/refund resulting in net negative consumption)
+      Envelope_Refunded : constant Proof.Envelope_Result := Proof.Evaluate_Envelope
+        ((Entitlement     => 500,
+          Net_Consumption => -100,
+          Net_Fulfillment => 50,
+          Plan_Commitment => 0));
+
+      --  Negative Headroom with positive Remaining
+      Envelope_Committed : constant Proof.Envelope_Result := Proof.Evaluate_Envelope
+        ((Entitlement     => 300,
+          Net_Consumption => 200,
+          Net_Fulfillment => 0,
+          Plan_Commitment => 200));
+
+      --  Standard Backing characterization:
+      --  Lines: Envelope_1 (Remaining=600, Headroom=400) and Line 2 (Remaining=-100, Headroom=-100)
+      --  Gross_Required = positivePart(600) + positivePart(-100) = 600
+      --  Available_Required = positivePart(400) + positivePart(-100) = 400
+      --  Available_Funding = 1200 - 150 = 1050
+      --  Gross_Surplus = 1200 - 600 = 600
+      --  Available_Surplus = 1050 - 400 = 650
+      Lines_1 : constant Proof.Envelope_Result_Array :=
+        [1 => Envelope_1,
          2 => (Remaining => -100, Post_Plan_Headroom => -100)];
-      Backing : constant Proof.Backing_Result := Proof.Evaluate_Backing
-        (Lines, (Funding_Balance => 1_200, Unassigned_Balance => 100));
+      Backing_1 : constant Proof.Backing_Result := Proof.Evaluate_Backing
+        (Lines_1, (Funding_Balance => 1_200, Funding_Commitment => 150));
+
+      --  Under-backed observation (negative surplus returned as valid state)
+      Lines_Deficit : constant Proof.Envelope_Result_Array :=
+        [1 => (Remaining => 800, Post_Plan_Headroom => 700)];
+      Backing_Deficit : constant Proof.Backing_Result := Proof.Evaluate_Backing
+        (Lines_Deficit, (Funding_Balance => 600, Funding_Commitment => 100));
+
+      --  Gross backed but Available under-backed
+      Lines_Split : constant Proof.Envelope_Result_Array :=
+        [1 => (Remaining => 500, Post_Plan_Headroom => 400)];
+      Backing_Split : constant Proof.Backing_Result := Proof.Evaluate_Backing
+        (Lines_Split, (Funding_Balance => 600, Funding_Commitment => 250));
    begin
       Put_Line ("--- Testing ALedger.Proof_Core contracts ---");
       Assert (Proof.Is_Balanced (Original), "Proof core balances each Commodity independently");
       Assert (Proof.Is_Ordered_Inverse (Original, Reversal), "Proof core recognizes exact ordered reversal");
+
       Assert
-        (Unreserved = 350,
-         "Proof core deducts only bounded exclusion from a Plan obligation");
+        (Envelope_1.Remaining = 600 and then Envelope_1.Post_Plan_Headroom = 400,
+         "Proof core preserves standard Envelope remaining and Plan headroom equations");
+
       Assert
-        (Envelope.Remaining = 700 and then Envelope.Post_Plan_Headroom = 500,
-         "Proof core preserves Envelope remaining and Plan headroom equations");
+        (Envelope_Overspent.Remaining = -150 and then Envelope_Overspent.Post_Plan_Headroom = -200,
+         "Proof core preserves negative Remaining and negative Headroom without clamping");
+
       Assert
-        (Backing.Signed_Total = 600 and then
-         Backing.Backing_Required = 700 and then
-         Backing.Backing_Surplus = 500 and then
-         Backing.Reconciliation_Delta = 400 and then
-         not Backing.Is_Under_Backed,
-         "Proof core preserves Backing and reconciliation equations");
+        (Envelope_Refunded.Remaining = 550 and then Envelope_Refunded.Post_Plan_Headroom = 550,
+         "Proof core admits signed negative Net_Consumption from refunds");
+
+      Assert
+        (Envelope_Committed.Remaining = 100 and then Envelope_Committed.Post_Plan_Headroom = -100,
+         "Proof core preserves positive Remaining with negative Headroom from Plan commitment");
+
+      Assert
+        (Backing_1.Gross_Envelope_Required = 600 and then
+         Backing_1.Available_Envelope_Required = 400 and then
+         Backing_1.Available_Funding = 1_050 and then
+         Backing_1.Gross_Surplus = 600 and then
+         Backing_1.Available_Surplus = 650 and then
+         not Backing_1.Is_Gross_Under_Backed and then
+         not Backing_1.Is_Available_Under_Backed,
+         "Proof core preserves Gross and Available Backing equations");
+
+      Assert
+        (Backing_Deficit.Gross_Envelope_Required = 800 and then
+         Backing_Deficit.Available_Envelope_Required = 700 and then
+         Backing_Deficit.Available_Funding = 500 and then
+         Backing_Deficit.Gross_Surplus = -200 and then
+         Backing_Deficit.Available_Surplus = -200 and then
+         Backing_Deficit.Is_Gross_Under_Backed and then
+         Backing_Deficit.Is_Available_Under_Backed,
+         "Proof core returns under-backed state with negative surplus as valid observation");
+
+      Assert
+        (Backing_Split.Gross_Envelope_Required = 500 and then
+         Backing_Split.Available_Envelope_Required = 400 and then
+         Backing_Split.Available_Funding = 350 and then
+         Backing_Split.Gross_Surplus = 100 and then
+         Backing_Split.Available_Surplus = -50 and then
+         not Backing_Split.Is_Gross_Under_Backed and then
+         Backing_Split.Is_Available_Under_Backed,
+         "Proof core distinguishes gross-backed from available-under-backed state");
    end Test_Proof_Core;
 
    procedure Test_Money is
