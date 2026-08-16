@@ -1,0 +1,42 @@
+name: Ada qualification
+
+on:
+  push:
+    branches:
+      - main
+      - feat/journal-graph-admission
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: alire-project/setup-alire@v6
+
+      - name: Build
+        run: alr build
+
+      - name: Journal graph laws
+        run: ./bin/test_journal_loader
+
+      - name: Fulfillment routing laws
+        run: ./bin/test_fulfillment_routing
+
+      - name: Envelope fulfillment laws
+        run: ./bin/test_envelope_fulfillment
+
+      - name: Planned payment laws
+        run: ./bin/test_planned_payments
+
+      - name: Report plan laws
+        run: ./bin/test_report_plan
+
+      - name: Full test runner
+        run: ./bin/test_runner
+
+      - name: SPARK proof
+        run: ./tools/prove
