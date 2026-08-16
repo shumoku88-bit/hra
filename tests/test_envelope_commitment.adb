@@ -111,8 +111,7 @@ procedure Test_Envelope_Commitment is
      "id = ""food""" & ASCII.LF &
      "label = ""Food""" & ASCII.LF &
      "pacing = ""daily""" & ASCII.LF &
-     "backing-pool = ""liquid""" & ASCII.LF &
-     "expense-accounts = [""expenses:food""]" & ASCII.LF;
+     "backing-pool = ""liquid""" & ASCII.LF;
 
    Registry      : ALedger.Account.Account_Registry := ALedger.Account.Empty_Registry;
    Actual        : ALedger.Ledger.Ledger;
