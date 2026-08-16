@@ -3,7 +3,8 @@
 aledgerを実装するときのAdaクイックリファレンス。
 Adaの入門書や一般的なcoding standardではない。
 
-この文書の最重要ルールは、**Adaの言語規則とaledger固有の選択を混同しないこと**。
+この文書の目的は「禁止項目」を増やすことではない。
+**実装したい意味から、Adaがもともと持つ語彙へ素直に降りるための地図**にする。
 
 ## ラベル
 
@@ -12,12 +13,35 @@ Adaの入門書や一般的なcoding standardではない。
 - **[ALedger]** このrepositoryで選ぶ設計方針
 - **[Current]** 現在の実装形。長期的な規則ではない
 
-`[ALedger]` と `[Current]` を「Adaではこう書く」と一般化しない。
-迷ったらcompilerとAda Reference Manualを優先する。
+`[ALedger]` と `[Current]` はAdaそのものではない。
+言語上の判断に迷ったらcompilerとAda Reference Manualを優先する。
 
 ---
 
-## 1. Package / spec / body / private
+## まず「意味 → Adaの語彙」で考える
+
+| 表したいもの | まず検討するAdaの語彙 |
+| --- | --- |
+| module / semantic owner | `package`, child package |
+| representationを隠したdomain value | private type |
+| 有限個の状態 | enumeration type |
+| 状態ごとに存在するfieldが違う値 | discriminated / variant record |
+| 値域そのものに意味がある数 | subtype / range |
+| shapeが固定・自然にboundedな列 | array / constrained array |
+| 長さが動的なcollection | `Ada.Containers` |
+| 型に依存する再利用可能なalgorithm/data structure | generic |
+| callerが満たす契約 | `Pre`, `Post` |
+| 型全体が守る性質 | predicate / invariant |
+| 一時的に読むtext | `String` |
+| 長さが変わり保持されるtext | `Unbounded_String` など |
+| ownership / aliasing / lifetimeを明示した参照 | access type |
+| 本当にruntime dispatchするdomain hierarchy | tagged type / dispatching |
+
+**[ALedger]** 新しい抽象化を作る前に、上の標準語彙でdomainをそのまま表せないかを見る。
+
+---
+
+## 1. Packageを意味のownerにする
 
 **[Ada]** packageはAdaの基本的なmodule境界。
 通常、`.ads`がspecification、`.adb`がbody。
@@ -37,59 +61,99 @@ end ALedger.Plan;
 - private part: clientから隠すrepresentation
 - body: implementation
 
-**[ALedger]** stable identity、admitted history、container-backed universeなど、representation自体が契約でない型ではprivate typeをまず検討する。
+**[ALedger]** stable identity、admitted history、routing policyなどは、意味を所有するpackageを先に決める。
+UIやrendererから使うときも、そのpackageが公開したoperationを通す。
 
-ただし「すべてprivate」は規則ではない。公開data shapeそのものに意味があるrecordまで隠す必要はない。
+### Child package
 
-### Genericとprivate type
-
-**[Ada]** generic instantiationには、その場所で必要な型やoperationがvisibleでなければならない。
-
-**[ALedger]** containerがrepresentationならprivate part/bodyへ置く。clientが必要なのが
+**[Ada]** child packageは名前そのものにhierarchyを持てる。
 
 ```text
-Empty / Include / Contains / Length
+ALedger.Envelope
+ALedger.Envelope.Fulfillment
 ```
 
-だけなら、そのsemantic APIを公開する。
-compile workaroundとしてprivate representationを公開しない。
+**[ALedger]** ownershipやprivacyに本物の親子関係ができたときchild packageを検討する。
+filesystem上のfolder整理とは別の判断。
 
 ---
 
-## 2. `with`, `use`, `use type`
+## 2. Representationを隠すならprivate type
 
-**[Ada]** `with P;` はunit dependency。
+**[Ada]** `type T is private` はclientにpartial viewだけを見せ、full viewをpackage private partへ置ける。
 
-**[Ada]** `use P;` はpackage visible partの名前をdirectly visibleにする。
+**[ALedger]** 次のような値ではprivate typeが自然な候補になる。
 
-**[Ada]** `use type T;` は型のprimitive operatorをdirectly visibleにするときに使える。
+- stable identity
+- admitted history
+- registry / universe
+- invalid constructionを外へ出したくないvalue
+
+例:
 
 ```ada
-use type ALedger.Money.Quantity;
+type Plan_Id_Universe is private;
 
-if Q > ALedger.Money.Zero_Quantity then
-   ...
-end if;
+function Empty return Plan_Id_Universe;
+procedure Include (Universe : in out Plan_Id_Universe; PID : Plan_Id);
+function Contains (Universe : Plan_Id_Universe; PID : Plan_Id) return Boolean;
+function Length (Universe : Plan_Id_Universe) return Natural;
 ```
 
-**[ALedger]** operatorだけが欲しいなら広い`use`より`use type`を検討する。
-semantic ownerを見せたい場所ではpackage qualificationを残す。
+clientが知るのはcontainer実装ではなく、stable PlanIdを問い合わせる語彙。
 
-これは絶対的なAda style ruleではない。
+### Genericとの組み合わせ
+
+**[Ada]** generic instantiationには、その場所でformal parameterへ渡す型やoperationがvisibleである必要がある。
+
+**[ALedger]** containerがprivate typeのrepresentationなら、instantiationもprivate part/body側へ置くと自然なことが多い。
 
 ---
 
-## 3. `Natural`, `Positive`, container length
+## 3. 有限状態はenumeration、shapeの違いはvariant record
 
-**[Ada]** `Natural`は0以上、`Positive`は1以上。
-
-**[ALedger]** 本当に0が無効な座標だけ`Positive`にする。
+**[Ada]** finite stateはenumeration typeで直接表せる。
 
 ```ada
-Header_Line : Positive;
+type Route_Kind is
+  (Fulfills_Envelope,
+   Not_Fulfillment_Target);
 ```
 
-探索中の「まだ見つからない」を0で表すなら`Natural`が自然なことがある。
+**[Ada]** caseごとに存在するcomponentが違うならdiscriminated recordを使える。
+
+```ada
+type Fulfillment_Route
+  (Kind : Route_Kind := Not_Fulfillment_Target)
+is record
+   case Kind is
+      when Fulfills_Envelope =>
+         Target : Envelope_Id;
+      when Not_Fulfillment_Target =>
+         null;
+   end case;
+end record;
+```
+
+**[ALedger]** 「このcaseではTargetが存在する」というdomain lawを、commentやdummy valueではなくdata shapeとして表す。
+
+単に状態名だけあれば十分ならenumerationだけでよい。
+
+---
+
+## 4. 値域に意味があるならsubtypeを使う
+
+**[Ada]** `Natural`は0以上、`Positive`は1以上のinteger subtype。
+独自のrange/subtypeも作れる。
+
+```ada
+subtype Source_Line is Positive;
+```
+
+**[ALedger]** 0がdomain上存在しない座標は、その事実が型に見えるようにする。
+source lineや1-based posting positionなどが候補。
+
+探索途中の「まだ見つからない」を0で表すなら`Natural`が自然なこともある。
 
 ```ada
 Best_Index : Natural := 0;
@@ -101,20 +165,33 @@ Best_Index : Natural := 0;
 Positive (I)
 ```
 
-は「ここでは0でない」という根拠がある場所で行う。
+は「ここでは0でない」という既に成立した事実を型へ移す操作として使う。
 
-**[Ada]** Ada.Containersの`Length`はcontainerのcount型で、index型そのものではない。
+---
 
-**[Current]** aledgerには次の形がある。
+## 5. Collectionはshapeから選ぶ
+
+### Array
+
+**[Ada]** shapeやboundsが自然に決まるdataにはarrayを使える。
+arrayはindex subtypeもdomainの一部にできる。
+
+### Standard container
+
+**[Ada]** 動的なcollectionには`Ada.Containers`のgeneric package群がある。
 
 ```ada
-for I in 1 .. Natural (Items.Length) loop
-   ...
-end loop;
+package Payment_Vectors is new Ada.Containers.Indefinite_Vectors
+  (Index_Type   => Positive,
+   Element_Type => Planned_Payment);
 ```
 
-Ada一般の唯一のidiomではない。
-indexが不要なら、より直接的な
+**[ALedger]** containerそのものがpublic contractなら公開してよい。
+representationならprivate partへ置き、`Contains`, `Resolve`, `Observe`などdomain operationを表へ出す。
+
+### Iteration
+
+index自体に意味がないときはelement iterationが直接的。
 
 ```ada
 for Item of Items loop
@@ -122,14 +199,63 @@ for Item of Items loop
 end loop;
 ```
 
-を優先する。
-indexはposting positionやaligned evidenceなど、index自体に意味があるとき使う。
+posting positionやaligned evidenceのようにindexが意味を持つ場合はindex iterationを使う。
+
+**[Ada]** `Ada.Containers`の`Length`はcontainer用のcount型で、index型とは別。
+必要な境界で明示的に型を合わせる。
 
 ---
 
-## 4. `String` のboundsを決め打ちしない
+## 6. Genericはcompile-timeの再利用語彙
 
-**[Ada]** unconstrained `String` のlower boundは必ずしも1ではない。
+**[Ada]** genericは型・operation・値などをformal parameterに取り、instanceを生成する。
+
+**[ALedger]** 「同じalgorithmを複数domain typeへ適用したい」場合は、runtime object hierarchyを作る前にgenericが自然かを見る。
+
+例:
+
+```ada
+generic
+   type Element_Type is private;
+   with function Key (Item : Element_Type) return String;
+package Indexed_Observation is
+   ...
+end Indexed_Observation;
+```
+
+ただしdomain vocabularyが違うものまでgenericへ押し込めない。
+共通のlawが本当に同じときに使う。
+
+---
+
+## 7. `with`, qualification, `use type`
+
+**[Ada]** `with P;` はunit dependencyを宣言する。
+
+**[Ada]** package名を付ければsemantic ownerがコード上に残る。
+
+```ada
+ALedger.Money.Zero_Quantity
+```
+
+**[Ada]** operatorだけをdirectly visibleにしたい場合は`use type`が使える。
+
+```ada
+use type ALedger.Money.Quantity;
+
+if Q > ALedger.Money.Zero_Quantity then
+   ...
+end if;
+```
+
+**[ALedger]** domain ownerを読み取りやすくしたい場所ではqualificationを残し、operator noiseだけ減らしたい場所では`use type`を使う。
+
+---
+
+## 8. Textは境界の形に合わせる
+
+**[Ada]** `String`は固定boundsを持つarray type。
+unconstrained `String` parameterのlower boundは必ずしも1ではない。
 
 ```ada
 Text'First
@@ -143,99 +269,45 @@ Text'Length
 Text (Text'First .. Text'First + 9)
 ```
 
-のように書き、理由なく `Text (1 .. 10)` としない。
+parserやsource evidenceではempty string、null range、slice境界もdata shapeとして扱う。
 
-empty string、null range、slice境界にも注意する。
-parser/source evidence/filesystem boundaryでは特に重要。
+**[Ada]** `Unbounded_String`は長さが変化するtextを保持するlibrary type。
 
-### `String` と `Unbounded_String`
+**[ALedger]** call中だけ読むtextは`String`、recordに保持するsource path・metadata・diagnosticは`Unbounded_String`が自然なことが多い。
 
-**[Ada]** `String`は固定boundsのarray。`Unbounded_String`は長さが変化するtextを保持するlibrary type。
-
-**[ALedger]** call中だけ読む入力は`String`、recordへ保持するsource path、metadata、diagnosticなどは`Unbounded_String`が自然なことが多い。
-
-```ada
-Source_Path : Unbounded_String;
-Message     : Unbounded_String;
-```
-
-identityやmoneyに専用型があるなら、text型へ戻してdomain modelの中心を作らない。
+identityやmoneyには専用型を使い、domain modelをtext中心に戻さない。
 
 ---
 
-## 5. Containersはgeneric。公開するかは別問題
+## 9. Contractは「成立している意味」を型とoperationへ近づける
 
-**[Ada]** standard containersはgeneric packageをinstantiateして使う。
-
-```ada
-package Payment_Vectors is new Ada.Containers.Indefinite_Vectors
-  (Index_Type   => Positive,
-   Element_Type => Planned_Payment);
-```
-
-**[ALedger]** container型そのものがclient contractならvisible partでもよい。
-単なるrepresentationなら隠す。
-
-containerを隠すためだけの巨大wrapper層は作らない。
-`Contains`, `Resolve`, `Observe`, `Length`などdomain上必要な語彙だけを公開する。
-
----
-
-## 6. Discriminated recordでcaseを型にする
-
-**[Ada]** discriminated recordはkindごとに存在するcomponentを変えられる。
+**[Ada]** `Pre` / `Post` でcallerとsubprogramの契約を表せる。
 
 ```ada
-type Fulfillment_Route
-  (Kind : Fulfillment_Route_Kind := Not_Fulfillment_Target)
-is record
-   case Kind is
-      when Fulfills_Envelope =>
-         Target : Envelope_Id;
-      when Not_Fulfillment_Target =>
-         null;
-   end case;
-end record;
+function Load (...)
+  return Boolean
+  with Pre => Root_Path'Length > 0;
 ```
 
-**[ALedger]** `Target`が存在してよいcase/いけないcaseがdomain上明確なら有力。
-Boolean flag + 常時存在するdummy fieldへ潰さない。
+型全体の性質にはpredicateやinvariantも使える。
 
-ただし単純なenumで十分な状態までvariant recordにしない。
-
----
-
-## 7. Constructor / admission / contractを分ける
-
-**[ALedger]** 小さなvalue constructorと、source全体を検証するadmissionは別責任。
+**[ALedger]** contractはcaller/program側のlawへ使う。
+user-owned sourceのsyntax、unknown reference、duplicate identityなどはadmissionが検査し、diagnosticを返す。
 
 ```text
-Create_Plan_Id
+caller/program law  -> contract
+source/data law      -> admission
 ```
 
-が成功しても、cross-reference、duplicate history、whole-document invariantまでadmittedとは限らない。
-
-### `Pre` / `Post`
-
-**[Ada]** preconditionはcallerの義務を表せる。
-
-```ada
-with Pre => Root_Path'Length > 0
-```
-
-**[ALedger]** user-owned sourceのsyntax errorやunknown referenceを`Pre`へ押し込まない。
-それらはparser/admissionがfail-closedでdiagnosticを返す。
-
-```text
-caller obligation     -> Pre/Post
-untrusted source law  -> admission result + diagnostic
-```
+SPARKでproveできるlawは、domain vocabularyを保ったままmachine-checkableに寄せる。
 
 ---
 
-## 8. `Boolean + out` とfailure state
+## 10. Admission resultは完全な値として返す
 
-**[ALedger]** fail-closed APIで`Boolean`と`out`を使う場合、failure pathで半端なresultを残さない。
+**[ALedger]** parser/admissionは、成功なら完全にadmittedなvalue、失敗ならdiagnosticという境界を持つ。
+
+現在のAPIで`Boolean + out`を使う場合は、failure側も明示的なempty valueから始める。
 
 ```ada
 Result := Empty_Observation;
@@ -246,86 +318,103 @@ if Invalid then
 end if;
 ```
 
-`Empty_Registry`, `Empty_History`, `Empty_Observation`はaledgerのcompositionで便利なpattern。
-**[Current]** すべてのAda programに必要なidiomではない。
+**[Current]** `Empty_Registry`, `Empty_History`, `Empty_Observation`は現在のcomposition style。
+将来より自然なresult representationが見つかれば変えてよい。
 
 ---
 
-## 9. Exceptionはboundary failureとprogramming errorを分ける
+## 11. Exceptionはexceptionとして、domain resultはdomain resultとして扱う
 
 **[Ada]** exceptionは正規の言語機能。
 
-**[ALedger]** filesystem、stream I/O、external library boundaryでは、予想されるexternal failureをdiagnosticへ変換することがある。
+**[ALedger]** filesystemやstream I/Oのようにoperation自体が失敗する境界では、Adaのexceptionを受けてsource diagnosticへ翻訳することがある。
 
-`when others`を通常のdomain branchingとして使わない。
-可能なら予想されるexceptionを狭く扱う。
+予想できるexternal failureは狭いboundaryで扱う。
+domain上の通常状態はenumeration、variant、admission resultなどのdomain valueとして表す。
 
-broad catchを使うときはprogramming errorまで「source error」に見せかけていないか確認する。
-private Household sourceの内容をpublic logへ複製しない。
-
----
-
-## 10. AdaをOOPやpointerへ寄せすぎない
-
-**[Ada]** package/private type/generic/contractはtagged typeなしでも使える。
-
-**[ALedger]** domainがdispatch hierarchyを必要とするまで、package + plain type + operationでよい。
-「Adaらしく見せるため」にinheritanceを作らない。
-
-**[Ada]** parameter passingやcontainer利用だけを理由にCのpointer相当を毎回書く必要はない。
-
-**[ALedger]** ownership/lifetime上の理由がない限りaccess typeをdefault abstractionにしない。
+private Household sourceの内容はdiagnostic/public logへ複製しない。
 
 ---
 
-## 11. Package hierarchyとdirectoryを混同しない
+## 12. Value、access、tagged typeを意味で選ぶ
 
-**[Ada]** child packageは名前自体がsemantic hierarchyになる。
+### 普通のdomain value
 
-```text
-ALedger.Envelope
-ALedger.Envelope.Fulfillment
-```
+**[Ada]** record、private type、package operationだけで多くのdomain modelを表せる。
 
-**[GNAT]** default naming schemeではexpanded unit nameがsource filenameへ対応する。
+**[ALedger]** identity、money、posting、routing、observationはまずvalueとして考える。
 
-**[ALedger]** `src/`がflat directoryであること自体は問題ではない。
-child package化はprivacy、dependency、semantic ownershipに本物の階層があるときに行う。
-見た目だけのためにpackage名を変更しない。
+### Access type
 
-package変更時はまず `.ads` のvisible/private partを読み、その後body、tests、callersを見る。
-これはAda言語規則ではなく、spec/body分離を活かすaledgerの作業順。
+**[Ada]** aliasing、dynamic allocation、lifetimeを明示して参照する必要がある場合はaccess typeがある。
 
----
+**[ALedger]** その意味がdomainまたはimplementationに本当に存在するとき使う。
 
-## 12. aledger固有のlawをAda一般へ輸出しない
+### Tagged type / dispatching
 
-次は重要だが、**Ada一般のbest practiceではない**。
+**[Ada]** runtime polymorphismが必要ならtagged typeとdispatching operationがある。
 
-- exact amountは`ALedger.Money`を通す
-- source provenanceを後からraw text再探索で復元しない
-- admitted valueとsource evidenceのalignmentを保つ
-- unknown meaningを推測しない
-- source observation / admission / calculation / rendering / mutationを分ける
-- domain vocabularyを`Generic_Manager`や`Process_Items`へ潰さない
-
-これらはaledgerのdomain/architecture law。
-
-SPARKについても同じ。
-proofしやすさのためだけにpublic domain vocabularyを歪めない。
-まずsemantic ownerとlawを明確にし、machine-checkableな部分を強める。
+**[ALedger]** report kindやaccount roleが単なるfinite classificationならenumeration/caseが自然な場合も多い。
+異なるimplementationをruntimeで同じinterfaceとして扱う意味が現れたらdispatchを検討する。
 
 ---
 
-## 新しいpatternを広げる前の5問
+## 13. Ada-nativeとperformance
 
-1. これは **[Ada]** の言語上必要な形か
-2. **[GNAT]** のtoolchain都合か
-3. **[ALedger]** のdomain/architecture上の選択か
-4. 単なる **[Current]** convenienceか
-5. 別のAda codebaseでも通用する知識だと誤解させないか
+**Ada-nativeは「速くするためのsyntax」ではない。**
+第一の利点は、domain shapeをcompiler・contract・proof toolが理解しやすい形で書けること。
 
-分類できないものを「Ada best practice」として追加しない。
+そのうえでperformanceにも良い土台になりやすい。
+
+- subtype/rangeで値域が明確になる
+- array/containerのshapeが型に残る
+- genericはinstanceごとに具体化される
+- value-orientedなcodeは不要なaliasingを減らしやすい
+- staticに分かるoperationはdynamic dispatchを必要としない
+
+ただし、これだけで高速性は保証されない。
+
+- standard containerは種類によってallocation/storage特性が違う
+- unconstrained arrayにはruntime boundsが伴う
+- Adaのrange/bounds/overflow等のruntime checksには実行costが生じる場合がある
+- abstractionが実際に遅いかはcompiler optimizationと実行profileで確認する
+
+**[Current]** aledgerの通常buildはAda 2022、assertions/contracts、warnings、`-O2`を有効にしている。
+安全性を先に捨ててperformanceを作るのではなく、まず自然なAdaで書き、必要になった箇所を測定する。
+
+SPARKで成立を証明できるcheckについて将来runtime policyを変える場合も、proofとmeasurementを根拠に決める。
+
+---
+
+## aledgerで新しい型やAPIを作るときの順序
+
+1. domainで何が存在するかを普通の言葉で書く
+2. finite stateならenumerationを検討する
+3. caseでshapeが違うならdiscriminated recordを検討する
+4. 値域に意味があるならsubtype/rangeを検討する
+5. representationを隠す意味があるならprivate typeにする
+6. collectionのshapeからarray/containerを選ぶ
+7. 再利用するlawが本当に同じならgenericを検討する
+8. caller lawを`Pre`/`Post`、data lawをadmissionへ置く
+9. specを読んで意味が分かる状態にしてからbodyを書く
+10. tests / proof / canonical rehearsalでlawを確認する
+
+この順序は「Adaらしく見せる」ためではない。
+**domainの文をAdaの型・package・contractへ一段ずつ写すための順序**。
+
+---
+
+## aledger固有のdomain law
+
+次はAda一般ではなくaledgerのarchitecture law。
+Adaの語彙を使って、これらを明瞭に表現する。
+
+- exact amountは`ALedger.Money`が所有する
+- source provenanceをadmitted valueと一緒に保持する
+- posting orderとaligned evidenceを保つ
+- unknown meaningを明示的にadmission failureまたはunknown stateとして扱う
+- source observation / admission / calculation / rendering / mutationを別ownerにする
+- domain vocabularyをpackage/API名に残す
 
 ---
 
@@ -343,9 +432,6 @@ alr build
 focused executableがある変更ではそれも実行する。
 compilerを実行できない環境では `compiled` / `tests passed` / `proved` と報告しない。
 
-GNATのstyle checksやformatterはAda言語仕様そのものではない。
-導入するならproject policyとして明示する。
-
 ---
 
 ## 外部参照
@@ -355,4 +441,4 @@ GNATのstyle checksやformatterはAda言語仕様そのものではない。
 - Ada 2022 Reference Manual: https://www.ada-auth.org/standards/22rm/html/RM-TOC.html
 - AdaCore Learn, Packages: https://learn.adacore.com/courses/advanced-ada/parts/modular_prog/packages.html
 - AdaCore Learn, Containers: https://learn.adacore.com/courses/intro-to-ada/chapters/standard_library_containers.html
-- GNAT User's Guide, style checking: https://docs.adacore.com/gnat_ugn-docs/html/gnat_ugn/gnat_ugn/building_executable_programs_with_gnat.html
+- GNAT User's Guide, performance: https://docs.adacore.com/gnat_ugn-docs/html/gnat_ugn/gnat_ugn/gnat_and_program_execution.html
