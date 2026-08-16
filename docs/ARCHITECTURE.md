@@ -24,7 +24,7 @@ edit intent
 
 会計計算はpath、environment variable、terminal、renameを知らない。Renderはsourceを読まない。CLI/TUIはAccount分類、期間、予算、writer lawを再実装しない。
 
-SPARK境界は[`PROOF_CORE.md`](PROOF_CORE.md)が所有する。parserやUIを全面SPARK化せず、ordinary Ada admissionが正規化したbounded factsだけをpure proof coreへ渡す。現在はproof foundationが独立しており、production accounting ownerへの接続は未完了である。
+SPARK境界は[`PROOF_CORE.md`](PROOF_CORE.md)が所有する。parserやUIを全面SPARK化せず、ordinary Ada admissionが正規化したbounded factsだけをpure proof coreへ渡す。現在、Envelope Remaining/Headroomは`ALedger.Envelope_Position`経由でSPARK Proof_Coreに接続完了している（Phase C）。Backingの証明接続（Phase D）は独立して進行中。
 
 ## Stable invariants
 

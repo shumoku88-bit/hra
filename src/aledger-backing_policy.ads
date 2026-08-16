@@ -4,10 +4,7 @@ with Ada.Containers.Indefinite_Vectors;
 with ALedger.Money;          use ALedger.Money;
 with ALedger.Dates;
 with ALedger.Envelope;       use ALedger.Envelope;
-with ALedger.Envelope_Entitlement;
-with ALedger.Envelope_Consumption;
-with ALedger.Envelope_Fulfillment;
-with ALedger.Envelope_Commitment;
+with ALedger.Envelope_Position;
 with ALedger.Plan_Observation;
 with ALedger.Cycle_Observation;
 with ALedger.Budget_Config;
@@ -16,20 +13,10 @@ with ALedger.Config_Support;
 
 package ALedger.Backing_Policy is
 
-   --  Remaining = Entitlement - Net Consumption - Net Fulfillment.
-   --  Headroom = Remaining - current-cycle Envelope Plan Commitment.
-   type Backed_Envelope_Claim is record
-      Env_Id    : Envelope.Envelope_Id;
-      Remaining : Balance;
-      Headroom  : Balance;
-   end record;
-
-   function "=" (Left, Right : Backed_Envelope_Claim) return Boolean;
-
    package Claim_Vectors is new Ada.Containers.Indefinite_Vectors
      (Index_Type   => Positive,
-      Element_Type => Backed_Envelope_Claim,
-      "="          => "=");
+      Element_Type => ALedger.Envelope_Position.Position,
+      "="          => ALedger.Envelope_Position."=");
 
    type Backing_Pool_Position is record
       Pool_Id                     : Unbounded_String;
@@ -95,37 +82,27 @@ package ALedger.Backing_Policy is
       Total_Assets : Balance;
    end record;
 
-   --  Base admitted-Household view. No application observation day has been
-   --  supplied, so no Plan fulfillment, Plan claims, or funding commitments are
-   --  applied. Funding reflects the complete admitted Ledger.
+   --  Base admitted-Household view. Funding reflects the complete admitted
+   --  Ledger; claims come directly from base Envelope_Position.Observation.
    function Observe_Backing
-     (Policy      : Backing_Policy;
-      L           : Ledger.Ledger;
-      Entitlement : Envelope_Entitlement.Entitlement_Observation;
-      Consumption : Envelope_Consumption.Envelope_Consumption) return Backing_Observation;
+     (Policy    : Backing_Policy;
+      L         : Ledger.Ledger;
+      Positions : ALedger.Envelope_Position.Observation) return Backing_Observation;
 
    --  Observation-specific view. Funding is observed through the same inclusive
-   --  day as Consumption and Fulfillment, so future Actual facts cannot leak
-   --  into a historical Backing observation. Fulfillment reduces Remaining,
-   --  while open Commitment reduces Headroom.
+   --  day as Consumption and Fulfillment. Claims come directly from evaluated
+   --  Envelope_Position.Observation; pool commitments come from Funding_Commitment.
    function Observe_Backing
      (Policy             : Backing_Policy;
       L                  : Ledger.Ledger;
       Observed_Through   : ALedger.Dates.Date;
-      Entitlement        : Envelope_Entitlement.Entitlement_Observation;
-      Consumption        : Envelope_Consumption.Envelope_Consumption;
-      Fulfillment        : Envelope_Fulfillment.Envelope_Fulfillment;
-      Commitment         : Envelope_Commitment.Commitment_Observation;
+      Positions          : ALedger.Envelope_Position.Observation;
       Funding_Commitment : Funding_Commitment_Observation)
       return Backing_Observation;
 
    function Position_For
      (Obs     : Backing_Observation;
       Pool_Id : String) return Backing_Pool_Position;
-
-   function Claim_For
-     (Obs : Backing_Observation;
-      Env : Envelope.Envelope_Id) return Backed_Envelope_Claim;
 
    function Positive_Balance (B : Balance) return Balance;
 

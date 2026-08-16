@@ -1,4 +1,5 @@
 with ALedger.Account;
+with ALedger.Budget_Source_Adapter;
 
 package body ALedger.Household_Report_Observation is
 
@@ -22,9 +23,12 @@ package body ALedger.Household_Report_Observation is
       Result.Open_Plans := ALedger.Plan_Observation.Open_Plan_Vectors.Empty_Vector;
       Result.Completed_Plans :=
         ALedger.Plan_Observation.Completed_Plan_Vectors.Empty_Vector;
+      Result.Entitlement := ALedger.Envelope_Entitlement.Empty_Observation;
       Result.Consumption := ALedger.Envelope_Consumption.Empty_Consumption;
       Result.Funding_Commitment :=
         ALedger.Backing_Policy.Empty_Funding_Commitment;
+      Result.Envelope_Positions :=
+        ALedger.Envelope_Position.Empty_Observation;
 
       if not ALedger.Report_Plan.Resolve
         (Observed_Through,
@@ -88,11 +92,33 @@ package body ALedger.Household_Report_Observation is
          return False;
       end if;
 
+      declare
+         Adapter_Diag : ALedger.Budget_Source_Adapter.Adapter_Diagnostic;
+      begin
+         if not ALedger.Budget_Source_Adapter.Observe_Entitlements
+           (State.Budget_Ledger.Transactions,
+            State.Household_Policy,
+            State.Envelope_Registry,
+            Observed_Through,
+            Result.Entitlement,
+            Adapter_Diag)
+         then
+            Error_Msg := To_Unbounded_String
+              ("Budget source adapter failed: " &
+               ALedger.Budget_Source_Adapter.Adapter_Status'Image
+                 (Adapter_Diag.Status) &
+               (if Length (Adapter_Diag.Message) > 0
+                then ": " & To_String (Adapter_Diag.Message)
+                else ""));
+            return False;
+         end if;
+      end;
+
       Result.Consumption :=
         ALedger.Envelope_Consumption.Observe_Stock_Consumption
           (State.Actual_Ledger,
            State.Routing_History,
-           State.Entitlement,
+           Result.Entitlement,
            Observed_Through);
 
       if not ALedger.Envelope_Fulfillment.Observe_Stock
@@ -100,7 +126,7 @@ package body ALedger.Household_Report_Observation is
          State.Actual_Ledger,
          State.Registry,
          State.Fulfillment_History,
-         State.Entitlement,
+         Result.Entitlement,
          Observed_Through,
          Result.Fulfillment,
          Fulfillment_Diag)
@@ -135,6 +161,33 @@ package body ALedger.Household_Report_Observation is
          return False;
       end if;
 
+      declare
+         Pos_Diag : ALedger.Envelope_Position.Observe_Diagnostic;
+      begin
+         if not ALedger.Envelope_Position.Observe
+           (State.Budget_Policy,
+            State.Envelope_Registry,
+            Result.Entitlement,
+            Result.Consumption,
+            Result.Fulfillment,
+            Result.Commitment,
+            Result.Envelope_Positions,
+            Pos_Diag)
+         then
+            Error_Msg := To_Unbounded_String
+              ("Envelope position observation failed: " &
+               ALedger.Envelope_Position.Observe_Status'Image (Pos_Diag.Status) &
+               (if Length (Pos_Diag.Envelope_Id_Text) > 0
+                then " [envelope=" & To_String (Pos_Diag.Envelope_Id_Text) & "]"
+                else "") &
+               (if Length (Pos_Diag.Commodity_Code) > 0
+                then " [commodity=" & To_String (Pos_Diag.Commodity_Code) & "]"
+                else "") &
+               " [role=" & ALedger.Envelope_Position.Value_Role'Image (Pos_Diag.Role) & "]");
+            return False;
+         end if;
+      end;
+
       Result.Funding_Commitment :=
         ALedger.Backing_Policy.Observe_Funding_Commitment
           (State.Backing_Policy_Spec,
@@ -146,10 +199,7 @@ package body ALedger.Household_Report_Observation is
           (State.Backing_Policy_Spec,
            State.Actual_Ledger,
            Observed_Through,
-           State.Entitlement,
-           Result.Consumption,
-           Result.Fulfillment,
-           Result.Commitment,
+           Result.Envelope_Positions,
            Result.Funding_Commitment);
 
       Error_Msg := Null_Unbounded_String;

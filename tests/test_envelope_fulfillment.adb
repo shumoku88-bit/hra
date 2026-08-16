@@ -11,6 +11,7 @@ with ALedger.Envelope_Commitment;
 with ALedger.Envelope_Consumption;
 with ALedger.Envelope_Entitlement;
 with ALedger.Envelope_Fulfillment;
+with ALedger.Envelope_Position;
 with ALedger.Envelope_Routing;
 with ALedger.Fulfillment_Routing;
 with ALedger.Journal;
@@ -338,8 +339,9 @@ begin
       Policy_Status : ALedger.Backing_Policy.Policy_Status;
       Entitlement   : ALedger.Envelope_Entitlement.Entitlement_Observation :=
         ALedger.Envelope_Entitlement.Empty_Observation;
-      Backing       : ALedger.Backing_Policy.Backing_Observation;
-      Claim         : ALedger.Backing_Policy.Backed_Envelope_Claim;
+      Positions     : ALedger.Envelope_Position.Observation;
+      Pos_Diag      : ALedger.Envelope_Position.Observe_Diagnostic;
+      Pos           : ALedger.Envelope_Position.Position;
    begin
       Assert
         (ALedger.Budget_Config.Parse_Budget_Policy
@@ -358,20 +360,23 @@ begin
           Amt     => ALedger.Money.Make_Amount (JPY, 1000.0),
           Target  => Savings_Env));
 
-      Backing := ALedger.Backing_Policy.Observe_Backing
-        (Policy,
-         Actual,
-         D ("2026-09-02"),
-         Entitlement,
-         ALedger.Envelope_Consumption.Empty_Consumption,
-         Fulfillment,
-         ALedger.Envelope_Commitment.Empty_Observation
-           (D ("2026-08-18"), D ("2026-08-18")),
-         ALedger.Backing_Policy.Empty_Funding_Commitment);
-      Claim := ALedger.Backing_Policy.Claim_For (Backing, Savings_Env);
+      Assert
+        (ALedger.Envelope_Position.Observe
+           (Policy_Config,
+            Env_Registry,
+            Entitlement,
+            ALedger.Envelope_Consumption.Empty_Consumption,
+            Fulfillment,
+            ALedger.Envelope_Commitment.Empty_Observation
+              (D ("2026-08-18"), D ("2026-08-18")),
+            Positions,
+            Pos_Diag),
+         "Observe Envelope positions with fulfillment");
+
+      Pos := ALedger.Envelope_Position.Position_For (Positions, Savings_Env);
 
       Assert
-        (ALedger.Money.Lookup_Balance (Claim.Remaining, JPY) = 550.0,
+        (ALedger.Money.Lookup_Balance (Pos.Remaining, JPY) = 550.0,
          "Remaining = Entitlement - Consumption - completed Fulfillment");
    end;
 
