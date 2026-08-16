@@ -189,6 +189,26 @@ package Payment_Vectors is new Ada.Containers.Indefinite_Vectors
 **[ALedger]** containerそのものがpublic contractなら公開してよい。
 representationならprivate partへ置き、`Contains`, `Resolve`, `Observe`などdomain operationを表へ出す。
 
+### Container order と domain order
+
+**[Ada]** containerが提供するiteration orderはcontainerの意味に従う。たとえばordered mapはkey orderで走査される。それはsource insertion orderを意味しない。
+
+**[ALedger]** source declaration order、posting order、evidence orderなど、順序そのものがdomain lawなら、その順序を所有するsequenceを明示する。lookup用mapのiteration orderをdomain orderへ昇格させない。
+
+Account Registryでは、source-admitted declaration sequenceがauthorityで、Account名からsequence positionへのmapはprivate lookup indexにすぎない。
+
+```text
+source order
+  -> declaration sequence   -- domain authority
+       ^
+       |
+     name -> position map   -- private lookup index
+```
+
+同じ値をmapとsequenceの両方へauthorityとして複製するのではなく、semantic valueはsequenceに一度だけ保持し、indexはその位置を指す。
+
+逆にEnvelope Registryのように「canonical key sort」が明示的なcontractなら、ordered mapのkey orderとdomain orderが一致してよい。
+
 ### Iteration
 
 index自体に意味がないときはelement iterationが直接的。
