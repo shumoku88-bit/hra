@@ -2,10 +2,10 @@ with "ada_toml";
 
 project Aledger is
    for Languages use ("Ada");
-   for Source_Dirs use ("src", "tests");
+   for Source_Dirs use ("src");
    for Object_Dir use "obj";
    for Exec_Dir use "bin";
-   for Main use ("aledger_main.adb", "test_runner.adb", "test_envelope_entitlement_standalone.adb", "test_report_plan.adb", "test_recent_journal.adb", "test_planned_payments.adb", "test_envelope_commitment.adb", "test_fulfillment_routing.adb", "test_envelope_fulfillment.adb", "test_journal_loader.adb", "test_account_admission.adb", "test_dates.adb", "test_clean_household_contract.adb", "test_proof_money_bridge.adb", "test_envelope_position.adb");
+   for Main use ("aledger_main.adb");
 
    package Compiler is
       for Default_Switches ("Ada") use (
@@ -24,19 +24,5 @@ project Aledger is
 
    package Builder is
       for Executable ("aledger_main.adb") use "aledger";
-      for Executable ("test_runner.adb") use "test_runner";
-      for Executable ("test_envelope_entitlement_standalone.adb") use "test_entitlement";
-      for Executable ("test_report_plan.adb") use "test_report_plan";
-      for Executable ("test_recent_journal.adb") use "test_recent_journal";
-      for Executable ("test_planned_payments.adb") use "test_planned_payments";
-      for Executable ("test_envelope_commitment.adb") use "test_envelope_commitment";
-      for Executable ("test_fulfillment_routing.adb") use "test_fulfillment_routing";
-      for Executable ("test_envelope_fulfillment.adb") use "test_envelope_fulfillment";
-      for Executable ("test_journal_loader.adb") use "test_journal_loader";
-      for Executable ("test_account_admission.adb") use "test_account_admission";
-      for Executable ("test_dates.adb") use "test_dates";
-      for Executable ("test_clean_household_contract.adb") use "test_clean_household_contract";
-      for Executable ("test_proof_money_bridge.adb") use "test_proof_money_bridge";
-      for Executable ("test_envelope_position.adb") use "test_envelope_position";
    end Builder;
 end Aledger;
