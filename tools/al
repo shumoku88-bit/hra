@@ -10,7 +10,7 @@ Usage: tools/al COMMAND [ARGS...]
 
 Repository commands:
   build                 Build production source with Alire
-  test                  Build the dedicated test project, then run test_runner
+  test                  Build and run the repository test suites
   prove                 Run the SPARK proof project
   qualify               Build production, run tests, and prove
   clean                 Clean production, test, and proof build products
@@ -44,6 +44,11 @@ build_tests() {
   alr exec -- gprbuild -P "$project_root/tests/aledger_tests.gpr"
 }
 
+run_tests() {
+  "$project_root/tests/bin/test_runner" "$@"
+  "$project_root/tests/bin/test_actual_admission"
+}
+
 command="${1:-help}"
 if [[ $# -gt 0 ]]; then
   shift
@@ -59,7 +64,7 @@ case "$command" in
     ;;
   test)
     build_tests
-    exec "$project_root/tests/bin/test_runner" "$@"
+    run_tests "$@"
     ;;
   prove)
     if [[ $# -ne 0 ]]; then
@@ -75,7 +80,7 @@ case "$command" in
     fi
     build_production
     build_tests
-    "$project_root/tests/bin/test_runner"
+    run_tests
     "$project_root/tools/prove"
     ;;
   clean)
