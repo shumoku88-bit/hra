@@ -1,93 +1,88 @@
 # Progress Log
 
 日付ベースの進捗記録。大きな変更があったときだけ更新する。
-詳細は git log と各テストの test_runner / test_entitlement 出力を参照。
+詳細は git log と各focused testを参照する。
 
-更新日: 2026-08-15
+更新日: 2026-08-16
 
-## Envelope-native model migration
+## Last qualified main baseline
 
-h-kernel が `Budget` domain を廃止して `Envelope-native model` へ移行したため、
-aledger も同様に作り直し中。canonical source は同じだが、domain owner は分離する。
+main `a94a67663b212304d79ac4e3e4e20171b400ab38` で確認済み:
 
-| Step | 内容 | 状態 | テスト |
-|---:|---|---|---|
-| 1 | `ALedger.Envelope` — EnvelopeId private type + Registry admission | ✅ done | 28 tests in test_runner |
-| 2 | `ALedger.Envelope_Routing` — ExpenseRoute discriminated record + effective-dated Routing_History | ✅ done | 20 tests in test_runner |
-| 3 | `household.toml` の `[envelope-history]` を Parse_Household_Configuration で admit | ✅ done | 9 tests in test_runner + `aledger check` 成功 |
-| 4 | `ALedger.Envelope_Entitlement` — Entitlement_Movement discriminated record + Entitlement_Observation fold | ✅ done | 9 tests in test_runner |
-| 5 | `ALedger.Budget_Source_Adapter` — budget.journal → Entitlement_Movement 変換 | ✅ done | 16 tests in test_runner |
-| 6 | `ALedger.Envelope_Consumption` — Actual Ledger + Routing → Consumption per Envelope | ✅ done | 18 tests in test_runner |
-| 7 | `ALedger.Backing_Policy` — pool別のBacking position | ✅ done | 13 tests in test_runner |
-| 8 | `Household_State` 再構成 + report 接続 + `aledger-budget` 退役 | ✅ done | 3 tests in test_runner + report 統合 |
+- clean build
+- test_runner: **227 tests passed**
+- SPARK prove: **142 checks proved**
+- canonical Household check/report successful
 
-## テスト数
+以下のDraft作業のtest/proof数としてこのbaselineを流用しない。
 
-- test_runner: **227** tests passed (Baseline + Envelope + Routing + TOML + Entitlement + Adapter + Consumption + Backing + Household)
-- SPARK prove: **142** checks proved
-- `aledger check --base ../household-ledger-data`: **SUCCESS**
-  - Actual Transactions: 484
-  - Plan Transactions: 28
-  - Budget Transactions: 35
-  - Registered Accounts: 45
-  - Open Issues: 4
+## Draft PR #12: clean Envelope / Household contract
 
-## 設計メモ
+branch: `refactor/clean-envelope-household-contract`
+
+h-kernelとprivate canonical Householdのclean epoch source shapeへ、aledgerのreader semanticsを揃える作業。
+
+### Source authority
+
+- `budget.toml` はcurrent Envelope + Backingだけを所有する
+- `household.toml` はOpening / Unassigned / stable allocation coordinatesを所有する
+- retired allocation coordinateはhistorical `budget.journal`解釈のため保持可能
+- Envelope identity/routing historyはexplicit `[envelope-history]`だけからadmitする
+- current configからhistorical identity/routingを再構成しない
+- `expense-accounts`、`account-policy`、Plan destination compatibility authorityを退役
+- fixed `budget:*` fallbackとspent/execution endpointを退役
+
+### Stock horizon
+
+- `budget.journal`のCommodityごとの最古movement日をEntitlement stock originとして保持
+- 0 movementもclean epoch originを明示可能
+- production Consumptionはroot Actual dateでstock membershipを判定
+- production Fulfillmentはcompletion root dateでstock membershipを判定
+- later reversalはpre-origin rootをstockへ持ち込まない
+- Report periodはstock originを上書きしない
+
+### Tests added / migrated
+
+- canonical Household fixturesをclean source shapeへ移行
+- Budget adapterのretired execution lawを削除
+- zero movement source-origin lawを追加
+- Consumption pre-origin reversal lawを追加
+- Fulfillment pre-origin reversal-chain lawを追加
+- `test_clean_household_contract` を追加し、retired authority rejectionを明示
+
+### Qualification status
+
+この実行環境にはAda toolchainがなく、repositoryにGitHub Actions workflowも無いため、PR #12のbuild / tests / GNATproveは**未実行**。Draftを維持する。
+
+## Envelope-native model migration history
+
+| Step | 内容 | 状態 |
+|---:|---|---|
+| 1 | `ALedger.Envelope` — EnvelopeId private type + Registry admission | done |
+| 2 | `ALedger.Envelope_Routing` — effective-dated Routing_History | done |
+| 3 | `household.toml` `[envelope-history]` admission | done |
+| 4 | `ALedger.Envelope_Entitlement` — movement fold | done |
+| 5 | `ALedger.Budget_Source_Adapter` — budget.journal projection | done, PR #12でclean endpointsへ更新 |
+| 6 | `ALedger.Envelope_Consumption` — Actual + Routing | done, PR #12でstock horizon追加 |
+| 7 | `ALedger.Backing_Policy` — pool別Backing | done |
+| 8 | `Household_State` + report composition | done, PR #12でclean authority/stock pathへ更新 |
+
+## Ada implementation notes
 
 ### private type と discriminated record の名前衝突
 
-discriminated record の field 名は、参照する型名と衝突しないこと。
+discriminated record のfield名は参照する型名と衝突させない。
 
 ```ada
--- NG: field "Amount" と type "Amount" が衝突
 type Entitlement_Movement is record
-   Amount : Amount;   -- error
-end record;
-
--- OK: field 名を変える
-type Entitlement_Movement is record
-   Amt : Amount;     -- OK
+   Amt : Amount;
 end record;
 ```
 
-### 日本語リテラルは `String` に直接書けない
+### UTF-8 test literal
 
-`-gnatW8` を指定しても、Standard.String は Latin-1 しか扱えない。
-日本語は `Character'Val (16#XX#) & ...` でバイト列を構築する。
+Standard.Stringへ日本語source fixtureを直接書く代わりに、既存testではUTF-8 bytesを`Character'Val`で構成する。
 
-```ada
-Food_UTF8 : constant String :=
-   Character'Val (16#E9#) & Character'Val (16#A3#) & Character'Val (16#9F#) &
-   Character'Val (16#E8#) & Character'Val (16#B2#) & Character'Val (16#BB#);
-```
+### Generic container equality
 
-既存コード（test_runner.adb）はこの方式を採用している。
-
-### 短い qualified name には `use` が必要
-
-`with ALedger.Envelope;` だけでは `Envelope.Envelope_Id` は書けない。
-`use ALedger.Envelope;` が必要。
-
-```ada
-with ALedger.Envelope;
--- use ALedger.Envelope;   ← これを追加
-
-Food_Id : constant Envelope.Envelope_Id := ...;   -- OK
-```
-
-ただし `use` を spec の可視部に置くと private 型が見えてしまい、
-aggregate 構築が可能になる（望ましくない場合あり）。
-本番コードでは `Make_Envelope_Id` のような構築関数を使う方が安全。
-
-### Indefinite_Vectors インスタンス化時の "=" 演算子指定
-
-`discriminated record` や `private type` を含むレコードを `Indefinite_Vectors` の要素型とする場合、
-`"=" => Package."="` を明示的に指定することで、安全かつ確実に vector インスタンス化ができる。
-
-## ハマりポイント・TODO
-
-- [x] test_runner.adb に envelope_entitlement のテストを統合（完了）
-- [x] `Budget_Source_Adapter` 設計・実装（Step 5 完了）
-- [x] `ALedger.Envelope_Consumption` 実装（Step 6 完了）
-- [x] `ALedger.Backing_Policy` 実装（Step 7 完了）
-- [x] `Household_State` 再構成 + report 接続 + `aledger-budget` 退役（Step 8 完了）
+private typeやdiscriminated recordをgeneric containerへ渡すときは、必要ならdomain packageが所有する`"="`を明示する。
