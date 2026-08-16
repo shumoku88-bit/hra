@@ -1,5 +1,7 @@
 package body ALedger.Envelope_Routing is
 
+   use type ALedger.Dates.Date;
+
    function Managed_Route
      (Id : Envelope.Envelope_Id) return Expense_Route
    is
@@ -17,9 +19,21 @@ package body ALedger.Envelope_Routing is
       return (Kind => Initial);
    end Initial_Effective_Date;
 
-   function Dated_Effective (Date : String) return Effective_Date is
+   function Dated_Effective
+     (Date : ALedger.Dates.Date) return Effective_Date
+   is
    begin
-      return (Kind => From_Date, Date => To_Unbounded_String (Date));
+      return (Kind => From_Date, Date => Date);
+   end Dated_Effective;
+
+   function Dated_Effective (Date : String) return Effective_Date is
+      Value  : ALedger.Dates.Date;
+      Status : ALedger.Dates.Date_Status;
+   begin
+      if not ALedger.Dates.Parse (Date, Value, Status) then
+         raise Constraint_Error with "invalid routing effective date: " & Date;
+      end if;
+      return Dated_Effective (Value);
    end Dated_Effective;
 
    function Empty_History return Routing_History is
@@ -82,12 +96,12 @@ package body ALedger.Envelope_Routing is
    function Resolve
      (H       : Routing_History;
       Expense : Account.Account;
-      Date    : String) return Expense_Route
+      Date    : ALedger.Dates.Date) return Expense_Route
    is
       Best         : Expense_Route := Not_Managed_Route;
       Found        : Boolean       := False;
       Best_Is_Init : Boolean       := False;
-      Best_Date    : Unbounded_String;
+      Best_Date    : ALedger.Dates.Date;
    begin
       for E of H.Entries loop
          if Account.Name (E.Expense) = Account.Name (Expense) then
@@ -106,7 +120,7 @@ package body ALedger.Envelope_Routing is
 
                   when From_Date =>
                      declare
-                        ED : constant String := To_String (E.Effective.Date);
+                        ED : constant ALedger.Dates.Date := E.Effective.Date;
                      begin
                         if ED <= Date then
                            Applies := True;
@@ -114,7 +128,7 @@ package body ALedger.Envelope_Routing is
                               Is_Better := True;
                            elsif Best_Is_Init then
                               Is_Better := True;
-                           elsif ED > To_String (Best_Date) then
+                           elsif ED > Best_Date then
                               Is_Better := True;
                            end if;
                         end if;
@@ -136,10 +150,24 @@ package body ALedger.Envelope_Routing is
       return Best;
    end Resolve;
 
+   function Resolve
+     (H       : Routing_History;
+      Expense : Account.Account;
+      Date    : String) return Expense_Route
+   is
+      Value  : ALedger.Dates.Date;
+      Status : ALedger.Dates.Date_Status;
+   begin
+      if not ALedger.Dates.Parse (Date, Value, Status) then
+         raise Constraint_Error with "invalid routing observation date: " & Date;
+      end if;
+      return Resolve (H, Expense, Value);
+   end Resolve;
+
    function Has_Routing_At
      (H       : Routing_History;
       Expense : Account.Account;
-      Date    : String) return Boolean
+      Date    : ALedger.Dates.Date) return Boolean
    is
    begin
       for E of H.Entries loop
@@ -148,13 +176,27 @@ package body ALedger.Envelope_Routing is
                when Initial =>
                   return True;
                when From_Date =>
-                  if To_String (E.Effective.Date) <= Date then
+                  if E.Effective.Date <= Date then
                      return True;
                   end if;
             end case;
          end if;
       end loop;
       return False;
+   end Has_Routing_At;
+
+   function Has_Routing_At
+     (H       : Routing_History;
+      Expense : Account.Account;
+      Date    : String) return Boolean
+   is
+      Value  : ALedger.Dates.Date;
+      Status : ALedger.Dates.Date_Status;
+   begin
+      if not ALedger.Dates.Parse (Date, Value, Status) then
+         raise Constraint_Error with "invalid routing observation date: " & Date;
+      end if;
+      return Has_Routing_At (H, Expense, Value);
    end Has_Routing_At;
 
    function Has_Routing
