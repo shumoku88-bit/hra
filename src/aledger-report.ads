@@ -1,13 +1,10 @@
 with Ada.Containers.Indefinite_Vectors;
 with ALedger.Money;   use ALedger.Money;
 with ALedger.Account; use ALedger.Account;
+with ALedger.Dates;
 with ALedger.Ledger;  use ALedger.Ledger;
 
 package ALedger.Report is
-
-   --  ========================================================================
-   --  Account Line & Classification Facts
-   --  ========================================================================
 
    type Account_Line is record
       Acc : Account.Account;
@@ -18,10 +15,6 @@ package ALedger.Report is
      (Index_Type   => Positive,
       Element_Type => Account_Line);
 
-   --  ========================================================================
-   --  Trial Balance (試算表)
-   --  ========================================================================
-
    type Trial_Balance is record
       Lines : Line_Vectors.Vector;
       Total : Balance;
@@ -30,11 +23,7 @@ package ALedger.Report is
    function Generate_Trial_Balance (L : Ledger.Ledger) return Trial_Balance;
    function Generate_Trial_Balance_As_Of
      (L          : Ledger.Ledger;
-      As_Of_Date : String) return Trial_Balance;
-
-   --  ========================================================================
-   --  Profit and Loss / Income Statement (損益計算書)
-   --  ========================================================================
+      As_Of_Date : ALedger.Dates.Date) return Trial_Balance;
 
    type Profit_And_Loss is record
       Income_Lines   : Line_Vectors.Vector;
@@ -46,13 +35,8 @@ package ALedger.Report is
 
    function Generate_Profit_And_Loss (L : Ledger.Ledger) return Profit_And_Loss;
    function Generate_Profit_And_Loss_Period
-     (L          : Ledger.Ledger;
-      Start_Date : String;
-      End_Date   : String) return Profit_And_Loss;
-
-   --  ========================================================================
-   --  Balance Sheet (貸借対照表)
-   --  ========================================================================
+     (L      : Ledger.Ledger;
+      Period : ALedger.Dates.Closed_Period) return Profit_And_Loss;
 
    type Balance_Sheet is record
       Asset_Lines               : Line_Vectors.Vector;
@@ -63,12 +47,12 @@ package ALedger.Report is
       Posted_Equity             : Balance;
       Current_Earnings          : Balance;
       Total_Equity              : Balance;
-      Accounting_Equation_Delta : Balance;  --  Must be Zero! (Assets - Liabilities - Equity = 0)
+      Accounting_Equation_Delta : Balance;
    end record;
 
    function Generate_Balance_Sheet (L : Ledger.Ledger) return Balance_Sheet;
    function Generate_Balance_Sheet_As_Of
      (L          : Ledger.Ledger;
-      As_Of_Date : String) return Balance_Sheet;
+      As_Of_Date : ALedger.Dates.Date) return Balance_Sheet;
 
 end ALedger.Report;
