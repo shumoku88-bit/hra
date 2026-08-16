@@ -1,6 +1,5 @@
-with ALedger.Ledger;          use ALedger.Ledger;
-with ALedger.Issues;          use ALedger.Issues;
-with ALedger.Recent_Journal;
+with ALedger.Ledger;    use ALedger.Ledger;
+with ALedger.Issues;    use ALedger.Issues;
 limited with ALedger.Household;
 
 package ALedger.Render is
@@ -28,12 +27,6 @@ package ALedger.Render is
    function Render_Household_Issues
      (Inv : Issues_Inventory) return String;
 
-   --  Evidence-native production form. The semantic Recent Journal owner has
-   --  already selected Actual Transactions through the configured boundary.
-   function Render_Recent_Transactions
-     (Recent : ALedger.Recent_Journal.Observation) return String;
-
-   --  Compatibility renderer retained for callers that only have a Ledger.
    function Render_Recent_Transactions
      (L     : Ledger.Ledger;
       Count : Positive := 5) return String;
