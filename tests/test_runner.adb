@@ -17,6 +17,7 @@ with ALedger.Config_Support;
 with ALedger.Budget_Config;
 with ALedger.Report_Config;
 with ALedger.Proof_Core;
+with ALedger.Proof_Money_Bridge;
 with ALedger.Plan;           use ALedger.Plan;
 with ALedger.Writer;         use ALedger.Writer;
 with ALedger.Render;         use ALedger.Render;
@@ -179,6 +180,182 @@ procedure Test_Runner is
          Backing_Split.Is_Available_Under_Backed,
          "Proof core distinguishes gross-backed from available-under-backed state");
    end Test_Proof_Core;
+
+   procedure Test_Proof_Money_Bridge is
+      package Bridge renames ALedger.Proof_Money_Bridge;
+      package Proof renames ALedger.Proof_Core;
+      use type Bridge.Bridge_Status;
+
+      Q_In        : constant Quantity := Zero_Quantity;
+      Quanta      : Proof.Atomic_Quanta := -1;
+      Status      : Bridge.Bridge_Status;
+      Q_Out       : Quantity := 99.0;
+      Q_Min_Pos   : Quantity;
+      Q_Min_Neg   : Quantity;
+      Q_Signed    : Quantity;
+      Q_Last      : Quantity;
+      Q_First     : Quantity;
+      Q_Plus_One  : Quantity;
+      Q_Minus_One : Quantity;
+      JPY_Comm    : constant Commodity := Make_Commodity ("JPY");
+      USD_Comm    : constant Commodity := Make_Commodity ("USD");
+      BTC_Comm    : constant Commodity := Make_Commodity ("BTC");
+      Bal         : Balance := Empty_Balance;
+   begin
+      Put_Line ("--- Testing ALedger.Proof_Money_Bridge ---");
+
+      -- Law A: Zero
+      Assert
+        (Bridge.To_Atomic_Quanta (Q_In, Quanta, Status)
+           and then Status = Bridge.Success
+           and then Quanta = 0,
+         "Bridge Law A: To_Atomic_Quanta converts Money zero to 0 quanta");
+      Assert
+        (Bridge.To_Money_Quantity (0, Q_Out, Status)
+           and then Status = Bridge.Success
+           and then Q_Out = Zero_Quantity,
+         "Bridge Law A: To_Money_Quantity converts 0 quanta to Money zero");
+
+      -- Law B: Minimum Quantum
+      Assert (Parse_Quantity ("0.00000001", Q_Min_Pos), "Parse min pos quantum");
+      Assert (Parse_Quantity ("-0.00000001", Q_Min_Neg), "Parse min neg quantum");
+      Assert
+        (Bridge.To_Atomic_Quanta (Q_Min_Pos, Quanta, Status)
+           and then Status = Bridge.Success
+           and then Quanta = 1,
+         "Bridge Law B: 0.00000001 converts to 1 quantum");
+      Assert
+        (Bridge.To_Money_Quantity (1, Q_Out, Status)
+           and then Status = Bridge.Success
+           and then Q_Out = Q_Min_Pos,
+         "Bridge Law B: 1 quantum round-trips to 0.00000001");
+      Assert
+        (Bridge.To_Atomic_Quanta (Q_Min_Neg, Quanta, Status)
+           and then Status = Bridge.Success
+           and then Quanta = -1,
+         "Bridge Law B: -0.00000001 converts to -1 quantum");
+      Assert
+        (Bridge.To_Money_Quantity (-1, Q_Out, Status)
+           and then Status = Bridge.Success
+           and then Q_Out = Q_Min_Neg,
+         "Bridge Law B: -1 quantum round-trips to -0.00000001");
+
+      -- Law C: Signed Exact Decimal
+      Assert (Parse_Quantity ("-123.45678901", Q_Signed), "Parse signed decimal");
+      Assert
+        (Bridge.To_Atomic_Quanta (Q_Signed, Quanta, Status)
+           and then Status = Bridge.Success
+           and then Quanta = -12_345_678_901,
+         "Bridge Law C: -123.45678901 converts to -12_345_678_901 quanta");
+      Assert
+        (Bridge.To_Money_Quantity (-12_345_678_901, Q_Out, Status)
+           and then Status = Bridge.Success
+           and then Q_Out = Q_Signed,
+         "Bridge Law C: -12_345_678_901 quanta round-trips to original Quantity");
+
+      -- Law D: Atomic Upper/Lower Boundary
+      Assert
+        (Bridge.To_Money_Quantity (Proof.Atomic_Quanta'Last, Q_Last, Status)
+           and then Status = Bridge.Success,
+         "Bridge Law D: Atomic_Quanta'Last converts to Money.Quantity");
+      Assert
+        (Bridge.To_Atomic_Quanta (Q_Last, Quanta, Status)
+           and then Status = Bridge.Success
+           and then Quanta = Proof.Atomic_Quanta'Last,
+         "Bridge Law D: Atomic_Quanta'Last exact round-trip match");
+      Assert
+        (Bridge.To_Money_Quantity (Proof.Atomic_Quanta'First, Q_First, Status)
+           and then Status = Bridge.Success,
+         "Bridge Law D: Atomic_Quanta'First converts to Money.Quantity");
+      Assert
+        (Bridge.To_Atomic_Quanta (Q_First, Quanta, Status)
+           and then Status = Bridge.Success
+           and then Quanta = Proof.Atomic_Quanta'First,
+         "Bridge Law D: Atomic_Quanta'First exact round-trip match");
+
+      -- Law E: Just Outside Atomic Range
+      Q_Plus_One := Q_Last + 0.00000001;
+      Assert
+        (not Bridge.To_Atomic_Quanta (Q_Plus_One, Quanta, Status)
+           and then Status = Bridge.Out_Of_Proof_Input_Range
+           and then Quanta = 0,
+         "Bridge Law E: Atomic_Quanta'Last + 1 rejected as Out_Of_Proof_Input_Range");
+      Q_Minus_One := Q_First - 0.00000001;
+      Assert
+        (not Bridge.To_Atomic_Quanta (Q_Minus_One, Quanta, Status)
+           and then Status = Bridge.Out_Of_Proof_Input_Range
+           and then Quanta = 0,
+         "Bridge Law E: Atomic_Quanta'First - 1 rejected as Out_Of_Proof_Input_Range");
+
+      -- Law F: Wider Proof Result
+      Assert
+        (Bridge.To_Money_Quantity (Proof.Derived_Quanta'Last, Q_Out, Status)
+           and then Status = Bridge.Success,
+         "Bridge Law F: Derived_Quanta'Last converts to Money.Quantity");
+      Assert
+        (Bridge.To_Money_Quantity (Proof.Derived_Quanta'First, Q_Out, Status)
+           and then Status = Bridge.Success,
+         "Bridge Law F: Derived_Quanta'First converts to Money.Quantity");
+
+      -- Law G: Money Output Range Rejection
+      Assert
+        (not Bridge.To_Money_Quantity (Long_Long_Integer'Last, Q_Out, Status)
+           and then Status = Bridge.Out_Of_Money_Output_Range
+           and then Q_Out = Zero_Quantity,
+         "Bridge Law G: Long_Long_Integer'Last rejected as Out_Of_Money_Output_Range");
+      Assert
+        (not Bridge.To_Money_Quantity (1_000_000_000_000_000_000, Q_Out, Status)
+           and then Status = Bridge.Out_Of_Money_Output_Range
+           and then Q_Out = Zero_Quantity,
+         "Bridge Law G: 10^18 quanta rejected as Out_Of_Money_Output_Range");
+
+      -- Law H: Balance Coordinate
+      Bal := Add_Balance
+        (Singleton_Balance (Make_Amount (JPY_Comm, 1250.0)),
+         Singleton_Balance (Make_Amount (USD_Comm, -50.25)));
+      Assert
+        (Bridge.Balance_To_Atomic_Quanta (Bal, JPY_Comm, Quanta, Status)
+           and then Status = Bridge.Success
+           and then Quanta = 125_000_000_000,
+         "Bridge Law H: Balance_To_Atomic_Quanta extracts exact JPY coordinate");
+      Assert
+        (Bridge.Balance_To_Atomic_Quanta (Bal, USD_Comm, Quanta, Status)
+           and then Status = Bridge.Success
+           and then Quanta = -5_025_000_000,
+         "Bridge Law H: Balance_To_Atomic_Quanta extracts exact USD coordinate");
+      Assert
+        (Bridge.Balance_To_Atomic_Quanta (Bal, BTC_Comm, Quanta, Status)
+           and then Status = Bridge.Success
+           and then Quanta = 0,
+         "Bridge Law H: Balance_To_Atomic_Quanta returns 0 for missing coordinate");
+
+      -- Law I: Singleton Balance
+      declare
+         Sing_Bal : Balance;
+      begin
+         Assert
+           (Bridge.To_Singleton_Balance (JPY_Comm, 500_000_000_000, Sing_Bal, Status)
+              and then Status = Bridge.Success
+              and then Lookup_Balance (Sing_Bal, JPY_Comm) = 5000.0
+              and then Lookup_Balance (Sing_Bal, USD_Comm) = Zero_Quantity,
+            "Bridge Law I: To_Singleton_Balance creates exact single-coordinate Balance");
+         Assert
+           (Bridge.To_Singleton_Balance (JPY_Comm, 0, Sing_Bal, Status)
+              and then Status = Bridge.Success
+              and then Is_Zero_Balance (Sing_Bal),
+            "Bridge Law I: To_Singleton_Balance with 0 quanta produces canonical zero balance");
+         Assert
+           (not Bridge.To_Singleton_Balance (JPY_Comm, Long_Long_Integer'Last, Sing_Bal, Status)
+              and then Status = Bridge.Out_Of_Money_Output_Range,
+            "Bridge Law I: To_Singleton_Balance rejects out-of-range proof output");
+      end;
+
+      -- Law J: Scale Characterization
+      pragma Warnings (Off, "condition is always True");
+      Assert (Quantity'Small = 0.00000001, "Bridge Law J: Money.Quantity'Small is 10^-8");
+      Assert (Proof.Decimal_Scale = 100_000_000, "Bridge Law J: Proof_Core.Decimal_Scale is 10^8");
+      pragma Warnings (On, "condition is always True");
+   end Test_Proof_Money_Bridge;
 
    procedure Test_Money is
       JPY, USD : Commodity;
@@ -1809,6 +1986,7 @@ begin
    Put_Line ("==================================================");
 
    Test_Proof_Core;
+   Test_Proof_Money_Bridge;
    Test_Money;
    Test_Account;
    Test_Ledger;

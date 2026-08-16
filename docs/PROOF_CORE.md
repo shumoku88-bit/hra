@@ -37,6 +37,7 @@ SPARKの目的は「家計が望ましい状態であること」を証明する
 - Actual consumption / refund classification
 - Plan open/completed lifecycleとcommitment classification
 - canonical Account/Commodityからproof coordinateを作るadapter
+- `ALedger.Proof_Money_Bridge`: `ALedger.Money.Quantity` / `Balance`とproof quanta（`10^-8`）のexact checked conversion
 - proof rangeへexact conversionできない値の明示的拒否
 - CLI、TUI、rendering、proposal、writer effect
 
@@ -153,22 +154,22 @@ negative Envelopeが別Envelopeのpositive claimを相殺してrequired funding�
 
 未接続または未証明:
 
-- `ALedger.Money.Quantity`とproof quantaのexact checked bridge
-- multi-Commodity `Balance`とCommodityごとのproof evaluationのbridge
-- canonical Account/Commodityとproof IDのbijection
+- production Envelopeへのproof core接続（Phase C）
+- production `Backing_Policy`へのproof result接続（Phase D）
+- canonical Account/Commodityとproof IDのbijection / Commodity proof ID assignment
+- multi-Commodity orchestration
 - Budget movementからEntitlementへのfoldそのもの
 - stock origin / Observed_Through selection
 - Expense routingとConsumption classification
 - Fulfillment routingとcompletion-root stock membership
 - open Plan Commitment classification
 - Asset funding observation through date
-- production `Backing_Policy`へのproof result接続
 - durable identity、completion、reversal provenance
 - writer effect
 
 ## 6. Migration plan
 
-### Phase A: current Household proof foundation
+### Phase A: current Household proof foundation (completed)
 
 - proof-only normalized types
 - strict standalone proof project
@@ -177,12 +178,14 @@ negative Envelopeが別Envelopeのpositive claimを相殺してrequired funding�
 - current Backing Gross / Available law
 - stale proof-only compatibility lawを残さない
 
-### Phase B: Money bridge
+### Phase B: Money bridge (completed)
 
-- `ALedger.Money.Quantity`とのexact checked conversion
-- round-trip test
-- range rejection
-- multi-Commodity Balanceから一つのCommodity coordinateをexactに取り出すbridge
+- `ALedger.Proof_Money_Bridge`がowner
+- `ALedger.Money.Quantity`と`ALedger.Proof_Core` quanta（`10^-8`）のexact checked conversion
+- Atomic input range rejection（Moneyでは合法でもproof operational profile外の値を`Out_Of_Proof_Input_Range`として明示拒否）
+- wider proof output -> Money checked conversion（`Derived_Quanta`やBacking aggregateなどAtomicより広いLong_Long_Integer proof結果をexactに`Money.Quantity`へ戻し、overflowは`Out_Of_Money_Output_Range`で明示拒否）
+- one-Commodity Balance coordinate bridge（指定された既知Commodityの一座標のみをexactに取り出し、欠損座標は`Money.Lookup_Balance`のcanonical zeroとして扱う。`To_Singleton_Balance`によるsingleton balance復元）
+- round-trip / boundary / scale characterization test (`tests/test_proof_money_bridge.adb`)
 
 ### Phase C: Envelope production connection
 
