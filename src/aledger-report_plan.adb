@@ -9,6 +9,15 @@ package body ALedger.Report_Plan is
       Range_Current_Cycle_Context_Required,
       Range_Observation_Outside_Current_Cycle);
 
+   type Current_Cycle_Context (Available : Boolean := False) is record
+      case Available is
+         when True =>
+            Period : ALedger.Dates.Half_Open_Period;
+         when False =>
+            null;
+      end case;
+   end record;
+
    function Resolve_Closed_Boundary
      (Boundary    : ALedger.Report_Config.Date_Boundary;
       Latest_Date : ALedger.Dates.Date;
@@ -54,13 +63,12 @@ package body ALedger.Report_Plan is
    end Journal_Beginning_Through;
 
    function Resolve_Range
-     (Spec              : ALedger.Report_Config.Range_Spec;
-      Latest_Date       : ALedger.Dates.Date;
-      L                 : Ledger.Ledger;
-      Has_Current_Cycle : Boolean;
-      Current_Cycle     : ALedger.Dates.Half_Open_Period;
-      Result            : out ALedger.Dates.Closed_Period;
-      Status            : out Range_Resolve_Status) return Boolean
+     (Spec          : ALedger.Report_Config.Range_Spec;
+      Latest_Date   : ALedger.Dates.Date;
+      L             : Ledger.Ledger;
+      Cycle_Context : Current_Cycle_Context;
+      Result        : out ALedger.Dates.Closed_Period;
+      Status        : out Range_Resolve_Status) return Boolean
    is
       use ALedger.Report_Config;
       Through : ALedger.Dates.Date;
@@ -68,16 +76,18 @@ package body ALedger.Report_Plan is
    begin
       case Spec.Kind is
          when Current_Cycle_To_Date =>
-            if not Has_Current_Cycle then
+            if not Cycle_Context.Available then
                Status := Range_Current_Cycle_Context_Required;
                return False;
-            elsif not ALedger.Dates.Contains (Current_Cycle, Latest_Date) then
+            elsif not ALedger.Dates.Contains
+              (Cycle_Context.Period, Latest_Date)
+            then
                Status := Range_Observation_Outside_Current_Cycle;
                return False;
             end if;
 
             if ALedger.Dates.Make_Closed_Period
-              (ALedger.Dates.First (Current_Cycle), Latest_Date, Result)
+              (ALedger.Dates.First (Cycle_Context.Period), Latest_Date, Result)
             then
                Status := Range_Success;
                return True;
@@ -122,13 +132,12 @@ package body ALedger.Report_Plan is
    end Needs_Current_Cycle;
 
    function Resolve_Internal
-     (Latest_Date       : ALedger.Dates.Date;
-      L                 : Ledger.Ledger;
-      Has_Current_Cycle : Boolean;
-      Current_Cycle     : ALedger.Dates.Half_Open_Period;
-      Plan              : ALedger.Report_Config.Report_Plan;
-      Result            : out Resolved_Report_Plan;
-      Status            : out Resolve_Status) return Boolean
+     (Latest_Date   : ALedger.Dates.Date;
+      L             : Ledger.Ledger;
+      Cycle_Context : Current_Cycle_Context;
+      Plan          : ALedger.Report_Config.Report_Plan;
+      Result        : out Resolved_Report_Plan;
+      Status        : out Resolve_Status) return Boolean
    is
       Resolved     : Resolved_Report_Plan;
       Range_Status : Range_Resolve_Status;
@@ -155,8 +164,7 @@ package body ALedger.Report_Plan is
         (Plan.Profit_And_Loss,
          Latest_Date,
          L,
-         Has_Current_Cycle,
-         Current_Cycle,
+         Cycle_Context,
          Resolved.Profit_And_Loss,
          Range_Status)
       then
@@ -175,8 +183,7 @@ package body ALedger.Report_Plan is
         (Plan.Daily_Flow,
          Latest_Date,
          L,
-         Has_Current_Cycle,
-         Current_Cycle,
+         Cycle_Context,
          Resolved.Daily_Flow,
          Range_Status)
       then
@@ -196,8 +203,7 @@ package body ALedger.Report_Plan is
           (Plan.Monthly_Accounts,
            Latest_Date,
            L,
-           False,
-           Current_Cycle,
+           (Available => False),
            Resolved.Monthly_Accounts,
            Range_Status)
       then
@@ -227,7 +233,7 @@ package body ALedger.Report_Plan is
       Result      : out Resolved_Report_Plan;
       Status      : out Resolve_Status) return Boolean
    is
-      No_Cycle : ALedger.Dates.Half_Open_Period;
+      No_Cycle : constant Current_Cycle_Context := (Available => False);
    begin
       if Needs_Current_Cycle (Plan) then
          Status := Current_Cycle_Context_Required;
@@ -237,7 +243,6 @@ package body ALedger.Report_Plan is
       return Resolve_Internal
         (Latest_Date,
          L,
-         False,
          No_Cycle,
          Plan,
          Result,
@@ -250,13 +255,15 @@ package body ALedger.Report_Plan is
       Current_Cycle : ALedger.Dates.Half_Open_Period;
       Plan          : ALedger.Report_Config.Report_Plan;
       Result        : out Resolved_Report_Plan;
-      Status        : out Resolve_Status) return Boolean is
+      Status        : out Resolve_Status) return Boolean
+   is
+      Cycle : constant Current_Cycle_Context :=
+        (Available => True, Period => Current_Cycle);
    begin
       return Resolve_Internal
         (Latest_Date,
          L,
-         True,
-         Current_Cycle,
+         Cycle,
          Plan,
          Result,
          Status);
