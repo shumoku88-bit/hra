@@ -35,13 +35,6 @@ package body ALedger.Household is
       Observation : Source_Observation;
       Config_Diag : ALedger.Config_Support.Config_Diagnostic;
 
-      procedure Merge_Declarations (From : Ledger.Ledger) is
-      begin
-         for Decl of Declarations (From.Registry) loop
-            Register_Or_Update_Account (Result.Registry, Decl);
-         end loop;
-      end Merge_Declarations;
-
       function Merge_Transactions (From : Ledger.Ledger) return Boolean is
       begin
          for Tx of From.Transactions loop
@@ -109,6 +102,30 @@ package body ALedger.Household is
          end if;
          return True;
       end Validate_Declared_Account;
+
+      function Validate_Ledger_Accounts
+        (From : Ledger.Ledger; Path : String) return Boolean
+      is
+      begin
+         for Tx of From.Transactions loop
+            for Posting of Tx.Postings loop
+               declare
+                  Decl : Account_Declaration;
+               begin
+                  if not Lookup_Declaration
+                    (Result.Registry, Posting.Acc, Decl)
+                    or else Decl.Acc /= Posting.Acc
+                  then
+                     Error_Msg := To_Unbounded_String
+                       (Path & ": Account is not declared in accounts.journal: " &
+                        Account.Name (Posting.Acc));
+                     return False;
+                  end if;
+               end;
+            end loop;
+         end loop;
+         return True;
+      end Validate_Ledger_Accounts;
 
       function Validate_Config_Accounts return Boolean is
          H : ALedger.Household_Config.Household_Configuration
@@ -219,7 +236,9 @@ package body ALedger.Household is
          Result.Actual_Ledger   := Actual.Value;
          Result.Actual_Evidence := Actual.Evidence;
       end;
-      Merge_Declarations (Result.Actual_Ledger);
+      if not Validate_Ledger_Accounts (Result.Actual_Ledger, "actual.journal") then
+         return False;
+      end if;
       if not Merge_Transactions (Result.Actual_Ledger) then
          return False;
       end if;
@@ -233,7 +252,9 @@ package body ALedger.Household is
          Result.Plan_Ledger   := Plan.Value;
          Result.Plan_Evidence := Plan.Evidence;
       end;
-      Merge_Declarations (Result.Plan_Ledger);
+      if not Validate_Ledger_Accounts (Result.Plan_Ledger, "plan.journal") then
+         return False;
+      end if;
 
       declare
          Budget : ALedger.Journal_Loader.Journal_Observation;
@@ -243,7 +264,9 @@ package body ALedger.Household is
          end if;
          Result.Budget_Ledger := Budget.Value;
       end;
-      Merge_Declarations (Result.Budget_Ledger);
+      if not Validate_Ledger_Accounts (Result.Budget_Ledger, "budget.journal") then
+         return False;
+      end if;
       if not Merge_Transactions (Result.Budget_Ledger) then
          return False;
       end if;
@@ -257,6 +280,9 @@ package body ALedger.Household is
          return False;
       end if;
 
+      --  accounts.journal is the sole Account declaration authority. The
+      --  source-specific Journal registries are parser-local observations and
+      --  are replaced only after their posting references have been checked.
       Result.Combined_Ledger.Registry := Result.Registry;
       Result.Actual_Ledger.Registry   := Result.Registry;
       Result.Plan_Ledger.Registry     := Result.Registry;
