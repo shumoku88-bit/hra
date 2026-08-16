@@ -56,16 +56,19 @@ package body ALedger.Envelope_Fulfillment is
       end if;
    end Add_Managed;
 
-   function Observe
-     (Completed        : ALedger.Plan_Observation.Completed_Plan_Vectors.Vector;
-      Actual_Ledger    : ALedger.Ledger.Ledger;
-      Registry         : ALedger.Account.Account_Registry;
-      Routing          : ALedger.Fulfillment_Routing.Fulfillment_Routing_History;
-      Observed_Through : ALedger.Dates.Date;
-      Result           : out Envelope_Fulfillment;
-      Diag             : out Observe_Diagnostic) return Boolean
+   function Observe_Internal
+     (Completed            : ALedger.Plan_Observation.Completed_Plan_Vectors.Vector;
+      Actual_Ledger        : ALedger.Ledger.Ledger;
+      Registry             : ALedger.Account.Account_Registry;
+      Routing              : ALedger.Fulfillment_Routing.Fulfillment_Routing_History;
+      Require_Stock_Origin : Boolean;
+      Entitlement          : ALedger.Envelope_Entitlement.Entitlement_Observation;
+      Observed_Through     : ALedger.Dates.Date;
+      Result               : out Envelope_Fulfillment;
+      Diag                 : out Observe_Diagnostic) return Boolean
    is
-      Output           : Envelope_Fulfillment := Empty_Fulfillment (Observed_Through);
+      Output           : Envelope_Fulfillment :=
+        Empty_Fulfillment (Observed_Through);
       Event_Index      : String_Natural_Maps.Map;
       Reversal_Targets : String_Maps.Map;
 
@@ -94,8 +97,24 @@ package body ALedger.Envelope_Fulfillment is
          end if;
       end Direction;
 
-      --  Cheap relation traversal used only to decide whether an Actual belongs
-      --  to the candidate root chain. Exact reversal validity is checked below.
+      function In_Stock_Horizon
+        (Completion_Date : ALedger.Dates.Date;
+         Amt             : ALedger.Money.Amount) return Boolean
+      is
+      begin
+         if not Require_Stock_Origin then
+            return True;
+         elsif not ALedger.Envelope_Entitlement.Has_Origin
+           (Entitlement, Amt.Comm)
+         then
+            return False;
+         else
+            return Completion_Date >=
+              ALedger.Envelope_Entitlement.Origin_For
+                (Entitlement, Amt.Comm);
+         end if;
+      end In_Stock_Horizon;
+
       function Root_Event_Id (Event_Id : String) return Unbounded_String is
          Current : Unbounded_String := To_Unbounded_String (Event_Id);
       begin
@@ -112,14 +131,9 @@ package body ALedger.Envelope_Fulfillment is
               (Reversal_Targets.Element (To_String (Current)));
          end loop;
 
-         --  A reversal cycle cannot be evidence for a stable root completion.
          return Null_Unbounded_String;
       end Root_Event_Id;
 
-      --  Validate every relation edge from Event_Id back to Root_Id using the
-      --  Ledger's canonical reversal law. Posting order is deliberately not part
-      --  of reversal identity. Depth parity alone determines whether the fixed
-      --  root target is currently applied or reversed.
       function Reversal_Depth_To_Root
         (Event_Id : String;
          Root_Id  : String;
@@ -182,8 +196,6 @@ package body ALedger.Envelope_Fulfillment is
          Plan_Id => Null_Unbounded_String,
          Message => Null_Unbounded_String);
 
-      --  Stable Actual identity and reversal relation are already carried by the
-      --  admitted Ledger. Build only an observation index; do not infer links.
       for I in 1 .. Natural (Actual_Ledger.Transactions.Length) loop
          declare
             Tx     : constant ALedger.Ledger.Transaction :=
@@ -210,7 +222,8 @@ package body ALedger.Envelope_Fulfillment is
       for Pair of Completed loop
          declare
             Completion_Date : constant ALedger.Dates.Date := Pair.Actual_Tx.Date;
-            Decision        : ALedger.Fulfillment_Routing.Fulfillment_Routing_Decision;
+            Decision        :
+              ALedger.Fulfillment_Routing.Fulfillment_Routing_Decision;
          begin
             if Completion_Date <= Observed_Through
               and then ALedger.Fulfillment_Routing.Resolve_Decision
@@ -219,10 +232,14 @@ package body ALedger.Envelope_Fulfillment is
                 ALedger.Fulfillment_Routing.Fulfills_Envelope
             then
                declare
-                  Plan_Count   : constant Natural := Natural (Pair.Plan_Tx.Postings.Length);
-                  Actual_Count : constant Natural := Natural (Pair.Actual_Tx.Postings.Length);
-                  Root_Id      : constant String := To_String (Pair.Actual_Tx.Event_ID);
-                  Reverses_Id  : constant String := To_String (Pair.Actual_Tx.Reverses_ID);
+                  Plan_Count : constant Natural :=
+                    Natural (Pair.Plan_Tx.Postings.Length);
+                  Actual_Count : constant Natural :=
+                    Natural (Pair.Actual_Tx.Postings.Length);
+                  Root_Id : constant String :=
+                    To_String (Pair.Actual_Tx.Event_ID);
+                  Reverses_Id : constant String :=
+                    To_String (Pair.Actual_Tx.Reverses_ID);
                begin
                   if Root_Id'Length = 0 then
                      Fail
@@ -244,11 +261,9 @@ package body ALedger.Envelope_Fulfillment is
                      return False;
                   end if;
 
-                  --  Validate the whole root Plan/Actual shape before selecting
-                  --  non-Expense target positions.
                   for I in 1 .. Plan_Count loop
                      declare
-                        Plan_Post   : constant ALedger.Ledger.Posting :=
+                        Plan_Post : constant ALedger.Ledger.Posting :=
                           Pair.Plan_Tx.Postings.Element (I);
                         Actual_Post : constant ALedger.Ledger.Posting :=
                           Pair.Actual_Tx.Postings.Element (I);
@@ -281,8 +296,10 @@ package body ALedger.Envelope_Fulfillment is
                      declare
                         Plan_Post : constant ALedger.Ledger.Posting :=
                           Pair.Plan_Tx.Postings.Element (I);
-                        Category  : ALedger.Account.Account_Type;
-                        Known     : constant Boolean :=
+                        Actual_Post : constant ALedger.Ledger.Posting :=
+                          Pair.Actual_Tx.Postings.Element (I);
+                        Category : ALedger.Account.Account_Type;
+                        Known : constant Boolean :=
                           ALedger.Account.Account_Type_For
                             (Registry, Plan_Post.Acc, Category);
                      begin
@@ -297,48 +314,57 @@ package body ALedger.Envelope_Fulfillment is
 
                         if Plan_Post.Amt.Val > ALedger.Money.Zero_Quantity
                           and then Category /= ALedger.Account.Expense
+                          and then In_Stock_Horizon
+                            (Completion_Date, Actual_Post.Amt)
                         then
                            declare
-                              Amounts     : Fulfillment_Amounts := Empty_Amounts;
+                              Amounts : Fulfillment_Amounts := Empty_Amounts;
                               Root_Amount : constant ALedger.Money.Amount :=
-                                Pair.Actual_Tx.Postings.Element (I).Amt;
+                                Actual_Post.Amt;
                            begin
                               for Tx of Actual_Ledger.Transactions loop
                                  declare
-                                    Ev_Id : constant String := To_String (Tx.Event_ID);
+                                    Ev_Id : constant String :=
+                                      To_String (Tx.Event_ID);
                                  begin
                                     if Tx.Date <= Observed_Through
                                       and then Ev_Id'Length > 0
-                                      and then To_String (Root_Event_Id (Ev_Id)) = Root_Id
+                                      and then To_String
+                                        (Root_Event_Id (Ev_Id)) = Root_Id
                                     then
                                        declare
                                           Depth : Natural;
                                        begin
                                           if not Reversal_Depth_To_Root
-                                             (Ev_Id, Root_Id, Depth)
+                                            (Ev_Id, Root_Id, Depth)
                                           then
                                              Fail
-                                                (Reversal_Shape_Mismatch,
-                                                 Pair.ID,
-                                                 "Fulfillment reversal chain must consist of exact Ledger reversal links");
+                                               (Reversal_Shape_Mismatch,
+                                                Pair.ID,
+                                                "Fulfillment reversal chain must consist of exact Ledger reversal links");
                                              return False;
                                           end if;
 
                                           if Depth mod 2 = 0 then
-                                             Amounts.Applied := Add_Balance
-                                                (Amounts.Applied,
-                                                 Singleton_Balance (Root_Amount));
+                                             Amounts.Applied :=
+                                               Add_Balance
+                                                 (Amounts.Applied,
+                                                  Singleton_Balance
+                                                    (Root_Amount));
                                           else
-                                             Amounts.Reversed := Add_Balance
-                                                (Amounts.Reversed,
-                                                 Singleton_Balance (Root_Amount));
+                                             Amounts.Reversed :=
+                                               Add_Balance
+                                                 (Amounts.Reversed,
+                                                  Singleton_Balance
+                                                    (Root_Amount));
                                           end if;
                                        end;
                                     end if;
                                  end;
                               end loop;
 
-                              Add_Managed (Output, Decision.Route.Target, Amounts);
+                              Add_Managed
+                                (Output, Decision.Route.Target, Amounts);
                               Output.Evidence.Append
                                 (Fulfillment_Evidence'
                                    (Plan_ID              => Pair.ID,
@@ -363,7 +389,52 @@ package body ALedger.Envelope_Fulfillment is
 
       Result := Output;
       return True;
+   end Observe_Internal;
+
+   function Observe
+     (Completed        : ALedger.Plan_Observation.Completed_Plan_Vectors.Vector;
+      Actual_Ledger    : ALedger.Ledger.Ledger;
+      Registry         : ALedger.Account.Account_Registry;
+      Routing          : ALedger.Fulfillment_Routing.Fulfillment_Routing_History;
+      Observed_Through : ALedger.Dates.Date;
+      Result           : out Envelope_Fulfillment;
+      Diag             : out Observe_Diagnostic) return Boolean
+   is
+   begin
+      return Observe_Internal
+        (Completed,
+         Actual_Ledger,
+         Registry,
+         Routing,
+         False,
+         ALedger.Envelope_Entitlement.Empty_Observation,
+         Observed_Through,
+         Result,
+         Diag);
    end Observe;
+
+   function Observe_Stock
+     (Completed        : ALedger.Plan_Observation.Completed_Plan_Vectors.Vector;
+      Actual_Ledger    : ALedger.Ledger.Ledger;
+      Registry         : ALedger.Account.Account_Registry;
+      Routing          : ALedger.Fulfillment_Routing.Fulfillment_Routing_History;
+      Entitlement      : ALedger.Envelope_Entitlement.Entitlement_Observation;
+      Observed_Through : ALedger.Dates.Date;
+      Result           : out Envelope_Fulfillment;
+      Diag             : out Observe_Diagnostic) return Boolean
+   is
+   begin
+      return Observe_Internal
+        (Completed,
+         Actual_Ledger,
+         Registry,
+         Routing,
+         True,
+         Entitlement,
+         Observed_Through,
+         Result,
+         Diag);
+   end Observe_Stock;
 
    function Fulfillment_For
      (Obs : Envelope_Fulfillment;
