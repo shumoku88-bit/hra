@@ -2,6 +2,7 @@ with ALedger.Journal_Loader;
 with ALedger.Canonical_Source; use ALedger.Canonical_Source;
 with ALedger.Config_Support;
 with ALedger.Budget_Source_Adapter;
+with ALedger.Actual_Admission;
 with ALedger.Plan;
 with ALedger.Plan_Observation;
 
@@ -13,8 +14,10 @@ package body ALedger.Household is
       State.Registry            := Empty_Registry;
       State.Actual_Ledger       := Empty_Ledger;
       State.Actual_Evidence.Transactions.Clear;
+      State.Actual_Identity     := ALedger.Actual_Admission.Empty_Observation;
       State.Plan_Ledger         := Empty_Ledger;
       State.Plan_Evidence.Transactions.Clear;
+      State.Plan_Ids            := ALedger.Plan.Empty_Plan_Id_Universe;
       State.Budget_Ledger       := Empty_Ledger;
       State.Combined_Ledger     := Empty_Ledger;
       State.Envelope_Registry   := ALedger.Envelope.Empty_Registry;
@@ -268,6 +271,28 @@ package body ALedger.Household is
       if not Validate_Ledger_Accounts (Result.Actual_Ledger, "actual.journal") then
          return False;
       end if;
+      declare
+         Actual_Diag : ALedger.Actual_Admission.Admission_Diagnostic;
+      begin
+         if not ALedger.Actual_Admission.Admit
+           (Result.Actual_Ledger,
+            Result.Actual_Evidence,
+            Result.Actual_Identity,
+            Actual_Diag)
+         then
+            Error_Msg := To_Unbounded_String
+              ("actual.journal: failed durable identity admission: " &
+               ALedger.Actual_Admission.Admission_Status'Image
+                 (Actual_Diag.Status) &
+               (if Length (Actual_Diag.Actual_Id) > 0
+                then " [actual-id=" & To_String (Actual_Diag.Actual_Id) & "]"
+                else "") &
+               (if Length (Actual_Diag.Message) > 0
+                then ": " & To_String (Actual_Diag.Message)
+                else ""));
+            return False;
+         end if;
+      end;
       if not Merge_Transactions (Result.Actual_Ledger) then
          return False;
       end if;
@@ -284,6 +309,28 @@ package body ALedger.Household is
       if not Validate_Ledger_Accounts (Result.Plan_Ledger, "plan.journal") then
          return False;
       end if;
+      declare
+         Plan_Diag : ALedger.Plan_Observation.Admission_Diagnostic;
+      begin
+         if not ALedger.Plan_Observation.Admit_Plan_Identities
+           (Result.Plan_Ledger,
+            Result.Plan_Evidence,
+            Result.Plan_Ids,
+            Plan_Diag)
+         then
+            Error_Msg := To_Unbounded_String
+              ("plan.journal: failed stable Plan identity admission: " &
+               ALedger.Plan_Observation.Admission_Status'Image
+                 (Plan_Diag.Status) &
+               (if Length (Plan_Diag.Plan_Id) > 0
+                then " [plan-id=" & To_String (Plan_Diag.Plan_Id) & "]"
+                else "") &
+               (if Length (Plan_Diag.Message) > 0
+                then ": " & To_String (Plan_Diag.Message)
+                else ""));
+            return False;
+         end if;
+      end;
 
       declare
          Budget : ALedger.Journal_Loader.Journal_Observation;
@@ -397,27 +444,9 @@ package body ALedger.Household is
 
       if not Result.Household_Policy.Envelope_History.Fulfillment_Routing.Is_Empty then
          declare
-            Known_Plans : ALedger.Plan.Plan_Id_Universe;
-            Plan_Diag   : ALedger.Plan_Observation.Admission_Diagnostic;
-            Decisions   : ALedger.Fulfillment_Routing.Decision_Vectors.Vector;
-            F_Status    : ALedger.Fulfillment_Routing.Admission_Status;
+            Decisions : ALedger.Fulfillment_Routing.Decision_Vectors.Vector;
+            F_Status  : ALedger.Fulfillment_Routing.Admission_Status;
          begin
-            if not ALedger.Plan_Observation.Admit_Plan_Identities
-              (Result.Plan_Ledger,
-               Result.Plan_Evidence,
-               Known_Plans,
-               Plan_Diag)
-            then
-               Error_Msg := To_Unbounded_String
-                 ("plan.journal: failed to admit stable Plan identities: " &
-                  ALedger.Plan_Observation.Admission_Status'Image
-                    (Plan_Diag.Status) &
-                  (if Length (Plan_Diag.Message) > 0
-                   then ": " & To_String (Plan_Diag.Message)
-                   else ""));
-               return False;
-            end if;
-
             for Entry_Data of
               Result.Household_Policy.Envelope_History.Fulfillment_Routing
             loop
@@ -473,7 +502,7 @@ package body ALedger.Household is
 
             if not ALedger.Fulfillment_Routing.Admit
               (Decisions,
-               Known_Plans,
+               Result.Plan_Ids,
                Result.Envelope_Registry,
                Result.Fulfillment_History,
                F_Status)
