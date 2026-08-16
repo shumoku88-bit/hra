@@ -116,8 +116,7 @@ procedure Test_Envelope_Fulfillment is
      "id = ""savings""" & ASCII.LF &
      "label = ""Savings""" & ASCII.LF &
      "pacing = ""daily""" & ASCII.LF &
-     "backing-pool = ""liquid""" & ASCII.LF &
-     "expense-accounts = []" & ASCII.LF;
+     "backing-pool = ""liquid""" & ASCII.LF;
 
    Registry       : ALedger.Account.Account_Registry := ALedger.Account.Empty_Registry;
    Plans          : ALedger.Ledger.Ledger;
@@ -260,6 +259,52 @@ begin
            and then Evidence.Actual_Header_Line > 0
            and then To_String (Evidence.Root_Actual_Event_ID) = "act-save",
          "Fulfillment preserves exact-source and Actual identity evidence");
+   end;
+
+   --  Stock membership belongs to the completion root. A later reversal chain
+   --  cannot pull a pre-origin completion into the clean Envelope epoch.
+   declare
+      Stock_Entitlement : ALedger.Envelope_Entitlement.Entitlement_Observation :=
+        ALedger.Envelope_Entitlement.Empty_Observation;
+      Stock_Fulfillment : ALedger.Envelope_Fulfillment.Envelope_Fulfillment;
+   begin
+      Stock_Entitlement := ALedger.Envelope_Entitlement.Record_Origin
+        (Stock_Entitlement, JPY, D ("2026-08-17"));
+      Assert
+        (ALedger.Envelope_Fulfillment.Observe_Stock
+           (Completed,
+            Actual,
+            Registry,
+            Routing,
+            Stock_Entitlement,
+            D ("2026-09-02"),
+            Stock_Fulfillment,
+            Fulfill_Diag),
+         "Observe Fulfillment with source-owned stock origin");
+      Assert
+        (ALedger.Money.Lookup_Balance
+           (ALedger.Envelope_Fulfillment.Net_For
+              (Stock_Fulfillment, Savings_Env), JPY) = 0.0
+           and then Stock_Fulfillment.Evidence.Is_Empty,
+         "pre-origin completion stays outside stock after later reversals");
+
+      Stock_Entitlement := ALedger.Envelope_Entitlement.Empty_Observation;
+      Stock_Entitlement := ALedger.Envelope_Entitlement.Record_Origin
+        (Stock_Entitlement, JPY, D ("2026-08-16"));
+      Assert
+        (ALedger.Envelope_Fulfillment.Observe_Stock
+           (Completed,
+            Actual,
+            Registry,
+            Routing,
+            Stock_Entitlement,
+            D ("2026-09-02"),
+            Stock_Fulfillment,
+            Fulfill_Diag)
+         and then ALedger.Money.Lookup_Balance
+           (ALedger.Envelope_Fulfillment.Net_For
+              (Stock_Fulfillment, Savings_Env), JPY) = 450.0,
+         "completion at stock origin remains in cumulative Fulfillment");
    end;
 
    declare
