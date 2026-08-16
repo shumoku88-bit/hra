@@ -4,6 +4,8 @@ with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
 with Ada.Text_IO;           use Ada.Text_IO;
 with ALedger.Journal_Loader;
 with ALedger.Ledger;        use ALedger.Ledger;
+with ALedger.Plan;
+with ALedger.Plan_Observation;
 
 procedure Test_Journal_Loader is
    Passed_Count : Natural := 0;
@@ -38,12 +40,14 @@ procedure Test_Journal_Loader is
 
    Root_Source : constant String :=
      "2026-08-01 Root Before" & ASCII.LF &
+     "    ; plan-id: root-before" & ASCII.LF &
      "    expenses:root       100 JPY" & ASCII.LF &
      "    assets:cash        -100 JPY" & ASCII.LF &
      ASCII.LF &
      "include sub/child.journal" & ASCII.LF &
      ASCII.LF &
      "2026-08-04 Root After" & ASCII.LF &
+     "    ; plan-id: root-after" & ASCII.LF &
      "    expenses:root       400 JPY" & ASCII.LF &
      "    assets:cash        -400 JPY" & ASCII.LF;
 
@@ -119,7 +123,7 @@ begin
         (Obs.Evidence.Transactions.Element (1).Header_Line = 1
            and then Obs.Evidence.Transactions.Element (2).Header_Line = 1
            and then Obs.Evidence.Transactions.Element (3).Header_Line = 1
-           and then Obs.Evidence.Transactions.Element (4).Header_Line = 7,
+           and then Obs.Evidence.Transactions.Element (4).Header_Line = 8,
          "transaction evidence retains physical line coordinates");
       Assert
         (Natural (Obs.Evidence.Transactions.Element (2).Metadata.Length) = 1
@@ -130,6 +134,17 @@ begin
              (Obs.Evidence.Transactions.Element (2).Metadata.Element (1).Value) =
              "child-plan",
          "included transaction metadata stays attached to its source evidence");
+
+      declare
+         Universe : ALedger.Plan.Plan_Id_Universe;
+         Diag     : ALedger.Plan_Observation.Admission_Diagnostic;
+      begin
+         Assert
+           (ALedger.Plan_Observation.Admit_Plan_Identities
+              (Obs.Value, Obs.Evidence, Universe, Diag)
+              and then ALedger.Plan.Length (Universe) = 4,
+            "Plan identity admission consumes resolved graph evidence directly");
+      end;
    end;
 
    declare
