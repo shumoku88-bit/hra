@@ -9,6 +9,8 @@ package body ALedger.Household_Report_Observation is
       Result           : out Report_Observation;
       Error_Msg        : out Unbounded_String) return Boolean
    is
+      Report_Status    : ALedger.Report_Plan.Resolve_Status;
+      Recent_Status    : ALedger.Recent_Journal.Observe_Status;
       Plan_Diag        : ALedger.Plan_Observation.Admission_Diagnostic;
       Cycle_Status     : ALedger.Cycle_Observation.Resolve_Status;
       Fulfillment_Diag : ALedger.Envelope_Fulfillment.Observe_Diagnostic;
@@ -26,6 +28,36 @@ package body ALedger.Household_Report_Observation is
       Result.Commitment := ALedger.Envelope_Commitment.Empty_Observation;
       Result.Funding_Commitment :=
         ALedger.Backing_Policy.Empty_Funding_Commitment;
+
+      --  report.toml query coordinates are Actual-report coordinates.  Resolve
+      --  "beginning" against admitted Actual Transactions only; Budget movement
+      --  dates must not silently widen accounting report periods.
+      if not ALedger.Report_Plan.Resolve
+        (Observed_Through,
+         State.Actual_Ledger,
+         State.Report_Policy.Plan,
+         Result.Query_Plan,
+         Report_Status)
+      then
+         Error_Msg := To_Unbounded_String
+           ("report query resolution failed: " &
+            ALedger.Report_Plan.Resolve_Status'Image (Report_Status));
+         return False;
+      end if;
+
+      if not ALedger.Recent_Journal.Observe
+        (State.Actual_Ledger,
+         State.Actual_Evidence,
+         To_String (Result.Query_Plan.Recent_Transactions_Through),
+         Result.Query_Plan.Recent_Transactions_Count,
+         Result.Recent_Journal,
+         Recent_Status)
+      then
+         Error_Msg := To_Unbounded_String
+           ("Recent Journal observation failed: " &
+            ALedger.Recent_Journal.Observe_Status'Image (Recent_Status));
+         return False;
+      end if;
 
       if not ALedger.Plan_Observation.Observe_Plans
         (State.Plan_Ledger,
