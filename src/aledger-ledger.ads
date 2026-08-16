@@ -2,6 +2,7 @@ with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
 with Ada.Containers.Indefinite_Vectors;
 with ALedger.Money;          use ALedger.Money;
 with ALedger.Account;        use ALedger.Account;
+with ALedger.Dates;
 
 package ALedger.Ledger is
 
@@ -32,7 +33,7 @@ package ALedger.Ledger is
    --  Transaction: Multi-Posting Entry with Balance Validation
    --  ========================================================================
    type Transaction is record
-      Date_Text     : Unbounded_String;  --  Format: YYYY-MM-DD
+      Date          : ALedger.Dates.Date;
       Code_Or_Payee : Unbounded_String;
       Event_ID      : Unbounded_String;  --  Durable Identity
       Reverses_ID   : Unbounded_String;  --  Reversed Target Event ID (if reversal)
@@ -45,17 +46,17 @@ package ALedger.Ledger is
       Unbalanced_Transaction);
 
    function Create_Transaction
-     (Date_Str : String;
-      Payee    : String;
-      Postings : Posting_Vectors.Vector;
-      Tx       : out Transaction;
-      Status   : out Transaction_Error) return Boolean
+     (Date_Value : ALedger.Dates.Date;
+      Payee      : String;
+      Postings   : Posting_Vectors.Vector;
+      Tx         : out Transaction;
+      Status     : out Transaction_Error) return Boolean
      with Post => (if Create_Transaction'Result then Status = Success and then Is_Balanced (Tx));
 
    function Create_Reversal_Transaction
      (Target_Tx       : Transaction;
       Reversal_ID     : String;
-      Reversal_Date   : String;
+      Reversal_Date   : ALedger.Dates.Date;
       Reversal_Reason : String;
       Rev_Tx          : out Transaction;
       Status          : out Transaction_Error) return Boolean
