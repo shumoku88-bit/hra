@@ -25,13 +25,28 @@ canonical rootのruntime authorityは次の8 sourceだけである。
 | `accounts.journal` | Account identity、AccountType、optional default Commodity |
 | `actual.journal` | Actual Transaction、posting、identity、completion/reversal relation |
 | `plan.journal` | Plan identity、schedule、recurrence、lifecycle relation |
-| `budget.journal` | ordered Budget movementとprovenance |
-| `budget.toml` | general Budget policy、Envelope、pacing、backing pool、Expense assignment |
-| `household.toml` | household-specific cycle、allocation、Daily Target、Account policy |
+| `budget.journal` | ordered Budget movement、provenance、CommodityごとのEnvelope stock origin |
+| `budget.toml` | current Envelope membership/presentationとBacking topology |
+| `household.toml` | cycle、opening/unassigned Budget accounts、stable allocation coordinates、Daily Target、explicit Envelope routing history |
 | `report.toml` | Report query defaultとpresentation policy |
 | `issues.tsv` | household notebook。会計factを暗黙生成しない |
 
 basenameは`ALedger.Canonical_Source`だけが解決する。別configでsource filenameを変更しない。追加directory、legacy TSV、manifest、generated Reportをcanonical inputへ戻さない。
+
+## Clean Envelope source contract
+
+current policyとhistorical meaningを同じauthorityへ潰さない。
+
+- `budget.toml` は現在存在するEnvelopeとBackingだけを所有する。Expense routingやallocation Accountを所有しない。
+- `household.toml [budget]` は `opening-accounts`、`unassigned-accounts`、`id + allocation-account` を明示する。
+- current Envelopeには必ずallocation coordinateが必要だが、退役Envelopeのcoordinateはhistorical `budget.journal`を解釈するため残してよい。
+- `[envelope-history].identities` がstable Envelope identity universeを所有する。current `budget.toml`からidentity historyを合成しない。
+- `[envelope-history].expense-routing` がExpenseのhistorical meaningを所有する。current configからinitial routeを逆算しない。
+- Budget endpointはexplicitなOpening / Unassigned / Envelope allocationだけで分類する。固定名fallback、spent/execution endpoint、Account policy fallbackを持たない。
+- `budget.journal`の各Commodityで最古のadmitted movement日をstock originとする。0 movementもclean epochを明示できる。
+- ConsumptionとFulfillmentのstock observationはorigin以後だけを累積する。reversalは自身の日ではなくroot Actualのmembershipを継承する。
+
+retired compatibility source shapeはunknown keyとしてfail closedにする。reader parityのためにhidden aliasやduplicate authorityを残さない。
 
 ## Observation and admission
 
@@ -49,19 +64,17 @@ complete observationは8 sourceのどれかが欠落・読取不能なら失敗�
 
 ## Current aledger coverage
 
-2026-08-13時点:
+2026-08-16時点:
 
 | Source | Exact observation | Typed semantic admission |
 |---|---:|---:|
-| Accounts/Actual/Plan/Budget journals | yes | partial |
-| `issues.tsv` | yes | partial |
-| `budget.toml` | yes | typed policy、structural validation、Account validation |
-| `household.toml` | yes | typed policy、Budgetとのcross-validation、Account validation |
+| Accounts/Actual/Plan/Budget journals | yes | typed graph/evidence admission。Account authorityとPlan/Actual relationを保持 |
+| `issues.tsv` | yes | partial。lifecycle/typed identity parityは今後 |
+| `budget.toml` | yes | current Envelope + Backingを型付きadmit |
+| `household.toml` | yes | clean Budget coordinates + explicit Envelope historyを型付きadmit |
 | `report.toml` | yes | typed query/presentation policy |
 
-Journalのinclude graph、metadata、declared Account照合、Plan/Actual/Budget固有identityとprovenanceはまだh-kernel parityに達していない。TOML policyもまだ全計算・renderingへ適用されていない。したがって現在のaledger Reportをcanonicalな意思決定結果として扱わない。
-
-この表は移行中の現在地であり、silent ignoreを恒久仕様として承認しない。
+Envelope production observationはexplicit history、Budget-derived Entitlement origin、stock Consumption/Fulfillment、Remaining/Backingへ接続する。Report portfolio、Issue domain、writer authority、SPARK production cutoverは引き続き別の完成条件である。
 
 ## Fail-closed completion gate
 
