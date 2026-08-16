@@ -3,6 +3,7 @@ with ALedger.Money;            use ALedger.Money;
 with ALedger.Dates;
 with ALedger.Envelope;         use ALedger.Envelope;
 with ALedger.Envelope_Routing; use ALedger.Envelope_Routing;
+with ALedger.Envelope_Entitlement;
 with ALedger.Ledger;
 
 package ALedger.Envelope_Consumption is
@@ -51,6 +52,8 @@ package ALedger.Envelope_Consumption is
 
    function Empty_Consumption return Envelope_Consumption;
 
+   --  Activity observations. These preserve the historical API for bounded or
+   --  all-time Expense observation and do not impose an Entitlement origin.
    function Observe_Consumption
      (L       : Ledger.Ledger;
       Routing : Envelope_Routing.Routing_History) return Envelope_Consumption;
@@ -58,6 +61,21 @@ package ALedger.Envelope_Consumption is
    function Observe_Consumption
      (L            : Ledger.Ledger;
       Routing      : Envelope_Routing.Routing_History;
+      Through_Date : ALedger.Dates.Date) return Envelope_Consumption;
+
+   --  Stock observations used by Household Remaining/Backing. A Commodity is
+   --  absent before its source-owned Entitlement origin. Reversals inherit the
+   --  root Actual date for both routing and stock membership.
+   function Observe_Stock_Consumption
+     (L           : Ledger.Ledger;
+      Routing     : Envelope_Routing.Routing_History;
+      Entitlement : Envelope_Entitlement.Entitlement_Observation)
+      return Envelope_Consumption;
+
+   function Observe_Stock_Consumption
+     (L            : Ledger.Ledger;
+      Routing      : Envelope_Routing.Routing_History;
+      Entitlement  : Envelope_Entitlement.Entitlement_Observation;
       Through_Date : ALedger.Dates.Date) return Envelope_Consumption;
 
    function Consumption_For
