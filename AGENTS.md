@@ -1,5 +1,28 @@
 # aledger 作業入口
 
+## Repository command hub
+
+人間・AIとも、通常のrepository操作は`./tools/al`を唯一の入口にする。
+
+```sh
+./tools/al help
+./tools/al build
+./tools/al test
+./tools/al prove
+./tools/al qualify
+./tools/al check --base /path/to/canonical-root
+./tools/al report --base /path/to/canonical-root
+./tools/al tui --base /path/to/canonical-root
+```
+
+- `build`はcurrent sourceをAlireでbuildする
+- `test`はbuild後にcanonical `test_runner`を実行する
+- `prove`はSPARK proof projectを実行する
+- `qualify`はbuild + test + proveのrepository-only qualification
+- `check`はcanonical Household sourceのadmission checkであり、repository qualificationとは別
+- raw `alr` / `gprbuild` / `gnatprove` / `bin/*` を通常手順としてdocsやAI指示へ増やさない
+- `tools/al`はdispatchだけを所有し、domain semantics、source admission、writer authorityをshellへ実装しない
+
 ## Canonical Household law
 
 aledger専用の正データを作らない。`h-kernel`と同じuser-owned private Household rootを読む。
@@ -23,7 +46,7 @@ issues.tsv
 - private sourceの内容をrepository、test fixture、logへ複製しない
 - reader capabilityとwriter authorityを分ける
 
-詳細は[`docs/CANONICAL_HOUSEHOLD.md`](docs/CANONICAL_HOUSEHOLD.md)を参照する。Report、Editor、TUIを含む実装対象と順序は[`docs/CAPABILITY_ROADMAP.md`](docs/CAPABILITY_ROADMAP.md)を確認する。Actual、Plan、Envelope、Backingの金額式へ触れる場合は[`docs/PROOF_CORE.md`](docs/PROOF_CORE.md)を読み、`./tools/prove`を実行する。Ada実装時の言語規則とaledger固有のconventionの区別は[`docs/ADA_FOR_ALEDGER.md`](docs/ADA_FOR_ALEDGER.md)を参照する。
+詳細は[`docs/CANONICAL_HOUSEHOLD.md`](docs/CANONICAL_HOUSEHOLD.md)を参照する。Report、Editor、TUIを含む実装対象と順序は[`docs/CAPABILITY_ROADMAP.md`](docs/CAPABILITY_ROADMAP.md)を確認する。Actual、Plan、Envelope、Backingの金額式へ触れる場合は[`docs/PROOF_CORE.md`](docs/PROOF_CORE.md)を読み、`./tools/al prove`を実行する。Ada実装時の言語規則とaledger固有のconventionの区別は[`docs/ADA_FOR_ALEDGER.md`](docs/ADA_FOR_ALEDGER.md)を参照する。
 
 ## 設計原則
 
@@ -36,11 +59,16 @@ issues.tsv
 
 ## 検証
 
+Repository-only qualification:
+
 ```sh
-alr build
-./bin/test_runner
-./tools/prove
-./bin/aledger check --base /path/to/canonical-root
+./tools/al qualify
+```
+
+canonical Householdを含む確認:
+
+```sh
+./tools/al check --base /path/to/canonical-root
 ```
 
 private rootを使う検証ではsource内容や生成Reportを公開ログへ出さない。
