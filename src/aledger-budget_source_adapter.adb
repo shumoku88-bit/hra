@@ -7,14 +7,13 @@ package body ALedger.Budget_Source_Adapter is
      (Endpoint_Envelope,
       Endpoint_Unallocated,
       Endpoint_Opening,
-      Endpoint_Execution,
       Endpoint_Unknown);
 
    type Source_Endpoint (Kind : Source_Endpoint_Kind := Endpoint_Unknown) is record
       case Kind is
          when Endpoint_Envelope =>
             Target_Envelope : Envelope.Envelope_Id;
-         when Endpoint_Unallocated | Endpoint_Opening | Endpoint_Execution | Endpoint_Unknown =>
+         when Endpoint_Unallocated | Endpoint_Opening | Endpoint_Unknown =>
             null;
       end case;
    end record;
@@ -33,11 +32,19 @@ package body ALedger.Budget_Source_Adapter is
                  Envelope.Lookup (Registry, To_String (Env_Coord.ID), Env_Id);
             begin
                if Found then
-                  return (Kind => Endpoint_Envelope, Target_Envelope => Env_Id);
+                  return
+                    (Kind            => Endpoint_Envelope,
+                     Target_Envelope => Env_Id);
                else
                   return (Kind => Endpoint_Unknown);
                end if;
             end;
+         end if;
+      end loop;
+
+      for Opening_Acc of Config.Opening_Accounts loop
+         if Opening_Acc = Acc_Name then
+            return (Kind => Endpoint_Opening);
          end if;
       end loop;
 
@@ -46,38 +53,6 @@ package body ALedger.Budget_Source_Adapter is
             return (Kind => Endpoint_Unallocated);
          end if;
       end loop;
-      if Config.Has_Account_Policy then
-         for Unassigned_Acc of Config.Accounts.Unassigned_Budget loop
-            if Unassigned_Acc = Acc_Name then
-               return (Kind => Endpoint_Unallocated);
-            end if;
-         end loop;
-      end if;
-      if Acc_Name = "budget:unassigned" then
-         return (Kind => Endpoint_Unallocated);
-      end if;
-
-      if Config.Has_Account_Policy then
-         for Opening_Acc of Config.Accounts.Opening_Budget loop
-            if Opening_Acc = Acc_Name then
-               return (Kind => Endpoint_Opening);
-            end if;
-         end loop;
-      end if;
-      if Acc_Name = "budget:opening" then
-         return (Kind => Endpoint_Opening);
-      end if;
-
-      if Config.Has_Account_Policy then
-         for Spent_Acc of Config.Accounts.Spent_Budget loop
-            if Spent_Acc = Acc_Name then
-               return (Kind => Endpoint_Execution);
-            end if;
-         end loop;
-      end if;
-      if Acc_Name = "budget:spent" then
-         return (Kind => Endpoint_Execution);
-      end if;
 
       return (Kind => Endpoint_Unknown);
    end Classify_Endpoint;
@@ -92,7 +67,10 @@ package body ALedger.Budget_Source_Adapter is
       Result : Movement_Vectors.Vector;
       Idx    : Natural := 0;
    begin
-      Diag := (Status => Success, Transaction_Index => 0, Message => Null_Unbounded_String);
+      Diag :=
+        (Status            => Success,
+         Transaction_Index => 0,
+         Message           => Null_Unbounded_String);
 
       for Tx of Transactions loop
          Idx := Idx + 1;
@@ -139,42 +117,35 @@ package body ALedger.Budget_Source_Adapter is
 
                   declare
                      From_Ep : constant Source_Endpoint :=
-                       Classify_Endpoint (To_String (From_Acc_Name), Config, Registry);
+                       Classify_Endpoint
+                         (To_String (From_Acc_Name), Config, Registry);
                      To_Ep   : constant Source_Endpoint :=
-                       Classify_Endpoint (To_String (To_Acc_Name), Config, Registry);
+                       Classify_Endpoint
+                         (To_String (To_Acc_Name), Config, Registry);
                   begin
                      if From_Ep.Kind = Endpoint_Unknown then
                         Diag :=
                           (Status            => Unrecognized_Budget_Account,
                            Transaction_Index => Idx,
                            Message           => To_Unbounded_String
-                             ("unrecognized from budget account: " & To_String (From_Acc_Name)));
+                             ("unrecognized from budget account: " &
+                              To_String (From_Acc_Name)));
                         return False;
-                     end if;
-
-                     if To_Ep.Kind = Endpoint_Unknown then
+                     elsif To_Ep.Kind = Endpoint_Unknown then
                         Diag :=
                           (Status            => Unrecognized_Budget_Account,
                            Transaction_Index => Idx,
                            Message           => To_Unbounded_String
-                             ("unrecognized to budget account: " & To_String (To_Acc_Name)));
+                             ("unrecognized to budget account: " &
+                              To_String (To_Acc_Name)));
                         return False;
-                     end if;
-
-                     if From_Ep.Kind = Endpoint_Envelope
-                       and then To_Ep.Kind = Endpoint_Execution
-                     then
-                        null;
-                     elsif From_Ep.Kind = Endpoint_Execution
-                       and then To_Ep.Kind = Endpoint_Envelope
-                     then
-                        null;
                      elsif From_Ep.Kind = Endpoint_Envelope
                        and then To_Ep.Kind = Endpoint_Envelope
                      then
                         Result.Append
                           (Envelope_Entitlement.Entitlement_Movement'
-                             (Kind          => Envelope_Entitlement.Transfer_Between_Envelopes,
+                             (Kind          =>
+                                Envelope_Entitlement.Transfer_Between_Envelopes,
                               Tx_Date       => Tx.Date,
                               Amt           => Amt,
                               From_Envelope => From_Ep.Target_Envelope,
@@ -182,14 +153,16 @@ package body ALedger.Budget_Source_Adapter is
                      elsif From_Ep.Kind = Endpoint_Envelope then
                         Result.Append
                           (Envelope_Entitlement.Entitlement_Movement'
-                             (Kind    => Envelope_Entitlement.Return_To_Unallocated,
+                             (Kind    =>
+                                Envelope_Entitlement.Return_To_Unallocated,
                               Tx_Date => Tx.Date,
                               Amt     => Amt,
                               Source  => From_Ep.Target_Envelope));
                      elsif To_Ep.Kind = Endpoint_Envelope then
                         Result.Append
                           (Envelope_Entitlement.Entitlement_Movement'
-                             (Kind    => Envelope_Entitlement.Grant_From_Unallocated,
+                             (Kind    =>
+                                Envelope_Entitlement.Grant_From_Unallocated,
                               Tx_Date => Tx.Date,
                               Amt     => Amt,
                               Target  => To_Ep.Target_Envelope));
@@ -217,7 +190,9 @@ package body ALedger.Budget_Source_Adapter is
       Obs       : Envelope_Entitlement.Entitlement_Observation :=
         Envelope_Entitlement.Empty_Observation;
    begin
-      if not Adapt_Budget_Journal (Transactions, Config, Registry, Movements, Diag) then
+      if not Adapt_Budget_Journal
+        (Transactions, Config, Registry, Movements, Diag)
+      then
          return False;
       end if;
 
