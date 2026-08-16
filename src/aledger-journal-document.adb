@@ -135,7 +135,8 @@ package body ALedger.Journal.Document is
       return True;
    exception
       when Constraint_Error =>
-         Result := (Includes => <>);
+         Result :=
+           (Includes => Include_Directive_Vectors.Empty_Vector);
          Diag :=
            (File_Name   => To_Unbounded_String (File_Name),
             Line_Number => Line_Number,
