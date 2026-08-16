@@ -1,14 +1,11 @@
-with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
 with ALedger.Account;
+with ALedger.Dates;
 with ALedger.Ledger;
 with ALedger.Plan_Observation;
 
 package ALedger.Cycle_Observation is
 
-   type Cycle_Window is record
-      Start_Date    : Unbounded_String;
-      End_Exclusive : Unbounded_String;
-   end record;
+   subtype Cycle_Window is ALedger.Dates.Half_Open_Period;
 
    type Resolve_Status is
      (Success,
@@ -20,6 +17,15 @@ package ALedger.Cycle_Observation is
       Invalid_Cycle_Window);
 
    function Resolve_Current
+     (Observed_Through : ALedger.Dates.Date;
+      Actual_Ledger    : ALedger.Ledger.Ledger;
+      Open_Plans       : ALedger.Plan_Observation.Open_Plan_Vectors.Vector;
+      Registry         : ALedger.Account.Account_Registry;
+      Income_Account   : ALedger.Account.Account;
+      Window           : out Cycle_Window;
+      Status           : out Resolve_Status) return Boolean;
+
+   function Resolve_Current
      (Observed_Through : String;
       Actual_Ledger    : ALedger.Ledger.Ledger;
       Open_Plans       : ALedger.Plan_Observation.Open_Plan_Vectors.Vector;
@@ -27,6 +33,13 @@ package ALedger.Cycle_Observation is
       Income_Account   : ALedger.Account.Account;
       Window           : out Cycle_Window;
       Status           : out Resolve_Status) return Boolean;
+
+   function Start_Date (Window : Cycle_Window) return ALedger.Dates.Date;
+   function End_Exclusive (Window : Cycle_Window) return ALedger.Dates.Date;
+
+   function Contains
+     (Window : Cycle_Window;
+      Date   : ALedger.Dates.Date) return Boolean;
 
    function Contains
      (Window : Cycle_Window;
