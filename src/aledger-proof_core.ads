@@ -1,7 +1,7 @@
 package ALedger.Proof_Core
   with Pure, SPARK_Mode => On
 is
-   --  Proof-facing quantities are exact 10^-8 quanta.  The deliberately
+   --  Proof-facing quantities are exact 10^-8 quanta. The deliberately
    --  bounded range leaves enough headroom to prove every fold and derived
    --  equation free of machine-integer overflow.
    Decimal_Scale : constant := 100_000_000;
@@ -87,29 +87,12 @@ is
                     and then Original (I).Commodity = Reversal (I).Commodity
                     and then Original (I).Quantity = -Reversal (I).Quantity));
 
-   type Plan_Obligation_Input is record
-      Amount           : Atomic_Quanta;
-      Already_Excluded : Atomic_Quanta;
-   end record
-     with Dynamic_Predicate =>
-       Plan_Obligation_Input.Amount > 0
-       and then Plan_Obligation_Input.Already_Excluded >= 0
-       and then Plan_Obligation_Input.Already_Excluded <=
-         Plan_Obligation_Input.Amount;
-
-   function Unreserved_Obligation
-     (Input : Plan_Obligation_Input) return Atomic_Quanta
-     with Post =>
-       Unreserved_Obligation'Result =
-         Input.Amount - Input.Already_Excluded
-       and then Unreserved_Obligation'Result >= 0;
-
    --  Inputs are already admitted, stock-horizon observations for one
    --  Envelope/Commodity coordinate. Net consumption and net fulfillment are
    --  signed: reversals/refunds may make either negative. Open Plan commitment
    --  is a non-negative claim and affects Headroom, not Remaining.
    type Envelope_Input is record
-      Entitlement    : Atomic_Quanta;
+      Entitlement     : Atomic_Quanta;
       Net_Consumption : Atomic_Quanta;
       Net_Fulfillment : Atomic_Quanta;
       Plan_Commitment : Atomic_Quanta;
