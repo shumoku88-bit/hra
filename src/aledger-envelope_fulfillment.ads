@@ -4,6 +4,7 @@ with Ada.Containers.Indefinite_Vectors;
 with ALedger.Account;
 with ALedger.Dates;
 with ALedger.Envelope;
+with ALedger.Envelope_Entitlement;
 with ALedger.Fulfillment_Routing;
 with ALedger.Ledger;
 with ALedger.Money; use ALedger.Money;
@@ -12,8 +13,6 @@ with ALedger.Plan_Observation;
 
 package ALedger.Envelope_Fulfillment is
 
-   --  Gross completed-Plan fulfillment and explicit reversal evidence.
-   --  Reversed is stored as a positive magnitude; net is Applied - Reversed.
    type Fulfillment_Amounts is record
       Applied  : Balance;
       Reversed : Balance;
@@ -28,9 +27,6 @@ package ALedger.Envelope_Fulfillment is
      (Key_Type     => String,
       Element_Type => Fulfillment_Amounts);
 
-   --  Provenance for one routed target posting. The route is frozen at the root
-   --  completion Actual date. Exact Plan/Actual source header coordinates remain
-   --  attached to the resulting observation.
    type Fulfillment_Evidence is record
       Plan_ID              : ALedger.Plan.Plan_Id;
       Envelope_ID          : ALedger.Envelope.Envelope_Id;
@@ -76,19 +72,25 @@ package ALedger.Envelope_Fulfillment is
       Message : Unbounded_String;
    end record;
 
-   --  Observe explicit completed Plan fulfillment through one inclusive day.
-   --
-   --  * completion comes only from Plan_Observation's explicit Actual plan-id
-   --  * the completion Actual is the non-reversal root of its evidence chain
-   --  * route identity is resolved at the root completion Actual day
-   --  * only positive non-Expense Plan posting positions are fulfillment targets
-   --  * corresponding Actual quantities are authoritative
-   --  * Event_ID/Reverses_ID chains reverse or restore the same root evidence
+   --  Activity observation through one inclusive day.
    function Observe
      (Completed        : ALedger.Plan_Observation.Completed_Plan_Vectors.Vector;
       Actual_Ledger    : ALedger.Ledger.Ledger;
       Registry         : ALedger.Account.Account_Registry;
       Routing          : ALedger.Fulfillment_Routing.Fulfillment_Routing_History;
+      Observed_Through : ALedger.Dates.Date;
+      Result           : out Envelope_Fulfillment;
+      Diag             : out Observe_Diagnostic) return Boolean;
+
+   --  Household stock observation. A target posting contributes only when its
+   --  completion root is on or after that Commodity's source-owned Entitlement
+   --  origin. The whole reversal chain inherits that same root membership.
+   function Observe_Stock
+     (Completed        : ALedger.Plan_Observation.Completed_Plan_Vectors.Vector;
+      Actual_Ledger    : ALedger.Ledger.Ledger;
+      Registry         : ALedger.Account.Account_Registry;
+      Routing          : ALedger.Fulfillment_Routing.Fulfillment_Routing_History;
+      Entitlement      : ALedger.Envelope_Entitlement.Entitlement_Observation;
       Observed_Through : ALedger.Dates.Date;
       Result           : out Envelope_Fulfillment;
       Diag             : out Observe_Diagnostic) return Boolean;

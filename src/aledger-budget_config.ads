@@ -12,11 +12,10 @@ package ALedger.Budget_Config is
    end record;
 
    type Envelope_Definition is record
-      ID               : Unbounded_String;
-      Label            : Unbounded_String;
-      Pacing           : Pacing_Kind;
-      Backing_Pool     : Unbounded_String;
-      Expense_Accounts : String_Vectors.Vector;
+      ID           : Unbounded_String;
+      Label        : Unbounded_String;
+      Pacing       : Pacing_Kind;
+      Backing_Pool : Unbounded_String;
    end record;
 
    package Backing_Pool_Vectors is new Ada.Containers.Indefinite_Vectors

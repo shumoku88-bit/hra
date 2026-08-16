@@ -5,6 +5,20 @@ package body ALedger.Backing_Policy is
 
    use type ALedger.Dates.Date;
 
+   type Funding_Observation_Scope_Kind is
+     (All_Funding_Dates, Funding_Through_Date);
+
+   type Funding_Observation_Scope
+     (Kind : Funding_Observation_Scope_Kind := All_Funding_Dates)
+   is record
+      case Kind is
+         when All_Funding_Dates =>
+            null;
+         when Funding_Through_Date =>
+            Through : ALedger.Dates.Date;
+      end case;
+   end record;
+
    function Positive_Balance (B : Balance) return Balance is
       Result : Balance := Empty_Balance;
       Arr    : constant Balance_Entry_Array := Entries (B);
@@ -239,6 +253,7 @@ package body ALedger.Backing_Policy is
    function Calculate_Backing
      (Policy      : Backing_Policy;
       L           : Ledger.Ledger;
+      Scope       : Funding_Observation_Scope;
       Entitlement : Envelope_Entitlement.Entitlement_Observation;
       Consumption : Envelope_Consumption.Envelope_Consumption;
       Adjustments : Backing_Adjustments) return Backing_Observation
@@ -263,9 +278,15 @@ package body ALedger.Backing_Policy is
                declare
                   Acc_Obj : constant Account.Account :=
                     Account.Make_Account (Acc_Str);
-                  Bal : constant Balance :=
-                    Ledger.Compute_Account_Balance (L, Acc_Obj);
+                  Bal : Balance;
                begin
+                  case Scope.Kind is
+                     when All_Funding_Dates =>
+                        Bal := Ledger.Compute_Account_Balance (L, Acc_Obj);
+                     when Funding_Through_Date =>
+                        Bal := Ledger.Compute_Account_Balance_Through
+                          (L, Acc_Obj, Scope.Through);
+                  end case;
                   Funding_Bal := Add_Balance (Funding_Bal, Bal);
                end;
             end loop;
@@ -335,6 +356,7 @@ package body ALedger.Backing_Policy is
       return Calculate_Backing
         (Policy,
          L,
+         (Kind => All_Funding_Dates),
          Entitlement,
          Consumption,
          Zero_Adjustments);
@@ -343,6 +365,7 @@ package body ALedger.Backing_Policy is
    function Observe_Backing
      (Policy             : Backing_Policy;
       L                  : Ledger.Ledger;
+      Observed_Through   : ALedger.Dates.Date;
       Entitlement        : Envelope_Entitlement.Entitlement_Observation;
       Consumption        : Envelope_Consumption.Envelope_Consumption;
       Fulfillment        : Envelope_Fulfillment.Envelope_Fulfillment;
@@ -354,6 +377,7 @@ package body ALedger.Backing_Policy is
       return Calculate_Backing
         (Policy,
          L,
+         (Kind => Funding_Through_Date, Through => Observed_Through),
          Entitlement,
          Consumption,
          Projected_Adjustments

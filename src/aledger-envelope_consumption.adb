@@ -10,15 +10,20 @@ package body ALedger.Envelope_Consumption is
       return (Charges => Empty_Balance, Refunds => Empty_Balance);
    end Empty_Amounts;
 
-   function Make_Amounts (Charges, Refunds : Balance) return Consumption_Amounts is
+   function Make_Amounts
+     (Charges, Refunds : Balance) return Consumption_Amounts
+   is
    begin
       return (Charges => Charges, Refunds => Refunds);
    end Make_Amounts;
 
-   function Add_Amounts (Left, Right : Consumption_Amounts) return Consumption_Amounts is
+   function Add_Amounts
+     (Left, Right : Consumption_Amounts) return Consumption_Amounts
+   is
    begin
-      return (Charges => Add_Balance (Left.Charges, Right.Charges),
-              Refunds => Add_Balance (Left.Refunds, Right.Refunds));
+      return
+        (Charges => Add_Balance (Left.Charges, Right.Charges),
+         Refunds => Add_Balance (Left.Refunds, Right.Refunds));
    end Add_Amounts;
 
    function Net_Consumption (Amounts : Consumption_Amounts) return Balance is
@@ -28,16 +33,19 @@ package body ALedger.Envelope_Consumption is
 
    function "=" (Left, Right : Consumption_Amounts) return Boolean is
    begin
-      return Is_Zero_Balance (Subtract_Balance (Left.Charges, Right.Charges))
-        and then Is_Zero_Balance (Subtract_Balance (Left.Refunds, Right.Refunds));
+      return Is_Zero_Balance
+          (Subtract_Balance (Left.Charges, Right.Charges))
+        and then Is_Zero_Balance
+          (Subtract_Balance (Left.Refunds, Right.Refunds));
    end "=";
 
    function Empty_Consumption return Envelope_Consumption is
    begin
-      return (Scope     => (Kind => All_Transactions),
-              Managed   => Envelope_Amounts_Maps.Empty_Map,
-              Unmanaged => Account_Amounts_Maps.Empty_Map,
-              Unrouted  => Account_Amounts_Maps.Empty_Map);
+      return
+        (Scope     => (Kind => All_Transactions),
+         Managed   => Envelope_Amounts_Maps.Empty_Map,
+         Unmanaged => Account_Amounts_Maps.Empty_Map,
+         Unrouted  => Account_Amounts_Maps.Empty_Map);
    end Empty_Consumption;
 
    function Add_To_Envelope_Map
@@ -79,9 +87,12 @@ package body ALedger.Envelope_Consumption is
       Element_Type => String);
 
    function Observe_Internal
-     (L         : Ledger.Ledger;
-      Routing   : Envelope_Routing.Routing_History;
-      Scope     : Consumption_Scope) return Envelope_Consumption
+     (L                    : Ledger.Ledger;
+      Routing              : Envelope_Routing.Routing_History;
+      Scope                : Consumption_Scope;
+      Require_Stock_Origin : Boolean;
+      Entitlement          : Envelope_Entitlement.Entitlement_Observation)
+      return Envelope_Consumption
    is
       Result           : Envelope_Consumption := Empty_Consumption;
       Dates_By_Id      : Date_Maps.Map;
@@ -115,7 +126,7 @@ package body ALedger.Envelope_Consumption is
          return Account_Type_For (L.Registry, Acc, Cat) and then Cat = Expense;
       end Is_Expense_Account;
 
-      function In_Scope (Date : ALedger.Dates.Date) return Boolean is
+      function Date_In_Scope (Date : ALedger.Dates.Date) return Boolean is
       begin
          case Scope.Kind is
             when All_Transactions =>
@@ -123,7 +134,24 @@ package body ALedger.Envelope_Consumption is
             when Through_Date =>
                return Date <= Scope.Through;
          end case;
-      end In_Scope;
+      end Date_In_Scope;
+
+      function In_Stock_Horizon
+        (Root_Date : ALedger.Dates.Date;
+         Amt       : Amount) return Boolean
+      is
+      begin
+         if not Require_Stock_Origin then
+            return True;
+         elsif not Envelope_Entitlement.Has_Origin
+           (Entitlement, Amt.Comm)
+         then
+            return False;
+         else
+            return Root_Date >= Envelope_Entitlement.Origin_For
+              (Entitlement, Amt.Comm);
+         end if;
+      end In_Stock_Horizon;
 
    begin
       Result.Scope := Scope;
@@ -143,31 +171,38 @@ package body ALedger.Envelope_Consumption is
       end loop;
 
       for Tx of L.Transactions loop
-         if In_Scope (Tx.Date) then
+         if Date_In_Scope (Tx.Date) then
             declare
                Ev_Id     : constant String := To_String (Tx.Event_ID);
                Root_Date : constant ALedger.Dates.Date :=
                  Resolve_Root_Date (Ev_Id, Tx.Date);
             begin
                for P of Tx.Postings loop
-                  if Is_Expense_Account (P.Acc) and then not Is_Zero (P.Amt.Val) then
+                  if Is_Expense_Account (P.Acc)
+                    and then not Is_Zero (P.Amt.Val)
+                    and then In_Stock_Horizon (Root_Date, P.Amt)
+                  then
                      declare
                         Amounts : Consumption_Amounts;
                         Acc_Str : constant String := Account.Name (P.Acc);
                      begin
-                        if P.Amt.Val > 0.0 then
+                        if P.Amt.Val > Zero_Quantity then
                            Amounts :=
                              (Charges => Singleton_Balance (P.Amt),
                               Refunds => Empty_Balance);
                         else
                            Amounts :=
                              (Charges => Empty_Balance,
-                              Refunds => Singleton_Balance (Negate_Amount (P.Amt)));
+                              Refunds => Singleton_Balance
+                                (Negate_Amount (P.Amt)));
                         end if;
 
-                        if not Envelope_Routing.Has_Routing (Routing, P.Acc) then
+                        if not Envelope_Routing.Has_Routing
+                          (Routing, P.Acc)
+                        then
                            Result.Unrouted :=
-                             Add_To_Account_Map (Result.Unrouted, Acc_Str, Amounts);
+                             Add_To_Account_Map
+                               (Result.Unrouted, Acc_Str, Amounts);
                         else
                            declare
                               Route : constant Envelope_Routing.Expense_Route :=
@@ -203,7 +238,12 @@ package body ALedger.Envelope_Consumption is
       Routing : Envelope_Routing.Routing_History) return Envelope_Consumption
    is
    begin
-      return Observe_Internal (L, Routing, (Kind => All_Transactions));
+      return Observe_Internal
+        (L,
+         Routing,
+         (Kind => All_Transactions),
+         False,
+         Envelope_Entitlement.Empty_Observation);
    end Observe_Consumption;
 
    function Observe_Consumption
@@ -213,8 +253,40 @@ package body ALedger.Envelope_Consumption is
    is
    begin
       return Observe_Internal
-        (L, Routing, (Kind => ALedger.Envelope_Consumption.Through_Date, Through => Through_Date));
+        (L,
+         Routing,
+         (Kind => ALedger.Envelope_Consumption.Through_Date,
+          Through => Through_Date),
+         False,
+         Envelope_Entitlement.Empty_Observation);
    end Observe_Consumption;
+
+   function Observe_Stock_Consumption
+     (L           : Ledger.Ledger;
+      Routing     : Envelope_Routing.Routing_History;
+      Entitlement : Envelope_Entitlement.Entitlement_Observation)
+      return Envelope_Consumption
+   is
+   begin
+      return Observe_Internal
+        (L, Routing, (Kind => All_Transactions), True, Entitlement);
+   end Observe_Stock_Consumption;
+
+   function Observe_Stock_Consumption
+     (L            : Ledger.Ledger;
+      Routing      : Envelope_Routing.Routing_History;
+      Entitlement  : Envelope_Entitlement.Entitlement_Observation;
+      Through_Date : ALedger.Dates.Date) return Envelope_Consumption
+   is
+   begin
+      return Observe_Internal
+        (L,
+         Routing,
+         (Kind => ALedger.Envelope_Consumption.Through_Date,
+          Through => Through_Date),
+         True,
+         Entitlement);
+   end Observe_Stock_Consumption;
 
    function Consumption_For
      (Obs : Envelope_Consumption;

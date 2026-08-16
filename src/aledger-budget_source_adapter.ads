@@ -1,5 +1,6 @@
 with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
 with Ada.Containers.Indefinite_Vectors;
+with ALedger.Dates;
 with ALedger.Ledger;
 with ALedger.Household_Config;
 with ALedger.Envelope;
@@ -10,27 +11,25 @@ package ALedger.Budget_Source_Adapter is
    --  ========================================================================
    --  Budget Source Adapter
    --
-   --  Translates raw budget.journal 2-posting transactions into pure
-   --  Entitlement_Movements based on Household configuration and Envelope
-   --  registry.
+   --  Translates admitted budget.journal 2-posting transactions into pure
+   --  Entitlement_Movements using only explicit Household coordinates:
+   --  allocation Accounts, opening Accounts, and unassigned Accounts.
    --
-   --  Key laws from h-kernel:
-   --    - Posting 1 is From, Posting 2 is To.
-   --    - If Amount is negative, From and To are swapped and Amount is negated.
-   --    - Zero amounts generate no movement (ignored).
-   --    - Execution (spent) movements do not alter Entitlement (ignored).
+   --  Laws:
+   --    - Posting signs determine From/To; the admitted amount is positive.
+   --    - Zero amounts generate no entitlement movement.
    --    - Envelope -> Envelope is Transfer_Between_Envelopes.
-   --    - Envelope -> Other (Unallocated/Opening) is Return_To_Unallocated.
-   --    - Other (Unallocated/Opening) -> Envelope is Grant_From_Unallocated.
-   --    - Other -> Other (e.g. Opening -> Unallocated) generates no movement.
+   --    - Envelope -> non-Envelope is Return_To_Unallocated.
+   --    - non-Envelope -> Envelope is Grant_From_Unallocated.
+   --    - Opening/Unassigned -> Opening/Unassigned changes no Envelope stock.
+   --    - Unknown Budget coordinates fail closed.
    --  ========================================================================
 
    type Adapter_Status is
      (Success,
       Transaction_Not_Binary,
       Postings_Not_Opposites,
-      Unrecognized_Budget_Account,
-      Unknown_Envelope_Identity);
+      Unrecognized_Budget_Account);
 
    type Adapter_Diagnostic is record
       Status            : Adapter_Status := Success;
@@ -50,10 +49,22 @@ package ALedger.Budget_Source_Adapter is
       Movements    : out Movement_Vectors.Vector;
       Diag         : out Adapter_Diagnostic) return Boolean;
 
+   --  Complete admitted stock observation.
    function Observe_Entitlements
      (Transactions : Ledger.Transaction_Vectors.Vector;
       Config       : Household_Config.Household_Configuration;
       Registry     : Envelope.Envelope_Registry;
+      Observation  : out Envelope_Entitlement.Entitlement_Observation;
+      Diag         : out Adapter_Diagnostic) return Boolean;
+
+   --  Inclusive historical observation. The complete in-memory Budget source is
+   --  still validated fail-closed, but only source facts at or before Through_Date
+   --  contribute an origin or Entitlement movement.
+   function Observe_Entitlements
+     (Transactions : Ledger.Transaction_Vectors.Vector;
+      Config       : Household_Config.Household_Configuration;
+      Registry     : Envelope.Envelope_Registry;
+      Through_Date : ALedger.Dates.Date;
       Observation  : out Envelope_Entitlement.Entitlement_Observation;
       Diag         : out Adapter_Diagnostic) return Boolean;
 

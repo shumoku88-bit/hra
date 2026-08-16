@@ -111,8 +111,7 @@ procedure Test_Envelope_Commitment is
      "id = ""food""" & ASCII.LF &
      "label = ""Food""" & ASCII.LF &
      "pacing = ""daily""" & ASCII.LF &
-     "backing-pool = ""liquid""" & ASCII.LF &
-     "expense-accounts = [""expenses:food""]" & ASCII.LF;
+     "backing-pool = ""liquid""" & ASCII.LF;
 
    Registry      : ALedger.Account.Account_Registry := ALedger.Account.Empty_Registry;
    Actual        : ALedger.Ledger.Ledger;
@@ -268,6 +267,7 @@ begin
       Backing := ALedger.Backing_Policy.Observe_Backing
         (Policy,
          Actual,
+         D ("2026-08-15"),
          Entitlement,
          Consumption,
          ALedger.Envelope_Fulfillment.Empty_Fulfillment (D ("2026-08-15")),
@@ -292,6 +292,52 @@ begin
         (ALedger.Money.Lookup_Balance
            (ALedger.Backing_Policy.Available_Surplus (Position), JPY) = 650.0,
          "Available surplus reconciles funding commitment and Plan headroom");
+
+      declare
+         Future_Ledger : ALedger.Ledger.Ledger := Actual;
+         Future_Only   : ALedger.Ledger.Ledger;
+         Future_Text   : constant String :=
+           "2026-08-16 Future funding" & ASCII.LF &
+           "    assets:cash         500 JPY" & ASCII.LF &
+           "    income:pension     -500 JPY" & ASCII.LF;
+      begin
+         Assert
+           (ALedger.Journal.Parse_Journal_Text
+              (Future_Text, Future_Only, Parse_Error),
+            "Setup: parse future Actual funding");
+         Future_Ledger.Transactions.Append
+           (Future_Only.Transactions.Element (1));
+
+         Backing := ALedger.Backing_Policy.Observe_Backing
+           (Policy,
+            Future_Ledger,
+            D ("2026-08-15"),
+            Entitlement,
+            Consumption,
+            ALedger.Envelope_Fulfillment.Empty_Fulfillment
+              (D ("2026-08-15")),
+            Commitment,
+            Funding);
+         Position := ALedger.Backing_Policy.Position_For (Backing, "liquid");
+         Assert
+           (ALedger.Money.Lookup_Balance (Position.Funding_Balance, JPY) = 1950.0,
+            "Future Actual funding does not leak into past Backing observation");
+
+         Backing := ALedger.Backing_Policy.Observe_Backing
+           (Policy,
+            Future_Ledger,
+            D ("2026-08-16"),
+            Entitlement,
+            Consumption,
+            ALedger.Envelope_Fulfillment.Empty_Fulfillment
+              (D ("2026-08-16")),
+            Commitment,
+            Funding);
+         Position := ALedger.Backing_Policy.Position_For (Backing, "liquid");
+         Assert
+           (ALedger.Money.Lookup_Balance (Position.Funding_Balance, JPY) = 2450.0,
+            "Funding becomes visible on its own observation day");
+      end;
    end;
 
    Put_Line

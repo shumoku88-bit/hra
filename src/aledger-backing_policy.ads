@@ -2,6 +2,7 @@ with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
 with Ada.Containers.Indefinite_Ordered_Maps;
 with Ada.Containers.Indefinite_Vectors;
 with ALedger.Money;          use ALedger.Money;
+with ALedger.Dates;
 with ALedger.Envelope;       use ALedger.Envelope;
 with ALedger.Envelope_Entitlement;
 with ALedger.Envelope_Consumption;
@@ -96,20 +97,21 @@ package ALedger.Backing_Policy is
 
    --  Base admitted-Household view. No application observation day has been
    --  supplied, so no Plan fulfillment, Plan claims, or funding commitments are
-   --  applied.
+   --  applied. Funding reflects the complete admitted Ledger.
    function Observe_Backing
      (Policy      : Backing_Policy;
       L           : Ledger.Ledger;
       Entitlement : Envelope_Entitlement.Entitlement_Observation;
       Consumption : Envelope_Consumption.Envelope_Consumption) return Backing_Observation;
 
-
-   --  Observation-specific view. Fulfillment reduces Remaining, while open
-   --  Commitment reduces Headroom. They are separate projections of disjoint
-   --  lifecycle states and therefore cannot double-count one completed Plan.
+   --  Observation-specific view. Funding is observed through the same inclusive
+   --  day as Consumption and Fulfillment, so future Actual facts cannot leak
+   --  into a historical Backing observation. Fulfillment reduces Remaining,
+   --  while open Commitment reduces Headroom.
    function Observe_Backing
      (Policy             : Backing_Policy;
       L                  : Ledger.Ledger;
+      Observed_Through   : ALedger.Dates.Date;
       Entitlement        : Envelope_Entitlement.Entitlement_Observation;
       Consumption        : Envelope_Consumption.Envelope_Consumption;
       Fulfillment        : Envelope_Fulfillment.Envelope_Fulfillment;

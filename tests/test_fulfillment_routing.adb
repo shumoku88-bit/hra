@@ -72,21 +72,21 @@ procedure Test_Fulfillment_Routing is
      "id = ""savings""" & ASCII.LF &
      "label = ""Savings""" & ASCII.LF &
      "pacing = ""daily""" & ASCII.LF &
-     "backing-pool = ""liquid""" & ASCII.LF &
-     "expense-accounts = []" & ASCII.LF;
+     "backing-pool = ""liquid""" & ASCII.LF;
 
    Household_TOML : constant String :=
      "[cycle]" & ASCII.LF &
      "mode = ""income-anchor""" & ASCII.LF &
      "income-account = ""income:pension""" & ASCII.LF &
      "[budget]" & ASCII.LF &
+     "opening-accounts = [""budget:opening""]" & ASCII.LF &
      "unassigned-accounts = [""budget:unassigned""]" & ASCII.LF &
      "[[budget.envelopes]]" & ASCII.LF &
      "id = ""savings""" & ASCII.LF &
      "allocation-account = ""budget:savings""" & ASCII.LF &
-     "plan-destination-accounts = [""assets:savings""]" & ASCII.LF &
      "[envelope-history]" & ASCII.LF &
      "identities = [""savings""]" & ASCII.LF &
+     "expense-routing = []" & ASCII.LF &
      "[[envelope-history.fulfillment-routing]]" & ASCII.LF &
      "effective-from = ""2026-08-01""" & ASCII.LF &
      "plan-id = ""plan-save""" & ASCII.LF &

@@ -6,8 +6,10 @@ package body ALedger.Envelope_Entitlement is
 
    function Empty_Observation return Entitlement_Observation is
    begin
-      return (Per_Envelope => Envelope_Balance_Maps.Empty_Map,
-              Unallocated  => Empty_Balance);
+      return
+        (Per_Envelope => Envelope_Balance_Maps.Empty_Map,
+         Unallocated  => Empty_Balance,
+         Origins      => Commodity_Date_Maps.Empty_Map);
    end Empty_Observation;
 
    function Add_To_Map
@@ -30,7 +32,8 @@ package body ALedger.Envelope_Entitlement is
       Movement : Entitlement_Movement) return Entitlement_Observation
    is
       Result : Entitlement_Observation := Obs;
-      Neg    : constant Balance := Negate_Balance (Singleton_Balance (Movement.Amt));
+      Neg    : constant Balance :=
+        Negate_Balance (Singleton_Balance (Movement.Amt));
       Pos    : constant Balance := Singleton_Balance (Movement.Amt);
    begin
       case Movement.Kind is
@@ -49,8 +52,10 @@ package body ALedger.Envelope_Entitlement is
                To_Key   : constant String :=
                  Envelope.Image (Movement.To_Envelope);
             begin
-               Result.Per_Envelope := Add_To_Map (Result.Per_Envelope, From_Key, Neg);
-               Result.Per_Envelope := Add_To_Map (Result.Per_Envelope, To_Key, Pos);
+               Result.Per_Envelope :=
+                 Add_To_Map (Result.Per_Envelope, From_Key, Neg);
+               Result.Per_Envelope :=
+                 Add_To_Map (Result.Per_Envelope, To_Key, Pos);
             end;
 
          when Return_To_Unallocated =>
@@ -64,6 +69,38 @@ package body ALedger.Envelope_Entitlement is
 
       return Result;
    end Fold_Movement;
+
+   function Record_Origin
+     (Obs      : Entitlement_Observation;
+      Comm     : Commodity;
+      Tx_Date  : ALedger.Dates.Date) return Entitlement_Observation
+   is
+      Result : Entitlement_Observation := Obs;
+      Key    : constant String := Code (Comm);
+   begin
+      if not Result.Origins.Contains (Key) then
+         Result.Origins.Insert (Key, Tx_Date);
+      elsif Tx_Date < Result.Origins.Element (Key) then
+         Result.Origins.Replace (Key, Tx_Date);
+      end if;
+      return Result;
+   end Record_Origin;
+
+   function Has_Origin
+     (Obs  : Entitlement_Observation;
+      Comm : Commodity) return Boolean
+   is
+   begin
+      return Obs.Origins.Contains (Code (Comm));
+   end Has_Origin;
+
+   function Origin_For
+     (Obs  : Entitlement_Observation;
+      Comm : Commodity) return ALedger.Dates.Date
+   is
+   begin
+      return Obs.Origins.Element (Code (Comm));
+   end Origin_For;
 
    function Entitlement_For
      (Obs : Entitlement_Observation;
