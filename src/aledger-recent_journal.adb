@@ -1,11 +1,14 @@
 with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
+with ALedger.Dates;
 
 package body ALedger.Recent_Journal is
+
+   use type ALedger.Dates.Date;
 
    function Observe
      (Actual_Ledger   : ALedger.Ledger.Ledger;
       Actual_Evidence : ALedger.Journal_Evidence.Journal_Evidence;
-      Through_Date    : String;
+      Through_Date    : ALedger.Dates.Date;
       Count           : Positive;
       Result          : out Observation;
       Status          : out Observe_Status) return Boolean
@@ -17,7 +20,7 @@ package body ALedger.Recent_Journal is
       Selected       : Natural := 0;
       Index          : Natural := Ledger_Count;
    begin
-      Result.Through_Date := To_Unbounded_String (Through_Date);
+      Result.Through_Date := Through_Date;
       Result.Requested := Count;
       Result.Entries.Clear;
 
@@ -33,7 +36,7 @@ package body ALedger.Recent_Journal is
             Source : constant ALedger.Journal_Evidence.Transaction_Source :=
               Actual_Evidence.Transactions.Element (I);
          begin
-            if To_String (Tx.Date_Text) /= To_String (Source.Date_Text)
+            if ALedger.Dates.Image (Tx.Date) /= To_String (Source.Date_Text)
               or else To_String (Tx.Code_Or_Payee) /= To_String (Source.Description)
             then
                Status := Evidence_Alignment_Mismatch;
@@ -50,7 +53,7 @@ package body ALedger.Recent_Journal is
             Tx : constant ALedger.Ledger.Transaction :=
               Actual_Ledger.Transactions.Element (Index);
          begin
-            if To_String (Tx.Date_Text) <= Through_Date then
+            if Tx.Date <= Through_Date then
                Result.Entries.Append
                  (Recent_Entry'
                     (Value  => Tx,
