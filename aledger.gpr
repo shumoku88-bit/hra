@@ -5,7 +5,7 @@ project Aledger is
    for Source_Dirs use ("src", "tests");
    for Object_Dir use "obj";
    for Exec_Dir use "bin";
-   for Main use ("aledger_main.adb", "test_runner.adb", "test_envelope_entitlement_standalone.adb", "test_report_plan.adb", "test_recent_journal.adb", "test_planned_payments.adb", "test_envelope_commitment.adb", "test_fulfillment_routing.adb", "test_envelope_fulfillment.adb", "test_journal_loader.adb", "test_account_admission.adb");
+   for Main use ("aledger_main.adb", "test_runner.adb", "test_envelope_entitlement_standalone.adb", "test_report_plan.adb", "test_recent_journal.adb", "test_planned_payments.adb", "test_envelope_commitment.adb", "test_fulfillment_routing.adb", "test_envelope_fulfillment.adb", "test_journal_loader.adb", "test_account_admission.adb", "test_dates.adb");
 
    package Compiler is
       for Default_Switches ("Ada") use (
@@ -34,5 +34,6 @@ project Aledger is
       for Executable ("test_envelope_fulfillment.adb") use "test_envelope_fulfillment";
       for Executable ("test_journal_loader.adb") use "test_journal_loader";
       for Executable ("test_account_admission.adb") use "test_account_admission";
+      for Executable ("test_dates.adb") use "test_dates";
    end Builder;
 end Aledger;
