@@ -201,6 +201,8 @@ begin
          "account budget:coffee" & ASCII.LF &
          "  ; type: Budget" & ASCII.LF &
          "account budget:unassigned" & ASCII.LF &
+         "  ; type: Budget" & ASCII.LF &
+         "account budget:opening" & ASCII.LF &
          "  ; type: Budget" & ASCII.LF);
 
       Write_File
@@ -223,8 +225,7 @@ begin
          "id = " & Quote & "coffee" & Quote & ASCII.LF &
          "label = " & Quote & "Coffee" & Quote & ASCII.LF &
          "pacing = " & Quote & "daily" & Quote & ASCII.LF &
-         "backing-pool = " & Quote & "liquid" & Quote & ASCII.LF &
-         "expense-accounts = [" & Quote & "expenses:coffee" & Quote & "]" & ASCII.LF);
+         "backing-pool = " & Quote & "liquid" & Quote & ASCII.LF);
 
       Write_File
         (To_String (Paths.Household_TOML),
@@ -234,10 +235,14 @@ begin
          "[money]" & ASCII.LF &
          "primary-commodity = " & Quote & "JPY" & Quote & ASCII.LF &
          "[budget]" & ASCII.LF &
+         "opening-accounts = [" & Quote & "budget:opening" & Quote & "]" & ASCII.LF &
          "unassigned-accounts = [" & Quote & "budget:unassigned" & Quote & "]" & ASCII.LF &
          "[[budget.envelopes]]" & ASCII.LF &
          "id = " & Quote & "coffee" & Quote & ASCII.LF &
-         "allocation-account = " & Quote & "budget:coffee" & Quote & ASCII.LF);
+         "allocation-account = " & Quote & "budget:coffee" & Quote & ASCII.LF &
+         "[envelope-history]" & ASCII.LF &
+         "identities = [" & Quote & "coffee" & Quote & "]" & ASCII.LF &
+         "expense-routing = []" & ASCII.LF);
 
       Write_File
         (To_String (Paths.Report_TOML),
