@@ -1,5 +1,6 @@
 with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
 with Ada.Containers.Indefinite_Vectors;
+with ALedger.Dates;
 with ALedger.Ledger;
 with ALedger.Household_Config;
 with ALedger.Envelope;
@@ -48,10 +49,22 @@ package ALedger.Budget_Source_Adapter is
       Movements    : out Movement_Vectors.Vector;
       Diag         : out Adapter_Diagnostic) return Boolean;
 
+   --  Complete admitted stock observation.
    function Observe_Entitlements
      (Transactions : Ledger.Transaction_Vectors.Vector;
       Config       : Household_Config.Household_Configuration;
       Registry     : Envelope.Envelope_Registry;
+      Observation  : out Envelope_Entitlement.Entitlement_Observation;
+      Diag         : out Adapter_Diagnostic) return Boolean;
+
+   --  Inclusive historical observation. The complete in-memory Budget source is
+   --  still validated fail-closed, but only source facts at or before Through_Date
+   --  contribute an origin or Entitlement movement.
+   function Observe_Entitlements
+     (Transactions : Ledger.Transaction_Vectors.Vector;
+      Config       : Household_Config.Household_Configuration;
+      Registry     : Envelope.Envelope_Registry;
+      Through_Date : ALedger.Dates.Date;
       Observation  : out Envelope_Entitlement.Entitlement_Observation;
       Diag         : out Adapter_Diagnostic) return Boolean;
 
