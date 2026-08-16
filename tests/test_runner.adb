@@ -224,7 +224,7 @@ procedure Test_Runner is
         "" & ASCII.LF &
         "2026-08-13 Supermarket Purchase" & ASCII.LF &
         "    expenses:food          1500 JPY" & ASCII.LF &
-        "    assets:bank:checking" & ASCII.LF &   -- Elided amount! Should infer -1500 JPY
+        "    assets:bank:checking" & ASCII.LF &
         "";
 
       L         : Ledger;
@@ -252,7 +252,6 @@ procedure Test_Runner is
          Assert (Is_Zero_Balance (Tot_Bal), "Parsed journal preserves strict ZERO balance law");
       end;
 
-      --  Test flexible amount parsing
       declare
          Flex_Journal : constant String :=
            "2026-08-14 Multi Currency Flexible Formats" & ASCII.LF &
@@ -266,7 +265,6 @@ procedure Test_Runner is
          Assert (Natural (L_Flex.Transactions.Length) = 1, "Parsed flexible transaction successfully");
       end;
 
-      --  Test Parse_Diagnostic Tracing and Location formatting
       declare
          Invalid_Journal : constant String :=
            "; line 1 comment" & ASCII.LF &
@@ -308,23 +306,14 @@ procedure Test_Runner is
         "id = """ & Food_UTF8 & """" & ASCII.LF &
         "label = """ & Food_UTF8 & """" & ASCII.LF &
         "pacing = ""daily""" & ASCII.LF &
-        "backing-pool = ""liquid""" & ASCII.LF &
-        "expense-accounts = [""expenses:food""]" & ASCII.LF;
-      Budget_With_History : constant String :=
-        "[[backing-pools]]" & ASCII.LF &
-        "id = ""liquid""" & ASCII.LF &
-        "asset-accounts = [""assets:cash""]" & ASCII.LF &
-        "[[envelopes]]" & ASCII.LF &
-        "id = """ & Food_UTF8 & """" & ASCII.LF &
-        "label = """ & Food_UTF8 & """" & ASCII.LF &
-        "pacing = ""daily""" & ASCII.LF &
-        "backing-pool = ""liquid""" & ASCII.LF &
-        "expense-accounts = [""expenses:food""]" & ASCII.LF;
+        "backing-pool = ""liquid""" & ASCII.LF;
+      Budget_With_History : constant String := Valid_Budget;
       Household_With_History : constant String :=
         "[cycle]" & ASCII.LF &
         "mode = ""income-anchor""" & ASCII.LF &
         "income-account = ""income:salary""" & ASCII.LF &
         "[budget]" & ASCII.LF &
+        "opening-accounts = [""budget:opening""]" & ASCII.LF &
         "unassigned-accounts = [""budget:unassigned""]" & ASCII.LF &
         "[[budget.envelopes]]" & ASCII.LF &
         "id = """ & Food_UTF8 & """" & ASCII.LF &
@@ -370,7 +359,6 @@ procedure Test_Runner is
            (Invalid_Report, Report, Diag),
          "Reject impossible Report date");
 
-      --  Test envelope-history parsing in household_config
       declare
          use type ALedger.Household_Config.Effective_Date_Kind;
          use type ALedger.Household_Config.Expense_Route_Kind;
@@ -379,13 +367,11 @@ procedure Test_Runner is
          Household_Diag : ALedger.Config_Support.Config_Diagnostic;
          Household_Cfg  : ALedger.Household_Config.Household_Configuration;
       begin
-         --  First parse budget_config (needed for household_config)
          Assert
            (ALedger.Budget_Config.Parse_Budget_Policy
               (Budget_With_History, History_Policy, History_Diag),
-            "Admit Budget policy with envelope-history section");
+            "Admit current-only Budget policy beside Envelope history");
 
-         --  Now parse household_config with envelope-history
          Assert
            (ALedger.Household_Config.Parse_Household_Configuration
               (Household_With_History, History_Policy, Household_Cfg, Household_Diag),
@@ -479,13 +465,11 @@ procedure Test_Runner is
    begin
       Put_Line ("--- Testing ALedger.Household (Canonical 8-Source Topology) ---");
 
-      --  Create temporary canonical household directory and source files
       if Exists (Tmp_Dir) then
          Delete_Tree (Tmp_Dir);
       end if;
       Create_Directory (Tmp_Dir);
 
-      --  Write accounts.journal
       Create (F, Out_File, To_String (Paths.Accounts_Journal));
       Put_Line (F, "account assets:wallet");
       Put_Line (F, "  ; type: Asset");
@@ -497,26 +481,27 @@ procedure Test_Runner is
       Put_Line (F, "  ; type: Budget");
       Put_Line (F, "account budget:unassigned");
       Put_Line (F, "  ; type: Budget");
+      Put_Line (F, "account budget:opening");
+      Put_Line (F, "  ; type: Budget");
       Close (F);
 
-      --  Write actual.journal
       Create (F, Out_File, To_String (Paths.Actual_Journal));
       Put_Line (F, "2026-08-13 Coffee Purchase");
       Put_Line (F, "    expenses:coffee         500 JPY");
       Put_Line (F, "    assets:wallet          -500 JPY");
       Close (F);
 
-      --  A partial root must never be accepted as the canonical topology.
       Assert
         (not Load_Canonical_Household (Tmp_Dir, State, Err),
          "Reject incomplete canonical Household root");
 
-      --  Complete the fixed eight-source topology.  TOML policy admission is
-      --  intentionally a later chapter, but exact source observation starts now.
       Create (F, Out_File, To_String (Paths.Plan_Journal));
       Put_Line (F, "INVALID PLAN SOURCE");
       Close (F);
       Create (F, Out_File, To_String (Paths.Budget_Journal));
+      Put_Line (F, "2026-08-01 Clean Envelope epoch");
+      Put_Line (F, "    budget:opening          0 JPY");
+      Put_Line (F, "    budget:unassigned       0 JPY");
       Close (F);
       Create (F, Out_File, To_String (Paths.Budget_TOML));
       Put_Line (F, "[[backing-pools]]");
@@ -527,7 +512,6 @@ procedure Test_Runner is
       Put_Line (F, "label = ""Coffee""");
       Put_Line (F, "pacing = ""daily""");
       Put_Line (F, "backing-pool = ""liquid""");
-      Put_Line (F, "expense-accounts = [""expenses:coffee""]");
       Close (F);
       Create (F, Out_File, To_String (Paths.Household_TOML));
       Put_Line (F, "[cycle]");
@@ -536,10 +520,19 @@ procedure Test_Runner is
       Put_Line (F, "[money]");
       Put_Line (F, "primary-commodity = ""JPY""");
       Put_Line (F, "[budget]");
+      Put_Line (F, "opening-accounts = [""budget:opening""]");
       Put_Line (F, "unassigned-accounts = [""budget:unassigned""]");
       Put_Line (F, "[[budget.envelopes]]");
       Put_Line (F, "id = ""coffee""");
       Put_Line (F, "allocation-account = ""budget:coffee""");
+      Put_Line (F, "[envelope-history]");
+      Put_Line (F, "identities = [""coffee""]");
+      Put_Line (F, "[[envelope-history.expense-routing]]");
+      Put_Line (F, "effective-from = ""initial""");
+      Put_Line (F, "expense-account = ""expenses:coffee"");
+      Put_Line (F, "route = ""managed""");
+      Put_Line (F, "target = ""coffee"");
+      Put_Line (F, "note = ""canonical clean routing"");
       Close (F);
       Create (F, Out_File, To_String (Paths.Report_TOML));
       Put_Line (F, "[presentation.amounts]");
@@ -581,6 +574,13 @@ procedure Test_Runner is
          State.Report_Policy.Presentation.Daily_Date_Columns = 7,
          "Canonical TOML sources admit typed policy values");
       Assert
+        (ALedger.Envelope_Entitlement.Has_Origin
+           (State.Entitlement, Make_Commodity ("JPY"))
+         and then ALedger.Dates.Image
+           (ALedger.Envelope_Entitlement.Origin_For
+              (State.Entitlement, Make_Commodity ("JPY"))) = "2026-08-01",
+         "Zero Budget movement establishes the JPY stock origin");
+      Assert
         (Text_For (State.Sources, Actual_Source) =
            "2026-08-13 Coffee Purchase" & ASCII.LF &
            "    expenses:coffee         500 JPY" & ASCII.LF &
@@ -608,7 +608,6 @@ procedure Test_Runner is
          Index (To_String (Err), "unknown key") > 0,
          "Reject unknown TOML coordinates instead of silently ignoring them");
 
-      --  Cleanup temporary directory
       Delete_Tree (Tmp_Dir);
    end Test_Canonical_Household;
 
@@ -633,7 +632,6 @@ procedure Test_Runner is
       Assert (Create_Plan_Entry ("plan-2026-08-001", D ("2026-08-25"), "Rent Payment August", Make_Amount (JPY, Q_80k), Acc_Bank, Acc_Rent, PE), "Create Plan_Entry");
       Assert (PE.Status = Pending, "New plan entry status is Pending");
 
-      --  Complete Plan (converts plan to actual transaction linking plan-id)
       Assert (Complete_Plan (PE, D ("2026-08-25"), Actual_Tx), "Complete Plan -> Actual Transaction conversion");
       Assert (PE.Status = Completed, "Completed plan status changes to Completed");
       Assert (Is_Balanced (Actual_Tx), "Generated actual transaction preserves strict balance law");
@@ -672,7 +670,6 @@ procedure Test_Runner is
    begin
       Put_Line ("--- Testing ALedger.Writer (Safe Writer & Atomic Publication Laws) ---");
 
-      --  1. Setup Initial File
       if Exists (Target_File) then
          Delete_File (Target_File);
       end if;
@@ -681,20 +678,17 @@ procedure Test_Runner is
       Put (F, Initial_Text);
       Close (F);
 
-      --  2. Successful Safe Append (Stale check + Backup + Atomic Rename + Post-Admission)
       Assert (Append_Transaction_Safely (Target_File, New_Tx_Text, W_Stat, Err_Msg) and then W_Stat = Success, "Safely append transaction atomically");
 
-      --  3. Test Stale Source Rejection
       Assert (not Atomic_Publish_Journal (Target_File, "WRONG_OLD_CONTENT", "NEW_CONTENT", W_Stat, Err_Msg) and then W_Stat = Stale_Source_Rejected, "Stale source rejection when on-disk content differs");
 
-      --  4. Test Post-Admission Validation Failure & Automatic Restore from Backup
       declare
          Current_Content : Unbounded_String;
          F_Read : File_Type;
          Unbalanced_Invalid_Tx : constant String :=
            "2026-08-15 Unbalanced Invalid Transaction" & ASCII.LF &
            "    expenses:food         1000 JPY" & ASCII.LF &
-           "    assets:cash          -500 JPY" & ASCII.LF;  -- Unbalanced!
+           "    assets:cash          -500 JPY" & ASCII.LF;
       begin
          Open (F_Read, In_File, Target_File);
          Current_Content := Null_Unbounded_String;
@@ -706,7 +700,6 @@ procedure Test_Runner is
 
          Assert (not Append_Transaction_Safely (Target_File, Unbalanced_Invalid_Tx, W_Stat, Err_Msg) and then (W_Stat = Pre_Admission_Failed or else W_Stat = Post_Admission_Failed), "Pre/Post-admission validation fails on unbalanced candidate");
 
-         --  Verify that target file was RESTORED 100% back to Current_Content!
          declare
             Restored_Content : Unbounded_String;
          begin
@@ -722,7 +715,6 @@ procedure Test_Runner is
          end;
       end;
 
-      --  Cleanup temporary test file
       if Exists (Target_File) then
          Delete_File (Target_File);
       end if;
@@ -790,17 +782,14 @@ procedure Test_Runner is
          BS_Obj     : constant Balance_Sheet := Generate_Balance_Sheet_As_Of (L, D ("2026-07-31"));
          PL_Obj     : constant Profit_And_Loss := Generate_Profit_And_Loss_Period (L, P ("2026-07-01", "2026-07-31"));
       begin
-         --  Verify Account Balances as-of 2026-07-31 (excluding 2026-08-01 transaction)
          Assert (Index (Bal_Report, "assets:cash | 13,000 JPY") > 0, "Equivalence: assets:cash = 13,000 JPY as of 2026-07-31");
          Assert (Index (Bal_Report, "Balanced: YES") > 0, "Account Balances verified Balanced: YES");
 
-         --  Verify Balance Sheet as-of 2026-07-31
          Assert (Index (BS_Report, "Total assets | 13,000 JPY") > 0, "Equivalence: Balance Sheet Total Assets = 13,000 JPY");
          Assert (Index (BS_Report, "Current earnings | 3,000 JPY") > 0, "Equivalence: Balance Sheet Current Earnings = 3,000 JPY");
          Assert (Index (BS_Report, "Total equity     | 13,000 JPY") > 0, "Equivalence: Balance Sheet Total Equity = 13,000 JPY");
          Assert (Is_Zero_Balance (BS_Obj.Accounting_Equation_Delta), "Equivalence: Accounting Equation Delta is strictly ZERO");
 
-         --  Verify July Period Profit & Loss (2026-07-01 .. 2026-07-31)
          Assert (Index (PL_Report, "Total Income  | 5,100 JPY") > 0, "Equivalence: July Total Income = 5,100 JPY");
          Assert (Index (PL_Report, "Total Expenses                 | 900 JPY") > 0, "Equivalence: July Total Expenses = 900 JPY");
          Assert (Index (PL_Report, "Net Profit (Income - Expenses) | 4,200 JPY") > 0, "Equivalence: July Net Profit strictly matches h-kernel (4,200 JPY)");
@@ -819,41 +808,34 @@ procedure Test_Runner is
    begin
       Put_Line ("--- Testing ALedger.Envelope (Identity & Registry) ---");
 
-      --  Valid identity creation
       Assert (Create_Envelope_Id ("food", Id, Status)
               and then Status = Success,
               "Create Envelope_Id from valid identity ""food""");
       Assert (Image (Id) = "food",
               "Image returns original identity string ""food""");
 
-      --  Reject empty identity
       Assert (not Create_Envelope_Id ("", Id, Status)
               and then Status = Empty_Identity,
               "Reject empty Envelope identity");
 
-      --  Reject leading whitespace
       Assert (not Create_Envelope_Id (" food", Id, Status)
               and then Status = Leading_Or_Trailing_Whitespace,
               "Reject Envelope identity with leading whitespace");
 
-      --  Reject trailing whitespace
       Assert (not Create_Envelope_Id ("food ", Id, Status)
               and then Status = Leading_Or_Trailing_Whitespace,
               "Reject Envelope identity with trailing whitespace");
 
-      --  Reject control characters
       Assert (not Create_Envelope_Id ("fo" & ASCII.NUL & "od", Id, Status)
               and then Status = Identity_Contains_Control,
               "Reject Envelope identity containing control character");
 
-      --  Internal colon is valid (sub-envelope identity)
       Assert (Create_Envelope_Id ("food:stock", Id, Status)
               and then Status = Success,
               "Accept sub-envelope identity with internal colon");
       Assert (Image (Id) = "food:stock",
               "Image preserves sub-envelope identity string");
 
-      --  UTF-8 identity (same bytes as budget.toml 食費)
       declare
          Food_UTF8 : constant String :=
            Character'Val (16#E9#) & Character'Val (16#A3#) & Character'Val (16#9F#) &
@@ -866,7 +848,6 @@ procedure Test_Runner is
                  "Image round-trips UTF-8 identity bytes exactly");
       end;
 
-      --  Envelope Id equality
       declare
          A, B : Envelope_Id;
          S    : Envelope_Id_Status;
@@ -878,12 +859,10 @@ procedure Test_Runner is
          Assert (A = B, "Two Envelope_Ids from same name are equal");
       end;
 
-      --  Registry: empty admission fails
       Names.Clear;
       Assert (not Admit_Registry (Names, Reg, Diag),
               "Reject registry admission with zero identities");
 
-      --  Registry: valid admission
       Names.Clear;
       Names.Append ("food");
       Names.Append ("tabaco");
@@ -891,13 +870,11 @@ procedure Test_Runner is
       Assert (Admit_Registry (Names, Reg, Diag),
               "Admit registry with three distinct Envelope identities");
 
-      --  Registry: Contains
       Assert (Contains (Reg, "food"),
               "Registry contains admitted identity ""food""");
       Assert (not Contains (Reg, "nonexistent"),
               "Registry does not contain unadmitted identity");
 
-      --  Registry: Lookup
       Assert (Lookup (Reg, "food", Food_Id),
               "Lookup succeeds for admitted identity ""food""");
       Assert (Image (Food_Id) = "food",
@@ -905,11 +882,9 @@ procedure Test_Runner is
       Assert (not Lookup (Reg, "nonexistent", Food_Id),
               "Lookup fails for unadmitted identity");
 
-      --  Registry: Length
       Assert (Length (Reg) = 3,
               "Registry length equals admitted identity count");
 
-      --  Registry: All_Ids returns sorted array
       declare
          Ids : constant Envelope_Id_Array := All_Ids (Reg);
       begin
@@ -919,21 +894,18 @@ procedure Test_Runner is
          Assert (Image (Ids (3)) = "tabaco", "All_Ids third element in sort order");
       end;
 
-      --  Registry: duplicate rejection
       Names.Clear;
       Names.Append ("food");
       Names.Append ("food");
       Assert (not Admit_Registry (Names, Reg, Diag),
               "Reject registry admission with duplicate identities");
 
-      --  Registry: invalid identity rejection
       Names.Clear;
       Names.Append ("valid");
       Names.Append ("");
       Assert (not Admit_Registry (Names, Reg, Diag),
               "Reject registry admission containing invalid identity");
 
-      --  Envelope Id is NOT an Account (type-level separation)
       declare
          Env : Envelope_Id;
          Acc : ALedger.Account.Account;
@@ -944,8 +916,6 @@ procedure Test_Runner is
          Acc := ALedger.Account.Make_Account ("food");
          Assert (Image (Env) = ALedger.Account.Name (Acc),
                  "Envelope and Account can share the same surface string");
-         --  But they are different types: Envelope_Id /= Account
-         --  The type system prevents confusing them
       end;
    end Test_Envelope_Identity_And_Registry;
 
@@ -963,13 +933,11 @@ procedure Test_Runner is
    begin
       Put_Line ("--- Testing ALedger.Envelope_Routing ---");
 
-      --  Setup: create a registry with two envelopes
       Names.Append ("food");
       Names.Append ("tabaco");
       Assert (Admit_Registry (Names, Reg, Reg_Diag),
               "Setup: admit registry with food and tabaco");
 
-      --  Valid routing entry (initial, managed)
       declare
          Food_Id : Envelope_Id;
          Id_Status : Envelope_Id_Status;
@@ -985,7 +953,6 @@ procedure Test_Runner is
          Entries.Append (E);
       end;
 
-      --  Valid routing entry (initial, not managed)
       declare
          E : Routing_Entry;
       begin
@@ -996,13 +963,11 @@ procedure Test_Runner is
          Entries.Append (E);
       end;
 
-      --  Admit valid history
       Assert (Admit (Entries, Reg, Hist, Status)
               and then Status = Success,
               "Admit routing history with two entries");
       Assert (Length (Hist) = 2, "History length is 2");
 
-      --  Resolve: food should be managed
       declare
          R : constant Expense_Route := Resolve (Hist, Food_Acc, D ("2026-08-15"));
       begin
@@ -1010,14 +975,12 @@ procedure Test_Runner is
          Assert (Image (R.Target) = "food", "Resolve food: target is food");
       end;
 
-      --  Resolve: rent should be not managed
       declare
          R : constant Expense_Route := Resolve (Hist, Rent_Acc, D ("2026-08-15"));
       begin
          Assert (R.Kind = Not_Envelope_Managed, "Resolve rent: not managed");
       end;
 
-      --  Resolve: unknown account should be not managed
       declare
          Unknown_Acc : constant Account := Make_Account ("expenses:unknown");
          R : constant Expense_Route := Resolve (Hist, Unknown_Acc, D ("2026-08-15"));
@@ -1026,10 +989,8 @@ procedure Test_Runner is
                  "Resolve unknown: not managed (no routing)");
       end;
 
-      --  Has_Routing: food has routing
       Assert (Has_Routing (Hist, Food_Acc), "Has_Routing: food has routing");
 
-      --  Has_Routing: unknown does not have routing
       declare
          Unknown_Acc : constant Account := Make_Account ("expenses:unknown");
       begin
@@ -1037,7 +998,6 @@ procedure Test_Runner is
                  "Has_Routing: unknown has no routing");
       end;
 
-      --  Reject: duplicate routing (same account, same effective date)
       declare
          Dup_Entries : Routing_Entry_Vectors.Vector;
          Food_Id : Envelope_Id;
@@ -1052,7 +1012,7 @@ procedure Test_Runner is
                Route     => Managed_Route (Food_Id),
                Note      => Null_Unbounded_String);
          Dup_Entries.Append (E);
-         Dup_Entries.Append (E);  -- duplicate
+         Dup_Entries.Append (E);
          declare
             Dup_Hist : Routing_History;
             Dup_Status : History_Status;
@@ -1063,7 +1023,6 @@ procedure Test_Runner is
          end;
       end;
 
-      --  Reject: unknown envelope in route
       declare
          Bad_Entries : Routing_Entry_Vectors.Vector;
          Fake_Id : Envelope_Id;
@@ -1088,7 +1047,6 @@ procedure Test_Runner is
          end;
       end;
 
-      --  Date precedence: dated entry beats initial
       declare
          Dated_Entries : Routing_Entry_Vectors.Vector;
          Food_Id, Tabaco_Id : Envelope_Id;
@@ -1104,14 +1062,12 @@ procedure Test_Runner is
                  and then Id_Status = Success,
                  "Setup: create tabaco Envelope_Id for dated precedence test");
 
-         --  Initial: food -> food
          E := (Effective => Initial_Effective_Date,
                Expense   => Food_Acc,
                Route     => Managed_Route (Food_Id),
                Note      => Null_Unbounded_String);
          Dated_Entries.Append (E);
 
-         --  From 2026-09-01: food -> tabaco
          E := (Effective => Dated_Effective (D ("2026-09-01")),
                Expense   => Food_Acc,
                Route     => Managed_Route (Tabaco_Id),
@@ -1122,7 +1078,6 @@ procedure Test_Runner is
                  and then Dated_Status = Success,
                  "Admit history with initial + dated entries");
 
-         --  Before 2026-09-01: should resolve to food
          declare
             R : constant Expense_Route := Resolve (Dated_Hist, Food_Acc, D ("2026-08-15"));
          begin
@@ -1131,7 +1086,6 @@ procedure Test_Runner is
                     "Resolve before date: initial wins (food)");
          end;
 
-         --  On 2026-09-01: should resolve to tabaco
          declare
             R : constant Expense_Route := Resolve (Dated_Hist, Food_Acc, D ("2026-09-01"));
          begin
@@ -1140,7 +1094,6 @@ procedure Test_Runner is
                     "Resolve on date: dated entry wins (tabaco)");
          end;
 
-         --  After 2026-09-01: should still resolve to tabaco
          declare
             R : constant Expense_Route := Resolve (Dated_Hist, Food_Acc, D ("2026-12-31"));
          begin
@@ -1176,10 +1129,10 @@ procedure Test_Runner is
 
       declare
          Bad_Rev : Transaction := Rev_Tx;
-         P       : Posting := Bad_Rev.Postings.Element (1);
+         Posting_Item : Posting := Bad_Rev.Postings.Element (1);
       begin
-         P.Acc := Acc_Asset;
-         Bad_Rev.Postings.Replace_Element (1, P);
+         Posting_Item.Acc := Acc_Asset;
+         Bad_Rev.Postings.Replace_Element (1, Posting_Item);
          Assert
            (not Is_Reversal_Of (Bad_Rev, Orig_Tx),
             "Reject a balanced transaction that does not invert target postings");
@@ -1197,7 +1150,6 @@ procedure Test_Runner is
          Assert (Is_Zero_Balance (Tot_Bal), "Total ledger balance remains strictly ZERO");
       end;
 
-      --  Test Journal metadata extraction for event-id and reverses
       declare
          Rev_Journal_Text : constant String :=
            "2026-08-12 Store Refund [event-id: evt-2026-003] [reverses: evt-2026-001]" & ASCII.LF &
@@ -1321,19 +1273,18 @@ procedure Test_Runner is
         "label = """ & Food_UTF8 & """" & ASCII.LF &
         "pacing = ""daily""" & ASCII.LF &
         "backing-pool = ""liquid""" & ASCII.LF &
-        "expense-accounts = [""expenses:food""]" & ASCII.LF &
         "[[envelopes]]" & ASCII.LF &
         "id = """ & Daily_UTF8 & """" & ASCII.LF &
         "label = """ & Daily_UTF8 & """" & ASCII.LF &
         "pacing = ""daily""" & ASCII.LF &
-        "backing-pool = ""liquid""" & ASCII.LF &
-        "expense-accounts = [""expenses:daily""]" & ASCII.LF;
+        "backing-pool = ""liquid""" & ASCII.LF;
 
       Household_TOML : constant String :=
         "[cycle]" & ASCII.LF &
         "mode = ""income-anchor""" & ASCII.LF &
         "income-account = ""income:salary""" & ASCII.LF &
         "[budget]" & ASCII.LF &
+        "opening-accounts = [""budget:opening""]" & ASCII.LF &
         "unassigned-accounts = [""budget:unassigned""]" & ASCII.LF &
         "[[budget.envelopes]]" & ASCII.LF &
         "id = """ & Food_UTF8 & """" & ASCII.LF &
@@ -1342,9 +1293,14 @@ procedure Test_Runner is
         "id = """ & Daily_UTF8 & """" & ASCII.LF &
         "allocation-account = ""budget:" & Daily_UTF8 & """" & ASCII.LF &
         "[envelope-history]" & ASCII.LF &
-        "identities = [""" & Food_UTF8 & """, """ & Daily_UTF8 & """]" & ASCII.LF;
+        "identities = [""" & Food_UTF8 & """, """ & Daily_UTF8 & """]" & ASCII.LF &
+        "expense-routing = []" & ASCII.LF;
 
       Budget_Journal_Text : constant String :=
+        "2026-07-31 Clean Source Epoch" & ASCII.LF &
+        "    budget:opening              0 JPY" & ASCII.LF &
+        "    budget:unassigned           0 JPY" & ASCII.LF &
+        "" & ASCII.LF &
         "2026-08-01 Grant Initial Food" & ASCII.LF &
         "    budget:unassigned      -10000 JPY" & ASCII.LF &
         "    budget:" & Food_UTF8 & "   10000 JPY" & ASCII.LF &
@@ -1356,10 +1312,6 @@ procedure Test_Runner is
         "2026-08-03 Return from Food" & ASCII.LF &
         "    budget:" & Food_UTF8 & "    -1000 JPY" & ASCII.LF &
         "    budget:unassigned        1000 JPY" & ASCII.LF &
-        "" & ASCII.LF &
-        "2026-08-04 Execution Movement (Spent)" & ASCII.LF &
-        "    budget:" & Food_UTF8 & "    -5000 JPY" & ASCII.LF &
-        "    budget:spent             5000 JPY" & ASCII.LF &
         "" & ASCII.LF &
         "2026-08-05 Negative Amount Return Daily" & ASCII.LF &
         "    budget:" & Daily_UTF8 & "  -1000 JPY" & ASCII.LF &
@@ -1384,10 +1336,10 @@ procedure Test_Runner is
 
       Assert
         (ALedger.Budget_Config.Parse_Budget_Policy (Budget_TOML, B_Policy, B_Diag),
-         "Setup: Parse Budget Policy");
+         "Setup: Parse current-only Budget Policy");
       Assert
         (ALedger.Household_Config.Parse_Household_Configuration (Household_TOML, B_Policy, H_Cfg, H_Diag),
-         "Setup: Parse Household Configuration");
+         "Setup: Parse clean Household Configuration");
 
       Ids.Append (Food_UTF8);
       Ids.Append (Daily_UTF8);
@@ -1402,41 +1354,39 @@ procedure Test_Runner is
 
       Assert
         (Parse_Journal_Text (Budget_Journal_Text, L, Err),
-         "Setup: Parse budget.journal text");
+         "Setup: Parse clean budget.journal text");
       Assert
         (Natural (L.Transactions.Length) = 5,
-         "Parsed 5 budget transactions");
+         "Parsed 5 budget transactions including zero source epoch");
 
       Assert
         (Adapt_Budget_Journal (L.Transactions, H_Cfg, Reg, Movements, Ad_Diag),
-         "Adapt budget.journal transactions to Entitlement_Movements");
+         "Adapt explicit Budget coordinates to Entitlement movements");
 
-      -- 4 movements adapted (1 spent execution ignored)
       Assert
         (Natural (Movements.Length) = 4,
-         "Adapted 4 Entitlement_Movements (spent ignored)");
+         "Zero source epoch emits no Entitlement transfer");
 
-      -- Verify full fold via Observe_Entitlements
       Assert
         (Observe_Entitlements (L.Transactions, H_Cfg, Reg, Obs, Ad_Diag),
          "Observe_Entitlements successfully folds all movements");
+      Assert
+        (Has_Origin (Obs, JPY)
+         and then ALedger.Dates.Image (Origin_For (Obs, JPY)) = "2026-07-31",
+         "Earliest admitted zero Budget movement owns JPY stock origin");
 
-      -- Food balance: 10000 - 2000 - 1000 = 7000 JPY
       Assert
         (Lookup_Balance (Entitlement_For (Obs, Food_Id), JPY) = 7000.0,
          "Food entitlement is 7,000 JPY");
 
-      -- Daily balance: 2000 - 1000 (returned) = 1000 JPY
       Assert
         (Lookup_Balance (Entitlement_For (Obs, Daily_Id), JPY) = 1000.0,
          "Daily entitlement is 1,000 JPY");
 
-      -- Unallocated deficit: -10000 + 1000 + 1000 = -8000 JPY
       Assert
         (Lookup_Balance (Unallocated_Balance (Obs), JPY) = -8000.0,
          "Unallocated entitlement is -8,000 JPY");
 
-      -- Test rejection of unknown budget account
       declare
          Bad_Journal_Text : constant String :=
            "2026-08-01 Unknown Account" & ASCII.LF &
@@ -1519,17 +1469,12 @@ procedure Test_Runner is
    begin
       Put_Line ("--- Testing ALedger.Envelope_Consumption ---");
 
-      -- Setup Envelopes: Food and Tabaco
       Ids.Append (Food_UTF8);
       Ids.Append (Tabaco_UTF8);
       Assert (Admit_Registry (Ids, Reg, Reg_Diag), "Setup: Admit Registry for Consumption");
       Assert (Lookup (Reg, Food_UTF8, Food_Id), "Lookup Food_Id");
       Assert (Lookup (Reg, Tabaco_UTF8, Tabaco_Id), "Lookup Tabaco_Id");
 
-      -- Setup Routing:
-      -- expenses:food -> initial = Food, from 2026-08-15 = Tabaco
-      -- expenses:rent -> Not_Envelope_Managed
-      -- expenses:other -> (no routing)
       R_Entries.Append
         (Routing_Entry'
            (Effective => Initial_Effective_Date,
@@ -1559,10 +1504,8 @@ procedure Test_Runner is
         (Natural (L.Transactions.Length) = 5,
          "Parsed 5 actual transactions");
 
-      -- Observe Consumption across all transactions
       Obs := Observe_Consumption (L, History);
 
-      -- Food consumption (2026-08-10 charge 3000, 2026-08-12 refund 500)
       declare
          Food_Amounts : constant Consumption_Amounts :=
            Consumption_For (Obs, Food_Id);
@@ -1580,7 +1523,6 @@ procedure Test_Runner is
             "Food Net Consumption = 2,500 JPY");
       end;
 
-      -- Tabaco consumption (2026-08-20 charge 2000 under dated routing)
       declare
          Tabaco_Amounts : constant Consumption_Amounts :=
            Consumption_For (Obs, Tabaco_Id);
@@ -1593,7 +1535,6 @@ procedure Test_Runner is
             "Tabaco Refunds = 0 JPY");
       end;
 
-      -- Unmanaged check (rent = 80000 JPY)
       Assert
         (Obs.Unmanaged.Contains ("expenses:rent"),
          "Unmanaged contains expenses:rent");
@@ -1601,7 +1542,6 @@ procedure Test_Runner is
         (Lookup_Balance (Obs.Unmanaged.Element ("expenses:rent").Charges, JPY) = 80000.0,
          "Unmanaged rent charges = 80,000 JPY");
 
-      -- Unrouted check (other = 1500 JPY attention evidence)
       Assert (Has_Unrouted (Obs), "Has_Unrouted is True");
       Assert
         (Obs.Unrouted.Contains ("expenses:other"),
@@ -1610,7 +1550,6 @@ procedure Test_Runner is
         (Lookup_Balance (Obs.Unrouted.Element ("expenses:other").Charges, JPY) = 1500.0,
          "Unrouted other charges = 1,500 JPY");
 
-      -- Date filter test (Through 2026-08-15)
       declare
          Through_Obs : constant Envelope_Consumption :=
            Observe_Consumption (L, History, D ("2026-08-15"));
@@ -1621,6 +1560,26 @@ procedure Test_Runner is
          Assert
            (Is_Zero_Balance (Consumption_For (Through_Obs, Tabaco_Id).Charges),
             "Through 2026-08-15: Tabaco Charges = 0 JPY (post-date excluded)");
+      end;
+
+      declare
+         Stock_Entitlement : ALedger.Envelope_Entitlement.Entitlement_Observation :=
+           ALedger.Envelope_Entitlement.Empty_Observation;
+         Stock_Obs : Envelope_Consumption;
+      begin
+         Stock_Entitlement := ALedger.Envelope_Entitlement.Record_Origin
+           (Stock_Entitlement, JPY, D ("2026-08-15"));
+         Stock_Obs := Observe_Stock_Consumption
+           (L, History, Stock_Entitlement);
+         Assert
+           (Is_Zero_Balance (Consumption_For (Stock_Obs, Food_Id).Charges)
+              and then Is_Zero_Balance
+                (Consumption_For (Stock_Obs, Food_Id).Refunds),
+            "Pre-origin root and its later reversal stay outside stock consumption");
+         Assert
+           (Lookup_Balance
+              (Consumption_For (Stock_Obs, Tabaco_Id).Charges, JPY) = 2000.0,
+            "Post-origin use remains in cumulative stock across later dates");
       end;
    end Test_Envelope_Consumption;
 
@@ -1642,7 +1601,6 @@ procedure Test_Runner is
       JPY : constant Commodity := Make_Commodity ("JPY");
       USD : constant Commodity := Make_Commodity ("USD");
    begin
-      -- 1. Test Positive_Balance law
       declare
          Pos_Bal : constant Balance := Singleton_Balance (Make_Amount (JPY, 1000.0));
          Neg_Bal : constant Balance := Singleton_Balance (Make_Amount (JPY, -500.0));
@@ -1661,7 +1619,6 @@ procedure Test_Runner is
             "Positive_Balance keeps positive JPY and drops negative USD in mixed balance");
       end;
 
-      -- 2. Test Policy Admission & Observation
       declare
          Budget_TOML : constant String :=
            "[[backing-pools]]" & ASCII.LF &
@@ -1672,13 +1629,11 @@ procedure Test_Runner is
            "label = """ & Food_UTF8 & """" & ASCII.LF &
            "pacing = ""daily""" & ASCII.LF &
            "backing-pool = ""liquid""" & ASCII.LF &
-           "expense-accounts = [""expenses:food""]" & ASCII.LF &
            "[[envelopes]]" & ASCII.LF &
            "id = """ & Daily_UTF8 & """" & ASCII.LF &
            "label = """ & Daily_UTF8 & """" & ASCII.LF &
            "pacing = ""daily""" & ASCII.LF &
-           "backing-pool = ""liquid""" & ASCII.LF &
-           "expense-accounts = [""expenses:daily""]" & ASCII.LF;
+           "backing-pool = ""liquid""" & ASCII.LF;
 
          B_Policy : ALedger.Budget_Config.Budget_Policy;
          B_Diag   : ALedger.Config_Support.Config_Diagnostic;
@@ -1691,7 +1646,6 @@ procedure Test_Runner is
          Food_Id  : Envelope_Id;
          Daily_Id : Envelope_Id;
 
-         -- Synthetic Ledger with 50,000 JPY in assets:cash
          L        : Ledger;
          Err      : Unbounded_String;
          L_Text   : constant String :=
@@ -1726,7 +1680,6 @@ procedure Test_Runner is
            (Parse_Journal_Text (L_Text, L, Err),
             "Setup: Parse cash ledger");
 
-         -- Food: Entitlement 10,000 JPY, Consumption 3,000 JPY -> Remaining = 7,000 JPY
          Ent_Obs := Fold_Movement
            (Ent_Obs,
             (Kind    => Grant_From_Unallocated,
@@ -1741,7 +1694,6 @@ procedure Test_Runner is
               (Charges => Singleton_Balance (Make_Amount (JPY, 3000.0)),
                Refunds => Empty_Balance));
 
-         -- Daily: Entitlement 5,000 JPY, Consumption 6,000 JPY -> Remaining = -1,000 JPY (deficit)
          Ent_Obs := Fold_Movement
            (Ent_Obs,
             (Kind    => Grant_From_Unallocated,
@@ -1754,7 +1706,6 @@ procedure Test_Runner is
               (Charges => Singleton_Balance (Make_Amount (JPY, 6000.0)),
                Refunds => Empty_Balance));
 
-         -- Observe Backing
          Back_Obs := Observe_Backing (Policy, L, Ent_Obs, Cons_Obs);
 
          declare
@@ -1764,11 +1715,9 @@ procedure Test_Runner is
             Assert
               (Lookup_Balance (Liquid_Pos.Funding_Balance, JPY) = 50000.0,
                "Liquid Funding Balance = 50,000 JPY");
-            -- Gross required = Positive(7,000) + Positive(-1,000) = 7,000 JPY (deficit does not offset!)
             Assert
               (Lookup_Balance (Liquid_Pos.Gross_Envelope_Required, JPY) = 7000.0,
                "Liquid Gross Required = 7,000 JPY (overspending does not cancel claim)");
-            -- Gross surplus = 50,000 - 7,000 = 43,000 JPY
             Assert
               (Lookup_Balance (Gross_Surplus (Liquid_Pos), JPY) = 43000.0,
                "Liquid Gross Surplus = 43,000 JPY");
