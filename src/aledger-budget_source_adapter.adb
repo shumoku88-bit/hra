@@ -99,47 +99,51 @@ package body ALedger.Budget_Source_Adapter is
                return False;
             end if;
 
-            if not Is_Zero (P2.Amt.Val) then
+            declare
+               From_Acc_Name : Unbounded_String;
+               To_Acc_Name   : Unbounded_String;
+               Amt           : Amount;
+            begin
+               if P2.Amt.Val >= Zero_Quantity then
+                  From_Acc_Name := Account.To_Unbounded (P1.Acc);
+                  To_Acc_Name   := Account.To_Unbounded (P2.Acc);
+                  Amt           := P2.Amt;
+               else
+                  From_Acc_Name := Account.To_Unbounded (P2.Acc);
+                  To_Acc_Name   := Account.To_Unbounded (P1.Acc);
+                  Amt           := Negate_Amount (P2.Amt);
+               end if;
+
                declare
-                  From_Acc_Name : Unbounded_String;
-                  To_Acc_Name   : Unbounded_String;
-                  Amt           : Amount;
+                  From_Ep : constant Source_Endpoint :=
+                    Classify_Endpoint
+                      (To_String (From_Acc_Name), Config, Registry);
+                  To_Ep   : constant Source_Endpoint :=
+                    Classify_Endpoint
+                      (To_String (To_Acc_Name), Config, Registry);
                begin
-                  if P2.Amt.Val > 0.0 then
-                     From_Acc_Name := Account.To_Unbounded (P1.Acc);
-                     To_Acc_Name   := Account.To_Unbounded (P2.Acc);
-                     Amt           := P2.Amt;
-                  else
-                     From_Acc_Name := Account.To_Unbounded (P2.Acc);
-                     To_Acc_Name   := Account.To_Unbounded (P1.Acc);
-                     Amt           := Negate_Amount (P2.Amt);
+                  if From_Ep.Kind = Endpoint_Unknown then
+                     Diag :=
+                       (Status            => Unrecognized_Budget_Account,
+                        Transaction_Index => Idx,
+                        Message           => To_Unbounded_String
+                          ("unrecognized from budget account: " &
+                           To_String (From_Acc_Name)));
+                     return False;
+                  elsif To_Ep.Kind = Endpoint_Unknown then
+                     Diag :=
+                       (Status            => Unrecognized_Budget_Account,
+                        Transaction_Index => Idx,
+                        Message           => To_Unbounded_String
+                          ("unrecognized to budget account: " &
+                           To_String (To_Acc_Name)));
+                     return False;
                   end if;
 
-                  declare
-                     From_Ep : constant Source_Endpoint :=
-                       Classify_Endpoint
-                         (To_String (From_Acc_Name), Config, Registry);
-                     To_Ep   : constant Source_Endpoint :=
-                       Classify_Endpoint
-                         (To_String (To_Acc_Name), Config, Registry);
-                  begin
-                     if From_Ep.Kind = Endpoint_Unknown then
-                        Diag :=
-                          (Status            => Unrecognized_Budget_Account,
-                           Transaction_Index => Idx,
-                           Message           => To_Unbounded_String
-                             ("unrecognized from budget account: " &
-                              To_String (From_Acc_Name)));
-                        return False;
-                     elsif To_Ep.Kind = Endpoint_Unknown then
-                        Diag :=
-                          (Status            => Unrecognized_Budget_Account,
-                           Transaction_Index => Idx,
-                           Message           => To_Unbounded_String
-                             ("unrecognized to budget account: " &
-                              To_String (To_Acc_Name)));
-                        return False;
-                     elsif From_Ep.Kind = Endpoint_Envelope
+                  --  A zero movement establishes the source epoch but carries
+                  --  no Entitlement transfer.
+                  if not Is_Zero (Amt.Val) then
+                     if From_Ep.Kind = Endpoint_Envelope
                        and then To_Ep.Kind = Endpoint_Envelope
                      then
                         Result.Append
@@ -166,12 +170,10 @@ package body ALedger.Budget_Source_Adapter is
                               Tx_Date => Tx.Date,
                               Amt     => Amt,
                               Target  => To_Ep.Target_Envelope));
-                     else
-                        null;
                      end if;
-                  end;
+                  end if;
                end;
-            end if;
+            end;
          end;
       end loop;
 
@@ -195,6 +197,16 @@ package body ALedger.Budget_Source_Adapter is
       then
          return False;
       end if;
+
+      --  Adapt_Budget_Journal has admitted the complete binary source shape and
+      --  every endpoint. The earliest transaction day for each Commodity is the
+      --  source-owned opening boundary, even when its amount is zero.
+      for Tx of Transactions loop
+         Obs := Envelope_Entitlement.Record_Origin
+           (Obs,
+            Tx.Postings.Element (1).Amt.Comm,
+            Tx.Date);
+      end loop;
 
       for M of Movements loop
          Obs := Envelope_Entitlement.Fold_Movement (Obs, M);
