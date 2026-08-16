@@ -89,16 +89,18 @@ package body ALedger.Household_Report_Observation is
       end if;
 
       Result.Consumption :=
-        ALedger.Envelope_Consumption.Observe_Consumption
+        ALedger.Envelope_Consumption.Observe_Stock_Consumption
           (State.Actual_Ledger,
            State.Routing_History,
+           State.Entitlement,
            Observed_Through);
 
-      if not ALedger.Envelope_Fulfillment.Observe
+      if not ALedger.Envelope_Fulfillment.Observe_Stock
         (Result.Completed_Plans,
          State.Actual_Ledger,
          State.Registry,
          State.Fulfillment_History,
+         State.Entitlement,
          Observed_Through,
          Result.Fulfillment,
          Fulfillment_Diag)
