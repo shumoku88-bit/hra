@@ -76,16 +76,71 @@ package body ALedger.Report_Config is
    end Parse_As_Of;
 
    function Parse_Range
-     (Table : TOML.TOML_Value; Path : String; Extra_Key : String;
-      Spec : out Range_Spec; Diag : out Config_Diagnostic) return Boolean
-   is From_Value, Through_Value : TOML.TOML_Value;
-      Allowed : constant String := (if Extra_Key'Length = 0 then "from|through" else "from|through|" & Extra_Key);
+     (Table               : TOML.TOML_Value;
+      Path                : String;
+      Extra_Key           : String;
+      Allow_Current_Cycle : Boolean;
+      Spec                : out Range_Spec;
+      Diag                : out Config_Diagnostic) return Boolean
+   is
+      Range_Value, From_Value, Through_Value : TOML.TOML_Value;
+      Has_Range, Has_From, Has_Through        : Boolean;
+      Allowed : constant String :=
+        (if Allow_Current_Cycle
+         then (if Extra_Key'Length = 0
+               then "range|from|through"
+               else "range|from|through|" & Extra_Key)
+         else (if Extra_Key'Length = 0
+               then "from|through"
+               else "from|through|" & Extra_Key));
    begin
-      return Check_Keys (Table, Allowed, Source_Name, Path, Diag)
-        and then Require (Table, "from", TOML.TOML_String, Source_Name, Path, From_Value, Diag)
-        and then Require (Table, "through", TOML.TOML_String, Source_Name, Path, Through_Value, Diag)
-        and then Parse_Boundary (From_Value, Path & ".from", True, Spec.From, Diag)
-        and then Parse_Boundary (Through_Value, Path & ".through", False, Spec.Through, Diag);
+      if not Check_Keys (Table, Allowed, Source_Name, Path, Diag)
+        or else not Optional
+          (Table, "range", TOML.TOML_String, Source_Name, Path,
+           Range_Value, Has_Range, Diag)
+      then
+         return False;
+      end if;
+
+      if Has_Range then
+         if not Optional
+           (Table, "from", TOML.TOML_String, Source_Name, Path,
+            From_Value, Has_From, Diag)
+           or else not Optional
+             (Table, "through", TOML.TOML_String, Source_Name, Path,
+              Through_Value, Has_Through, Diag)
+         then
+            return False;
+         end if;
+
+         if Has_From or else Has_Through then
+            Set_Error
+              (Diag, Source_Name, Path & ".range",
+               "range cannot be combined with from or through", Range_Value);
+            return False;
+         elsif not Allow_Current_Cycle
+           or else Range_Value.As_String /= "current-cycle-to-date"
+         then
+            Set_Error
+              (Diag, Source_Name, Path & ".range",
+               "expected current-cycle-to-date", Range_Value);
+            return False;
+         end if;
+
+         Spec := (Kind => Current_Cycle_To_Date);
+         return True;
+      end if;
+
+      return Require
+          (Table, "from", TOML.TOML_String, Source_Name, Path,
+           From_Value, Diag)
+        and then Require
+          (Table, "through", TOML.TOML_String, Source_Name, Path,
+           Through_Value, Diag)
+        and then Parse_Boundary
+          (From_Value, Path & ".from", True, Spec.From, Diag)
+        and then Parse_Boundary
+          (Through_Value, Path & ".through", False, Spec.Through, Diag);
    end Parse_Range;
 
    function Parse_Report_Configuration
@@ -155,9 +210,15 @@ package body ALedger.Report_Config is
         or else not Require (Reports, "recent-transactions", TOML.TOML_Table, Source_Name, "reports", Recent, Diag)
         or else not Parse_As_Of (Trial, "reports.trial-balance", Result.Plan.Trial_Balance, Diag)
         or else not Parse_As_Of (Balance, "reports.balance-sheet", Result.Plan.Balance_Sheet, Diag)
-        or else not Parse_Range (Profit, "reports.profit-and-loss", "", Result.Plan.Profit_And_Loss, Diag)
-        or else not Parse_Range (Daily, "reports.daily-flow", "max-date-columns", Result.Plan.Daily_Flow, Diag)
-        or else not Parse_Range (Monthly, "reports.monthly-accounts", "", Result.Plan.Monthly_Accounts, Diag)
+        or else not Parse_Range
+          (Profit, "reports.profit-and-loss", "", True,
+           Result.Plan.Profit_And_Loss, Diag)
+        or else not Parse_Range
+          (Daily, "reports.daily-flow", "max-date-columns", True,
+           Result.Plan.Daily_Flow, Diag)
+        or else not Parse_Range
+          (Monthly, "reports.monthly-accounts", "", False,
+           Result.Plan.Monthly_Accounts, Diag)
       then return False; end if;
 
       if not Optional (Daily, "max-date-columns", TOML.TOML_Integer, Source_Name, "reports.daily-flow", Columns_Value, Has_Value, Diag) then return False; end if;

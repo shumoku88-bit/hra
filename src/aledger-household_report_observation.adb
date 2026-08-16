@@ -30,33 +30,6 @@ package body ALedger.Household_Report_Observation is
       Result.Envelope_Positions :=
         ALedger.Envelope_Position.Empty_Observation;
 
-      if not ALedger.Report_Plan.Resolve
-        (Observed_Through,
-         State.Actual_Ledger,
-         State.Report_Policy.Plan,
-         Result.Query_Plan,
-         Report_Status)
-      then
-         Error_Msg := To_Unbounded_String
-           ("report query resolution failed: " &
-            ALedger.Report_Plan.Resolve_Status'Image (Report_Status));
-         return False;
-      end if;
-
-      if not ALedger.Recent_Journal.Observe
-        (State.Actual_Ledger,
-         State.Actual_Evidence,
-         Result.Query_Plan.Recent_Transactions_Through,
-         Result.Query_Plan.Recent_Transactions_Count,
-         Result.Recent_Journal,
-         Recent_Status)
-      then
-         Error_Msg := To_Unbounded_String
-           ("Recent Journal observation failed: " &
-            ALedger.Recent_Journal.Observe_Status'Image (Recent_Status));
-         return False;
-      end if;
-
       if not ALedger.Plan_Observation.Observe_Plans
         (State.Plan_Ledger,
          State.Plan_Evidence,
@@ -89,6 +62,34 @@ package body ALedger.Household_Report_Observation is
          Error_Msg := To_Unbounded_String
            ("current cycle resolution failed: " &
             ALedger.Cycle_Observation.Resolve_Status'Image (Cycle_Status));
+         return False;
+      end if;
+
+      if not ALedger.Report_Plan.Resolve_With_Current_Cycle
+        (Observed_Through,
+         State.Actual_Ledger,
+         Result.Current_Cycle,
+         State.Report_Policy.Plan,
+         Result.Query_Plan,
+         Report_Status)
+      then
+         Error_Msg := To_Unbounded_String
+           ("report query resolution failed: " &
+            ALedger.Report_Plan.Resolve_Status'Image (Report_Status));
+         return False;
+      end if;
+
+      if not ALedger.Recent_Journal.Observe
+        (State.Actual_Ledger,
+         State.Actual_Evidence,
+         Result.Query_Plan.Recent_Transactions_Through,
+         Result.Query_Plan.Recent_Transactions_Count,
+         Result.Recent_Journal,
+         Recent_Status)
+      then
+         Error_Msg := To_Unbounded_String
+           ("Recent Journal observation failed: " &
+            ALedger.Recent_Journal.Observe_Status'Image (Recent_Status));
          return False;
       end if;
 

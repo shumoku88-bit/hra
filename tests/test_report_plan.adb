@@ -60,6 +60,56 @@ procedure Test_Report_Plan is
      "through = ""latest""" & ASCII.LF &
      "count = 7" & ASCII.LF;
 
+   Symbolic_Report_Text : constant String :=
+     "[reports.trial-balance]" & ASCII.LF &
+     "as-of = ""latest""" & ASCII.LF &
+     "[reports.balance-sheet]" & ASCII.LF &
+     "as-of = ""latest""" & ASCII.LF &
+     "[reports.profit-and-loss]" & ASCII.LF &
+     "range = ""current-cycle-to-date""" & ASCII.LF &
+     "[reports.daily-flow]" & ASCII.LF &
+     "range = ""current-cycle-to-date""" & ASCII.LF &
+     "max-date-columns = 7" & ASCII.LF &
+     "[reports.monthly-accounts]" & ASCII.LF &
+     "from = ""beginning""" & ASCII.LF &
+     "through = ""latest""" & ASCII.LF &
+     "[reports.recent-transactions]" & ASCII.LF &
+     "through = ""latest""" & ASCII.LF &
+     "count = 5" & ASCII.LF;
+
+   Mixed_Report_Text : constant String :=
+     "[reports.trial-balance]" & ASCII.LF &
+     "as-of = ""latest""" & ASCII.LF &
+     "[reports.balance-sheet]" & ASCII.LF &
+     "as-of = ""latest""" & ASCII.LF &
+     "[reports.profit-and-loss]" & ASCII.LF &
+     "range = ""current-cycle-to-date""" & ASCII.LF &
+     "from = ""2026-08-01""" & ASCII.LF &
+     "through = ""latest""" & ASCII.LF &
+     "[reports.daily-flow]" & ASCII.LF &
+     "range = ""current-cycle-to-date""" & ASCII.LF &
+     "[reports.monthly-accounts]" & ASCII.LF &
+     "from = ""beginning""" & ASCII.LF &
+     "through = ""latest""" & ASCII.LF &
+     "[reports.recent-transactions]" & ASCII.LF &
+     "through = ""latest""" & ASCII.LF &
+     "count = 5" & ASCII.LF;
+
+   Monthly_Symbolic_Text : constant String :=
+     "[reports.trial-balance]" & ASCII.LF &
+     "as-of = ""latest""" & ASCII.LF &
+     "[reports.balance-sheet]" & ASCII.LF &
+     "as-of = ""latest""" & ASCII.LF &
+     "[reports.profit-and-loss]" & ASCII.LF &
+     "range = ""current-cycle-to-date""" & ASCII.LF &
+     "[reports.daily-flow]" & ASCII.LF &
+     "range = ""current-cycle-to-date""" & ASCII.LF &
+     "[reports.monthly-accounts]" & ASCII.LF &
+     "range = ""current-cycle-to-date""" & ASCII.LF &
+     "[reports.recent-transactions]" & ASCII.LF &
+     "through = ""latest""" & ASCII.LF &
+     "count = 5" & ASCII.LF;
+
    L      : ALedger.Ledger.Ledger;
    Err    : Unbounded_String;
    Config : ALedger.Report_Config.Report_Configuration;
@@ -76,11 +126,11 @@ begin
    Assert
      (ALedger.Report_Config.Parse_Report_Configuration
         (Report_Text, Config, Diag),
-      "Setup: parse symbolic report plan");
+      "Setup: parse symbolic boundary report plan");
 
    Assert
      (Resolve (D ("2026-08-15"), L, Config.Plan, Result, Status),
-      "Resolve symbolic report plan");
+      "Resolve explicit-range report plan");
    Assert
      (ALedger.Dates.Image (Result.Trial_Balance_As_Of) = "2026-08-15"
         and then ALedger.Dates.Image (Result.Balance_Sheet_As_Of) = "2026-08-15",
@@ -109,6 +159,65 @@ begin
      (not Resolve (D ("2026-08-15"), L, Config.Plan, Result, Status)
         and then Status = Invalid_Profit_And_Loss_Range,
       "reject resolved range whose start is after through date");
+
+   declare
+      Symbolic_Config : ALedger.Report_Config.Report_Configuration;
+      Cycle           : ALedger.Dates.Half_Open_Period;
+      Symbolic_Result : Resolved_Report_Plan;
+      Symbolic_Status : Resolve_Status;
+   begin
+      Assert
+        (ALedger.Report_Config.Parse_Report_Configuration
+           (Symbolic_Report_Text, Symbolic_Config, Diag),
+         "Admit current-cycle-to-date for P&L and Daily Flow");
+      Assert
+        (Needs_Current_Cycle (Symbolic_Config.Plan),
+         "Symbolic report plan declares current Cycle dependency");
+      Assert
+        (not Resolve
+           (D ("2026-08-15"), L, Symbolic_Config.Plan,
+            Symbolic_Result, Symbolic_Status)
+           and then Symbolic_Status = Current_Cycle_Context_Required,
+         "Pure Journal resolution fails closed without current Cycle context");
+      Assert
+        (ALedger.Dates.Make_Half_Open_Period
+           (D ("2026-08-01"), D ("2026-09-01"), Cycle),
+         "Setup: make current Cycle period");
+      Assert
+        (Resolve_With_Current_Cycle
+           (D ("2026-08-15"), L, Cycle, Symbolic_Config.Plan,
+            Symbolic_Result, Symbolic_Status),
+         "Resolve current-cycle-to-date with typed Period context");
+      Assert
+        (ALedger.Dates.Image
+           (ALedger.Dates.First (Symbolic_Result.Profit_And_Loss)) = "2026-08-01"
+           and then ALedger.Dates.Image
+             (ALedger.Dates.Last (Symbolic_Result.Profit_And_Loss)) = "2026-08-15"
+           and then ALedger.Dates.Image
+             (ALedger.Dates.First (Symbolic_Result.Daily_Flow)) = "2026-08-01"
+           and then ALedger.Dates.Image
+             (ALedger.Dates.Last (Symbolic_Result.Daily_Flow)) = "2026-08-15",
+         "Current Cycle start through observation resolves both daily ranges");
+      Assert
+        (not Resolve_With_Current_Cycle
+           (D ("2026-09-01"), L, Cycle, Symbolic_Config.Plan,
+            Symbolic_Result, Symbolic_Status)
+           and then Symbolic_Status = Current_Cycle_Observation_Outside_Period,
+         "Reject observation at half-open current Cycle limit");
+   end;
+
+   declare
+      Rejected : ALedger.Report_Config.Report_Configuration;
+   begin
+      Assert
+        (not ALedger.Report_Config.Parse_Report_Configuration
+           (Mixed_Report_Text, Rejected, Diag),
+         "Reject symbolic range mixed with from/through");
+      Assert
+        (not ALedger.Report_Config.Parse_Report_Configuration
+           (Monthly_Symbolic_Text, Rejected, Diag),
+         "Monthly Accounts remains explicit-range only");
+   end;
 
    Put_Line
      (Natural'Image (Passed_Count) & " passed, " &
