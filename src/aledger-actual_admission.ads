@@ -21,15 +21,19 @@ package ALedger.Actual_Admission is
    function Text (ID : Actual_Id) return String;
    function "=" (Left, Right : Actual_Id) return Boolean;
 
-   --  Durable identity/provenance is intentionally opaque at the package
-   --  boundary. Callers may consume the normalized Ledger and observation
-   --  cardinalities without learning which container represents identities.
-   type Actual_Observation is private;
+   --  Durable identity/provenance collections stay opaque. The normalized
+   --  Ledger remains an explicit observation coordinate because downstream
+   --  accounting projections consume it directly.
+   type Identified_Actual_Collection is private;
+   type Reversal_Collection is private;
+
+   type Actual_Observation is record
+      Value      : ALedger.Ledger.Ledger;
+      Identified : Identified_Actual_Collection;
+      Reversals  : Reversal_Collection;
+   end record;
 
    function Empty_Observation return Actual_Observation;
-
-   function Ledger_Value
-     (Observation : Actual_Observation) return ALedger.Ledger.Ledger;
 
    function Identified_Count (Observation : Actual_Observation) return Natural;
    function Reversal_Count (Observation : Actual_Observation) return Natural;
@@ -78,6 +82,9 @@ private
      (Index_Type   => Positive,
       Element_Type => Identified_Actual);
 
+   type Identified_Actual_Collection is
+     new Identified_Actual_Vectors.Vector with null record;
+
    type Reversal_Declaration is record
       Reversal_ID : Actual_Id;
       Target_ID   : Actual_Id;
@@ -87,15 +94,7 @@ private
      (Index_Type   => Positive,
       Element_Type => Reversal_Declaration);
 
-   type Actual_Observation is record
-      Value      : ALedger.Ledger.Ledger;
-      Identified : Identified_Actual_Vectors.Vector;
-      Reversals  : Reversal_Vectors.Vector;
-   end record;
-
-   function Ledger_Value
-     (Observation : Actual_Observation) return ALedger.Ledger.Ledger is
-       (Observation.Value);
+   type Reversal_Collection is new Reversal_Vectors.Vector with null record;
 
    function Identified_Count (Observation : Actual_Observation) return Natural is
      (Natural (Observation.Identified.Length));
