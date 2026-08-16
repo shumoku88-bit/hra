@@ -44,11 +44,11 @@ package body ALedger.Ledger is
    end Is_Balanced;
 
    function Create_Transaction
-     (Date_Str : String;
-      Payee    : String;
-      Postings : Posting_Vectors.Vector;
-      Tx       : out Transaction;
-      Status   : out Transaction_Error) return Boolean
+     (Date_Value : ALedger.Dates.Date;
+      Payee      : String;
+      Postings   : Posting_Vectors.Vector;
+      Tx         : out Transaction;
+      Status     : out Transaction_Error) return Boolean
    is
       Candidate : Transaction;
    begin
@@ -57,7 +57,7 @@ package body ALedger.Ledger is
          return False;
       end if;
 
-      Candidate := (Date_Text     => To_Unbounded_String (Date_Str),
+      Candidate := (Date          => Date_Value,
                     Code_Or_Payee => To_Unbounded_String (Payee),
                     Event_ID      => Null_Unbounded_String,
                     Reverses_ID   => Null_Unbounded_String,
@@ -76,7 +76,7 @@ package body ALedger.Ledger is
    function Create_Reversal_Transaction
      (Target_Tx       : Transaction;
       Reversal_ID     : String;
-      Reversal_Date   : String;
+      Reversal_Date   : ALedger.Dates.Date;
       Reversal_Reason : String;
       Rev_Tx          : out Transaction;
       Status          : out Transaction_Error) return Boolean
