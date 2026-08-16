@@ -57,6 +57,15 @@ issues.tsv
 - generic parser、plugin、repository/session frameworkを先回りして作らない
 - source format migrationとwriter cutoverを同じ変更へ混ぜない
 
+## Ada growth guardrails
+
+- canonical writerはcomplete Household candidate admissionを通るまで昇格させない
+- production / tests / proofのbuild境界を混ぜない
+- `when others`はparser / I/O / application boundaryに限定し、domain lawの失敗を潰さない
+- exact fixed-pointとrange safetyを別に扱い、proof-facing値はbounded admissionを通す
+- Editor/TUIへuse-case compositionを積まず、Application境界を先に置く
+- 8-source observationにwriter concurrencyが入る段階で途中変更検出を追加する
+
 ## 検証
 
 Repository-only qualification:
