@@ -79,31 +79,11 @@ package ALedger.Plan_Observation is
       Diag              : out Admission_Diagnostic) return Boolean;
 
    function Observe_Plans
-     (Plan_Ledger       : ALedger.Ledger.Ledger;
-      Plan_Evidence     : ALedger.Journal_Evidence.Journal_Evidence;
-      Actual_Ledger     : ALedger.Ledger.Ledger;
-      Actual_Evidence   : ALedger.Journal_Evidence.Journal_Evidence;
-      As_Of_Date        : String;
-      Open_Result       : out Open_Plan_Vectors.Vector;
-      Completed_Result  : out Completed_Plan_Vectors.Vector;
-      Diag              : out Admission_Diagnostic) return Boolean;
-
-   function Observe_Plans
      (Plan_Ledger        : ALedger.Ledger.Ledger;
       Plan_Source_Text   : String;
       Actual_Ledger      : ALedger.Ledger.Ledger;
       Actual_Source_Text : String;
       As_Of_Date         : ALedger.Dates.Date;
-      Open_Result        : out Open_Plan_Vectors.Vector;
-      Completed_Result   : out Completed_Plan_Vectors.Vector;
-      Diag               : out Admission_Diagnostic) return Boolean;
-
-   function Observe_Plans
-     (Plan_Ledger        : ALedger.Ledger.Ledger;
-      Plan_Source_Text   : String;
-      Actual_Ledger      : ALedger.Ledger.Ledger;
-      Actual_Source_Text : String;
-      As_Of_Date         : String;
       Open_Result        : out Open_Plan_Vectors.Vector;
       Completed_Result   : out Completed_Plan_Vectors.Vector;
       Diag               : out Admission_Diagnostic) return Boolean;
@@ -118,29 +98,11 @@ package ALedger.Plan_Observation is
       Diag             : out Admission_Diagnostic) return Boolean;
 
    function Observe_Open_Plans
-     (Plan_Ledger      : ALedger.Ledger.Ledger;
-      Plan_Evidence    : ALedger.Journal_Evidence.Journal_Evidence;
-      Actual_Ledger    : ALedger.Ledger.Ledger;
-      Actual_Evidence  : ALedger.Journal_Evidence.Journal_Evidence;
-      As_Of_Date       : String;
-      Result           : out Open_Plan_Vectors.Vector;
-      Diag             : out Admission_Diagnostic) return Boolean;
-
-   function Observe_Open_Plans
      (Plan_Ledger        : ALedger.Ledger.Ledger;
       Plan_Source_Text   : String;
       Actual_Ledger      : ALedger.Ledger.Ledger;
       Actual_Source_Text : String;
       As_Of_Date         : ALedger.Dates.Date;
-      Result             : out Open_Plan_Vectors.Vector;
-      Diag               : out Admission_Diagnostic) return Boolean;
-
-   function Observe_Open_Plans
-     (Plan_Ledger        : ALedger.Ledger.Ledger;
-      Plan_Source_Text   : String;
-      Actual_Ledger      : ALedger.Ledger.Ledger;
-      Actual_Source_Text : String;
-      As_Of_Date         : String;
       Result             : out Open_Plan_Vectors.Vector;
       Diag               : out Admission_Diagnostic) return Boolean;
 

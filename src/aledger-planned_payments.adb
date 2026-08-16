@@ -208,28 +208,6 @@ package body ALedger.Planned_Payments is
       return True;
    end Project;
 
-   function Project
-     (Open_Plans : ALedger.Plan_Observation.Open_Plan_Vectors.Vector;
-      Registry   : ALedger.Account.Account_Registry;
-      As_Of_Date : String;
-      Result     : out Observation;
-      Diag       : out Admission_Diagnostic) return Boolean
-   is
-      Date_Value  : ALedger.Dates.Date;
-      Date_Status : ALedger.Dates.Date_Status;
-   begin
-      if not ALedger.Dates.Parse (As_Of_Date, Date_Value, Date_Status) then
-         Result := (Payments => Payment_Vectors.Empty_Vector);
-         Diag :=
-           (Status      => Invalid_Observation_Date,
-            Line_Number => 0,
-            Plan_Id     => Null_Unbounded_String,
-            Message     => To_Unbounded_String ("invalid observation date"));
-         return False;
-      end if;
-      return Project (Open_Plans, Registry, Date_Value, Result, Diag);
-   end Project;
-
    function Observe
      (Plan_Ledger        : ALedger.Ledger.Ledger;
       Plan_Source_Text   : String;
@@ -262,39 +240,6 @@ package body ALedger.Planned_Payments is
       end if;
 
       return Project (Open_Plans, Registry, As_Of_Date, Result, Diag);
-   end Observe;
-
-   function Observe
-     (Plan_Ledger        : ALedger.Ledger.Ledger;
-      Plan_Source_Text   : String;
-      Actual_Ledger      : ALedger.Ledger.Ledger;
-      Actual_Source_Text : String;
-      Registry           : ALedger.Account.Account_Registry;
-      As_Of_Date         : String;
-      Result             : out Observation;
-      Diag               : out Admission_Diagnostic) return Boolean
-   is
-      Parsed_Date : ALedger.Dates.Date;
-      Status      : ALedger.Dates.Date_Status;
-   begin
-      if not ALedger.Dates.Parse (As_Of_Date, Parsed_Date, Status) then
-         Diag :=
-           (Status      => Invalid_Lifecycle_Date,
-            Line_Number => 0,
-            Plan_Id     => Null_Unbounded_String,
-            Message     => To_Unbounded_String ("invalid observation date"));
-         Result := (Payments => Payment_Vectors.Empty_Vector);
-         return False;
-      end if;
-      return Observe
-        (Plan_Ledger,
-         Plan_Source_Text,
-         Actual_Ledger,
-         Actual_Source_Text,
-         Registry,
-         Parsed_Date,
-         Result,
-         Diag);
    end Observe;
 
 end ALedger.Planned_Payments;

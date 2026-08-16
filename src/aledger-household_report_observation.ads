@@ -32,10 +32,4 @@ package ALedger.Household_Report_Observation is
       Result           : out Report_Observation;
       Error_Msg        : out Unbounded_String) return Boolean;
 
-   function Observe
-     (Observed_Through : String;
-      State            : ALedger.Household.Household_State;
-      Result           : out Report_Observation;
-      Error_Msg        : out Unbounded_String) return Boolean;
-
 end ALedger.Household_Report_Observation;

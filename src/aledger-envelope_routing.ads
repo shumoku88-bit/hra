@@ -41,11 +41,6 @@ package ALedger.Envelope_Routing is
    function Dated_Effective (Date : ALedger.Dates.Date) return Effective_Date
      with Post => Dated_Effective'Result.Kind = From_Date;
 
-   --  Programmatic text boundary. Invalid text is rejected rather than stored.
-   function Dated_Effective (Date : String) return Effective_Date
-     with Pre  => Date'Length > 0,
-          Post => Dated_Effective'Result.Kind = From_Date;
-
    type Routing_Entry is record
       Effective : Effective_Date;
       Expense   : Account.Account;
@@ -78,20 +73,10 @@ package ALedger.Envelope_Routing is
       Expense : Account.Account;
       Date    : ALedger.Dates.Date) return Expense_Route;
 
-   function Resolve
-     (H       : Routing_History;
-      Expense : Account.Account;
-      Date    : String) return Expense_Route;
-
    function Has_Routing_At
      (H       : Routing_History;
       Expense : Account.Account;
       Date    : ALedger.Dates.Date) return Boolean;
-
-   function Has_Routing_At
-     (H       : Routing_History;
-      Expense : Account.Account;
-      Date    : String) return Boolean;
 
    function Has_Routing
      (H       : Routing_History;

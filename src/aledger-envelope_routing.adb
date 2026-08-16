@@ -26,16 +26,6 @@ package body ALedger.Envelope_Routing is
       return (Kind => From_Date, Date => Date);
    end Dated_Effective;
 
-   function Dated_Effective (Date : String) return Effective_Date is
-      Value  : ALedger.Dates.Date;
-      Status : ALedger.Dates.Date_Status;
-   begin
-      if not ALedger.Dates.Parse (Date, Value, Status) then
-         raise Constraint_Error with "invalid routing effective date: " & Date;
-      end if;
-      return Dated_Effective (Value);
-   end Dated_Effective;
-
    function Empty_History return Routing_History is
    begin
       return (Entries => Routing_Entry_Vectors.Empty_Vector);
@@ -150,20 +140,6 @@ package body ALedger.Envelope_Routing is
       return Best;
    end Resolve;
 
-   function Resolve
-     (H       : Routing_History;
-      Expense : Account.Account;
-      Date    : String) return Expense_Route
-   is
-      Value  : ALedger.Dates.Date;
-      Status : ALedger.Dates.Date_Status;
-   begin
-      if not ALedger.Dates.Parse (Date, Value, Status) then
-         raise Constraint_Error with "invalid routing observation date: " & Date;
-      end if;
-      return Resolve (H, Expense, Value);
-   end Resolve;
-
    function Has_Routing_At
      (H       : Routing_History;
       Expense : Account.Account;
@@ -183,20 +159,6 @@ package body ALedger.Envelope_Routing is
          end if;
       end loop;
       return False;
-   end Has_Routing_At;
-
-   function Has_Routing_At
-     (H       : Routing_History;
-      Expense : Account.Account;
-      Date    : String) return Boolean
-   is
-      Value  : ALedger.Dates.Date;
-      Status : ALedger.Dates.Date_Status;
-   begin
-      if not ALedger.Dates.Parse (Date, Value, Status) then
-         raise Constraint_Error with "invalid routing observation date: " & Date;
-      end if;
-      return Has_Routing_At (H, Expense, Value);
    end Has_Routing_At;
 
    function Has_Routing

@@ -140,35 +140,6 @@ package body ALedger.Cycle_Observation is
       return True;
    end Resolve_Current;
 
-   function Resolve_Current
-     (Observed_Through : String;
-      Actual_Ledger    : ALedger.Ledger.Ledger;
-      Open_Plans       : ALedger.Plan_Observation.Open_Plan_Vectors.Vector;
-      Registry         : ALedger.Account.Account_Registry;
-      Income_Account   : ALedger.Account.Account;
-      Window           : out Cycle_Window;
-      Status           : out Resolve_Status) return Boolean
-   is
-      Date_Value  : ALedger.Dates.Date;
-      Date_Status : ALedger.Dates.Date_Status;
-   begin
-      if not ALedger.Dates.Parse
-        (Observed_Through, Date_Value, Date_Status)
-      then
-         Status := Invalid_Observation_Date;
-         return False;
-      end if;
-
-      return Resolve_Current
-        (Date_Value,
-         Actual_Ledger,
-         Open_Plans,
-         Registry,
-         Income_Account,
-         Window,
-         Status);
-   end Resolve_Current;
-
    function Start_Date (Window : Cycle_Window) return ALedger.Dates.Date is
      (ALedger.Dates.First (Window));
 
@@ -181,19 +152,6 @@ package body ALedger.Cycle_Observation is
    is
    begin
       return ALedger.Dates.Contains (Window, Date);
-   end Contains;
-
-   function Contains
-     (Window : Cycle_Window;
-      Date   : String) return Boolean
-   is
-      Date_Value  : ALedger.Dates.Date;
-      Date_Status : ALedger.Dates.Date_Status;
-   begin
-      if not ALedger.Dates.Parse (Date, Date_Value, Date_Status) then
-         raise Constraint_Error with "invalid cycle observation date: " & Date;
-      end if;
-      return Contains (Window, Date_Value);
    end Contains;
 
 end ALedger.Cycle_Observation;

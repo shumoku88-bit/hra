@@ -155,22 +155,4 @@ package body ALedger.Household_Report_Observation is
       return True;
    end Observe;
 
-   function Observe
-     (Observed_Through : String;
-      State            : ALedger.Household.Household_State;
-      Result           : out Report_Observation;
-      Error_Msg        : out Unbounded_String) return Boolean
-   is
-      Date_Value  : ALedger.Dates.Date;
-      Date_Status : ALedger.Dates.Date_Status;
-   begin
-      if not ALedger.Dates.Parse (Observed_Through, Date_Value, Date_Status) then
-         Error_Msg := To_Unbounded_String
-           ("invalid report observation date: " & Observed_Through);
-         return False;
-      end if;
-
-      return Observe (Date_Value, State, Result, Error_Msg);
-   end Observe;
-
 end ALedger.Household_Report_Observation;

@@ -75,41 +75,18 @@ package ALedger.Plan is
       To_Acc    : Account.Account;
       PE        : out Plan_Entry) return Boolean;
 
-   function Create_Plan_Entry
-     (ID_Str    : String;
-      Date_Str  : String;
-      Memo_Str  : String;
-      Amt       : Amount;
-      From_Acc  : Account.Account;
-      To_Acc    : Account.Account;
-      PE        : out Plan_Entry) return Boolean;
-
    function Complete_Plan
      (P              : in out Plan_Entry;
       Execution_Date : ALedger.Dates.Date;
-      Tx             : out Transaction) return Boolean;
-
-   function Complete_Plan
-     (P              : in out Plan_Entry;
-      Execution_Date : String;
       Tx             : out Transaction) return Boolean;
 
    procedure Cancel_Plan
      (P    : in out Plan_Entry;
       Date : ALedger.Dates.Date);
 
-   procedure Cancel_Plan
-     (P        : in out Plan_Entry;
-      Date_Str : String);
-
    procedure Supersede_Plan
      (P            : in out Plan_Entry;
       Date         : ALedger.Dates.Date;
-      Successor_ID : Plan_Id);
-
-   procedure Supersede_Plan
-     (P            : in out Plan_Entry;
-      Date_Str     : String;
       Successor_ID : Plan_Id);
 
 private

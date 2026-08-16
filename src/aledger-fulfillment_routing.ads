@@ -60,31 +60,15 @@ package ALedger.Fulfillment_Routing is
       Date     : ALedger.Dates.Date;
       Decision : out Fulfillment_Routing_Decision) return Boolean;
 
-   function Resolve_Decision
-     (History  : Fulfillment_Routing_History;
-      Plan_ID  : ALedger.Plan.Plan_Id;
-      Date     : String;
-      Decision : out Fulfillment_Routing_Decision) return Boolean;
-
    function Has_Routing_At
      (History : Fulfillment_Routing_History;
       Plan_ID : ALedger.Plan.Plan_Id;
       Date    : ALedger.Dates.Date) return Boolean;
 
-   function Has_Routing_At
-     (History : Fulfillment_Routing_History;
-      Plan_ID : ALedger.Plan.Plan_Id;
-      Date    : String) return Boolean;
-
    function Resolve
      (History : Fulfillment_Routing_History;
       Plan_ID : ALedger.Plan.Plan_Id;
       Date    : ALedger.Dates.Date) return Fulfillment_Route;
-
-   function Resolve
-     (History : Fulfillment_Routing_History;
-      Plan_ID : ALedger.Plan.Plan_Id;
-      Date    : String) return Fulfillment_Route;
 
    function Length (History : Fulfillment_Routing_History) return Natural;
 

@@ -91,21 +91,6 @@ package body ALedger.Fulfillment_Routing is
       return True;
    end Resolve_Decision;
 
-   function Resolve_Decision
-     (History  : Fulfillment_Routing_History;
-      Plan_ID  : ALedger.Plan.Plan_Id;
-      Date     : String;
-      Decision : out Fulfillment_Routing_Decision) return Boolean
-   is
-      Value       : ALedger.Dates.Date;
-      Date_Status : ALedger.Dates.Date_Status;
-   begin
-      if not ALedger.Dates.Parse (Date, Value, Date_Status) then
-         raise Constraint_Error with "invalid fulfillment routing date: " & Date;
-      end if;
-      return Resolve_Decision (History, Plan_ID, Value, Decision);
-   end Resolve_Decision;
-
    function Has_Routing_At
      (History : Fulfillment_Routing_History;
       Plan_ID : ALedger.Plan.Plan_Id;
@@ -116,34 +101,10 @@ package body ALedger.Fulfillment_Routing is
       return Resolve_Decision (History, Plan_ID, Date, Decision);
    end Has_Routing_At;
 
-   function Has_Routing_At
-     (History : Fulfillment_Routing_History;
-      Plan_ID : ALedger.Plan.Plan_Id;
-      Date    : String) return Boolean
-   is
-      Decision : Fulfillment_Routing_Decision;
-   begin
-      return Resolve_Decision (History, Plan_ID, Date, Decision);
-   end Has_Routing_At;
-
    function Resolve
      (History : Fulfillment_Routing_History;
       Plan_ID : ALedger.Plan.Plan_Id;
       Date    : ALedger.Dates.Date) return Fulfillment_Route
-   is
-      Decision : Fulfillment_Routing_Decision;
-   begin
-      if Resolve_Decision (History, Plan_ID, Date, Decision) then
-         return Decision.Route;
-      else
-         return Not_Target;
-      end if;
-   end Resolve;
-
-   function Resolve
-     (History : Fulfillment_Routing_History;
-      Plan_ID : ALedger.Plan.Plan_Id;
-      Date    : String) return Fulfillment_Route
    is
       Decision : Fulfillment_Routing_Decision;
    begin

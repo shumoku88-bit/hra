@@ -141,22 +141,4 @@ package body ALedger.Report_Plan is
       return True;
    end Resolve;
 
-   function Resolve
-     (Latest_Date : String;
-      L           : Ledger.Ledger;
-      Plan        : ALedger.Report_Config.Report_Plan;
-      Result      : out Resolved_Report_Plan;
-      Status      : out Resolve_Status) return Boolean
-   is
-      Date_Value  : ALedger.Dates.Date;
-      Date_Status : ALedger.Dates.Date_Status;
-   begin
-      if not ALedger.Dates.Parse (Latest_Date, Date_Value, Date_Status) then
-         Status := Invalid_Latest_Date;
-         return False;
-      end if;
-
-      return Resolve (Date_Value, L, Plan, Result, Status);
-   end Resolve;
-
 end ALedger.Report_Plan;

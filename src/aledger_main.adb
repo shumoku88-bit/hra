@@ -4,6 +4,7 @@ with Ada.Environment_Variables;
 with Ada.Strings.Unbounded;  use Ada.Strings.Unbounded;
 with Ada.Calendar;
 with Ada.Calendar.Formatting;
+with Ada.Calendar.Time_Zones;
 with ALedger;
 with ALedger.Account;        use ALedger.Account;
 with ALedger.Dates;
@@ -64,8 +65,11 @@ procedure ALedger_Main is
    end Resolve_Household_Root;
 
    function Local_Today return ALedger.Dates.Date is
+      Now_Time : constant Ada.Calendar.Time := Ada.Calendar.Clock;
+      Offset   : constant Ada.Calendar.Time_Zones.Time_Offset :=
+        Ada.Calendar.Time_Zones.Local_Time_Offset (Now_Time);
       Stamp    : constant String :=
-        Ada.Calendar.Formatting.Image (Ada.Calendar.Clock);
+        Ada.Calendar.Formatting.Image (Now_Time, Time_Zone => Offset);
       Date_Str : constant String := Stamp (Stamp'First .. Stamp'First + 9);
       D        : ALedger.Dates.Date;
       Status   : ALedger.Dates.Date_Status;

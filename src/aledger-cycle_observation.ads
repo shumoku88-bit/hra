@@ -25,24 +25,11 @@ package ALedger.Cycle_Observation is
       Window           : out Cycle_Window;
       Status           : out Resolve_Status) return Boolean;
 
-   function Resolve_Current
-     (Observed_Through : String;
-      Actual_Ledger    : ALedger.Ledger.Ledger;
-      Open_Plans       : ALedger.Plan_Observation.Open_Plan_Vectors.Vector;
-      Registry         : ALedger.Account.Account_Registry;
-      Income_Account   : ALedger.Account.Account;
-      Window           : out Cycle_Window;
-      Status           : out Resolve_Status) return Boolean;
-
    function Start_Date (Window : Cycle_Window) return ALedger.Dates.Date;
    function End_Exclusive (Window : Cycle_Window) return ALedger.Dates.Date;
 
    function Contains
      (Window : Cycle_Window;
       Date   : ALedger.Dates.Date) return Boolean;
-
-   function Contains
-     (Window : Cycle_Window;
-      Date   : String) return Boolean;
 
 end ALedger.Cycle_Observation;

@@ -31,13 +31,4 @@ package ALedger.Report_Plan is
       Result      : out Resolved_Report_Plan;
       Status      : out Resolve_Status) return Boolean;
 
-   --  Application/source text boundary. The resolved plan itself never retains
-   --  textual dates as semantic coordinates.
-   function Resolve
-     (Latest_Date : String;
-      L           : Ledger.Ledger;
-      Plan        : ALedger.Report_Config.Report_Plan;
-      Result      : out Resolved_Report_Plan;
-      Status      : out Resolve_Status) return Boolean;
-
 end ALedger.Report_Plan;
