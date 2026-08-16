@@ -145,6 +145,7 @@ package body ALedger.Household_Report_Observation is
         ALedger.Backing_Policy.Observe_Backing
           (State.Backing_Policy_Spec,
            State.Actual_Ledger,
+           Observed_Through,
            State.Entitlement,
            Result.Consumption,
            Result.Fulfillment,
