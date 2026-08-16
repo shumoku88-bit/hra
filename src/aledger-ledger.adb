@@ -1,4 +1,8 @@
+with ALedger.Dates;
+
 package body ALedger.Ledger is
+
+   use type ALedger.Dates.Date;
 
    function Make_Posting
      (Acc : Account.Account;
@@ -207,6 +211,26 @@ package body ALedger.Ledger is
       end loop;
       return Total;
    end Compute_Account_Balance;
+
+   function Compute_Account_Balance_Through
+     (L       : Ledger;
+      Acc     : Account.Account;
+      Through : ALedger.Dates.Date) return Balance
+   is
+      Total : Balance := Empty_Balance;
+   begin
+      for Tx of L.Transactions loop
+         if Tx.Date <= Through then
+            for P of Tx.Postings loop
+               if P.Acc = Acc then
+                  Total := Add_Balance
+                    (Total, Singleton_Balance (P.Amt));
+               end if;
+            end loop;
+         end if;
+      end loop;
+      return Total;
+   end Compute_Account_Balance_Through;
 
    function Compute_Total_Balance (L : Ledger) return Balance is
       Total : Balance := Empty_Balance;
