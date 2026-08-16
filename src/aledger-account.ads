@@ -1,6 +1,6 @@
 with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
 with Ada.Containers.Indefinite_Ordered_Maps;
-with Ada.Containers.Indefinite_Vectors;
+with Ada.Containers.Vectors;
 with ALedger.Money;          use ALedger.Money;
 
 package ALedger.Account is
@@ -102,7 +102,7 @@ private
       Name_Text : Unbounded_String;
    end record;
 
-   package Declaration_Vectors is new Ada.Containers.Indefinite_Vectors
+   package Declaration_Vectors is new Ada.Containers.Vectors
      (Index_Type   => Positive,
       Element_Type => Account_Declaration);
 
