@@ -1,5 +1,6 @@
 with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
 with Ada.Containers.Indefinite_Vectors;
+with ALedger.Dates;
 with ALedger.Ledger;
 with ALedger.Plan;
 with ALedger.Journal_Evidence;
@@ -55,26 +56,28 @@ package ALedger.Plan_Observation is
       Message     : Unbounded_String;
    end record;
 
-   --  Core identity admission consumes already-admitted Journal evidence.
-   --  Lifecycle state is not part of identity existence: completed, cancelled,
-   --  and superseded Plans remain valid stable references.
    function Admit_Plan_Identities
      (Plan_Ledger   : ALedger.Ledger.Ledger;
       Plan_Evidence : ALedger.Journal_Evidence.Journal_Evidence;
       Result        : out ALedger.Plan.Plan_Id_Universe;
       Diag          : out Admission_Diagnostic) return Boolean;
 
-   --  Compatibility wrapper for root-only callers. Production graph admission
-   --  should pass Journal_Evidence directly and must not re-extract raw text.
    function Admit_Plan_Identities
      (Plan_Ledger      : ALedger.Ledger.Ledger;
       Plan_Source_Text : String;
       Result           : out ALedger.Plan.Plan_Id_Universe;
       Diag             : out Admission_Diagnostic) return Boolean;
 
-   --  Core role-neutral lifecycle observation. Ledger and Evidence are one
-   --  admitted pair for each source. Planned similarity never creates
-   --  completion evidence; only explicit Actual plan-id metadata does.
+   function Observe_Plans
+     (Plan_Ledger       : ALedger.Ledger.Ledger;
+      Plan_Evidence     : ALedger.Journal_Evidence.Journal_Evidence;
+      Actual_Ledger     : ALedger.Ledger.Ledger;
+      Actual_Evidence   : ALedger.Journal_Evidence.Journal_Evidence;
+      As_Of_Date        : ALedger.Dates.Date;
+      Open_Result       : out Open_Plan_Vectors.Vector;
+      Completed_Result  : out Completed_Plan_Vectors.Vector;
+      Diag              : out Admission_Diagnostic) return Boolean;
+
    function Observe_Plans
      (Plan_Ledger       : ALedger.Ledger.Ledger;
       Plan_Evidence     : ALedger.Journal_Evidence.Journal_Evidence;
@@ -85,7 +88,6 @@ package ALedger.Plan_Observation is
       Completed_Result  : out Completed_Plan_Vectors.Vector;
       Diag              : out Admission_Diagnostic) return Boolean;
 
-   --  Compatibility wrapper for root-only callers.
    function Observe_Plans
      (Plan_Ledger        : ALedger.Ledger.Ledger;
       Plan_Source_Text   : String;
@@ -96,7 +98,15 @@ package ALedger.Plan_Observation is
       Completed_Result   : out Completed_Plan_Vectors.Vector;
       Diag               : out Admission_Diagnostic) return Boolean;
 
-   --  Evidence-native projection for callers that only need open Plans.
+   function Observe_Open_Plans
+     (Plan_Ledger      : ALedger.Ledger.Ledger;
+      Plan_Evidence    : ALedger.Journal_Evidence.Journal_Evidence;
+      Actual_Ledger    : ALedger.Ledger.Ledger;
+      Actual_Evidence  : ALedger.Journal_Evidence.Journal_Evidence;
+      As_Of_Date       : ALedger.Dates.Date;
+      Result           : out Open_Plan_Vectors.Vector;
+      Diag             : out Admission_Diagnostic) return Boolean;
+
    function Observe_Open_Plans
      (Plan_Ledger      : ALedger.Ledger.Ledger;
       Plan_Evidence    : ALedger.Journal_Evidence.Journal_Evidence;
@@ -106,7 +116,6 @@ package ALedger.Plan_Observation is
       Result           : out Open_Plan_Vectors.Vector;
       Diag             : out Admission_Diagnostic) return Boolean;
 
-   --  Compatibility projection for root-only callers.
    function Observe_Open_Plans
      (Plan_Ledger        : ALedger.Ledger.Ledger;
       Plan_Source_Text   : String;
