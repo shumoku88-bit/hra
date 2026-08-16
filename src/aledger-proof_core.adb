@@ -66,13 +66,6 @@ is
              and then Original (I).Quantity = -Reversal (I).Quantity);
    end Is_Ordered_Inverse;
 
-   function Unreserved_Obligation
-     (Input : Plan_Obligation_Input) return Atomic_Quanta
-   is
-   begin
-      return Input.Amount - Input.Already_Excluded;
-   end Unreserved_Obligation;
-
    function Evaluate_Envelope (Input : Envelope_Input) return Envelope_Result is
       Remaining : constant Derived_Quanta :=
         Input.Entitlement
