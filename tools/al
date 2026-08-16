@@ -9,11 +9,11 @@ usage() {
 Usage: tools/al COMMAND [ARGS...]
 
 Repository commands:
-  build                 Build the current source with Alire
-  test                  Build, then run the canonical test runner
+  build                 Build production source with Alire
+  test                  Build the dedicated test project, then run test_runner
   prove                 Run the SPARK proof project
-  qualify               Build, test, and prove the repository
-  clean                 Clean Alire build products
+  qualify               Build production, run tests, and prove
+  clean                 Clean production, test, and proof build products
 
 Application commands:
   check [--base ROOT]   Validate an admitted canonical Household
@@ -34,9 +34,14 @@ need_alr() {
   fi
 }
 
-build() {
+build_production() {
   need_alr
   alr build
+}
+
+build_tests() {
+  need_alr
+  alr exec -- gprbuild -P "$project_root/tests/aledger_tests.gpr"
 }
 
 command="${1:-help}"
@@ -53,8 +58,8 @@ case "$command" in
     exec alr build "$@"
     ;;
   test)
-    build
-    exec "$project_root/bin/test_runner" "$@"
+    build_tests
+    exec "$project_root/tests/bin/test_runner" "$@"
     ;;
   prove)
     if [[ $# -ne 0 ]]; then
@@ -68,20 +73,22 @@ case "$command" in
       echo "tools/al qualify: unexpected arguments" >&2
       exit 2
     fi
-    build
-    "$project_root/bin/test_runner"
+    build_production
+    build_tests
+    "$project_root/tests/bin/test_runner"
     "$project_root/tools/prove"
     ;;
   clean)
     need_alr
-    exec alr clean "$@"
+    alr clean "$@"
+    rm -rf "$project_root/tests/obj" "$project_root/tests/bin" "$project_root/proof/obj"
     ;;
   check|report|tui|version)
-    build
+    build_production
     exec "$project_root/bin/aledger" "$command" "$@"
     ;;
   app-help)
-    build
+    build_production
     exec "$project_root/bin/aledger" help "$@"
     ;;
   *)
