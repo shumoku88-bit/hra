@@ -73,6 +73,24 @@ package body ALedger.Ledger is
       return True;
    end Create_Transaction;
 
+   function Create_Transaction
+     (Date_Str : String;
+      Payee    : String;
+      Postings : Posting_Vectors.Vector;
+      Tx       : out Transaction;
+      Status   : out Transaction_Error) return Boolean
+   is
+      Date_Value  : ALedger.Dates.Date;
+      Date_Status : ALedger.Dates.Date_Status;
+   begin
+      if not ALedger.Dates.Parse (Date_Str, Date_Value, Date_Status) then
+         Status := Invalid_Date;
+         return False;
+      end if;
+
+      return Create_Transaction (Date_Value, Payee, Postings, Tx, Status);
+   end Create_Transaction;
+
    function Create_Reversal_Transaction
      (Target_Tx       : Transaction;
       Reversal_ID     : String;
@@ -104,6 +122,33 @@ package body ALedger.Ledger is
       Rev_Tx.Event_ID    := To_Unbounded_String (Reversal_ID);
       Rev_Tx.Reverses_ID := To_Unbounded_String (Target_ID);
       return True;
+   end Create_Reversal_Transaction;
+
+   function Create_Reversal_Transaction
+     (Target_Tx       : Transaction;
+      Reversal_ID     : String;
+      Reversal_Date   : String;
+      Reversal_Reason : String;
+      Rev_Tx          : out Transaction;
+      Status          : out Transaction_Error) return Boolean
+   is
+      Date_Value  : ALedger.Dates.Date;
+      Date_Status : ALedger.Dates.Date_Status;
+   begin
+      if not ALedger.Dates.Parse
+        (Reversal_Date, Date_Value, Date_Status)
+      then
+         Status := Invalid_Date;
+         return False;
+      end if;
+
+      return Create_Reversal_Transaction
+        (Target_Tx,
+         Reversal_ID,
+         Date_Value,
+         Reversal_Reason,
+         Rev_Tx,
+         Status);
    end Create_Reversal_Transaction;
 
    function Is_Reversal_Of (Candidate_Rev, Target_Tx : Transaction) return Boolean is
