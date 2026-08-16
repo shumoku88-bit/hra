@@ -2,6 +2,7 @@ with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
 with Ada.Containers.Indefinite_Ordered_Maps;
 with Ada.Containers.Indefinite_Vectors;
 with ALedger.Account;
+with ALedger.Dates;
 with ALedger.Envelope;
 with ALedger.Fulfillment_Routing;
 with ALedger.Ledger;
@@ -33,12 +34,12 @@ package ALedger.Envelope_Fulfillment is
    type Fulfillment_Evidence is record
       Plan_ID              : ALedger.Plan.Plan_Id;
       Envelope_ID          : ALedger.Envelope.Envelope_Id;
-      Completion_Date      : Unbounded_String;
+      Completion_Date      : ALedger.Dates.Date;
       Root_Actual_Event_ID : Unbounded_String;
       Plan_Header_Line     : Natural;
       Actual_Header_Line   : Natural;
       Target_Posting_Index : Positive;
-      Route_Effective_From : Unbounded_String;
+      Route_Effective_From : ALedger.Dates.Date;
       Route_Note           : Unbounded_String;
       Applied              : Balance;
       Reversed             : Balance;
@@ -49,7 +50,7 @@ package ALedger.Envelope_Fulfillment is
       Element_Type => Fulfillment_Evidence);
 
    type Envelope_Fulfillment is record
-      Observed_Through : Unbounded_String;
+      Observed_Through : ALedger.Dates.Date;
       Managed          : Envelope_Amounts_Maps.Map;
       Evidence         : Evidence_Vectors.Vector;
    end record;
@@ -87,7 +88,7 @@ package ALedger.Envelope_Fulfillment is
       Actual_Ledger    : ALedger.Ledger.Ledger;
       Registry         : ALedger.Account.Account_Registry;
       Routing          : ALedger.Fulfillment_Routing.Fulfillment_Routing_History;
-      Observed_Through : String;
+      Observed_Through : ALedger.Dates.Date;
       Result           : out Envelope_Fulfillment;
       Diag             : out Observe_Diagnostic) return Boolean;
 

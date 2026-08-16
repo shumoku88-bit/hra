@@ -1,8 +1,9 @@
 with ALedger.Account;
+with ALedger.Dates;
 
 package body ALedger.Backing_Policy is
 
-   use type ALedger.Money.Quantity;
+   use type ALedger.Dates.Date;
 
    function Positive_Balance (B : Balance) return Balance is
       Result : Balance := Empty_Balance;
@@ -136,7 +137,7 @@ package body ALedger.Backing_Policy is
       Result : Funding_Commitment_Observation := Empty_Funding_Commitment;
    begin
       for P of Open_Plans loop
-         if To_String (P.Tx.Date_Text) < To_String (Window.End_Exclusive) then
+         if P.Tx.Date < ALedger.Cycle_Observation.End_Exclusive (Window) then
             for Posting of P.Tx.Postings loop
                if Posting.Amt.Val < Zero_Quantity then
                   declare

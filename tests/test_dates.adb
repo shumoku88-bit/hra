@@ -67,8 +67,8 @@ begin
       "successor crosses year boundary");
 
    declare
-      One_Day : Closed_Period;
-      Range   : Closed_Period;
+      One_Day    : Closed_Period;
+      Period_Val : Closed_Period;
    begin
       Assert
         (Make_Closed_Period
@@ -79,29 +79,29 @@ begin
          "closed period includes its only day");
       Assert
         (Make_Closed_Period
-           (Must_Date ("2026-08-01"), Must_Date ("2026-08-31"), Range)
-           and then Contains (Range, Must_Date ("2026-08-01"))
-           and then Contains (Range, Must_Date ("2026-08-31")),
+           (Must_Date ("2026-08-01"), Must_Date ("2026-08-31"), Period_Val)
+           and then Contains (Period_Val, Must_Date ("2026-08-01"))
+           and then Contains (Period_Val, Must_Date ("2026-08-31")),
          "closed period includes both boundaries");
       Assert
         (not Make_Closed_Period
-           (Must_Date ("2026-08-31"), Must_Date ("2026-08-01"), Range),
+           (Must_Date ("2026-08-31"), Must_Date ("2026-08-01"), Period_Val),
          "closed period rejects reversed boundaries");
    end;
 
    declare
-      Range : Half_Open_Period;
+      Period_Val : Half_Open_Period;
    begin
       Assert
         (Make_Half_Open_Period
-           (Must_Date ("2026-08-01"), Must_Date ("2026-09-01"), Range)
-           and then Contains (Range, Must_Date ("2026-08-01"))
-           and then Contains (Range, Must_Date ("2026-08-31"))
-           and then not Contains (Range, Must_Date ("2026-09-01")),
+           (Must_Date ("2026-08-01"), Must_Date ("2026-09-01"), Period_Val)
+           and then Contains (Period_Val, Must_Date ("2026-08-01"))
+           and then Contains (Period_Val, Must_Date ("2026-08-31"))
+           and then not Contains (Period_Val, Must_Date ("2026-09-01")),
          "half-open period includes first and excludes limit");
       Assert
         (not Make_Half_Open_Period
-           (Must_Date ("2026-08-01"), Must_Date ("2026-08-01"), Range),
+           (Must_Date ("2026-08-01"), Must_Date ("2026-08-01"), Period_Val),
          "half-open period rejects empty window");
    end;
 

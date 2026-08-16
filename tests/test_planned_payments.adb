@@ -2,6 +2,7 @@ with Ada.Text_IO;          use Ada.Text_IO;
 with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
 with Ada.Strings.Fixed;     use Ada.Strings.Fixed;
 with ALedger.Account;
+with ALedger.Dates;
 with ALedger.Journal;
 with ALedger.Ledger;
 with ALedger.Money;
@@ -26,6 +27,16 @@ procedure Test_Planned_Payments is
          Failed_Count := Failed_Count + 1;
       end if;
    end Assert;
+
+   function D (S : String) return ALedger.Dates.Date is
+      Val    : ALedger.Dates.Date;
+      Status : ALedger.Dates.Date_Status;
+   begin
+      if not ALedger.Dates.Parse (S, Val, Status) then
+         raise Program_Error with "Invalid date in test: " & S;
+      end if;
+      return Val;
+   end D;
 
    procedure Register
      (Registry : in out ALedger.Account.Account_Registry;
@@ -149,7 +160,7 @@ begin
    Assert
      (ALedger.Planned_Payments.Observe
         (Plans, Plan_Source, Actual, Actual_Source, Registry,
-         "2026-08-15", Result, Diag),
+         D ("2026-08-15"), Result, Diag),
       "Observe open Planned Payments from explicit lifecycle evidence");
    Assert
      (Natural (Result.Payments.Length) = 4,
@@ -195,7 +206,7 @@ begin
    Assert
      (not ALedger.Planned_Payments.Observe
         (Duplicate, Duplicate_Source, Empty_Actual, "", Registry,
-         "2026-08-15", Result, Diag)
+         D ("2026-08-15"), Result, Diag)
         and then Diag.Status = ALedger.Planned_Payments.Duplicate_Plan_Id,
       "Reject duplicate durable Plan identity");
 
@@ -205,7 +216,7 @@ begin
    Assert
      (not ALedger.Planned_Payments.Observe
         (Multi_Post, Multi_Post_Source, Empty_Actual, "", Registry,
-         "2026-08-15", Result, Diag)
+         D ("2026-08-15"), Result, Diag)
         and then Diag.Status = ALedger.Planned_Payments.Plan_Report_Requires_Binary_Outgoing,
       "Keep valid multi-post Plan distinct from narrower Planned Payments projection");
 

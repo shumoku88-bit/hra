@@ -1,18 +1,9 @@
-with Ada.Containers.Indefinite_Ordered_Maps;
-with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
-with ALedger.Account;
-with ALedger.Envelope;
-with ALedger.Fulfillment_Routing;
-with ALedger.Money;
-with ALedger.Plan;
-
 package body ALedger.Envelope_Fulfillment is
 
    use type ALedger.Account.Account;
    use type ALedger.Account.Account_Type;
+   use type ALedger.Dates.Date;
    use type ALedger.Fulfillment_Routing.Fulfillment_Route_Kind;
-   use type ALedger.Money.Commodity;
-   use type ALedger.Money.Quantity;
 
    package String_Maps is new Ada.Containers.Indefinite_Ordered_Maps
      (Key_Type     => String,
@@ -42,9 +33,10 @@ package body ALedger.Envelope_Fulfillment is
    end Net_Fulfillment;
 
    function Empty_Fulfillment return Envelope_Fulfillment is
+      Default_Date : ALedger.Dates.Date;
    begin
       return
-        (Observed_Through => Null_Unbounded_String,
+        (Observed_Through => Default_Date,
          Managed          => Envelope_Amounts_Maps.Empty_Map,
          Evidence         => Evidence_Vectors.Empty_Vector);
    end Empty_Fulfillment;
@@ -69,7 +61,7 @@ package body ALedger.Envelope_Fulfillment is
       Actual_Ledger    : ALedger.Ledger.Ledger;
       Registry         : ALedger.Account.Account_Registry;
       Routing          : ALedger.Fulfillment_Routing.Fulfillment_Routing_History;
-      Observed_Through : String;
+      Observed_Through : ALedger.Dates.Date;
       Result           : out Envelope_Fulfillment;
       Diag             : out Observe_Diagnostic) return Boolean
    is
@@ -183,7 +175,7 @@ package body ALedger.Envelope_Fulfillment is
       end Reversal_Depth_To_Root;
 
    begin
-      Output.Observed_Through := To_Unbounded_String (Observed_Through);
+      Output.Observed_Through := Observed_Through;
       Result := Output;
       Diag :=
         (Status  => Success,
@@ -217,7 +209,7 @@ package body ALedger.Envelope_Fulfillment is
 
       for Pair of Completed loop
          declare
-            Completion_Date : constant String := To_String (Pair.Actual_Tx.Date_Text);
+            Completion_Date : constant ALedger.Dates.Date := Pair.Actual_Tx.Date;
             Decision        : ALedger.Fulfillment_Routing.Fulfillment_Routing_Decision;
          begin
             if Completion_Date <= Observed_Through
@@ -313,10 +305,9 @@ package body ALedger.Envelope_Fulfillment is
                            begin
                               for Tx of Actual_Ledger.Transactions loop
                                  declare
-                                    Tx_Date : constant String := To_String (Tx.Date_Text);
-                                    Ev_Id   : constant String := To_String (Tx.Event_ID);
+                                    Ev_Id : constant String := To_String (Tx.Event_ID);
                                  begin
-                                    if Tx_Date <= Observed_Through
+                                    if Tx.Date <= Observed_Through
                                       and then Ev_Id'Length > 0
                                       and then To_String (Root_Event_Id (Ev_Id)) = Root_Id
                                     then
@@ -324,23 +315,23 @@ package body ALedger.Envelope_Fulfillment is
                                           Depth : Natural;
                                        begin
                                           if not Reversal_Depth_To_Root
-                                            (Ev_Id, Root_Id, Depth)
+                                             (Ev_Id, Root_Id, Depth)
                                           then
                                              Fail
-                                               (Reversal_Shape_Mismatch,
-                                                Pair.ID,
-                                                "Fulfillment reversal chain must consist of exact Ledger reversal links");
+                                                (Reversal_Shape_Mismatch,
+                                                 Pair.ID,
+                                                 "Fulfillment reversal chain must consist of exact Ledger reversal links");
                                              return False;
                                           end if;
 
                                           if Depth mod 2 = 0 then
                                              Amounts.Applied := Add_Balance
-                                               (Amounts.Applied,
-                                                Singleton_Balance (Root_Amount));
+                                                (Amounts.Applied,
+                                                 Singleton_Balance (Root_Amount));
                                           else
                                              Amounts.Reversed := Add_Balance
-                                               (Amounts.Reversed,
-                                                Singleton_Balance (Root_Amount));
+                                                (Amounts.Reversed,
+                                                 Singleton_Balance (Root_Amount));
                                           end if;
                                        end;
                                     end if;
@@ -352,7 +343,7 @@ package body ALedger.Envelope_Fulfillment is
                                 (Fulfillment_Evidence'
                                    (Plan_ID              => Pair.ID,
                                     Envelope_ID          => Decision.Route.Target,
-                                    Completion_Date      => Pair.Actual_Tx.Date_Text,
+                                    Completion_Date      => Pair.Actual_Tx.Date,
                                     Root_Actual_Event_ID => Pair.Actual_Tx.Event_ID,
                                     Plan_Header_Line     => Pair.Plan_Source.Header_Line,
                                     Actual_Header_Line   => Pair.Actual_Source.Header_Line,

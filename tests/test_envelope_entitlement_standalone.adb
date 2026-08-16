@@ -1,5 +1,5 @@
 with Ada.Text_IO;          use Ada.Text_IO;
-with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
+with ALedger.Dates;
 with ALedger.Money;          use ALedger.Money;
 with ALedger.Envelope;
 with ALedger.Envelope_Entitlement; use ALedger.Envelope_Entitlement;
@@ -24,6 +24,16 @@ procedure Test_Envelope_Entitlement_Standalone is
          Failed := Failed + 1;
       end if;
    end Check;
+
+   function D (S : String) return ALedger.Dates.Date is
+      Val    : ALedger.Dates.Date;
+      Status : ALedger.Dates.Date_Status;
+   begin
+      if not ALedger.Dates.Parse (S, Val, Status) then
+         raise Program_Error with "Invalid date in test: " & S;
+      end if;
+      return Val;
+   end D;
 
    --  UTF-8 byte literals for Japanese envelope names
    --  食費: E9 A3 9F E8 B2 BB
@@ -60,8 +70,8 @@ begin
    --  Grant 1000 JPY from unallocated to Food
    Obs := Fold_Movement
      (Obs,
-      (Kind   => Grant_From_Unallocated,
-       Tx_Date => To_Unbounded_String ("2026-06-07"),
+      (Kind    => Grant_From_Unallocated,
+       Tx_Date => D ("2026-06-07"),
        Amt     => Make_Amount (JPY, 1000.0),
        Target  => Food_Id));
    Check
@@ -74,8 +84,8 @@ begin
    --  Grant 500 USD to Food as well (multi-commodity)
    Obs := Fold_Movement
      (Obs,
-      (Kind   => Grant_From_Unallocated,
-       Tx_Date => To_Unbounded_String ("2026-06-07"),
+      (Kind    => Grant_From_Unallocated,
+       Tx_Date => D ("2026-06-07"),
        Amt     => Make_Amount (USD, 500.0),
        Target  => Food_Id));
    Check
@@ -87,7 +97,7 @@ begin
    Obs := Fold_Movement
      (Obs,
       (Kind          => Transfer_Between_Envelopes,
-       Tx_Date       => To_Unbounded_String ("2026-06-08"),
+       Tx_Date       => D ("2026-06-08"),
        Amt           => Make_Amount (JPY, 300.0),
        From_Envelope => Food_Id,
        To_Envelope   => Gen_Id));
@@ -101,8 +111,8 @@ begin
    --  Return 100 JPY from Food to unallocated
    Obs := Fold_Movement
      (Obs,
-      (Kind   => Return_To_Unallocated,
-       Tx_Date => To_Unbounded_String ("2026-06-09"),
+      (Kind    => Return_To_Unallocated,
+       Tx_Date => D ("2026-06-09"),
        Amt     => Make_Amount (JPY, 100.0),
        Source  => Food_Id));
    Check

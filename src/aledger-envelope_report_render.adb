@@ -1,5 +1,7 @@
 with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
 with ALedger.Backing_Policy;
+with ALedger.Cycle_Observation;
+with ALedger.Dates;
 with ALedger.Envelope;
 with ALedger.Envelope_Commitment;
 with ALedger.Envelope_Consumption;
@@ -41,12 +43,15 @@ package body ALedger.Envelope_Report_Render is
       Append (Buf, "== Envelope & Backing ==" & ASCII.LF);
       Append
         (Buf,
-         "Observed through: " & To_String (Observation.Observed_Through) & ASCII.LF);
+         "Observed through: " &
+         ALedger.Dates.Image (Observation.Observed_Through) & ASCII.LF);
       Append
         (Buf,
          "Current cycle: [" &
-         To_String (Observation.Current_Cycle.Start_Date) & ", " &
-         To_String (Observation.Current_Cycle.End_Exclusive) & ")" & ASCII.LF);
+         ALedger.Dates.Image
+           (ALedger.Cycle_Observation.Start_Date (Observation.Current_Cycle)) & ", " &
+         ALedger.Dates.Image
+           (ALedger.Cycle_Observation.End_Exclusive (Observation.Current_Cycle)) & ")" & ASCII.LF);
       Append (Buf, ASCII.LF);
       Append
         (Buf,

@@ -5,6 +5,7 @@ with ALedger.Backing_Policy;
 with ALedger.Budget_Config;
 with ALedger.Config_Support;
 with ALedger.Cycle_Observation;
+with ALedger.Dates;
 with ALedger.Envelope;
 with ALedger.Envelope_Commitment;
 with ALedger.Envelope_Consumption;
@@ -16,8 +17,6 @@ with ALedger.Money;
 with ALedger.Plan_Observation;
 
 procedure Test_Envelope_Commitment is
-   use type ALedger.Cycle_Observation.Resolve_Status;
-   use type ALedger.Envelope_Routing.History_Status;
    use type ALedger.Backing_Policy.Policy_Status;
    use type ALedger.Money.Quantity;
 
@@ -34,6 +33,16 @@ procedure Test_Envelope_Commitment is
          Failed_Count := Failed_Count + 1;
       end if;
    end Assert;
+
+   function D (S : String) return ALedger.Dates.Date is
+      Val    : ALedger.Dates.Date;
+      Status : ALedger.Dates.Date_Status;
+   begin
+      if not ALedger.Dates.Parse (S, Val, Status) then
+         raise Program_Error with "Invalid date in test: " & S;
+      end if;
+      return Val;
+   end D;
 
    procedure Register
      (Registry : in out ALedger.Account.Account_Registry;
@@ -109,7 +118,7 @@ procedure Test_Envelope_Commitment is
    Plan_Diag     : ALedger.Plan_Observation.Admission_Diagnostic;
    Window        : ALedger.Cycle_Observation.Cycle_Window;
    Cycle_Status  : ALedger.Cycle_Observation.Resolve_Status;
-   Income_Acc    : ALedger.Account.Account := ALedger.Account.Make_Account ("income:pension");
+   Income_Acc    : constant ALedger.Account.Account := ALedger.Account.Make_Account ("income:pension");
    Env_Registry  : ALedger.Envelope.Envelope_Registry;
    Env_Diag      : ALedger.Config_Support.Config_Diagnostic;
    Env_Names     : ALedger.Config_Support.String_Vectors.Vector;
@@ -139,7 +148,7 @@ begin
    Assert
      (ALedger.Plan_Observation.Observe_Open_Plans
         (Plans, Plan_Source, Actual, Actual_Source,
-         "2026-08-15", Open_Plans, Plan_Diag),
+         D ("2026-08-15"), Open_Plans, Plan_Diag),
       "Observe role-neutral open Plans once");
    Assert
      (Natural (Open_Plans.Length) = 5,
@@ -147,12 +156,12 @@ begin
 
    Assert
      (ALedger.Cycle_Observation.Resolve_Current
-        ("2026-08-15", Actual, Open_Plans, Registry, Income_Acc,
+        (D ("2026-08-15"), Actual, Open_Plans, Registry, Income_Acc,
          Window, Cycle_Status),
       "Resolve income-anchor current cycle");
    Assert
-     (To_String (Window.Start_Date) = "2026-08-14"
-        and then To_String (Window.End_Exclusive) = "2026-10-15",
+     (ALedger.Dates.Image (ALedger.Cycle_Observation.Start_Date (Window)) = "2026-08-14"
+        and then ALedger.Dates.Image (ALedger.Cycle_Observation.End_Exclusive (Window)) = "2026-10-15",
       "Cycle uses latest Actual anchor and first future Plan anchor");
 
    Env_Names.Append ("food");
@@ -171,7 +180,7 @@ begin
          Note      => Null_Unbounded_String));
    Route_Entries.Append
      (ALedger.Envelope_Routing.Routing_Entry'
-        (Effective => ALedger.Envelope_Routing.Dated_Effective ("2026-09-01"),
+        (Effective => ALedger.Envelope_Routing.Dated_Effective (D ("2026-09-01")),
          Expense   => ALedger.Account.Make_Account ("expenses:rent"),
          Route     => ALedger.Envelope_Routing.Managed_Route (Food_Env),
          Note      => To_Unbounded_String ("future route must not rewrite August")));
@@ -183,12 +192,12 @@ begin
      (ALedger.Envelope_Routing.Has_Routing
         (Routing, ALedger.Account.Make_Account ("expenses:rent"))
         and then not ALedger.Envelope_Routing.Has_Routing_At
-          (Routing, ALedger.Account.Make_Account ("expenses:rent"), "2026-08-15"),
+          (Routing, ALedger.Account.Make_Account ("expenses:rent"), D ("2026-08-15")),
       "Future-only route is not applicable to an earlier observation");
 
    Assert
      (ALedger.Envelope_Commitment.Observe
-        (Open_Plans, Registry, Routing, Window, "2026-08-15",
+        (Open_Plans, Registry, Routing, Window, D ("2026-08-15"),
          Commitment, Commit_Diag),
       "Observe current-cycle Envelope commitments");
    Assert
@@ -214,7 +223,7 @@ begin
       Policy_Status : ALedger.Backing_Policy.Policy_Status;
       Entitlement   : ALedger.Envelope_Entitlement.Entitlement_Observation :=
         ALedger.Envelope_Entitlement.Empty_Observation;
-      Consumption   : ALedger.Envelope_Consumption.Envelope_Consumption :=
+      Consumption   : constant ALedger.Envelope_Consumption.Envelope_Consumption :=
         ALedger.Envelope_Consumption.Empty_Consumption;
       Funding       : ALedger.Backing_Policy.Funding_Commitment_Observation;
       Backing       : ALedger.Backing_Policy.Backing_Observation;
@@ -234,7 +243,7 @@ begin
       Entitlement := ALedger.Envelope_Entitlement.Fold_Movement
         (Entitlement,
          (Kind    => ALedger.Envelope_Entitlement.Grant_From_Unallocated,
-          Tx_Date => To_Unbounded_String ("2026-08-14"),
+          Tx_Date => D ("2026-08-14"),
           Amt     => ALedger.Money.Make_Amount (JPY, 1000.0),
           Target  => Food_Env));
 

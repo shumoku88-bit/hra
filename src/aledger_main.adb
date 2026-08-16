@@ -6,6 +6,7 @@ with Ada.Calendar;
 with Ada.Calendar.Formatting;
 with ALedger;
 with ALedger.Account;        use ALedger.Account;
+with ALedger.Dates;
 with ALedger.Ledger;         use ALedger.Ledger;
 with ALedger.Household;      use ALedger.Household;
 with ALedger.Household_Report_Observation;
@@ -62,11 +63,17 @@ procedure ALedger_Main is
       end if;
    end Resolve_Household_Root;
 
-   function Local_Today return String is
-      Stamp : constant String :=
+   function Local_Today return ALedger.Dates.Date is
+      Stamp    : constant String :=
         Ada.Calendar.Formatting.Image (Ada.Calendar.Clock);
+      Date_Str : constant String := Stamp (Stamp'First .. Stamp'First + 9);
+      D        : ALedger.Dates.Date;
+      Status   : ALedger.Dates.Date_Status;
    begin
-      return Stamp (Stamp'First .. Stamp'First + 9);
+      if not ALedger.Dates.Parse (Date_Str, D, Status) then
+         raise Program_Error with "failed to parse system clock date: " & Date_Str;
+      end if;
+      return D;
    end Local_Today;
 
 begin
@@ -109,7 +116,7 @@ begin
                Put_Line ("  Open Issues         : " & Natural'Image (Natural (Open_Issues (State.Issues).Length)));
             elsif Cmd = "report" then
                declare
-                  Report_Day    : constant String := Local_Today;
+                  Report_Day    : constant ALedger.Dates.Date := Local_Today;
                   Household_Obs : ALedger.Household_Report_Observation.Report_Observation;
                   Payments      : ALedger.Planned_Payments.Observation;
                   Payment_Diag  : ALedger.Planned_Payments.Admission_Diagnostic;
@@ -160,22 +167,17 @@ begin
                   Put
                     (Render_Account_Balances
                        (State.Actual_Ledger,
-                        To_String
-                          (Household_Obs.Query_Plan.Trial_Balance_As_Of)));
+                        Household_Obs.Query_Plan.Trial_Balance_As_Of));
                   New_Line;
                   Put
                     (Render_Balance_Sheet
                        (State.Actual_Ledger,
-                        To_String
-                          (Household_Obs.Query_Plan.Balance_Sheet_As_Of)));
+                        Household_Obs.Query_Plan.Balance_Sheet_As_Of));
                   New_Line;
                   Put
                     (Render_Profit_And_Loss
                        (State.Actual_Ledger,
-                        To_String
-                          (Household_Obs.Query_Plan.Profit_And_Loss.From_Date),
-                        To_String
-                          (Household_Obs.Query_Plan.Profit_And_Loss.Through_Date)));
+                        Household_Obs.Query_Plan.Profit_And_Loss));
                   New_Line;
                   Put
                     (ALedger.Recent_Journal_Render.Render

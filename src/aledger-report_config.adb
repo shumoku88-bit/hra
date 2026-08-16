@@ -1,5 +1,4 @@
 with TOML;
-with ALedger.Dates;
 
 package body ALedger.Report_Config is
 

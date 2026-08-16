@@ -1,6 +1,5 @@
 with Ada.Containers.Indefinite_Ordered_Maps;
 with ALedger.Money;            use ALedger.Money;
-with ALedger.Account;          use ALedger.Account;
 with ALedger.Dates;
 with ALedger.Envelope;         use ALedger.Envelope;
 with ALedger.Envelope_Routing; use ALedger.Envelope_Routing;

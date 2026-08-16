@@ -77,6 +77,16 @@ package ALedger.Planned_Payments is
       Actual_Ledger      : ALedger.Ledger.Ledger;
       Actual_Source_Text : String;
       Registry           : ALedger.Account.Account_Registry;
+      As_Of_Date         : ALedger.Dates.Date;
+      Result             : out Observation;
+      Diag               : out Admission_Diagnostic) return Boolean;
+
+   function Observe
+     (Plan_Ledger        : ALedger.Ledger.Ledger;
+      Plan_Source_Text   : String;
+      Actual_Ledger      : ALedger.Ledger.Ledger;
+      Actual_Source_Text : String;
+      Registry           : ALedger.Account.Account_Registry;
       As_Of_Date         : String;
       Result             : out Observation;
       Diag               : out Admission_Diagnostic) return Boolean;

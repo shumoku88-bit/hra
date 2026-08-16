@@ -1,5 +1,4 @@
 with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
-with ALedger.Dates;
 
 package body ALedger.Recent_Journal is
 

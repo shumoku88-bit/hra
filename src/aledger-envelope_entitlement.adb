@@ -1,5 +1,4 @@
 with Ada.Strings.Fixed;
-with ALedger.Dates;
 
 package body ALedger.Envelope_Entitlement is
 

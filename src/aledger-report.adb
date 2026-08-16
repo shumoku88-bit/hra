@@ -1,5 +1,4 @@
 with Ada.Containers.Indefinite_Ordered_Maps;
-with ALedger.Dates;
 
 package body ALedger.Report is
 

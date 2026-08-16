@@ -4,12 +4,13 @@ with Ada.Directories;        use Ada.Directories;
 with Ada.Strings.Fixed;      use Ada.Strings.Fixed;
 with Ada.Strings.Unbounded;  use Ada.Strings.Unbounded;
 with ALedger;
+with ALedger.Dates;
 with ALedger.Money;          use ALedger.Money;
 with ALedger.Account;        use ALedger.Account;
 with ALedger.Ledger;         use ALedger.Ledger;
 with ALedger.Journal;        use ALedger.Journal;
 with ALedger.Report;         use ALedger.Report;
-with ALedger.Household;         use ALedger.Household;
+with ALedger.Household;      use ALedger.Household;
 with ALedger.Household_Config;
 with ALedger.Canonical_Source; use ALedger.Canonical_Source;
 with ALedger.Config_Support;
@@ -40,6 +41,25 @@ procedure Test_Runner is
          Failed_Count := Failed_Count + 1;
       end if;
    end Assert;
+
+   function D (S : String) return ALedger.Dates.Date is
+      Val    : ALedger.Dates.Date;
+      Status : ALedger.Dates.Date_Status;
+   begin
+      if not ALedger.Dates.Parse (S, Val, Status) then
+         raise Program_Error with "Invalid date in test: " & S;
+      end if;
+      return Val;
+   end D;
+
+   function P (S1, S2 : String) return ALedger.Dates.Closed_Period is
+      Res : ALedger.Dates.Closed_Period;
+   begin
+      if not ALedger.Dates.Make_Closed_Period (D (S1), D (S2), Res) then
+         raise Program_Error with "Invalid closed period: " & S1 & ".." & S2;
+      end if;
+      return Res;
+   end P;
 
    procedure Test_Proof_Core is
       package Proof renames ALedger.Proof_Core;
@@ -763,12 +783,12 @@ procedure Test_Runner is
       Assert (Parse_Journal_Text (Golden_Journal_Text, L, Err), "Parse h-kernel report contract journal text");
 
       declare
-         Bal_Report : constant String := Render_Account_Balances (L, "2026-07-31");
-         BS_Report  : constant String := Render_Balance_Sheet (L, "2026-07-31");
-         PL_Report  : constant String := Render_Profit_And_Loss (L, "2026-07-01", "2026-07-31");
+         Bal_Report : constant String := Render_Account_Balances (L, D ("2026-07-31"));
+         BS_Report  : constant String := Render_Balance_Sheet (L, D ("2026-07-31"));
+         PL_Report  : constant String := Render_Profit_And_Loss (L, P ("2026-07-01", "2026-07-31"));
 
-         BS_Obj     : constant Balance_Sheet := Generate_Balance_Sheet_As_Of (L, "2026-07-31");
-         PL_Obj     : constant Profit_And_Loss := Generate_Profit_And_Loss_Period (L, "2026-07-01", "2026-07-31");
+         BS_Obj     : constant Balance_Sheet := Generate_Balance_Sheet_As_Of (L, D ("2026-07-31"));
+         PL_Obj     : constant Profit_And_Loss := Generate_Profit_And_Loss_Period (L, P ("2026-07-01", "2026-07-31"));
       begin
          --  Verify Account Balances as-of 2026-07-31 (excluding 2026-08-01 transaction)
          Assert (Index (Bal_Report, "assets:cash | 13,000 JPY") > 0, "Equivalence: assets:cash = 13,000 JPY as of 2026-07-31");
@@ -1227,7 +1247,7 @@ procedure Test_Runner is
       Obs := Fold_Movement
         (Obs,
          (Kind    => Grant_From_Unallocated,
-          Tx_Date => To_Unbounded_String ("2026-06-07"),
+          Tx_Date => D ("2026-06-07"),
           Amt     => Make_Amount (JPY, 1000.0),
           Target  => Food_Id));
       Assert
@@ -1240,7 +1260,7 @@ procedure Test_Runner is
       Obs := Fold_Movement
         (Obs,
          (Kind    => Grant_From_Unallocated,
-          Tx_Date => To_Unbounded_String ("2026-06-07"),
+          Tx_Date => D ("2026-06-07"),
           Amt     => Make_Amount (USD, 500.0),
           Target  => Food_Id));
       Assert
@@ -1251,7 +1271,7 @@ procedure Test_Runner is
       Obs := Fold_Movement
         (Obs,
          (Kind          => Transfer_Between_Envelopes,
-          Tx_Date       => To_Unbounded_String ("2026-06-08"),
+          Tx_Date       => D ("2026-06-08"),
           Amt           => Make_Amount (JPY, 300.0),
           From_Envelope => Food_Id,
           To_Envelope   => Gen_Id));
@@ -1265,7 +1285,7 @@ procedure Test_Runner is
       Obs := Fold_Movement
         (Obs,
          (Kind    => Return_To_Unallocated,
-          Tx_Date => To_Unbounded_String ("2026-06-09"),
+          Tx_Date => D ("2026-06-09"),
           Amt     => Make_Amount (JPY, 100.0),
           Source  => Food_Id));
       Assert
@@ -1464,6 +1484,15 @@ procedure Test_Runner is
       H_Status  : History_Status;
 
       Actual_Journal_Text : constant String :=
+        "account assets:cash" & ASCII.LF &
+        "    type: asset" & ASCII.LF &
+        "account expenses:food" & ASCII.LF &
+        "    type: expense" & ASCII.LF &
+        "account expenses:rent" & ASCII.LF &
+        "    type: expense" & ASCII.LF &
+        "account expenses:other" & ASCII.LF &
+        "    type: expense" & ASCII.LF &
+        "" & ASCII.LF &
         "2026-08-10 Grocery Store [event-id: evt-001]" & ASCII.LF &
         "    assets:cash        -3000 JPY" & ASCII.LF &
         "    expenses:food       3000 JPY" & ASCII.LF &
@@ -1584,7 +1613,7 @@ procedure Test_Runner is
       -- Date filter test (Through 2026-08-15)
       declare
          Through_Obs : constant Envelope_Consumption :=
-           Observe_Consumption (L, History, "2026-08-15");
+           Observe_Consumption (L, History, D ("2026-08-15"));
       begin
          Assert
            (Lookup_Balance (Consumption_For (Through_Obs, Food_Id).Charges, JPY) = 3000.0,
@@ -1680,8 +1709,8 @@ procedure Test_Runner is
            (ALedger.Budget_Config.Parse_Budget_Policy (Budget_TOML, B_Policy, B_Diag),
             "Setup: Parse Budget Policy for Backing");
 
-         Ids.Append (Food_UTF8);
-         Ids.Append (Daily_UTF8);
+         Ids.Append (New_Item => Food_UTF8);
+         Ids.Append (New_Item => Daily_UTF8);
          Assert
            (Admit_Registry (Ids, Reg, Reg_Diag),
             "Setup: Admit Registry for Backing");
@@ -1701,7 +1730,7 @@ procedure Test_Runner is
          Ent_Obs := Fold_Movement
            (Ent_Obs,
             (Kind    => Grant_From_Unallocated,
-             Tx_Date => To_Unbounded_String ("2026-08-01"),
+             Tx_Date => D ("2026-08-01"),
              Amt     => Make_Amount (JPY, 10000.0),
              Target  => Food_Id));
          Cons_Obs.Managed :=
@@ -1716,7 +1745,7 @@ procedure Test_Runner is
          Ent_Obs := Fold_Movement
            (Ent_Obs,
             (Kind    => Grant_From_Unallocated,
-             Tx_Date => To_Unbounded_String ("2026-08-01"),
+             Tx_Date => D ("2026-08-01"),
              Amt     => Make_Amount (JPY, 5000.0),
              Target  => Daily_Id));
          Cons_Obs.Managed.Insert

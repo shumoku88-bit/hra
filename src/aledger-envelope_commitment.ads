@@ -1,5 +1,6 @@
 with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
 with Ada.Containers.Indefinite_Ordered_Maps;
+with ALedger.Dates;
 with ALedger.Money; use ALedger.Money;
 with ALedger.Account;
 with ALedger.Envelope;
@@ -19,8 +20,8 @@ package ALedger.Envelope_Commitment is
       Element_Type => Balance);
 
    type Commitment_Observation is record
-      Observed_Through    : Unbounded_String;
-      Cycle_End_Exclusive : Unbounded_String;
+      Observed_Through    : ALedger.Dates.Date;
+      Cycle_End_Exclusive : ALedger.Dates.Date;
       Managed             : Envelope_Balance_Maps.Map;
       Unmanaged           : Account_Balance_Maps.Map;
       Unrouted            : Account_Balance_Maps.Map;
@@ -47,7 +48,7 @@ package ALedger.Envelope_Commitment is
       Registry         : ALedger.Account.Account_Registry;
       Routing          : ALedger.Envelope_Routing.Routing_History;
       Window           : ALedger.Cycle_Observation.Cycle_Window;
-      Observed_Through : String;
+      Observed_Through : ALedger.Dates.Date;
       Result           : out Commitment_Observation;
       Diag             : out Observe_Diagnostic) return Boolean;
 
@@ -62,7 +63,7 @@ package ALedger.Envelope_Commitment is
       Routing          : ALedger.Envelope_Routing.Routing_History;
       Fulfillment      : ALedger.Fulfillment_Routing.Fulfillment_Routing_History;
       Window           : ALedger.Cycle_Observation.Cycle_Window;
-      Observed_Through : String;
+      Observed_Through : ALedger.Dates.Date;
       Result           : out Commitment_Observation;
       Diag             : out Observe_Diagnostic) return Boolean;
 

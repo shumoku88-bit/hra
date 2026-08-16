@@ -1,7 +1,5 @@
-with Ada.Containers.Indefinite_Ordered_Maps;
+with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
 with ALedger.Account; use ALedger.Account;
-with ALedger.Dates;
-with ALedger.Money; use ALedger.Money;
 
 package body ALedger.Envelope_Consumption is
 
@@ -215,7 +213,7 @@ package body ALedger.Envelope_Consumption is
    is
    begin
       return Observe_Internal
-        (L, Routing, (Kind => Through_Date, Through => Through_Date));
+        (L, Routing, (Kind => ALedger.Envelope_Consumption.Through_Date, Through => Through_Date));
    end Observe_Consumption;
 
    function Consumption_For

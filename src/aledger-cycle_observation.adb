@@ -1,5 +1,3 @@
-with ALedger.Account;
-with ALedger.Dates;
 with ALedger.Money;
 
 package body ALedger.Cycle_Observation is

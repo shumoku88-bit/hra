@@ -1,3 +1,4 @@
+with ALedger.Dates;
 with ALedger.Ledger;    use ALedger.Ledger;
 with ALedger.Issues;    use ALedger.Issues;
 limited with ALedger.Household;
@@ -10,16 +11,24 @@ package ALedger.Render is
 
    function Render_Account_Balances
      (L          : Ledger.Ledger;
-      As_Of_Date : String) return String;
+      As_Of_Date : ALedger.Dates.Date) return String;
+
+   function Render_Account_Balances
+     (L : Ledger.Ledger) return String;
 
    function Render_Balance_Sheet
      (L          : Ledger.Ledger;
-      As_Of_Date : String) return String;
+      As_Of_Date : ALedger.Dates.Date) return String;
+
+   function Render_Balance_Sheet
+     (L : Ledger.Ledger) return String;
 
    function Render_Profit_And_Loss
-     (L          : Ledger.Ledger;
-      Start_Date : String;
-      End_Date   : String) return String;
+     (L      : Ledger.Ledger;
+      Period : ALedger.Dates.Closed_Period) return String;
+
+   function Render_Profit_And_Loss
+     (L : Ledger.Ledger) return String;
 
    function Render_Budget_Status
      (State : ALedger.Household.Household_State) return String;

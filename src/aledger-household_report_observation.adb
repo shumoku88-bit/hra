@@ -1,6 +1,4 @@
-with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
 with ALedger.Account;
-with ALedger.Dates;
 
 package body ALedger.Household_Report_Observation is
 
@@ -19,7 +17,6 @@ package body ALedger.Household_Report_Observation is
       Income_Acc       : constant ALedger.Account.Account :=
         ALedger.Account.Make_Account
           (To_String (State.Household_Policy.Cycle_Income_Account));
-      Observed_Text    : constant String := ALedger.Dates.Image (Observed_Through);
    begin
       Result.Observed_Through := Observed_Through;
       Result.Open_Plans := ALedger.Plan_Observation.Open_Plan_Vectors.Empty_Vector;
@@ -104,7 +101,7 @@ package body ALedger.Household_Report_Observation is
          State.Actual_Ledger,
          State.Registry,
          State.Fulfillment_History,
-         Observed_Text,
+         Observed_Through,
          Result.Fulfillment,
          Fulfillment_Diag)
       then
@@ -124,7 +121,7 @@ package body ALedger.Household_Report_Observation is
          State.Routing_History,
          State.Fulfillment_History,
          Result.Current_Cycle,
-         Observed_Text,
+         Observed_Through,
          Result.Commitment,
          Commit_Diag)
       then

@@ -1,7 +1,3 @@
-with ALedger.Dates;
-with ALedger.Ledger;         use ALedger.Ledger;
-with ALedger.Report_Config;
-
 package body ALedger.Report_Plan is
 
    use type ALedger.Dates.Date;

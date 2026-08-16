@@ -329,7 +329,7 @@ package body ALedger.Household is
                      when ALedger.Household_Config.Initial =>
                         Eff := Initial_Effective_Date;
                      when ALedger.Household_Config.From_Date =>
-                        Eff := Dated_Effective (To_String (Entry_Data.Effective.Date));
+                        Eff := Dated_Effective (Entry_Data.Effective.Date);
                   end case;
 
                   case Entry_Data.Route.Kind is

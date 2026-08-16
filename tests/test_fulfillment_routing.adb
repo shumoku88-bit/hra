@@ -4,6 +4,7 @@ with ALedger.Account;
 with ALedger.Budget_Config;
 with ALedger.Config_Support;
 with ALedger.Cycle_Observation;
+with ALedger.Dates;
 with ALedger.Envelope;
 with ALedger.Envelope_Commitment;
 with ALedger.Envelope_Routing;
@@ -16,7 +17,6 @@ with ALedger.Plan;
 with ALedger.Plan_Observation;
 
 procedure Test_Fulfillment_Routing is
-   use type ALedger.Cycle_Observation.Resolve_Status;
    use type ALedger.Envelope.Envelope_Id;
    use type ALedger.Fulfillment_Routing.Admission_Status;
    use type ALedger.Fulfillment_Routing.Fulfillment_Route_Kind;
@@ -36,6 +36,16 @@ procedure Test_Fulfillment_Routing is
          Failed_Count := Failed_Count + 1;
       end if;
    end Assert;
+
+   function D (S : String) return ALedger.Dates.Date is
+      Val    : ALedger.Dates.Date;
+      Status : ALedger.Dates.Date_Status;
+   begin
+      if not ALedger.Dates.Parse (S, Val, Status) then
+         raise Program_Error with "Invalid date in test: " & S;
+      end if;
+      return Val;
+   end D;
 
    procedure Register
      (Registry : in out ALedger.Account.Account_Registry;
@@ -193,17 +203,17 @@ begin
    Assert
      (ALedger.Plan_Observation.Observe_Open_Plans
         (Plans, Plan_Source, Actual, Actual_Source,
-         "2026-08-15", Open_Plans, Plan_Diag),
+         D ("2026-08-15"), Open_Plans, Plan_Diag),
       "Observe open role-neutral Plans");
 
    Assert
      (ALedger.Cycle_Observation.Resolve_Current
-        ("2026-08-15", Actual, Open_Plans, Registry, Income_Acc,
+        (D ("2026-08-15"), Actual, Open_Plans, Registry, Income_Acc,
          Window, Cycle_Status),
       "Resolve current income-anchor cycle");
    Assert
-     (To_String (Window.Start_Date) = "2026-08-14"
-        and then To_String (Window.End_Exclusive) = "2026-10-15",
+     (ALedger.Dates.Image (ALedger.Cycle_Observation.Start_Date (Window)) = "2026-08-14"
+        and then ALedger.Dates.Image (ALedger.Cycle_Observation.End_Exclusive (Window)) = "2026-10-15",
       "Current cycle excludes next income anchor day");
 
    Env_Names.Append ("savings");
@@ -221,19 +231,19 @@ begin
    begin
       Decisions.Append
         (ALedger.Fulfillment_Routing.Fulfillment_Routing_Decision'
-           (Effective_From => To_Unbounded_String ("2026-08-01"),
+           (Effective_From => D ("2026-08-01"),
             Plan_ID        => Save_ID,
             Route          => ALedger.Fulfillment_Routing.Fulfills (Savings_Env),
             Note           => To_Unbounded_String ("initial savings intent")));
       Decisions.Append
         (ALedger.Fulfillment_Routing.Fulfillment_Routing_Decision'
-           (Effective_From => To_Unbounded_String ("2026-09-01"),
+           (Effective_From => D ("2026-09-01"),
             Plan_ID        => Save_ID,
             Route          => ALedger.Fulfillment_Routing.Not_Target,
             Note           => To_Unbounded_String ("prospective intent retirement")));
       Decisions.Append
         (ALedger.Fulfillment_Routing.Fulfillment_Routing_Decision'
-           (Effective_From => To_Unbounded_String ("2026-08-01"),
+           (Effective_From => D ("2026-08-01"),
             Plan_ID        => Debt_ID,
             Route          => ALedger.Fulfillment_Routing.Not_Target,
             Note           => To_Unbounded_String ("debt Plan is explicit non-target")));
@@ -250,13 +260,13 @@ begin
    declare
       Save_ID : constant ALedger.Plan.Plan_Id := ALedger.Plan.Make_Plan_Id ("plan-save");
       Before  : constant ALedger.Fulfillment_Routing.Fulfillment_Route :=
-        ALedger.Fulfillment_Routing.Resolve (History, Save_ID, "2026-08-15");
+        ALedger.Fulfillment_Routing.Resolve (History, Save_ID, D ("2026-08-15"));
       After   : constant ALedger.Fulfillment_Routing.Fulfillment_Route :=
-        ALedger.Fulfillment_Routing.Resolve (History, Save_ID, "2026-09-01");
+        ALedger.Fulfillment_Routing.Resolve (History, Save_ID, D ("2026-09-01"));
    begin
       Assert
         (not ALedger.Fulfillment_Routing.Has_Routing_At
-           (History, Save_ID, "2026-07-31"),
+           (History, Save_ID, D ("2026-07-31")),
          "Future Fulfillment decision does not rewrite earlier observation");
       Assert
         (Before.Kind = ALedger.Fulfillment_Routing.Fulfills_Envelope
@@ -274,7 +284,7 @@ begin
          ALedger.Envelope_Routing.Empty_History,
          History,
          Window,
-         "2026-08-15",
+         D ("2026-08-15"),
          Commitment,
          Commit_Diag),
       "Observe non-Expense Envelope commitment through PlanId routing");
@@ -295,7 +305,7 @@ begin
    begin
       Bad.Append
         (ALedger.Fulfillment_Routing.Fulfillment_Routing_Decision'
-           (Effective_From => To_Unbounded_String ("2026-08-01"),
+           (Effective_From => D ("2026-08-01"),
             Plan_ID        => ALedger.Plan.Make_Plan_Id ("plan-missing"),
             Route          => ALedger.Fulfillment_Routing.Not_Target,
             Note           => To_Unbounded_String ("dangling Plan reference")));
@@ -314,7 +324,7 @@ begin
    begin
       Bad.Append
         (ALedger.Fulfillment_Routing.Fulfillment_Routing_Decision'
-           (Effective_From => To_Unbounded_String ("2026-08-01"),
+           (Effective_From => D ("2026-08-01"),
             Plan_ID        => ALedger.Plan.Make_Plan_Id ("plan-save"),
             Route          => ALedger.Fulfillment_Routing.Fulfills (Ghost),
             Note           => To_Unbounded_String ("dangling Envelope reference")));
@@ -330,7 +340,7 @@ begin
       Rejected : ALedger.Fulfillment_Routing.Fulfillment_Routing_History;
       Save_ID : constant ALedger.Plan.Plan_Id := ALedger.Plan.Make_Plan_Id ("plan-save");
       Decision : constant ALedger.Fulfillment_Routing.Fulfillment_Routing_Decision :=
-        (Effective_From => To_Unbounded_String ("2026-08-01"),
+        (Effective_From => D ("2026-08-01"),
          Plan_ID        => Save_ID,
          Route          => ALedger.Fulfillment_Routing.Fulfills (Savings_Env),
          Note           => To_Unbounded_String ("duplicate coordinate"));

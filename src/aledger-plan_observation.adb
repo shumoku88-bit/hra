@@ -1,6 +1,3 @@
-with Ada.Containers.Indefinite_Vectors;
-with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
-with ALedger.Dates;
 with ALedger.Journal_Evidence; use ALedger.Journal_Evidence;
 
 package body ALedger.Plan_Observation is
@@ -606,7 +603,7 @@ package body ALedger.Plan_Observation is
       Plan_Source_Text   : String;
       Actual_Ledger      : ALedger.Ledger.Ledger;
       Actual_Source_Text : String;
-      As_Of_Date         : String;
+      As_Of_Date         : ALedger.Dates.Date;
       Open_Result        : out Open_Plan_Vectors.Vector;
       Completed_Result   : out Completed_Plan_Vectors.Vector;
       Diag               : out Admission_Diagnostic) return Boolean
@@ -644,6 +641,38 @@ package body ALedger.Plan_Observation is
          Actual_Ledger,
          Actual_Evidence,
          As_Of_Date,
+         Open_Result,
+         Completed_Result,
+         Diag);
+   end Observe_Plans;
+
+   function Observe_Plans
+     (Plan_Ledger        : ALedger.Ledger.Ledger;
+      Plan_Source_Text   : String;
+      Actual_Ledger      : ALedger.Ledger.Ledger;
+      Actual_Source_Text : String;
+      As_Of_Date         : String;
+      Open_Result        : out Open_Plan_Vectors.Vector;
+      Completed_Result   : out Completed_Plan_Vectors.Vector;
+      Diag               : out Admission_Diagnostic) return Boolean
+   is
+      Parsed_Date : ALedger.Dates.Date;
+      Status      : ALedger.Dates.Date_Status;
+   begin
+      if not ALedger.Dates.Parse (As_Of_Date, Parsed_Date, Status) then
+         Diag :=
+           (Status      => Invalid_Observation_Date,
+            Line_Number => 0,
+            Plan_Id     => Null_Unbounded_String,
+            Message     => To_Unbounded_String ("invalid Gregorian as-of date: " & As_Of_Date));
+         return False;
+      end if;
+      return Observe_Plans
+        (Plan_Ledger,
+         Plan_Source_Text,
+         Actual_Ledger,
+         Actual_Source_Text,
+         Parsed_Date,
          Open_Result,
          Completed_Result,
          Diag);
@@ -687,6 +716,28 @@ package body ALedger.Plan_Observation is
          Plan_Evidence,
          Actual_Ledger,
          Actual_Evidence,
+         As_Of_Date,
+         Result,
+         Completed,
+         Diag);
+   end Observe_Open_Plans;
+
+   function Observe_Open_Plans
+     (Plan_Ledger        : ALedger.Ledger.Ledger;
+      Plan_Source_Text   : String;
+      Actual_Ledger      : ALedger.Ledger.Ledger;
+      Actual_Source_Text : String;
+      As_Of_Date         : ALedger.Dates.Date;
+      Result             : out Open_Plan_Vectors.Vector;
+      Diag               : out Admission_Diagnostic) return Boolean
+   is
+      Completed : Completed_Plan_Vectors.Vector;
+   begin
+      return Observe_Plans
+        (Plan_Ledger,
+         Plan_Source_Text,
+         Actual_Ledger,
+         Actual_Source_Text,
          As_Of_Date,
          Result,
          Completed,

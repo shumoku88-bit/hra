@@ -1,7 +1,3 @@
-with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
-with ALedger.Dates;
-with ALedger.Plan_Observation;
-
 package body ALedger.Planned_Payments is
 
    use type ALedger.Dates.Date;
@@ -240,7 +236,7 @@ package body ALedger.Planned_Payments is
       Actual_Ledger      : ALedger.Ledger.Ledger;
       Actual_Source_Text : String;
       Registry           : ALedger.Account.Account_Registry;
-      As_Of_Date         : String;
+      As_Of_Date         : ALedger.Dates.Date;
       Result             : out Observation;
       Diag               : out Admission_Diagnostic) return Boolean
    is
@@ -266,6 +262,39 @@ package body ALedger.Planned_Payments is
       end if;
 
       return Project (Open_Plans, Registry, As_Of_Date, Result, Diag);
+   end Observe;
+
+   function Observe
+     (Plan_Ledger        : ALedger.Ledger.Ledger;
+      Plan_Source_Text   : String;
+      Actual_Ledger      : ALedger.Ledger.Ledger;
+      Actual_Source_Text : String;
+      Registry           : ALedger.Account.Account_Registry;
+      As_Of_Date         : String;
+      Result             : out Observation;
+      Diag               : out Admission_Diagnostic) return Boolean
+   is
+      Parsed_Date : ALedger.Dates.Date;
+      Status      : ALedger.Dates.Date_Status;
+   begin
+      if not ALedger.Dates.Parse (As_Of_Date, Parsed_Date, Status) then
+         Diag :=
+           (Status      => Invalid_Lifecycle_Date,
+            Line_Number => 0,
+            Plan_Id     => Null_Unbounded_String,
+            Message     => To_Unbounded_String ("invalid observation date"));
+         Result := (Payments => Payment_Vectors.Empty_Vector);
+         return False;
+      end if;
+      return Observe
+        (Plan_Ledger,
+         Plan_Source_Text,
+         Actual_Ledger,
+         Actual_Source_Text,
+         Registry,
+         Parsed_Date,
+         Result,
+         Diag);
    end Observe;
 
 end ALedger.Planned_Payments;

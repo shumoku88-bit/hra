@@ -1,6 +1,7 @@
 with Ada.Strings.Fixed;     use Ada.Strings.Fixed;
 with ALedger.Money;          use ALedger.Money;
 with ALedger.Account;        use ALedger.Account;
+with ALedger.Dates;
 with ALedger.Ledger;         use ALedger.Ledger;
 
 package body ALedger.Journal is
@@ -42,25 +43,6 @@ package body ALedger.Journal is
    begin
       return C in '0' .. '9';
    end Is_Digit;
-
-   function Is_Valid_Date (S : String) return Boolean is
-   begin
-      if S'Length /= 10 then
-         return False;
-      end if;
-
-      for Offset in 0 .. 9 loop
-         if Offset = 4 or else Offset = 7 then
-            if S (S'First + Offset) /= '-' then
-               return False;
-            end if;
-         elsif not Is_Digit (S (S'First + Offset)) then
-            return False;
-         end if;
-      end loop;
-
-      return True;
-   end Is_Valid_Date;
 
    function Is_Comment (Line : String) return Boolean is
       Trimmed : constant String := Trim (Line, Ada.Strings.Both);
@@ -208,7 +190,7 @@ package body ALedger.Journal is
       Cur_Raw_Line     : Unbounded_String := Null_Unbounded_String;
 
       In_Tx            : Boolean := False;
-      Tx_Date          : Unbounded_String;
+      Tx_Date          : ALedger.Dates.Date;
       Tx_Payee         : Unbounded_String;
       Current_Posts    : Posting_Vectors.Vector;
 
@@ -329,7 +311,7 @@ package body ALedger.Journal is
                Tx       : Transaction;
                T_Status : Transaction_Error;
             begin
-               if not Create_Transaction (To_String (Tx_Date), To_String (Tx_Payee), Final_Posts, Tx, T_Status) then
+               if not Create_Transaction (Tx_Date, To_String (Tx_Payee), Final_Posts, Tx, T_Status) then
                   Set_Error ("Unbalanced or invalid transaction balance law: " & To_String (Tx_Payee));
                   return;
                end if;
@@ -427,16 +409,18 @@ package body ALedger.Journal is
                         end;
                      elsif Is_Digit (Trimmed (Trimmed'First)) then
                         declare
-                           Space_Idx : constant Natural := Index (Trimmed, " ");
-                           Date_End  : constant Natural :=
+                           Space_Idx   : constant Natural := Index (Trimmed, " ");
+                           Date_End    : constant Natural :=
                              (if Space_Idx > 0 then Space_Idx - 1 else Trimmed'Last);
-                           Date_Str  : constant String :=
+                           Date_Str    : constant String :=
                              Trimmed (Trimmed'First .. Date_End);
+                           Parsed_Date : ALedger.Dates.Date;
+                           D_Status    : ALedger.Dates.Date_Status;
                         begin
-                           if not Is_Valid_Date (Date_Str) then
+                           if not ALedger.Dates.Parse (Date_Str, Parsed_Date, D_Status) then
                               Set_Error ("Invalid transaction date: " & Date_Str);
                            else
-                              Tx_Date := To_Unbounded_String (Date_Str);
+                              Tx_Date := Parsed_Date;
                               if Space_Idx > 0 then
                                  declare
                                     Rest : constant String := Trim (Trimmed (Space_Idx + 1 .. Trimmed'Last), Ada.Strings.Both);

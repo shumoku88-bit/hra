@@ -93,7 +93,7 @@ package body ALedger.Plan is
 
    function Create_Plan_Entry
      (ID_Str   : String;
-      Date_Str : String;
+      Date_Val : ALedger.Dates.Date;
       Memo_Str : String;
       Amt      : Amount;
       From_Acc : Account.Account;
@@ -112,7 +112,7 @@ package body ALedger.Plan is
       end if;
 
       PE := (ID        => PID,
-             Date_Text => To_Unbounded_String (Date_Str),
+             Date      => Date_Val,
              Memo      => To_Unbounded_String (Memo_Str),
              Amt       => Amt,
              From_Acc  => From_Acc,
@@ -122,14 +122,32 @@ package body ALedger.Plan is
       return True;
    end Create_Plan_Entry;
 
+   function Create_Plan_Entry
+     (ID_Str   : String;
+      Date_Str : String;
+      Memo_Str : String;
+      Amt      : Amount;
+      From_Acc : Account.Account;
+      To_Acc   : Account.Account;
+      PE       : out Plan_Entry) return Boolean
+   is
+      Date_Val : ALedger.Dates.Date;
+      Status   : ALedger.Dates.Date_Status;
+   begin
+      if not ALedger.Dates.Parse (Date_Str, Date_Val, Status) then
+         return False;
+      end if;
+      return Create_Plan_Entry (ID_Str, Date_Val, Memo_Str, Amt, From_Acc, To_Acc, PE);
+   end Create_Plan_Entry;
+
    function Complete_Plan
      (P              : in out Plan_Entry;
-      Execution_Date : String;
+      Execution_Date : ALedger.Dates.Date;
       Tx             : out Transaction) return Boolean
    is
-      Postings : Posting_Vectors.Vector;
-      T_Stat   : Transaction_Error;
-      Payee_Str: constant String := To_String (P.Memo) & " ; plan-id: " & Text (P.ID);
+      Postings  : Posting_Vectors.Vector;
+      T_Stat    : Transaction_Error;
+      Payee_Str : constant String := To_String (P.Memo) & " ; plan-id: " & Text (P.ID);
    begin
       if P.Status /= Pending then
          return False;
@@ -148,6 +166,29 @@ package body ALedger.Plan is
       return True;
    end Complete_Plan;
 
+   function Complete_Plan
+     (P              : in out Plan_Entry;
+      Execution_Date : String;
+      Tx             : out Transaction) return Boolean
+   is
+      Date_Val : ALedger.Dates.Date;
+      Status   : ALedger.Dates.Date_Status;
+   begin
+      if not ALedger.Dates.Parse (Execution_Date, Date_Val, Status) then
+         return False;
+      end if;
+      return Complete_Plan (P, Date_Val, Tx);
+   end Complete_Plan;
+
+   procedure Cancel_Plan
+     (P    : in out Plan_Entry;
+      Date : ALedger.Dates.Date)
+   is
+      pragma Unreferenced (Date);
+   begin
+      P.Status := Canceled;
+   end Cancel_Plan;
+
    procedure Cancel_Plan
      (P        : in out Plan_Entry;
       Date_Str : String)
@@ -156,6 +197,17 @@ package body ALedger.Plan is
    begin
       P.Status := Canceled;
    end Cancel_Plan;
+
+   procedure Supersede_Plan
+     (P            : in out Plan_Entry;
+      Date         : ALedger.Dates.Date;
+      Successor_ID : Plan_Id)
+   is
+      pragma Unreferenced (Date);
+   begin
+      P.Status    := Superseded;
+      P.Successor := Successor_ID;
+   end Supersede_Plan;
 
    procedure Supersede_Plan
      (P            : in out Plan_Entry;
