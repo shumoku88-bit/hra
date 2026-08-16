@@ -28,9 +28,9 @@ procedure Test_Journal_Loader is
       Close (File);
    end Write_Text;
 
-   Temp_Dir  : constant String := ".aledger-test-journal-loader";
-   Sub_Dir   : constant String := Compose (Temp_Dir, "sub");
-   Root_Path : constant String := Compose (Temp_Dir, "root.journal");
+   Temp_Dir   : constant String := ".aledger-test-journal-loader";
+   Sub_Dir    : constant String := Compose (Temp_Dir, "sub");
+   Root_Path  : constant String := Compose (Temp_Dir, "root.journal");
    Child_Path : constant String := Compose (Sub_Dir, "child.journal");
    Grand_Path : constant String := Compose (Temp_Dir, "grand.journal");
    Cycle_Path : constant String := Compose (Sub_Dir, "cycle.journal");
@@ -49,6 +49,7 @@ procedure Test_Journal_Loader is
 
    Child_Source : constant String :=
      "2026-08-02 Child" & ASCII.LF &
+     "    ; plan-id: child-plan" & ASCII.LF &
      "    expenses:child      200 JPY" & ASCII.LF &
      "    assets:cash        -200 JPY" & ASCII.LF &
      ASCII.LF &
@@ -56,6 +57,7 @@ procedure Test_Journal_Loader is
 
    Grand_Source : constant String :=
      "2026-08-03 Grand" & ASCII.LF &
+     "    ; plan-id: grand-plan" & ASCII.LF &
      "    expenses:grand      300 JPY" & ASCII.LF &
      "    assets:cash        -300 JPY" & ASCII.LF;
 
@@ -71,23 +73,64 @@ begin
    Create_Directory (Temp_Dir);
    Create_Directory (Sub_Dir);
 
+   --  The root path must exist so it can be normalized, but these bytes must
+   --  never replace the already-observed Root_Source supplied by the caller.
    Write_Text (Root_Path, "THIS ON-DISK ROOT MUST NOT BE READ" & ASCII.LF);
    Write_Text (Child_Path, Child_Source);
    Write_Text (Grand_Path, Grand_Source);
 
-   Assert
-     (ALedger.Journal_Loader.Load_From_Root_Source
-        (Root_Path, Root_Source, L, Err),
-      "load nested document-relative include graph from supplied root bytes");
-   Assert
-     (Natural (L.Transactions.Length) = 4,
-      "resolved graph retains all four transactions");
-   Assert
-     (To_String (L.Transactions.Element (1).Code_Or_Payee) = "Root Before"
-        and then To_String (L.Transactions.Element (2).Code_Or_Payee) = "Child"
-        and then To_String (L.Transactions.Element (3).Code_Or_Payee) = "Grand"
-        and then To_String (L.Transactions.Element (4).Code_Or_Payee) = "Root After",
-      "include substitution preserves source order");
+   declare
+      Obs : ALedger.Journal_Loader.Journal_Observation;
+   begin
+      Assert
+        (ALedger.Journal_Loader.Load_From_Root_Source
+           (Root_Path, Root_Source, Obs, Err),
+         "load nested document-relative include graph from supplied root bytes");
+
+      L := Obs.Value;
+      Assert
+        (Natural (L.Transactions.Length) = 4,
+         "resolved graph retains all four transactions");
+      Assert
+        (To_String (L.Transactions.Element (1).Code_Or_Payee) = "Root Before"
+           and then To_String (L.Transactions.Element (2).Code_Or_Payee) = "Child"
+           and then To_String (L.Transactions.Element (3).Code_Or_Payee) = "Grand"
+           and then To_String (L.Transactions.Element (4).Code_Or_Payee) = "Root After",
+         "include substitution preserves source order");
+
+      Assert
+        (Natural (Obs.Evidence.Transactions.Length) = 4,
+         "graph observation retains one source evidence row per transaction");
+      Assert
+        (Simple_Name
+           (To_String (Obs.Evidence.Transactions.Element (1).Source_Path)) =
+           "root.journal"
+           and then Simple_Name
+             (To_String (Obs.Evidence.Transactions.Element (2).Source_Path)) =
+             "child.journal"
+           and then Simple_Name
+             (To_String (Obs.Evidence.Transactions.Element (3).Source_Path)) =
+             "grand.journal"
+           and then Simple_Name
+             (To_String (Obs.Evidence.Transactions.Element (4).Source_Path)) =
+             "root.journal",
+         "transaction evidence retains physical source ownership");
+      Assert
+        (Obs.Evidence.Transactions.Element (1).Header_Line = 1
+           and then Obs.Evidence.Transactions.Element (2).Header_Line = 1
+           and then Obs.Evidence.Transactions.Element (3).Header_Line = 1
+           and then Obs.Evidence.Transactions.Element (4).Header_Line = 7,
+         "transaction evidence retains physical line coordinates");
+      Assert
+        (Natural (Obs.Evidence.Transactions.Element (2).Metadata.Length) = 1
+           and then To_String
+             (Obs.Evidence.Transactions.Element (2).Metadata.Element (1).Key) =
+             "plan-id"
+           and then To_String
+             (Obs.Evidence.Transactions.Element (2).Metadata.Element (1).Value) =
+             "child-plan",
+         "included transaction metadata stays attached to its source evidence");
+   end;
 
    declare
       Duplicate_Source : constant String :=
@@ -102,7 +145,7 @@ begin
    end;
 
    declare
-      Cycle_Root : constant String := "include sub/cycle.journal" & ASCII.LF;
+      Cycle_Root  : constant String := "include sub/cycle.journal" & ASCII.LF;
       Cycle_Child : constant String := "include ../root.journal" & ASCII.LF;
    begin
       Write_Text (Root_Path, Cycle_Root);
