@@ -32,7 +32,7 @@ h-kernelとprivate canonical Householdのclean epoch source shapeへ、aledger�
 - `expense-accounts`、`account-policy`、Plan destination compatibility authorityを退役
 - fixed `budget:*` fallbackとspent/execution endpointを退役
 
-### Stock horizon
+### Stock and observation horizon
 
 - `budget.journal`のCommodityごとの最古movement日をEntitlement stock originとして保持
 - 0 movementもclean epoch originを明示可能
@@ -40,6 +40,8 @@ h-kernelとprivate canonical Householdのclean epoch source shapeへ、aledger�
 - production Fulfillmentはcompletion root dateでstock membershipを判定
 - later reversalはpre-origin rootをstockへ持ち込まない
 - Report periodはstock originを上書きしない
+- observation-specific Backing fundingは同じ`Observed_Through`までのAsset balanceだけを使う
+- future-dated Actual fundingを過去のBacking observationへ混ぜない
 
 ### Tests added / migrated
 
@@ -48,6 +50,7 @@ h-kernelとprivate canonical Householdのclean epoch source shapeへ、aledger�
 - zero movement source-origin lawを追加
 - Consumption pre-origin reversal lawを追加
 - Fulfillment pre-origin reversal-chain lawを追加
+- future Actual funding exclusion / own-day visibility lawを追加
 - `test_clean_household_contract` を追加し、retired authority rejectionを明示
 
 ### Qualification status
@@ -61,11 +64,11 @@ h-kernelとprivate canonical Householdのclean epoch source shapeへ、aledger�
 | 1 | `ALedger.Envelope` — EnvelopeId private type + Registry admission | done |
 | 2 | `ALedger.Envelope_Routing` — effective-dated Routing_History | done |
 | 3 | `household.toml` `[envelope-history]` admission | done |
-| 4 | `ALedger.Envelope_Entitlement` — movement fold | done |
+| 4 | `ALedger.Envelope_Entitlement` — movement fold + source-owned Commodity origin | done, PR #12でorigin保持追加 |
 | 5 | `ALedger.Budget_Source_Adapter` — budget.journal projection | done, PR #12でclean endpointsへ更新 |
 | 6 | `ALedger.Envelope_Consumption` — Actual + Routing | done, PR #12でstock horizon追加 |
-| 7 | `ALedger.Backing_Policy` — pool別Backing | done |
-| 8 | `Household_State` + report composition | done, PR #12でclean authority/stock pathへ更新 |
+| 7 | `ALedger.Backing_Policy` — pool別Backing | done, PR #12でobserved-through funding追加 |
+| 8 | `Household_State` + report composition | done, PR #12でclean authority/stock/observation pathへ更新 |
 
 ## Ada implementation notes
 
