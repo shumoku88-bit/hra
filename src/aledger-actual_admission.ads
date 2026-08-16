@@ -93,4 +93,14 @@ private
       Reversals  : Reversal_Vectors.Vector;
    end record;
 
+   function Ledger_Value
+     (Observation : Actual_Observation) return ALedger.Ledger.Ledger is
+       (Observation.Value);
+
+   function Identified_Count (Observation : Actual_Observation) return Natural is
+     (Natural (Observation.Identified.Length));
+
+   function Reversal_Count (Observation : Actual_Observation) return Natural is
+     (Natural (Observation.Reversals.Length));
+
 end ALedger.Actual_Admission;
