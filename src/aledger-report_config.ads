@@ -1,20 +1,28 @@
-with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
 with ALedger.Config_Support; use ALedger.Config_Support;
+with ALedger.Dates;
 
 package ALedger.Report_Config is
 
    type Boundary_Kind is (Latest, Beginning, Exact_Date);
-   type Date_Boundary is record
-      Kind : Boundary_Kind := Latest;
-      Date : Unbounded_String;
+
+   type Date_Boundary (Kind : Boundary_Kind := Latest) is record
+      case Kind is
+         when Exact_Date =>
+            Value : ALedger.Dates.Date;
+         when Latest | Beginning =>
+            null;
+      end case;
    end record;
+
    type Range_Spec is record
       From    : Date_Boundary;
       Through : Date_Boundary;
    end record;
+
    type As_Of_Spec is record
       Value : Date_Boundary;
    end record;
+
    type Recent_Spec is record
       Through : Date_Boundary;
       Count   : Positive;
@@ -30,12 +38,12 @@ package ALedger.Report_Config is
       Multiple  : Character := '+';
    end record;
    type Presentation_Config is record
-      Negative          : Negative_Style := Parentheses;
-      Heading_Color     : Presentation_Color := Cyan;
-      Section_Color     : Presentation_Color := Yellow;
-      Positive_Color    : Presentation_Color := Green;
-      Negative_Color    : Presentation_Color := Red;
-      Calendar          : Calendar_Markers;
+      Negative           : Negative_Style := Parentheses;
+      Heading_Color      : Presentation_Color := Cyan;
+      Section_Color      : Presentation_Color := Yellow;
+      Positive_Color     : Presentation_Color := Green;
+      Negative_Color     : Presentation_Color := Red;
+      Calendar           : Calendar_Markers;
       Daily_Date_Columns : Positive := 14;
    end record;
 
