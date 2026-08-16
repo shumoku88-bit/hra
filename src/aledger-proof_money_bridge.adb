@@ -1,5 +1,7 @@
 package body ALedger.Proof_Money_Bridge is
 
+   use type ALedger.Money.Quantity;
+
    --  A decimal fixed-point view of the integer quanta count. Quantity uses
    --  the same 10^-8 quantum as Proof_Core, so division/multiplication by
    --  Quantity'Small must round-trip exactly. The explicit round-trip checks
