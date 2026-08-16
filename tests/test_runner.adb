@@ -154,7 +154,8 @@ procedure Test_Runner is
       begin
          Assert (Account_Type_For (Reg, Acc1, Found_AT) and then Found_AT = Asset, "Lookup Account_Type for Acc1 = Asset");
          Assert (Account_Type_For (Reg, Acc2, Found_AT) and then Found_AT = Expense, "Lookup Account_Type for Acc2 = Expense");
-         Assert (Account_Type_For (Reg, Acc_Undeclared, Found_AT) and then Found_AT = Income, "Automatically infer Account_Type for undeclared income:freelance = Income");
+         Assert (not Account_Type_For (Reg, Acc_Undeclared, Found_AT),
+                "Undeclared Account_Type lookup fails closed");
       end;
    end Test_Account;
 

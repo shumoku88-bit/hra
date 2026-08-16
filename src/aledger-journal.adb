@@ -11,7 +11,7 @@ package body ALedger.Journal is
       if Diag.Line_Number > 0 then
          if Length (Diag.Raw_Text) > 0 then
             return FName & ":" & Trim (Natural'Image (Diag.Line_Number), Ada.Strings.Both) &
-                   ": " & To_String (Diag.Message) & " [Context: """ & To_String (Diag.Raw_Text) & """]";
+                   ": " & To_String (Diag.Message) & " [Context: " & To_String (Diag.Raw_Text) & "]";
          else
             return FName & ":" & Trim (Natural'Image (Diag.Line_Number), Ada.Strings.Both) &
                    ": " & To_String (Diag.Message);
@@ -212,8 +212,11 @@ package body ALedger.Journal is
       Tx_Payee         : Unbounded_String;
       Current_Posts    : Posting_Vectors.Vector;
 
-      In_Account_Decl  : Boolean := False;
-      Current_Acc_Decl : Account_Declaration;
+      In_Account_Decl      : Boolean := False;
+      Current_Acc_Decl     : Account_Declaration;
+      Current_Acc_Has_Type : Boolean := False;
+      Current_Acc_Line     : Natural := 0;
+      Current_Acc_Raw      : Unbounded_String := Null_Unbounded_String;
 
       procedure Set_Error (Msg : String) is
       begin
@@ -223,6 +226,41 @@ package body ALedger.Journal is
                   Raw_Text    => Cur_Raw_Line,
                   Message     => To_Unbounded_String (Msg));
       end Set_Error;
+
+      procedure Set_Account_Error (Msg : String) is
+      begin
+         Has_Error := True;
+         Diag := (File_Name   => To_Unbounded_String (File_Name),
+                  Line_Number => Current_Acc_Line,
+                  Raw_Text    => Current_Acc_Raw,
+                  Message     => To_Unbounded_String (Msg));
+      end Set_Account_Error;
+
+      procedure Flush_Current_Account_Declaration is
+         Status : Registry_Status;
+      begin
+         if not In_Account_Decl or else Has_Error then
+            return;
+         end if;
+
+         if not Current_Acc_Has_Type then
+            Set_Account_Error
+              ("Account declaration requires explicit type or role metadata: " &
+               Name (Current_Acc_Decl.Acc));
+            return;
+         end if;
+
+         if not Register_Account
+           (Result_Ledger.Registry, Current_Acc_Decl, Status)
+         then
+            Set_Account_Error
+              ("Duplicate account declaration: " & Name (Current_Acc_Decl.Acc));
+            return;
+         end if;
+
+         In_Account_Decl      := False;
+         Current_Acc_Has_Type := False;
+      end Flush_Current_Account_Declaration;
 
       procedure Flush_Current_Transaction is
       begin
@@ -358,73 +396,66 @@ package body ALedger.Journal is
 
                if Trimmed'Length = 0 then
                   Flush_Current_Transaction;
-                  In_Account_Decl := False;
+                  Flush_Current_Account_Declaration;
                elsif not Is_Indented (Raw_Line) then
-                  if Is_Comment (Raw_Line) then
-                     Flush_Current_Transaction;
-                     In_Account_Decl := False;
-                  elsif Trimmed'Length >= 7 and then Lower_String (Trimmed (Trimmed'First .. Trimmed'First + 6)) = "include" then
-                     Flush_Current_Transaction;
-                     In_Account_Decl := False;
-                  elsif Trimmed'Length >= 7 and then Lower_String (Trimmed (Trimmed'First .. Trimmed'First + 6)) = "account" then
-                     Flush_Current_Transaction;
-                     In_Account_Decl := False;
-                     declare
-                        Acc_Name     : constant String := Trim (Trimmed (Trimmed'First + 7 .. Trimmed'Last), Ada.Strings.Both);
-                        Acc          : Account.Account;
-                        A_Stat       : Account_Status;
-                        Inferred_Cat : Account_Type := Asset;
-                     begin
-                        if Create_Account (Acc_Name, Acc, A_Stat) then
-                           if Acc_Name'Length >= 7 and then Lower_String (Acc_Name (Acc_Name'First .. Acc_Name'First + 6)) = "income:" then
-                              Inferred_Cat := Income;
-                           elsif Acc_Name'Length >= 9 and then Lower_String (Acc_Name (Acc_Name'First .. Acc_Name'First + 8)) = "expenses:" then
-                              Inferred_Cat := Expense;
-                           elsif Acc_Name'Length >= 7 and then Lower_String (Acc_Name (Acc_Name'First .. Acc_Name'First + 6)) = "equity:" then
-                              Inferred_Cat := Equity;
-                           elsif Acc_Name'Length >= 12 and then Lower_String (Acc_Name (Acc_Name'First .. Acc_Name'First + 11)) = "liabilities:" then
-                              Inferred_Cat := Liability;
-                           elsif Acc_Name'Length >= 7 and then Lower_String (Acc_Name (Acc_Name'First .. Acc_Name'First + 6)) = "budget:" then
-                              Inferred_Cat := Budget;
-                           end if;
+                  Flush_Current_Transaction;
+                  Flush_Current_Account_Declaration;
 
-                           Current_Acc_Decl := Declare_Account (Acc, Inferred_Cat);
-                           In_Account_Decl  := True;
-                           Register_Or_Update_Account (Result_Ledger.Registry, Current_Acc_Decl);
-                        end if;
-                     end;
-                  elsif Is_Digit (Trimmed (Trimmed'First)) then
-                     Flush_Current_Transaction;
-                     In_Account_Decl := False;
-                     declare
-                        Space_Idx : constant Natural := Index (Trimmed, " ");
-                        Date_End  : constant Natural :=
-                          (if Space_Idx > 0 then Space_Idx - 1 else Trimmed'Last);
-                        Date_Str  : constant String :=
-                          Trimmed (Trimmed'First .. Date_End);
-                     begin
-                        if not Is_Valid_Date (Date_Str) then
-                           Set_Error ("Invalid transaction date: " & Date_Str);
-                        else
-                           Tx_Date := To_Unbounded_String (Date_Str);
-                           if Space_Idx > 0 then
-                              declare
-                                 Rest : constant String := Trim (Trimmed (Space_Idx + 1 .. Trimmed'Last), Ada.Strings.Both);
-                              begin
-                                 if Rest'Length > 0 and then (Rest (Rest'First) = '*' or else Rest (Rest'First) = '!') then
-                                    Tx_Payee := To_Unbounded_String (Trim (Rest (Rest'First + 1 .. Rest'Last), Ada.Strings.Both));
-                                 else
-                                    Tx_Payee := To_Unbounded_String (Rest);
-                                 end if;
-                              end;
+                  if not Has_Error then
+                     if Is_Comment (Raw_Line) then
+                        null;
+                     elsif Trimmed'Length >= 7 and then Lower_String (Trimmed (Trimmed'First .. Trimmed'First + 6)) = "include" then
+                        null;
+                     elsif Trimmed'Length >= 7 and then Lower_String (Trimmed (Trimmed'First .. Trimmed'First + 6)) = "account" then
+                        declare
+                           Acc_Name : constant String := Trim (Trimmed (Trimmed'First + 7 .. Trimmed'Last), Ada.Strings.Both);
+                           Acc      : Account.Account;
+                           A_Stat   : Account_Status;
+                        begin
+                           if Create_Account (Acc_Name, Acc, A_Stat) then
+                              --  Asset is only a temporary record value. A declaration
+                              --  is never admitted until explicit type/role metadata
+                              --  replaces it and the complete declaration is flushed.
+                              Current_Acc_Decl := Declare_Account (Acc, Asset);
+                              Current_Acc_Has_Type := False;
+                              Current_Acc_Line := Line_Num;
+                              Current_Acc_Raw := Cur_Raw_Line;
+                              In_Account_Decl := True;
                            else
-                              Tx_Payee := Null_Unbounded_String;
+                              Set_Error ("Invalid account declaration: " & Acc_Name);
                            end if;
-                           In_Tx := True;
-                        end if;
-                     end;
-                  else
-                     Set_Error ("Unsupported journal directive or transaction header");
+                        end;
+                     elsif Is_Digit (Trimmed (Trimmed'First)) then
+                        declare
+                           Space_Idx : constant Natural := Index (Trimmed, " ");
+                           Date_End  : constant Natural :=
+                             (if Space_Idx > 0 then Space_Idx - 1 else Trimmed'Last);
+                           Date_Str  : constant String :=
+                             Trimmed (Trimmed'First .. Date_End);
+                        begin
+                           if not Is_Valid_Date (Date_Str) then
+                              Set_Error ("Invalid transaction date: " & Date_Str);
+                           else
+                              Tx_Date := To_Unbounded_String (Date_Str);
+                              if Space_Idx > 0 then
+                                 declare
+                                    Rest : constant String := Trim (Trimmed (Space_Idx + 1 .. Trimmed'Last), Ada.Strings.Both);
+                                 begin
+                                    if Rest'Length > 0 and then (Rest (Rest'First) = '*' or else Rest (Rest'First) = '!') then
+                                       Tx_Payee := To_Unbounded_String (Trim (Rest (Rest'First + 1 .. Rest'Last), Ada.Strings.Both));
+                                    else
+                                       Tx_Payee := To_Unbounded_String (Rest);
+                                    end if;
+                                 end;
+                              else
+                                 Tx_Payee := Null_Unbounded_String;
+                              end if;
+                              In_Tx := True;
+                           end if;
+                        end;
+                     else
+                        Set_Error ("Unsupported journal directive or transaction header");
+                     end if;
                   end if;
 
                else
@@ -459,9 +490,13 @@ package body ALedger.Journal is
                                           Current_Acc_Decl.Acc_Type := Budget;
                                        elsif Val = "asset" then
                                           Current_Acc_Decl.Acc_Type := Asset;
+                                       else
+                                          Set_Error ("Unsupported account type or role: " & Val);
                                        end if;
 
-                                       Register_Or_Update_Account (Result_Ledger.Registry, Current_Acc_Decl);
+                                       if not Has_Error then
+                                          Current_Acc_Has_Type := True;
+                                       end if;
                                     end if;
                                  end;
                               end if;
@@ -510,6 +545,7 @@ package body ALedger.Journal is
       end loop;
 
       Flush_Current_Transaction;
+      Flush_Current_Account_Declaration;
 
       if Has_Error then
          return False;

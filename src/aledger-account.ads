@@ -1,5 +1,6 @@
 with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
 with Ada.Containers.Indefinite_Ordered_Maps;
+with Ada.Containers.Vectors;
 with ALedger.Money;          use ALedger.Money;
 
 package ALedger.Account is
@@ -64,6 +65,9 @@ package ALedger.Account is
 
    --  ========================================================================
    --  Account Registry
+   --
+   --  Declarations owns admitted source order. Name lookup is an index into
+   --  that sequence; the ordered-map key order is never a domain order.
    --  ========================================================================
    type Account_Registry is private;
 
@@ -77,10 +81,6 @@ package ALedger.Account is
      (Reg    : in out Account_Registry;
       Decl   : Account_Declaration;
       Status : out Registry_Status) return Boolean;
-
-   procedure Register_Or_Update_Account
-     (Reg  : in out Account_Registry;
-      Decl : Account_Declaration);
 
    function Lookup_Declaration
      (Reg  : Account_Registry;
@@ -102,12 +102,17 @@ private
       Name_Text : Unbounded_String;
    end record;
 
-   package Registry_Maps is new Ada.Containers.Indefinite_Ordered_Maps
+   package Declaration_Vectors is new Ada.Containers.Vectors
+     (Index_Type   => Positive,
+      Element_Type => Account_Declaration);
+
+   package Registry_Index_Maps is new Ada.Containers.Indefinite_Ordered_Maps
      (Key_Type     => String,
-      Element_Type  => Account_Declaration);
+      Element_Type => Positive);
 
    type Account_Registry is record
-      Map : Registry_Maps.Map;
+      In_Order : Declaration_Vectors.Vector;
+      By_Name  : Registry_Index_Maps.Map;
    end record;
 
 end ALedger.Account;
