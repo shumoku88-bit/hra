@@ -68,6 +68,14 @@ package ALedger.Plan_Observation is
       Result           : out ALedger.Plan.Plan_Id_Universe;
       Diag             : out Admission_Diagnostic) return Boolean;
 
+   --  Cross-source admission law for explicit Actual -> Plan completion
+   --  evidence. This is independent of observation date and report projection.
+   function Admit_Plan_Completions
+     (Known_Plans     : ALedger.Plan.Plan_Id_Universe;
+      Actual_Ledger   : ALedger.Ledger.Ledger;
+      Actual_Evidence : ALedger.Journal_Evidence.Journal_Evidence;
+      Diag            : out Admission_Diagnostic) return Boolean;
+
    function Observe_Plans
      (Plan_Ledger       : ALedger.Ledger.Ledger;
       Plan_Evidence     : ALedger.Journal_Evidence.Journal_Evidence;
