@@ -338,6 +338,32 @@ package body ALedger.Household is
          end if;
       end;
 
+      --  Completion is a cross-source admission law, not a report-time guess.
+      --  Every Actual plan-id must resolve to one admitted Plan and a Plan may
+      --  be completed by at most one Actual transaction.
+      declare
+         Completion_Diag : ALedger.Plan_Observation.Admission_Diagnostic;
+      begin
+         if not ALedger.Plan_Observation.Admit_Plan_Completions
+           (Result.Plan_Ids,
+            Result.Actual_Ledger,
+            Result.Actual_Evidence,
+            Completion_Diag)
+         then
+            Error_Msg := To_Unbounded_String
+              ("actual.journal: failed Plan completion admission: " &
+               ALedger.Plan_Observation.Admission_Status'Image
+                 (Completion_Diag.Status) &
+               (if Length (Completion_Diag.Plan_Id) > 0
+                then " [plan-id=" & To_String (Completion_Diag.Plan_Id) & "]"
+                else "") &
+               (if Length (Completion_Diag.Message) > 0
+                then ": " & To_String (Completion_Diag.Message)
+                else ""));
+            return False;
+         end if;
+      end;
+
       declare
          Budget : ALedger.Journal_Loader.Journal_Observation;
       begin
