@@ -199,6 +199,131 @@ package body ALedger.Plan_Observation is
       return Admit_Plan_Identities (Plan_Ledger, Evidence, Result, Diag);
    end Admit_Plan_Identities;
 
+   function Admit_Completions
+     (Known_Plans     : ALedger.Plan.Plan_Id_Universe;
+      Actual_Ledger   : ALedger.Ledger.Ledger;
+      Actual_Evidence : ALedger.Journal_Evidence.Journal_Evidence;
+      Result          : out Completion_Vectors.Vector;
+      Diag            : out Admission_Diagnostic) return Boolean
+   is
+      Output : Completion_Vectors.Vector;
+
+      procedure Fail
+        (Status  : Admission_Status;
+         Line    : Natural;
+         Plan_ID : String;
+         Message : String)
+      is
+      begin
+         Diag :=
+           (Status      => Status,
+            Line_Number => Line,
+            Plan_Id     => To_Unbounded_String (Plan_ID),
+            Message     => To_Unbounded_String (Message));
+      end Fail;
+
+      function Completion_Exists (ID : ALedger.Plan.Plan_Id) return Boolean is
+      begin
+         for Item of Output loop
+            if Item.ID = ID then
+               return True;
+            end if;
+         end loop;
+         return False;
+      end Completion_Exists;
+
+   begin
+      Result := Output;
+      Diag :=
+        (Status      => Success,
+         Line_Number => 0,
+         Plan_Id     => Null_Unbounded_String,
+         Message     => Null_Unbounded_String);
+
+      if not Evidence_Aligns
+        (Actual_Ledger, Actual_Evidence, Actual_Source_Evidence_Error, Diag)
+      then
+         return False;
+      end if;
+
+      for I in 1 .. Natural (Actual_Ledger.Transactions.Length) loop
+         declare
+            Source : constant Transaction_Source :=
+              Actual_Evidence.Transactions.Element (I);
+            Tx     : constant ALedger.Ledger.Transaction :=
+              Actual_Ledger.Transactions.Element (I);
+            Count  : Natural;
+            Meta   : Metadata_Entry;
+         begin
+            Find_Metadata (Source, "plan-id", Count, Meta);
+            if Count > 1 then
+               Fail
+                 (Duplicate_Plan_Metadata,
+                  Source.Header_Line,
+                  To_String (Meta.Value),
+                  "Actual transaction repeats plan-id completion metadata");
+               return False;
+            elsif Count = 1 then
+               declare
+                  PID        : ALedger.Plan.Plan_Id;
+                  PID_Status : ALedger.Plan.Plan_Id_Status;
+               begin
+                  if not ALedger.Plan.Create_Plan_Id
+                    (To_String (Meta.Value), PID, PID_Status)
+                  then
+                     Fail
+                       (Invalid_Actual_Plan_Id,
+                        Meta.Line_Number,
+                        To_String (Meta.Value),
+                        "Actual transaction carries an invalid plan-id");
+                     return False;
+                  elsif not ALedger.Plan.Contains (Known_Plans, PID) then
+                     Fail
+                       (Unknown_Completion_Plan,
+                        Meta.Line_Number,
+                        ALedger.Plan.Text (PID),
+                        "Actual completion references an unknown Plan");
+                     return False;
+                  elsif Completion_Exists (PID) then
+                     Fail
+                       (Multiple_Completion_Actuals,
+                        Meta.Line_Number,
+                        ALedger.Plan.Text (PID),
+                        "Plan is completed by more than one Actual transaction");
+                     return False;
+                  end if;
+
+                  Output.Append
+                    (Completion'
+                       (ID     => PID,
+                        Date   => Tx.Date,
+                        Tx     => Tx,
+                        Source => Source));
+               end;
+            end if;
+         end;
+      end loop;
+
+      Result := Output;
+      return True;
+   end Admit_Completions;
+
+   function Admit_Plan_Completions
+     (Known_Plans     : ALedger.Plan.Plan_Id_Universe;
+      Actual_Ledger   : ALedger.Ledger.Ledger;
+      Actual_Evidence : ALedger.Journal_Evidence.Journal_Evidence;
+      Diag            : out Admission_Diagnostic) return Boolean
+   is
+      Completions : Completion_Vectors.Vector;
+   begin
+      return Admit_Completions
+        (Known_Plans,
+         Actual_Ledger,
+         Actual_Evidence,
+         Completions,
+         Diag);
+   end Admit_Plan_Completions;
+
    function Observe_Plans
      (Plan_Ledger      : ALedger.Ledger.Ledger;
       Plan_Evidence    : ALedger.Journal_Evidence.Journal_Evidence;
@@ -237,16 +362,6 @@ package body ALedger.Plan_Observation is
          end loop;
          return 0;
       end Find_Plan_Index;
-
-      function Completion_Exists (ID : ALedger.Plan.Plan_Id) return Boolean is
-      begin
-         for Item of Completions loop
-            if Item.ID = ID then
-               return True;
-            end if;
-         end loop;
-         return False;
-      end Completion_Exists;
 
       function Visible_Completion_Index
         (ID : ALedger.Plan.Plan_Id) return Natural
@@ -303,10 +418,6 @@ package body ALedger.Plan_Observation is
 
       if not Evidence_Aligns
         (Plan_Ledger, Plan_Evidence, Plan_Source_Evidence_Error, Diag)
-      then
-         return False;
-      elsif not Evidence_Aligns
-        (Actual_Ledger, Actual_Evidence, Actual_Source_Evidence_Error, Diag)
       then
          return False;
       end if;
@@ -479,62 +590,24 @@ package body ALedger.Plan_Observation is
          end if;
       end loop;
 
-      for I in 1 .. Natural (Actual_Ledger.Transactions.Length) loop
-         declare
-            Source : constant Transaction_Source :=
-              Actual_Evidence.Transactions.Element (I);
-            Tx     : constant ALedger.Ledger.Transaction :=
-              Actual_Ledger.Transactions.Element (I);
-            Count  : Natural;
-            Meta   : Metadata_Entry;
-         begin
-            Find_Metadata (Source, "plan-id", Count, Meta);
-            if Count > 1 then
-               Fail
-                 (Duplicate_Plan_Metadata,
-                  Source.Header_Line,
-                  To_String (Meta.Value),
-                  "Actual transaction repeats plan-id completion metadata");
-               return False;
-            elsif Count = 1 then
-               declare
-                  PID        : ALedger.Plan.Plan_Id;
-                  PID_Status : ALedger.Plan.Plan_Id_Status;
-               begin
-                  if not ALedger.Plan.Create_Plan_Id
-                    (To_String (Meta.Value), PID, PID_Status)
-                  then
-                     Fail
-                       (Invalid_Actual_Plan_Id,
-                        Meta.Line_Number,
-                        To_String (Meta.Value),
-                        "Actual transaction carries an invalid plan-id");
-                     return False;
-                  elsif Find_Plan_Index (PID) = 0 then
-                     Fail
-                       (Unknown_Completion_Plan,
-                        Meta.Line_Number,
-                        ALedger.Plan.Text (PID),
-                        "Actual completion references an unknown Plan");
-                     return False;
-                  elsif Completion_Exists (PID) then
-                     Fail
-                       (Multiple_Completion_Actuals,
-                        Meta.Line_Number,
-                        ALedger.Plan.Text (PID),
-                        "Plan is completed by more than one Actual transaction");
-                     return False;
-                  end if;
-                  Completions.Append
-                    (Completion'
-                       (ID     => PID,
-                        Date   => Tx.Date,
-                        Tx     => Tx,
-                        Source => Source));
-               end;
-            end if;
-         end;
-      end loop;
+      declare
+         Known_Plans : ALedger.Plan.Plan_Id_Universe :=
+           ALedger.Plan.Empty_Plan_Id_Universe;
+      begin
+         for P of Plans loop
+            ALedger.Plan.Include (Known_Plans, P.ID);
+         end loop;
+
+         if not Admit_Completions
+           (Known_Plans,
+            Actual_Ledger,
+            Actual_Evidence,
+            Completions,
+            Diag)
+         then
+            return False;
+         end if;
+      end;
 
       for P of Plans loop
          declare

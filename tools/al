@@ -47,6 +47,7 @@ build_tests() {
 run_tests() {
   "$project_root/tests/bin/test_runner" "$@"
   "$project_root/tests/bin/test_actual_admission"
+  "$project_root/tests/bin/test_plan_completion_admission"
 }
 
 command="${1:-help}"

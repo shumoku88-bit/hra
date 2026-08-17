@@ -8,6 +8,7 @@ project ALedger_Tests is
    for Main use
      ("test_runner.adb",
       "test_actual_admission.adb",
+      "test_plan_completion_admission.adb",
       "test_envelope_entitlement_standalone.adb",
       "test_report_plan.adb",
       "test_recent_journal.adb",
@@ -34,6 +35,7 @@ project ALedger_Tests is
    package Builder is
       for Executable ("test_runner.adb") use "test_runner";
       for Executable ("test_actual_admission.adb") use "test_actual_admission";
+      for Executable ("test_plan_completion_admission.adb") use "test_plan_completion_admission";
       for Executable ("test_envelope_entitlement_standalone.adb") use "test_entitlement";
       for Executable ("test_report_plan.adb") use "test_report_plan";
       for Executable ("test_recent_journal.adb") use "test_recent_journal";
