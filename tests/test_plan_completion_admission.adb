@@ -81,11 +81,11 @@ procedure Test_Plan_Completion_Admission is
      "    expenses:food       100 JPY" & ASCII.LF;
 
    Multiple_Source : constant String :=
-     "2026-08-10 First completion" & ASCII.LF &
+     "2026-08-10 First completion [event-id: completion-a-1]" & ASCII.LF &
      "    ; plan-id: plan-a" & ASCII.LF &
      "    assets:cash        -100 JPY" & ASCII.LF &
      "    expenses:food       100 JPY" & ASCII.LF & ASCII.LF &
-     "2026-08-11 Second completion" & ASCII.LF &
+     "2026-08-11 Second completion [event-id: completion-a-2]" & ASCII.LF &
      "    ; plan-id: plan-a" & ASCII.LF &
      "    assets:cash         -20 JPY" & ASCII.LF &
      "    expenses:food        20 JPY" & ASCII.LF;
@@ -124,7 +124,7 @@ begin
    Assert
      (not Admit_Source (Multiple_Source, Diag)
         and then Diag.Status = ALedger.Plan_Observation.Multiple_Completion_Actuals,
-      "One Plan cannot be completed by multiple Actual transactions");
+      "Distinct Actual identities cannot complete one Plan twice");
 
    Assert
      (not Admit_Source (Duplicate_Metadata_Source, Diag)
