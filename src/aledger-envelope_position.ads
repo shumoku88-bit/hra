@@ -24,13 +24,43 @@ package ALedger.Envelope_Position is
 
    function "=" (Left, Right : Position) return Boolean;
 
+   --  Typed evidence used to explain one proof-backed Position. Gross activity
+   --  remains beside the net values passed to the proof core so cancellation
+   --  cannot erase the fact that opposite movements occurred.
+   type Arithmetic_Evidence is record
+      Entitlement          : Balance;
+      Consumption_Charges  : Balance;
+      Consumption_Refunds  : Balance;
+      Net_Consumption      : Balance;
+      Fulfillment_Applied  : Balance;
+      Fulfillment_Reversed : Balance;
+      Net_Fulfillment      : Balance;
+      Plan_Commitment      : Balance;
+   end record;
+
+   function "=" (Left, Right : Arithmetic_Evidence) return Boolean;
+
+   --  Explanation combines the exact typed evidence retained by the observer
+   --  with the proof-backed result derived from that same observation.
+   type Explanation is record
+      Evidence          : Arithmetic_Evidence;
+      Observed_Position : Position;
+   end record;
+
    package Position_Maps is new Ada.Containers.Indefinite_Ordered_Maps
      (Key_Type     => String,
       Element_Type => Position,
       "="          => "=");
 
+   package Arithmetic_Evidence_Maps is new
+     Ada.Containers.Indefinite_Ordered_Maps
+       (Key_Type     => String,
+        Element_Type => Arithmetic_Evidence,
+        "="          => "=");
+
    type Observation is record
       Positions : Position_Maps.Map;
+      Evidence  : Arithmetic_Evidence_Maps.Map;
    end record;
 
    function Empty_Observation return Observation;
@@ -91,5 +121,17 @@ package ALedger.Envelope_Position is
      (Obs : Observation;
       Env : ALedger.Envelope.Envelope_Id) return Position
      with Pre => Has_Position (Obs, Env);
+
+   function Has_Explanation
+     (Obs : Observation;
+      Env : ALedger.Envelope.Envelope_Id) return Boolean;
+
+   --  Pure projection only: no source read, no arithmetic recomputation, and no
+   --  new authority. The explanation is the evidence and result retained by the
+   --  same successful position observation.
+   function Explain
+     (Obs : Observation;
+      Env : ALedger.Envelope.Envelope_Id) return Explanation
+     with Pre => Has_Explanation (Obs, Env);
 
 end ALedger.Envelope_Position;
