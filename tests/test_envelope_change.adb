@@ -13,6 +13,9 @@ with ALedger.Money; use ALedger.Money;
 
 procedure Test_Envelope_Change is
    use type ALedger.Dates.Date;
+   use type ALedger.Envelope_Position.Observe_Status;
+   use type ALedger.Household_Envelope_Change.Snapshot_Status;
+   use type ALedger.Household_Envelope_Change.Change_Status;
 
    Passed_Count : Natural := 0;
    Failed_Count : Natural := 0;
