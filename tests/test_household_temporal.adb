@@ -115,6 +115,9 @@ begin
 
    Write_File
      (To_String (Paths.Actual_Journal),
+      "2026-07-01 Previous Salary" & ASCII.LF &
+      "    assets:wallet         10000 JPY" & ASCII.LF &
+      "    income:salary        -10000 JPY" & ASCII.LF & ASCII.LF &
       "2026-08-01 Salary" & ASCII.LF &
       "    assets:wallet         10000 JPY" & ASCII.LF &
       "    income:salary        -10000 JPY" & ASCII.LF & ASCII.LF &
