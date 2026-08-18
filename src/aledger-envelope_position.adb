@@ -20,9 +20,35 @@ package body ALedger.Envelope_Position is
           (Subtract_Balance (Left.Headroom, Right.Headroom));
    end "=";
 
+   function "=" (Left, Right : Arithmetic_Evidence) return Boolean is
+   begin
+      return Is_Zero_Balance
+          (Subtract_Balance (Left.Entitlement, Right.Entitlement))
+        and then Is_Zero_Balance
+          (Subtract_Balance
+             (Left.Consumption_Charges, Right.Consumption_Charges))
+        and then Is_Zero_Balance
+          (Subtract_Balance
+             (Left.Consumption_Refunds, Right.Consumption_Refunds))
+        and then Is_Zero_Balance
+          (Subtract_Balance (Left.Net_Consumption, Right.Net_Consumption))
+        and then Is_Zero_Balance
+          (Subtract_Balance
+             (Left.Fulfillment_Applied, Right.Fulfillment_Applied))
+        and then Is_Zero_Balance
+          (Subtract_Balance
+             (Left.Fulfillment_Reversed, Right.Fulfillment_Reversed))
+        and then Is_Zero_Balance
+          (Subtract_Balance (Left.Net_Fulfillment, Right.Net_Fulfillment))
+        and then Is_Zero_Balance
+          (Subtract_Balance (Left.Plan_Commitment, Right.Plan_Commitment));
+   end "=";
+
    function Empty_Observation return Observation is
    begin
-      return (Positions => Position_Maps.Empty_Map);
+      return
+        (Positions => Position_Maps.Empty_Map,
+         Evidence  => Arithmetic_Evidence_Maps.Empty_Map);
    end Empty_Observation;
 
    procedure Set_Diagnostic
@@ -210,13 +236,14 @@ package body ALedger.Envelope_Position is
       Registry        : ALedger.Envelope.Envelope_Registry;
       Env_Text        : String;
       Entitlement     : Balance;
-      Net_Consumption : Balance;
-      Net_Fulfillment : Balance;
+      Consumption     : ALedger.Envelope_Consumption.Consumption_Amounts;
+      Fulfillment     : ALedger.Envelope_Fulfillment.Fulfillment_Amounts;
       Plan_Commitment : Balance;
       Diag            : out Observe_Diagnostic) return Boolean
    is
       Env : ALedger.Envelope.Envelope_Id;
       Pos : Position;
+      Evidence : Arithmetic_Evidence;
    begin
       if not ALedger.Envelope.Lookup (Registry, Env_Text, Env) then
          Set_Diagnostic
@@ -228,7 +255,9 @@ package body ALedger.Envelope_Position is
          return False;
       end if;
 
-      if Output.Positions.Contains (Env_Text) then
+      if Output.Positions.Contains (Env_Text)
+        or else Output.Evidence.Contains (Env_Text)
+      then
          Set_Diagnostic
            (Diag,
             Duplicate_Current_Envelope,
@@ -238,12 +267,24 @@ package body ALedger.Envelope_Position is
          return False;
       end if;
 
+      Evidence :=
+        (Entitlement          => Entitlement,
+         Consumption_Charges  => Consumption.Charges,
+         Consumption_Refunds  => Consumption.Refunds,
+         Net_Consumption      =>
+           ALedger.Envelope_Consumption.Net_Consumption (Consumption),
+         Fulfillment_Applied  => Fulfillment.Applied,
+         Fulfillment_Reversed => Fulfillment.Reversed,
+         Net_Fulfillment      =>
+           ALedger.Envelope_Fulfillment.Net_Fulfillment (Fulfillment),
+         Plan_Commitment      => Plan_Commitment);
+
       if not Evaluate_One
         (Env,
-         Entitlement,
-         Net_Consumption,
-         Net_Fulfillment,
-         Plan_Commitment,
+         Evidence.Entitlement,
+         Evidence.Net_Consumption,
+         Evidence.Net_Fulfillment,
+         Evidence.Plan_Commitment,
          Pos,
          Diag)
       then
@@ -251,6 +292,7 @@ package body ALedger.Envelope_Position is
       end if;
 
       Output.Positions.Insert (Env_Text, Pos);
+      Output.Evidence.Insert (Env_Text, Evidence);
       return True;
    end Add_Current_Position;
 
@@ -286,8 +328,9 @@ package body ALedger.Envelope_Position is
                Env_Text,
                ALedger.Envelope_Entitlement.Entitlement_For
                  (Entitlement, Env),
-               ALedger.Envelope_Consumption.Net_For (Consumption, Env),
-               Empty_Balance,
+               ALedger.Envelope_Consumption.Consumption_For
+                 (Consumption, Env),
+               ALedger.Envelope_Fulfillment.Empty_Amounts,
                Empty_Balance,
                Diag)
             then
@@ -340,8 +383,10 @@ package body ALedger.Envelope_Position is
                Env_Text,
                ALedger.Envelope_Entitlement.Entitlement_For
                  (Entitlement, Env),
-               ALedger.Envelope_Consumption.Net_For (Consumption, Env),
-               ALedger.Envelope_Fulfillment.Net_For (Fulfillment, Env),
+               ALedger.Envelope_Consumption.Consumption_For
+                 (Consumption, Env),
+               ALedger.Envelope_Fulfillment.Fulfillment_For
+                 (Fulfillment, Env),
                ALedger.Envelope_Commitment.Commitment_For (Commitment, Env),
                Diag)
             then
@@ -375,5 +420,25 @@ package body ALedger.Envelope_Position is
    begin
       return Obs.Positions.Element (ALedger.Envelope.Image (Env));
    end Position_For;
+
+   function Has_Explanation
+     (Obs : Observation;
+      Env : ALedger.Envelope.Envelope_Id) return Boolean
+   is
+      Key : constant String := ALedger.Envelope.Image (Env);
+   begin
+      return Obs.Positions.Contains (Key) and then Obs.Evidence.Contains (Key);
+   end Has_Explanation;
+
+   function Explain
+     (Obs : Observation;
+      Env : ALedger.Envelope.Envelope_Id) return Explanation
+   is
+      Key : constant String := ALedger.Envelope.Image (Env);
+   begin
+      return
+        (Evidence          => Obs.Evidence.Element (Key),
+         Observed_Position => Obs.Positions.Element (Key));
+   end Explain;
 
 end ALedger.Envelope_Position;
