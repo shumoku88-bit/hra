@@ -66,6 +66,20 @@ begin
      (Image (Next (Must_Date ("2026-12-31"))) = "2027-01-01",
       "successor crosses year boundary");
 
+   Assert
+     (Has_Previous (Must_Date ("2026-03-01"))
+        and then Image (Previous (Must_Date ("2026-03-01"))) = "2026-02-28",
+      "previous day crosses ordinary month boundary");
+   Assert
+     (Image (Previous (Must_Date ("2024-03-01"))) = "2024-02-29",
+      "previous day enters leap day");
+   Assert
+     (Image (Previous (Must_Date ("2026-01-01"))) = "2025-12-31",
+      "previous day crosses year boundary");
+   Assert
+     (not Has_Previous (Must_Date ("0001-01-01")),
+      "minimum supported Gregorian day has no predecessor");
+
    declare
       One_Day    : Closed_Period;
       Period_Val : Closed_Period;

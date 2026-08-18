@@ -12,6 +12,133 @@ package body ALedger.Household_Envelope_Change is
    use type ALedger.Dates.Date;
    use type ALedger.Envelope.Envelope_Id;
 
+   function Resolve_Baseline
+     (Window   : ALedger.Cycle_Observation.Cycle_Window;
+      Through  : ALedger.Dates.Date;
+      Previous : Previous_Observation_Context;
+      Request  : Baseline_Request;
+      Result   : out Resolved_Change_Baseline;
+      Diag     : out Baseline_Diagnostic) return Boolean
+   is
+      Output : Resolved_Change_Baseline :=
+        (Request => Request,
+         Day     => Through);
+   begin
+      if not ALedger.Cycle_Observation.Contains (Window, Through) then
+         Result := Output;
+         Diag :=
+           (Status           => Through_Outside_Window,
+            Rejected_Through => Through);
+         return False;
+      end if;
+
+      case Request.Kind is
+         when Previous_Observation =>
+            case Previous.Kind is
+               when No_Previous_Observation =>
+                  Result := Output;
+                  Diag := (Status => Previous_Observation_Unavailable);
+                  return False;
+
+               when Previous_Observation_Available =>
+                  declare
+                     Candidate : constant ALedger.Dates.Date :=
+                       Previous.Observed_Through;
+                  begin
+                     if not ALedger.Cycle_Observation.Contains
+                       (Window, Candidate)
+                     then
+                        Result := Output;
+                        Diag :=
+                          (Status          => Baseline_Day_Outside_Window,
+                           Outside_Request => Request,
+                           Outside_Day     => Candidate);
+                        return False;
+                     elsif not (Candidate < Through) then
+                        Result := Output;
+                        Diag :=
+                          (Status             => Previous_Observation_Not_Before,
+                           Previous_Day_Value => Candidate,
+                           Current_Through    => Through);
+                        return False;
+                     end if;
+
+                     Output.Day := Candidate;
+                  end;
+            end case;
+
+         when Previous_Day =>
+            if not ALedger.Dates.Has_Previous (Through) then
+               Result := Output;
+               Diag :=
+                 (Status           => Previous_Day_Unavailable,
+                  Boundary_Through => Through);
+               return False;
+            end if;
+
+            declare
+               Candidate : constant ALedger.Dates.Date :=
+                 ALedger.Dates.Previous (Through);
+            begin
+               if not ALedger.Cycle_Observation.Contains (Window, Candidate) then
+                  Result := Output;
+                  Diag :=
+                    (Status          => Baseline_Day_Outside_Window,
+                     Outside_Request => Request,
+                     Outside_Day     => Candidate);
+                  return False;
+               end if;
+
+               Output.Day := Candidate;
+            end;
+
+         when Cycle_Start =>
+            Output.Day := ALedger.Cycle_Observation.Start_Date (Window);
+
+         when Explicit_Day =>
+            declare
+               Candidate : constant ALedger.Dates.Date := Request.Requested_Day;
+            begin
+               if not ALedger.Cycle_Observation.Contains (Window, Candidate) then
+                  Result := Output;
+                  Diag :=
+                    (Status          => Baseline_Day_Outside_Window,
+                     Outside_Request => Request,
+                     Outside_Day     => Candidate);
+                  return False;
+               elsif Candidate > Through then
+                  Result := Output;
+                  Diag :=
+                    (Status          => Baseline_Day_After_Observation,
+                     Future_Request  => Request,
+                     Future_Day      => Candidate,
+                     Observation_Day => Through);
+                  return False;
+               end if;
+
+               Output.Day := Candidate;
+            end;
+      end case;
+
+      Result := Output;
+      Diag := (Status => Success);
+      return True;
+   end Resolve_Baseline;
+
+   function Resolved_Request
+     (Baseline : Resolved_Change_Baseline) return Baseline_Request
+   is
+   begin
+      return Baseline.Request;
+   end Resolved_Request;
+
+   function Resolved_Day
+     (Baseline : Resolved_Change_Baseline) return ALedger.Dates.Date
+   is
+   begin
+      return Baseline.Day;
+   end Resolved_Day;
+
    function Capture
      (Policy           : ALedger.Budget_Config.Budget_Policy;
       Registry         : ALedger.Envelope.Envelope_Registry;
