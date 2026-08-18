@@ -22,7 +22,8 @@ project ALedger_Tests is
       "test_dates.adb",
       "test_clean_household_contract.adb",
       "test_proof_money_bridge.adb",
-      "test_envelope_position.adb");
+      "test_envelope_position.adb",
+      "test_envelope_explanation.adb");
 
    package Compiler is
       for Default_Switches ("Ada") use
@@ -51,5 +52,6 @@ project ALedger_Tests is
       for Executable ("test_clean_household_contract.adb") use "test_clean_household_contract";
       for Executable ("test_proof_money_bridge.adb") use "test_proof_money_bridge";
       for Executable ("test_envelope_position.adb") use "test_envelope_position";
+      for Executable ("test_envelope_explanation.adb") use "test_envelope_explanation";
    end Builder;
 end ALedger_Tests;
