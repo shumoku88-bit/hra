@@ -47,6 +47,7 @@ run_tests() {
   "$project_root/tests/bin/test_runner" "$@"
   "$project_root/tests/bin/test_actual_admission"
   "$project_root/tests/bin/test_plan_completion_admission"
+  "$project_root/tests/bin/test_report_account_order"
 }
 
 command="${1:-help}"
