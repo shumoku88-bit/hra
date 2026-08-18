@@ -133,6 +133,36 @@ package body ALedger.Dates is
       end if;
    end Next;
 
+   function Has_Previous (Value : Date) return Boolean is
+   begin
+      return not
+        (Value.Y = Year_Number'First
+         and then Value.M = Month_Number'First
+         and then Value.D = Day_Number'First);
+   end Has_Previous;
+
+   function Previous (Value : Date) return Date is
+   begin
+      if Value.D > Day_Number'First then
+         return (Y => Value.Y, M => Value.M, D => Value.D - 1);
+      elsif Value.M > Month_Number'First then
+         declare
+            Previous_Month : constant Month_Number := Value.M - 1;
+         begin
+            return
+              (Y => Value.Y,
+               M => Previous_Month,
+               D => Days_In_Month (Value.Y, Previous_Month));
+         end;
+      else
+         declare
+            Previous_Year : constant Year_Number := Value.Y - 1;
+         begin
+            return (Y => Previous_Year, M => 12, D => 31);
+         end;
+      end if;
+   end Previous;
+
    function Year (Value : Date) return Positive is
      (Positive (Value.Y));
 
