@@ -99,6 +99,12 @@ package ALedger.Ledger is
       Acc     : Account.Account;
       Through : ALedger.Dates.Date) return Balance;
 
+   --  Closed-period movement for one admitted Account identity.
+   function Compute_Account_Movement_In
+     (L      : Ledger;
+      Acc    : Account.Account;
+      Period : ALedger.Dates.Closed_Period) return Balance;
+
    function Compute_Total_Balance (L : Ledger) return Balance;
 
 end ALedger.Ledger;
