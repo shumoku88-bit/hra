@@ -1,241 +1,278 @@
-with Ada.Containers.Indefinite_Ordered_Maps;
-
 package body ALedger.Report is
 
    use type ALedger.Dates.Date;
 
-   package Account_Balance_Maps is new Ada.Containers.Indefinite_Ordered_Maps
-     (Key_Type     => String,
-      Element_Type => Balance);
-
-   procedure Add_Transaction_Postings
-     (Tx  : Transaction;
-      Map : in out Account_Balance_Maps.Map)
-   is
-   begin
-      for P of Tx.Postings loop
-         declare
-            Acc_Key : constant String := Name (P.Acc);
-            Amt_Bal : constant Balance := Singleton_Balance (P.Amt);
-         begin
-            if Map.Contains (Acc_Key) then
-               Map.Replace
-                 (Acc_Key, Add_Balance (Map.Element (Acc_Key), Amt_Bal));
-            else
-               Map.Insert (Acc_Key, Amt_Bal);
-            end if;
-         end;
-      end loop;
-   end Add_Transaction_Postings;
-
-   procedure Collect_All_Account_Balances
+   function Has_Account_Activity
      (L   : Ledger.Ledger;
-      Map : out Account_Balance_Maps.Map)
+      Acc : Account.Account) return Boolean
    is
    begin
       for Tx of L.Transactions loop
-         Add_Transaction_Postings (Tx, Map);
+         for P of Tx.Postings loop
+            if P.Acc = Acc then
+               return True;
+            end if;
+         end loop;
       end loop;
-   end Collect_All_Account_Balances;
+      return False;
+   end Has_Account_Activity;
 
-   procedure Collect_Account_Balances_Through
-     (L          : Ledger.Ledger;
-      Through    : ALedger.Dates.Date;
-      Map        : out Account_Balance_Maps.Map)
+   function Has_Account_Activity_Through
+     (L       : Ledger.Ledger;
+      Acc     : Account.Account;
+      Through : ALedger.Dates.Date) return Boolean
    is
    begin
       for Tx of L.Transactions loop
          if Tx.Date <= Through then
-            Add_Transaction_Postings (Tx, Map);
+            for P of Tx.Postings loop
+               if P.Acc = Acc then
+                  return True;
+               end if;
+            end loop;
          end if;
       end loop;
-   end Collect_Account_Balances_Through;
+      return False;
+   end Has_Account_Activity_Through;
 
-   procedure Collect_Account_Balances_In
+   function Has_Account_Activity_In
      (L      : Ledger.Ledger;
-      Period : ALedger.Dates.Closed_Period;
-      Map    : out Account_Balance_Maps.Map)
+      Acc    : Account.Account;
+      Period : ALedger.Dates.Closed_Period) return Boolean
    is
    begin
       for Tx of L.Transactions loop
          if ALedger.Dates.Contains (Period, Tx.Date) then
-            Add_Transaction_Postings (Tx, Map);
+            for P of Tx.Postings loop
+               if P.Acc = Acc then
+                  return True;
+               end if;
+            end loop;
          end if;
       end loop;
-   end Collect_Account_Balances_In;
+      return False;
+   end Has_Account_Activity_In;
 
-   function Trial_Balance_From_Map
-     (Map : Account_Balance_Maps.Map) return Trial_Balance
+   procedure Add_Profit_And_Loss_Line
+     (PL   : in out Profit_And_Loss;
+      Decl : Account_Declaration;
+      Bal  : Balance)
    is
-      TB     : Trial_Balance;
-      Cursor : Account_Balance_Maps.Cursor := Map.First;
-      Tot    : Balance := Empty_Balance;
    begin
-      while Account_Balance_Maps.Has_Element (Cursor) loop
-         declare
-            Acc_Key : constant String := Account_Balance_Maps.Key (Cursor);
-            Bal     : constant Balance := Account_Balance_Maps.Element (Cursor);
-            Acc     : constant Account.Account := Make_Account (Acc_Key);
-         begin
-            TB.Lines.Append (Account_Line'(Acc => Acc, Bal => Bal));
-            Tot := Add_Balance (Tot, Bal);
-         end;
-         Account_Balance_Maps.Next (Cursor);
-      end loop;
-      TB.Total := Tot;
-      return TB;
-   end Trial_Balance_From_Map;
+      case Decl.Acc_Type is
+         when Income =>
+            declare
+               Norm_Bal : constant Balance := Negate_Balance (Bal);
+            begin
+               PL.Income_Lines.Append
+                 (Account_Line'(Acc => Decl.Acc, Bal => Norm_Bal));
+               PL.Total_Income := Add_Balance (PL.Total_Income, Norm_Bal);
+            end;
+         when Expense =>
+            PL.Expense_Lines.Append
+              (Account_Line'(Acc => Decl.Acc, Bal => Bal));
+            PL.Total_Expenses := Add_Balance (PL.Total_Expenses, Bal);
+         when others =>
+            null;
+      end case;
+   end Add_Profit_And_Loss_Line;
 
    function Generate_Trial_Balance_As_Of
      (L          : Ledger.Ledger;
       As_Of_Date : ALedger.Dates.Date) return Trial_Balance
    is
-      Map : Account_Balance_Maps.Map;
+      TB : Trial_Balance;
    begin
-      Collect_Account_Balances_Through (L, As_Of_Date, Map);
-      return Trial_Balance_From_Map (Map);
+      TB.Total := Empty_Balance;
+      for Decl of Declarations (L.Registry) loop
+         if Has_Account_Activity_Through (L, Decl.Acc, As_Of_Date) then
+            declare
+               Bal : constant Balance :=
+                 Compute_Account_Balance_Through (L, Decl.Acc, As_Of_Date);
+            begin
+               TB.Lines.Append
+                 (Account_Line'(Acc => Decl.Acc, Bal => Bal));
+               TB.Total := Add_Balance (TB.Total, Bal);
+            end;
+         end if;
+      end loop;
+      return TB;
    end Generate_Trial_Balance_As_Of;
 
    function Generate_Trial_Balance (L : Ledger.Ledger) return Trial_Balance is
-      Map : Account_Balance_Maps.Map;
+      TB : Trial_Balance;
    begin
-      Collect_All_Account_Balances (L, Map);
-      return Trial_Balance_From_Map (Map);
-   end Generate_Trial_Balance;
-
-   function Profit_And_Loss_From_Map
-     (L   : Ledger.Ledger;
-      Map : Account_Balance_Maps.Map) return Profit_And_Loss
-   is
-      PL      : Profit_And_Loss;
-      Cursor  : Account_Balance_Maps.Cursor := Map.First;
-      Tot_Inc : Balance := Empty_Balance;
-      Tot_Exp : Balance := Empty_Balance;
-   begin
-      while Account_Balance_Maps.Has_Element (Cursor) loop
-         declare
-            Acc_Key : constant String := Account_Balance_Maps.Key (Cursor);
-            Bal     : constant Balance := Account_Balance_Maps.Element (Cursor);
-            Acc     : constant Account.Account := Make_Account (Acc_Key);
-            Cat     : Account_Type;
-         begin
-            if Account_Type_For (L.Registry, Acc, Cat) then
-               if Cat = Income then
-                  declare
-                     Norm_Bal : constant Balance := Negate_Balance (Bal);
-                  begin
-                     PL.Income_Lines.Append
-                       (Account_Line'(Acc => Acc, Bal => Norm_Bal));
-                     Tot_Inc := Add_Balance (Tot_Inc, Norm_Bal);
-                  end;
-               elsif Cat = Expense then
-                  PL.Expense_Lines.Append
-                    (Account_Line'(Acc => Acc, Bal => Bal));
-                  Tot_Exp := Add_Balance (Tot_Exp, Bal);
-               end if;
-            end if;
-         end;
-         Account_Balance_Maps.Next (Cursor);
+      TB.Total := Empty_Balance;
+      for Decl of Declarations (L.Registry) loop
+         if Has_Account_Activity (L, Decl.Acc) then
+            declare
+               Bal : constant Balance := Compute_Account_Balance (L, Decl.Acc);
+            begin
+               TB.Lines.Append
+                 (Account_Line'(Acc => Decl.Acc, Bal => Bal));
+               TB.Total := Add_Balance (TB.Total, Bal);
+            end;
+         end if;
       end loop;
-
-      PL.Total_Income   := Tot_Inc;
-      PL.Total_Expenses := Tot_Exp;
-      PL.Net_Income     := Subtract_Balance (Tot_Inc, Tot_Exp);
-      return PL;
-   end Profit_And_Loss_From_Map;
+      return TB;
+   end Generate_Trial_Balance;
 
    function Generate_Profit_And_Loss_Period
      (L      : Ledger.Ledger;
       Period : ALedger.Dates.Closed_Period) return Profit_And_Loss
    is
-      Map : Account_Balance_Maps.Map;
+      PL : Profit_And_Loss;
    begin
-      Collect_Account_Balances_In (L, Period, Map);
-      return Profit_And_Loss_From_Map (L, Map);
-   end Generate_Profit_And_Loss_Period;
+      PL.Total_Income   := Empty_Balance;
+      PL.Total_Expenses := Empty_Balance;
 
-   function Generate_Profit_And_Loss (L : Ledger.Ledger) return Profit_And_Loss is
-      Map : Account_Balance_Maps.Map;
-   begin
-      Collect_All_Account_Balances (L, Map);
-      return Profit_And_Loss_From_Map (L, Map);
-   end Generate_Profit_And_Loss;
-
-   function Balance_Sheet_From_Map
-     (L       : Ledger.Ledger;
-      Map     : Account_Balance_Maps.Map;
-      Earnings : Balance) return Balance_Sheet
-   is
-      BS      : Balance_Sheet;
-      Cursor  : Account_Balance_Maps.Cursor := Map.First;
-      Tot_Ast : Balance := Empty_Balance;
-      Tot_Lia : Balance := Empty_Balance;
-      Tot_Eq  : Balance := Empty_Balance;
-   begin
-      while Account_Balance_Maps.Has_Element (Cursor) loop
-         declare
-            Acc_Key : constant String := Account_Balance_Maps.Key (Cursor);
-            Bal     : constant Balance := Account_Balance_Maps.Element (Cursor);
-            Acc     : constant Account.Account := Make_Account (Acc_Key);
-            Cat     : Account_Type;
-         begin
-            if Account_Type_For (L.Registry, Acc, Cat) then
-               if Cat = Asset then
-                  BS.Asset_Lines.Append (Account_Line'(Acc => Acc, Bal => Bal));
-                  Tot_Ast := Add_Balance (Tot_Ast, Bal);
-               elsif Cat = Liability then
-                  declare
-                     Norm_Bal : constant Balance := Negate_Balance (Bal);
-                  begin
-                     BS.Liability_Lines.Append
-                       (Account_Line'(Acc => Acc, Bal => Norm_Bal));
-                     Tot_Lia := Add_Balance (Tot_Lia, Norm_Bal);
-                  end;
-               elsif Cat = Equity then
-                  declare
-                     Norm_Bal : constant Balance := Negate_Balance (Bal);
-                  begin
-                     BS.Equity_Lines.Append
-                       (Account_Line'(Acc => Acc, Bal => Norm_Bal));
-                     Tot_Eq := Add_Balance (Tot_Eq, Norm_Bal);
-                  end;
-               end if;
-            end if;
-         end;
-         Account_Balance_Maps.Next (Cursor);
+      for Decl of Declarations (L.Registry) loop
+         if Decl.Acc_Type in Income | Expense
+           and then Has_Account_Activity_In (L, Decl.Acc, Period)
+         then
+            Add_Profit_And_Loss_Line
+              (PL,
+               Decl,
+               Compute_Account_Movement_In (L, Decl.Acc, Period));
+         end if;
       end loop;
 
-      BS.Total_Assets      := Tot_Ast;
-      BS.Total_Liabilities := Tot_Lia;
-      BS.Posted_Equity     := Tot_Eq;
-      BS.Current_Earnings  := Earnings;
-      BS.Total_Equity      := Add_Balance (Tot_Eq, Earnings);
-      BS.Accounting_Equation_Delta :=
-        Subtract_Balance
-          (Subtract_Balance (Tot_Ast, Tot_Lia), BS.Total_Equity);
-      return BS;
-   end Balance_Sheet_From_Map;
+      PL.Net_Income := Subtract_Balance (PL.Total_Income, PL.Total_Expenses);
+      return PL;
+   end Generate_Profit_And_Loss_Period;
+
+   function Generate_Profit_And_Loss_Through
+     (L       : Ledger.Ledger;
+      Through : ALedger.Dates.Date) return Profit_And_Loss
+   is
+      PL : Profit_And_Loss;
+   begin
+      PL.Total_Income   := Empty_Balance;
+      PL.Total_Expenses := Empty_Balance;
+
+      for Decl of Declarations (L.Registry) loop
+         if Decl.Acc_Type in Income | Expense
+           and then Has_Account_Activity_Through (L, Decl.Acc, Through)
+         then
+            Add_Profit_And_Loss_Line
+              (PL,
+               Decl,
+               Compute_Account_Balance_Through (L, Decl.Acc, Through));
+         end if;
+      end loop;
+
+      PL.Net_Income := Subtract_Balance (PL.Total_Income, PL.Total_Expenses);
+      return PL;
+   end Generate_Profit_And_Loss_Through;
+
+   function Generate_Profit_And_Loss (L : Ledger.Ledger) return Profit_And_Loss is
+      PL : Profit_And_Loss;
+   begin
+      PL.Total_Income   := Empty_Balance;
+      PL.Total_Expenses := Empty_Balance;
+
+      for Decl of Declarations (L.Registry) loop
+         if Decl.Acc_Type in Income | Expense
+           and then Has_Account_Activity (L, Decl.Acc)
+         then
+            Add_Profit_And_Loss_Line
+              (PL, Decl, Compute_Account_Balance (L, Decl.Acc));
+         end if;
+      end loop;
+
+      PL.Net_Income := Subtract_Balance (PL.Total_Income, PL.Total_Expenses);
+      return PL;
+   end Generate_Profit_And_Loss;
+
+   procedure Add_Balance_Sheet_Line
+     (BS   : in out Balance_Sheet;
+      Decl : Account_Declaration;
+      Bal  : Balance)
+   is
+   begin
+      case Decl.Acc_Type is
+         when Asset =>
+            BS.Asset_Lines.Append
+              (Account_Line'(Acc => Decl.Acc, Bal => Bal));
+            BS.Total_Assets := Add_Balance (BS.Total_Assets, Bal);
+         when Liability =>
+            declare
+               Norm_Bal : constant Balance := Negate_Balance (Bal);
+            begin
+               BS.Liability_Lines.Append
+                 (Account_Line'(Acc => Decl.Acc, Bal => Norm_Bal));
+               BS.Total_Liabilities :=
+                 Add_Balance (BS.Total_Liabilities, Norm_Bal);
+            end;
+         when Equity =>
+            declare
+               Norm_Bal : constant Balance := Negate_Balance (Bal);
+            begin
+               BS.Equity_Lines.Append
+                 (Account_Line'(Acc => Decl.Acc, Bal => Norm_Bal));
+               BS.Posted_Equity := Add_Balance (BS.Posted_Equity, Norm_Bal);
+            end;
+         when others =>
+            null;
+      end case;
+   end Add_Balance_Sheet_Line;
 
    function Generate_Balance_Sheet_As_Of
      (L          : Ledger.Ledger;
       As_Of_Date : ALedger.Dates.Date) return Balance_Sheet
    is
-      Map        : Account_Balance_Maps.Map;
-      Income_Map : Account_Balance_Maps.Map;
-      PL         : Profit_And_Loss;
+      BS : Balance_Sheet;
+      PL : constant Profit_And_Loss :=
+        Generate_Profit_And_Loss_Through (L, As_Of_Date);
    begin
-      Collect_Account_Balances_Through (L, As_Of_Date, Map);
-      Collect_Account_Balances_Through (L, As_Of_Date, Income_Map);
-      PL := Profit_And_Loss_From_Map (L, Income_Map);
-      return Balance_Sheet_From_Map (L, Map, PL.Net_Income);
+      BS.Total_Assets      := Empty_Balance;
+      BS.Total_Liabilities := Empty_Balance;
+      BS.Posted_Equity     := Empty_Balance;
+
+      for Decl of Declarations (L.Registry) loop
+         if Decl.Acc_Type in Asset | Liability | Equity
+           and then Has_Account_Activity_Through (L, Decl.Acc, As_Of_Date)
+         then
+            Add_Balance_Sheet_Line
+              (BS,
+               Decl,
+               Compute_Account_Balance_Through (L, Decl.Acc, As_Of_Date));
+         end if;
+      end loop;
+
+      BS.Current_Earnings := PL.Net_Income;
+      BS.Total_Equity := Add_Balance (BS.Posted_Equity, BS.Current_Earnings);
+      BS.Accounting_Equation_Delta :=
+        Subtract_Balance
+          (Subtract_Balance (BS.Total_Assets, BS.Total_Liabilities),
+           BS.Total_Equity);
+      return BS;
    end Generate_Balance_Sheet_As_Of;
 
    function Generate_Balance_Sheet (L : Ledger.Ledger) return Balance_Sheet is
-      Map : Account_Balance_Maps.Map;
-      PL  : constant Profit_And_Loss := Generate_Profit_And_Loss (L);
+      BS : Balance_Sheet;
+      PL : constant Profit_And_Loss := Generate_Profit_And_Loss (L);
    begin
-      Collect_All_Account_Balances (L, Map);
-      return Balance_Sheet_From_Map (L, Map, PL.Net_Income);
+      BS.Total_Assets      := Empty_Balance;
+      BS.Total_Liabilities := Empty_Balance;
+      BS.Posted_Equity     := Empty_Balance;
+
+      for Decl of Declarations (L.Registry) loop
+         if Decl.Acc_Type in Asset | Liability | Equity
+           and then Has_Account_Activity (L, Decl.Acc)
+         then
+            Add_Balance_Sheet_Line
+              (BS, Decl, Compute_Account_Balance (L, Decl.Acc));
+         end if;
+      end loop;
+
+      BS.Current_Earnings := PL.Net_Income;
+      BS.Total_Equity := Add_Balance (BS.Posted_Equity, BS.Current_Earnings);
+      BS.Accounting_Equation_Delta :=
+        Subtract_Balance
+          (Subtract_Balance (BS.Total_Assets, BS.Total_Liabilities),
+           BS.Total_Equity);
+      return BS;
    end Generate_Balance_Sheet;
 
 end ALedger.Report;
