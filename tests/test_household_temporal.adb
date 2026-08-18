@@ -38,12 +38,52 @@ procedure Test_Household_Temporal is
       return Value;
    end D;
 
+   procedure Write_File (Path, Content : String) is
+      F : File_Type;
+   begin
+      Create (F, Out_File, Path);
+      Put (F, Content);
+      Close (F);
+   end Write_File;
+
+   procedure Put_Diagnostic
+     (Diag : ALedger.Household_Temporal.Observe_Diagnostic)
+   is
+   begin
+      Put_Line
+        ("[DIAG] Household temporal status = " &
+         ALedger.Household_Temporal.Observe_Status'Image (Diag.Status));
+
+      case Diag.Status is
+         when ALedger.Household_Temporal.Success =>
+            null;
+         when ALedger.Household_Temporal.Current_Observation_Unavailable |
+              ALedger.Household_Temporal.Earlier_Observation_Unavailable =>
+            Put_Line ("[DIAG] observation = " & To_String (Diag.Observation_Error));
+         when ALedger.Household_Temporal.Baseline_Unavailable =>
+            Put_Line
+              ("[DIAG] baseline = " &
+               ALedger.Household_Envelope_Change.Baseline_Status'Image
+                 (Diag.Baseline.Status));
+         when ALedger.Household_Temporal.Current_Snapshot_Unavailable |
+              ALedger.Household_Temporal.Earlier_Snapshot_Unavailable =>
+            Put_Line
+              ("[DIAG] snapshot = " &
+               ALedger.Household_Envelope_Change.Snapshot_Status'Image
+                 (Diag.Snapshot.Status));
+         when ALedger.Household_Temporal.Change_Rejected =>
+            Put_Line
+              ("[DIAG] change = " &
+               ALedger.Household_Envelope_Change.Change_Status'Image
+                 (Diag.Change.Status));
+      end case;
+   end Put_Diagnostic;
+
    Tmp_Dir : constant String := "/tmp/aledger_test_household_temporal";
    Paths   : constant ALedger.Household.Source_Paths :=
      ALedger.Household.Resolve_Source_Paths (Tmp_Dir);
    State   : ALedger.Household.Household_State;
    Err     : Unbounded_String;
-   F       : File_Type;
    JPY     : constant ALedger.Money.Commodity :=
      ALedger.Money.Make_Commodity ("JPY");
 
@@ -58,162 +98,191 @@ begin
    end if;
    Create_Directory (Tmp_Dir);
 
-   Create (F, Out_File, To_String (Paths.Accounts_Journal));
-   Put_Line (F, "account assets:wallet");
-   Put_Line (F, "  ; type: Asset");
-   Put_Line (F, "account expenses:coffee");
-   Put_Line (F, "  ; type: Expense");
-   Put_Line (F, "account income:salary");
-   Put_Line (F, "  ; type: Income");
-   Put_Line (F, "account budget:coffee");
-   Put_Line (F, "  ; type: Budget");
-   Put_Line (F, "account budget:unassigned");
-   Put_Line (F, "  ; type: Budget");
-   Put_Line (F, "account budget:opening");
-   Put_Line (F, "  ; type: Budget");
-   Close (F);
+   Write_File
+     (To_String (Paths.Accounts_Journal),
+      "account assets:wallet" & ASCII.LF &
+      "  ; type: Asset" & ASCII.LF &
+      "account expenses:coffee" & ASCII.LF &
+      "  ; type: Expense" & ASCII.LF &
+      "account income:salary" & ASCII.LF &
+      "  ; type: Income" & ASCII.LF &
+      "account budget:coffee" & ASCII.LF &
+      "  ; type: Budget" & ASCII.LF &
+      "account budget:unassigned" & ASCII.LF &
+      "  ; type: Budget" & ASCII.LF &
+      "account budget:opening" & ASCII.LF &
+      "  ; type: Budget" & ASCII.LF);
 
-   Create (F, Out_File, To_String (Paths.Actual_Journal));
-   Put_Line (F, "2026-08-01 Salary");
-   Put_Line (F, "    assets:wallet         10000 JPY");
-   Put_Line (F, "    income:salary        -10000 JPY");
-   New_Line (F);
-   Put_Line (F, "2026-08-13 Coffee Purchase");
-   Put_Line (F, "    expenses:coffee         500 JPY");
-   Put_Line (F, "    assets:wallet           -500 JPY");
-   Close (F);
+   Write_File
+     (To_String (Paths.Actual_Journal),
+      "2026-08-01 Salary" & ASCII.LF &
+      "    assets:wallet         10000 JPY" & ASCII.LF &
+      "    income:salary        -10000 JPY" & ASCII.LF & ASCII.LF &
+      "2026-08-13 Coffee Purchase" & ASCII.LF &
+      "    expenses:coffee         500 JPY" & ASCII.LF &
+      "    assets:wallet           -500 JPY" & ASCII.LF);
 
-   Create (F, Out_File, To_String (Paths.Plan_Journal));
-   Put_Line (F, "2026-09-01 Next Salary");
-   Put_Line (F, "    ; plan-id: plan-next-salary");
-   Put_Line (F, "    assets:wallet         10000 JPY");
-   Put_Line (F, "    income:salary        -10000 JPY");
-   Close (F);
+   Write_File
+     (To_String (Paths.Plan_Journal),
+      "2026-09-01 Next Salary" & ASCII.LF &
+      "    ; plan-id: plan-next-salary" & ASCII.LF &
+      "    assets:wallet         10000 JPY" & ASCII.LF &
+      "    income:salary        -10000 JPY" & ASCII.LF);
 
-   Create (F, Out_File, To_String (Paths.Budget_Journal));
-   Put_Line (F, "2026-08-01 Clean Envelope epoch");
-   Put_Line (F, "    budget:opening          0 JPY");
-   Put_Line (F, "    budget:unassigned       0 JPY");
-   Close (F);
+   Write_File
+     (To_String (Paths.Budget_Journal),
+      "2026-08-01 Clean Envelope epoch" & ASCII.LF &
+      "    budget:opening          0 JPY" & ASCII.LF &
+      "    budget:unassigned       0 JPY" & ASCII.LF);
 
-   Create (F, Out_File, To_String (Paths.Budget_TOML));
-   Put_Line (F, "[[backing-pools]]");
-   Put_Line (F, "id = ""liquid""");
-   Put_Line (F, "asset-accounts = [""assets:wallet""]");
-   Put_Line (F, "[[envelopes]]");
-   Put_Line (F, "id = ""coffee""");
-   Put_Line (F, "label = ""Coffee""");
-   Put_Line (F, "pacing = ""daily""");
-   Put_Line (F, "backing-pool = ""liquid""");
-   Close (F);
+   Write_File
+     (To_String (Paths.Budget_TOML),
+      "[[backing-pools]]" & ASCII.LF &
+      "id = ""liquid""" & ASCII.LF &
+      "asset-accounts = [""assets:wallet""]" & ASCII.LF &
+      "[[envelopes]]" & ASCII.LF &
+      "id = ""coffee""" & ASCII.LF &
+      "label = ""Coffee""" & ASCII.LF &
+      "pacing = ""daily""" & ASCII.LF &
+      "backing-pool = ""liquid""" & ASCII.LF);
 
-   Create (F, Out_File, To_String (Paths.Household_TOML));
-   Put_Line (F, "[cycle]");
-   Put_Line (F, "mode = ""income-anchor""");
-   Put_Line (F, "income-account = ""income:salary""");
-   Put_Line (F, "[money]");
-   Put_Line (F, "primary-commodity = ""JPY""");
-   Put_Line (F, "[budget]");
-   Put_Line (F, "opening-accounts = [""budget:opening""]");
-   Put_Line (F, "unassigned-accounts = [""budget:unassigned""]");
-   Put_Line (F, "[[budget.envelopes]]");
-   Put_Line (F, "id = ""coffee""");
-   Put_Line (F, "allocation-account = ""budget:coffee""");
-   Put_Line (F, "[envelope-history]");
-   Put_Line (F, "identities = [""coffee""]");
-   Put_Line (F, "[[envelope-history.expense-routing]]");
-   Put_Line (F, "effective-from = ""initial""");
-   Put_Line (F, "expense-account = ""expenses:coffee""");
-   Put_Line (F, "route = ""managed""");
-   Put_Line (F, "target = ""coffee""");
-   Put_Line (F, "note = ""temporal test routing""");
-   Close (F);
+   Write_File
+     (To_String (Paths.Household_TOML),
+      "[cycle]" & ASCII.LF &
+      "mode = ""income-anchor""" & ASCII.LF &
+      "income-account = ""income:salary""" & ASCII.LF &
+      "[money]" & ASCII.LF &
+      "primary-commodity = ""JPY""" & ASCII.LF &
+      "[budget]" & ASCII.LF &
+      "opening-accounts = [""budget:opening""]" & ASCII.LF &
+      "unassigned-accounts = [""budget:unassigned""]" & ASCII.LF &
+      "[[budget.envelopes]]" & ASCII.LF &
+      "id = ""coffee""" & ASCII.LF &
+      "allocation-account = ""budget:coffee""" & ASCII.LF &
+      "[envelope-history]" & ASCII.LF &
+      "identities = [""coffee""]" & ASCII.LF &
+      "[[envelope-history.expense-routing]]" & ASCII.LF &
+      "effective-from = ""initial""" & ASCII.LF &
+      "expense-account = ""expenses:coffee""" & ASCII.LF &
+      "route = ""managed""" & ASCII.LF &
+      "target = ""coffee""" & ASCII.LF &
+      "note = ""temporal test routing""" & ASCII.LF);
 
-   Create (F, Out_File, To_String (Paths.Report_TOML));
-   Put_Line (F, "[presentation.amounts]");
-   Put_Line (F, "negative-style = ""parentheses""");
-   Put_Line (F, "[reports.trial-balance]");
-   Put_Line (F, "as-of = ""latest""");
-   Put_Line (F, "[reports.balance-sheet]");
-   Put_Line (F, "as-of = ""latest""");
-   Put_Line (F, "[reports.profit-and-loss]");
-   Put_Line (F, "from = ""beginning""");
-   Put_Line (F, "through = ""latest""");
-   Put_Line (F, "[reports.daily-flow]");
-   Put_Line (F, "from = ""beginning""");
-   Put_Line (F, "through = ""latest""");
-   Put_Line (F, "max-date-columns = 7");
-   Put_Line (F, "[reports.monthly-accounts]");
-   Put_Line (F, "from = ""beginning""");
-   Put_Line (F, "through = ""latest""");
-   Put_Line (F, "[reports.recent-transactions]");
-   Put_Line (F, "through = ""latest""");
-   Put_Line (F, "count = 10");
-   Close (F);
+   Write_File
+     (To_String (Paths.Report_TOML),
+      "[presentation.amounts]" & ASCII.LF &
+      "negative-style = ""parentheses""" & ASCII.LF &
+      "[reports.trial-balance]" & ASCII.LF &
+      "as-of = ""latest""" & ASCII.LF &
+      "[reports.balance-sheet]" & ASCII.LF &
+      "as-of = ""latest""" & ASCII.LF &
+      "[reports.profit-and-loss]" & ASCII.LF &
+      "from = ""beginning""" & ASCII.LF &
+      "through = ""latest""" & ASCII.LF &
+      "[reports.daily-flow]" & ASCII.LF &
+      "from = ""beginning""" & ASCII.LF &
+      "through = ""latest""" & ASCII.LF &
+      "max-date-columns = 7" & ASCII.LF &
+      "[reports.monthly-accounts]" & ASCII.LF &
+      "from = ""beginning""" & ASCII.LF &
+      "through = ""latest""" & ASCII.LF &
+      "[reports.recent-transactions]" & ASCII.LF &
+      "through = ""latest""" & ASCII.LF &
+      "count = 10" & ASCII.LF);
 
-   Create (F, Out_File, To_String (Paths.Issues_TSV));
-   Put_Line (F, "issue_id" & ASCII.HT & "status");
-   Close (F);
+   Write_File
+     (To_String (Paths.Issues_TSV),
+      "issue_id" & ASCII.HT & "status" & ASCII.LF);
 
    Assert
      (ALedger.Household.Load_Canonical_Household (Tmp_Dir, State, Err),
       "Setup: admit complete synthetic Household");
 
-   Assert
-     (ALedger.Household_Temporal.Observe_Envelope_Change
-        (D ("2026-08-15"),
-         (Kind => ALedger.Household_Envelope_Change.No_Previous_Observation),
-         (Kind => ALedger.Household_Envelope_Change.Cycle_Start),
-         State,
-         Change,
-         Diag)
-      and then Diag.Status = ALedger.Household_Temporal.Success,
-      "Cycle Start request composes directly from admitted Household state");
+   declare
+      Succeeded : constant Boolean :=
+        ALedger.Household_Temporal.Observe_Envelope_Change
+          (D ("2026-08-15"),
+           (Kind => ALedger.Household_Envelope_Change.No_Previous_Observation),
+           (Kind => ALedger.Household_Envelope_Change.Cycle_Start),
+           State,
+           Change,
+           Diag);
+   begin
+      if not Succeeded then
+         Put_Diagnostic (Diag);
+      end if;
+      Assert
+        (Succeeded and then Diag.Status = ALedger.Household_Temporal.Success,
+         "Cycle Start request composes directly from admitted Household state");
 
-   Assert
-     (Change.From_Date = D ("2026-08-01")
-        and then Change.Through_Date = D ("2026-08-15"),
-      "Temporal application retains resolved Cycle Start interval");
-   Assert
-     (Natural (Change.Lines.Length) = 1
-        and then ALedger.Envelope.Image (Change.Lines.Element (1).Env_Id) = "coffee",
-      "Temporal application preserves current Envelope identity and order");
-   Assert
-     (ALedger.Money.Lookup_Balance
-        (Change.Lines.Element (1).Consumption_Charges, JPY) = 500.0,
-      "Cycle-start Change observes 500 JPY gross coffee consumption");
-   Assert
-     (ALedger.Money.Lookup_Balance
-        (Change.Lines.Element (1).Remaining, JPY) = -500.0,
-      "Cycle-start Change observes resulting -500 JPY Remaining movement");
+      if Succeeded then
+         Assert
+           (Change.From_Date = D ("2026-08-01")
+              and then Change.Through_Date = D ("2026-08-15"),
+            "Temporal application retains resolved Cycle Start interval");
+         Assert
+           (Natural (Change.Lines.Length) = 1,
+            "Temporal application retains one current Envelope coordinate");
+         if Natural (Change.Lines.Length) = 1 then
+            Assert
+              (ALedger.Envelope.Image (Change.Lines.Element (1).Env_Id) = "coffee",
+               "Temporal application preserves current Envelope identity and order");
+            Assert
+              (ALedger.Money.Lookup_Balance
+                 (Change.Lines.Element (1).Consumption_Charges, JPY) = 500.0,
+               "Cycle-start Change observes 500 JPY gross coffee consumption");
+            Assert
+              (ALedger.Money.Lookup_Balance
+                 (Change.Lines.Element (1).Remaining, JPY) = -500.0,
+               "Cycle-start Change observes resulting -500 JPY Remaining movement");
+         end if;
+      end if;
+   end;
 
-   Assert
-     (ALedger.Household_Temporal.Observe_Envelope_Change
-        (D ("2026-08-15"),
-         (Kind             => ALedger.Household_Envelope_Change.Previous_Observation_Available,
-          Observed_Through => D ("2026-08-12")),
-         (Kind => ALedger.Household_Envelope_Change.Previous_Observation),
-         State,
-         Change,
-         Diag)
-      and then Diag.Status = ALedger.Household_Temporal.Success
-      and then Change.From_Date = D ("2026-08-12")
-      and then ALedger.Money.Lookup_Balance
-        (Change.Lines.Element (1).Consumption_Charges, JPY) = 500.0,
-      "Previous Observation context is caller supplied and composes through Change");
+   declare
+      Succeeded : constant Boolean :=
+        ALedger.Household_Temporal.Observe_Envelope_Change
+          (D ("2026-08-15"),
+           (Kind             => ALedger.Household_Envelope_Change.Previous_Observation_Available,
+            Observed_Through => D ("2026-08-12")),
+           (Kind => ALedger.Household_Envelope_Change.Previous_Observation),
+           State,
+           Change,
+           Diag);
+   begin
+      if not Succeeded then
+         Put_Diagnostic (Diag);
+      end if;
+      Assert
+        (Succeeded and then Diag.Status = ALedger.Household_Temporal.Success,
+         "Previous Observation context composes directly from admitted Household state");
+      if Succeeded then
+         Assert
+           (Change.From_Date = D ("2026-08-12")
+              and then Natural (Change.Lines.Length) = 1
+              and then ALedger.Money.Lookup_Balance
+                (Change.Lines.Element (1).Consumption_Charges, JPY) = 500.0,
+            "Previous Observation is caller supplied and retains later activity");
+      end if;
+   end;
 
-   Assert
-     (not ALedger.Household_Temporal.Observe_Envelope_Change
-        (D ("2026-08-15"),
-         (Kind => ALedger.Household_Envelope_Change.No_Previous_Observation),
-         (Kind => ALedger.Household_Envelope_Change.Previous_Observation),
-         State,
-         Change,
-         Diag)
-      and then Diag.Status = ALedger.Household_Temporal.Baseline_Unavailable
-      and then Diag.Baseline.Status =
-        ALedger.Household_Envelope_Change.Previous_Observation_Unavailable,
-      "Missing Previous Observation fails closed without evidence fallback");
+   declare
+      Succeeded : constant Boolean :=
+        ALedger.Household_Temporal.Observe_Envelope_Change
+          (D ("2026-08-15"),
+           (Kind => ALedger.Household_Envelope_Change.No_Previous_Observation),
+           (Kind => ALedger.Household_Envelope_Change.Previous_Observation),
+           State,
+           Change,
+           Diag);
+   begin
+      Assert
+        (not Succeeded
+           and then Diag.Status = ALedger.Household_Temporal.Baseline_Unavailable
+           and then Diag.Baseline.Status =
+             ALedger.Household_Envelope_Change.Previous_Observation_Unavailable,
+         "Missing Previous Observation fails closed without evidence fallback");
+   end;
 
    Delete_Tree (Tmp_Dir);
 
