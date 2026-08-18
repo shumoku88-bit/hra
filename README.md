@@ -48,7 +48,7 @@ issues.tsv
 
 ## Native Ada implementation
 
-本体とTOML parserはAdaで実装され、GNAT/AlireがOSのnative executableへコンパイルします。interpreter、JVM、Node.js runtimeは使用しません。CLI/TUIはcanonical source内のUTF-8を再変換せず、terminalへexact byteとして出力します。
+本体とTOML parserはAdaで実装され、GNAT/AlireがOSのnative executableへコンパイルします。interpreter、JVM、Node.js runtimeは使用しません。CLIはcanonical source内のUTF-8を再変換せず、terminalへexact byteとして出力します。
 
 ```sh
 file bin/aledger
@@ -88,7 +88,6 @@ h-kernelと同じprivate canonical Household rootを`--base`で指定します�
 ```sh
 ./bin/aledger check --base /path/to/private-household-root
 ./bin/aledger report --base /path/to/private-household-root
-./bin/aledger tui --base /path/to/private-household-root
 ```
 
 このworkspaceと同じ配置なら、例えば次のように実行できます。
@@ -183,14 +182,6 @@ locale
 umask 077
 ./bin/aledger report --base /path/to/private-household-root > /private/path/hra-report.txt
 ```
-
-### `tui`
-
-```sh
-./bin/aledger tui --base /path/to/private-household-root
-```
-
-native terminal UIを起動します。現在は実験的reader surfaceであり、canonical writer authorityは持ちません。
 
 ### その他
 
