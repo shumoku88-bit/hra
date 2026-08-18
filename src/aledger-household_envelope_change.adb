@@ -95,10 +95,10 @@ package body ALedger.Household_Envelope_Change is
           ALedger.Cycle_Observation.End_Exclusive (Right);
    end Same_Window;
 
-   function Delta (Later, Earlier : Balance) return Balance is
+   function Difference (Later, Earlier : Balance) return Balance is
    begin
       return Subtract_Balance (Later, Earlier);
-   end Delta;
+   end Difference;
 
    function Observe_Change
      (Earlier : Explanation_Snapshot;
@@ -157,33 +157,36 @@ package body ALedger.Household_Envelope_Change is
                Output.Lines.Append
                  ((Env_Id               => After_Line.Env_Id,
                    Entitlement          =>
-                     Delta (After_Ev.Entitlement, Before_Ev.Entitlement),
+                     Difference (After_Ev.Entitlement, Before_Ev.Entitlement),
                    Consumption_Charges  =>
-                     Delta
+                     Difference
                        (After_Ev.Consumption_Charges,
                         Before_Ev.Consumption_Charges),
                    Consumption_Refunds  =>
-                     Delta
+                     Difference
                        (After_Ev.Consumption_Refunds,
                         Before_Ev.Consumption_Refunds),
                    Net_Consumption      =>
-                     Delta (After_Ev.Net_Consumption, Before_Ev.Net_Consumption),
+                     Difference
+                       (After_Ev.Net_Consumption, Before_Ev.Net_Consumption),
                    Fulfillment_Applied  =>
-                     Delta
+                     Difference
                        (After_Ev.Fulfillment_Applied,
                         Before_Ev.Fulfillment_Applied),
                    Fulfillment_Reversed =>
-                     Delta
+                     Difference
                        (After_Ev.Fulfillment_Reversed,
                         Before_Ev.Fulfillment_Reversed),
                    Net_Fulfillment      =>
-                     Delta (After_Ev.Net_Fulfillment, Before_Ev.Net_Fulfillment),
+                     Difference
+                       (After_Ev.Net_Fulfillment, Before_Ev.Net_Fulfillment),
                    Remaining            =>
-                     Delta (After_Pos.Remaining, Before_Pos.Remaining),
+                     Difference (After_Pos.Remaining, Before_Pos.Remaining),
                    Plan_Commitment      =>
-                     Delta (After_Ev.Plan_Commitment, Before_Ev.Plan_Commitment),
+                     Difference
+                       (After_Ev.Plan_Commitment, Before_Ev.Plan_Commitment),
                    Headroom             =>
-                     Delta (After_Pos.Headroom, Before_Pos.Headroom)));
+                     Difference (After_Pos.Headroom, Before_Pos.Headroom)));
             end;
          end loop;
       end if;
