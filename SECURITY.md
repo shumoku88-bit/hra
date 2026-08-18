@@ -1,6 +1,6 @@
 # Security and private data boundary
 
-aledgerのsource codeと公開test fixtureには、canonical Household sourceの内容を含めない。
+HRAのsource codeと公開test fixtureには、canonical Household sourceの内容を含めない。
 
 禁止対象:
 

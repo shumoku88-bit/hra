@@ -1,4 +1,4 @@
-# aledger 作業入口
+# HRA 作業入口
 
 ## Repository command hub
 
@@ -23,9 +23,17 @@
 - raw `alr` / `gprbuild` / `gnatprove` / `bin/*` を通常手順としてdocsやAI指示へ増やさない
 - `tools/al`はdispatchだけを所有し、domain semantics、source admission、writer authorityをshellへ実装しない
 
+## Naming boundary
+
+公開project / repository名は **HRA**、long nameは **Household Reckoning Apparatus** とする。
+
+現在のAda namespace、Alire crate、native executableには移行前の`ALedger` / `aledger`が残る。これらはpublic project identityとは別のinternal compatibility nameとして扱い、semantic changeへ機械的renameを混ぜない。internal namingを変更する場合は、それ自体をnon-semantic migrationとして分離する。
+
+`./tools/al`はrepository command hubのstable entry pointとして維持し、public project名へ合わせるためだけにはrenameしない。
+
 ## Canonical Household law
 
-aledger専用の正データを作らない。`h-kernel`と同じuser-owned private Household rootを読む。
+HRA専用の正データを作らない。`h-kernel`と同じuser-owned private Household rootを読む。
 
 canonical rootは次の8 sourceだけで構成する。
 
@@ -46,7 +54,7 @@ issues.tsv
 - private sourceの内容をrepository、test fixture、logへ複製しない
 - reader capabilityとwriter authorityを分ける
 
-詳細は[`docs/CANONICAL_HOUSEHOLD.md`](docs/CANONICAL_HOUSEHOLD.md)を参照する。Report、Editor、TUIを含む実装対象と順序は[`docs/CAPABILITY_ROADMAP.md`](docs/CAPABILITY_ROADMAP.md)を確認する。Actual、Plan、Envelope、Backingの金額式へ触れる場合は[`docs/PROOF_CORE.md`](docs/PROOF_CORE.md)を読み、`./tools/al prove`を実行する。Ada実装時の言語規則とaledger固有のconventionの区別は[`docs/ADA_FOR_ALEDGER.md`](docs/ADA_FOR_ALEDGER.md)を参照する。
+詳細は[`docs/CANONICAL_HOUSEHOLD.md`](docs/CANONICAL_HOUSEHOLD.md)を参照する。Report、Editor、TUIを含む実装対象と順序は[`docs/CAPABILITY_ROADMAP.md`](docs/CAPABILITY_ROADMAP.md)を確認する。Actual、Plan、Envelope、Backingの金額式へ触れる場合は[`docs/PROOF_CORE.md`](docs/PROOF_CORE.md)を読み、`./tools/al prove`を実行する。Ada実装時の言語規則とHRA固有のconventionの区別は[`docs/ADA_FOR_ALEDGER.md`](docs/ADA_FOR_ALEDGER.md)を参照する。
 
 ## 設計原則
 
