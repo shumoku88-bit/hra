@@ -232,6 +232,26 @@ package body ALedger.Ledger is
       return Total;
    end Compute_Account_Balance_Through;
 
+   function Compute_Account_Movement_In
+     (L      : Ledger;
+      Acc    : Account.Account;
+      Period : ALedger.Dates.Closed_Period) return Balance
+   is
+      Total : Balance := Empty_Balance;
+   begin
+      for Tx of L.Transactions loop
+         if ALedger.Dates.Contains (Period, Tx.Date) then
+            for P of Tx.Postings loop
+               if P.Acc = Acc then
+                  Total := Add_Balance
+                    (Total, Singleton_Balance (P.Amt));
+               end if;
+            end loop;
+         end if;
+      end loop;
+      return Total;
+   end Compute_Account_Movement_In;
+
    function Compute_Total_Balance (L : Ledger) return Balance is
       Total : Balance := Empty_Balance;
       Tx_Cursor : Transaction_Vectors.Cursor := L.Transactions.First;
