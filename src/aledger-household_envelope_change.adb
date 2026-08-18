@@ -4,7 +4,7 @@ with ALedger.Cycle_Observation;
 with ALedger.Dates;
 with ALedger.Envelope;
 with ALedger.Envelope_Position;
-with ALedger.Money;
+with ALedger.Money; use ALedger.Money;
 
 package body ALedger.Household_Envelope_Change is
 
