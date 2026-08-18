@@ -56,8 +56,9 @@ package body ALedger.Household_Envelope_Change is
             end if;
 
             Output.Lines.Append
-              ((Env_Id => Env,
-                Why    => ALedger.Envelope_Position.Explain (Positions, Env)));
+              (Explanation_Line'
+                 (Env_Id => Env,
+                  Why    => ALedger.Envelope_Position.Explain (Positions, Env)));
          end;
       end loop;
 
@@ -155,38 +156,39 @@ package body ALedger.Household_Envelope_Change is
                  After_Line.Why.Observed_Position;
             begin
                Output.Lines.Append
-                 ((Env_Id               => After_Line.Env_Id,
-                   Entitlement          =>
-                     Difference (After_Ev.Entitlement, Before_Ev.Entitlement),
-                   Consumption_Charges  =>
-                     Difference
-                       (After_Ev.Consumption_Charges,
-                        Before_Ev.Consumption_Charges),
-                   Consumption_Refunds  =>
-                     Difference
-                       (After_Ev.Consumption_Refunds,
-                        Before_Ev.Consumption_Refunds),
-                   Net_Consumption      =>
-                     Difference
-                       (After_Ev.Net_Consumption, Before_Ev.Net_Consumption),
-                   Fulfillment_Applied  =>
-                     Difference
-                       (After_Ev.Fulfillment_Applied,
-                        Before_Ev.Fulfillment_Applied),
-                   Fulfillment_Reversed =>
-                     Difference
-                       (After_Ev.Fulfillment_Reversed,
-                        Before_Ev.Fulfillment_Reversed),
-                   Net_Fulfillment      =>
-                     Difference
-                       (After_Ev.Net_Fulfillment, Before_Ev.Net_Fulfillment),
-                   Remaining            =>
-                     Difference (After_Pos.Remaining, Before_Pos.Remaining),
-                   Plan_Commitment      =>
-                     Difference
-                       (After_Ev.Plan_Commitment, Before_Ev.Plan_Commitment),
-                   Headroom             =>
-                     Difference (After_Pos.Headroom, Before_Pos.Headroom)));
+                 (Change_Line'
+                    (Env_Id               => After_Line.Env_Id,
+                     Entitlement          =>
+                       Difference (After_Ev.Entitlement, Before_Ev.Entitlement),
+                     Consumption_Charges  =>
+                       Difference
+                         (After_Ev.Consumption_Charges,
+                          Before_Ev.Consumption_Charges),
+                     Consumption_Refunds  =>
+                       Difference
+                         (After_Ev.Consumption_Refunds,
+                          Before_Ev.Consumption_Refunds),
+                     Net_Consumption      =>
+                       Difference
+                         (After_Ev.Net_Consumption, Before_Ev.Net_Consumption),
+                     Fulfillment_Applied  =>
+                       Difference
+                         (After_Ev.Fulfillment_Applied,
+                          Before_Ev.Fulfillment_Applied),
+                     Fulfillment_Reversed =>
+                       Difference
+                         (After_Ev.Fulfillment_Reversed,
+                          Before_Ev.Fulfillment_Reversed),
+                     Net_Fulfillment      =>
+                       Difference
+                         (After_Ev.Net_Fulfillment, Before_Ev.Net_Fulfillment),
+                     Remaining            =>
+                       Difference (After_Pos.Remaining, Before_Pos.Remaining),
+                     Plan_Commitment      =>
+                       Difference
+                         (After_Ev.Plan_Commitment, Before_Ev.Plan_Commitment),
+                     Headroom             =>
+                       Difference (After_Pos.Headroom, Before_Pos.Headroom))));
             end;
          end loop;
       end if;
