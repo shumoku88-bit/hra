@@ -1,10 +1,18 @@
-# aledger
+# HRA — Household Reckoning Apparatus
 
-`aledger`は、h-kernelと同じcanonical Household sourceをAda 2022で読み、exactな複式簿記・家計projectionを行う実験的kernelです。
+**HRA**は、h-kernelと同じcanonical Household sourceをAda 2022で読み、exactな複式簿記・家計projectionを行う実験的なHousehold reckoning apparatusです。
+
+名前の **Reckoning** はledgerへの記帳だけを指しません。Actual、Plan、Envelope、Issue、Relation、Observation、provenance、proofを含めて、Householdの事実と観察を壊さず勘定することを意図しています。
+
+> Public project / repository name: **HRA**
+>
+> Long name: **Household Reckoning Apparatus**
+
+現在のAda package名、Alire crate名、native executable名には移行前の`aledger`が残っています。これはsemantic changeと大量の機械的renameを混ぜないためです。公開名をHRAへ固定した後、必要なら別のnon-semantic migrationとして整理します。
 
 ## Canonical data
 
-aledger専用の正データは作りません。user-owned private repositoryのrootを、h-kernelと共有する唯一のcanonical Household rootとして扱います。
+HRA専用の正データは作りません。user-owned private repositoryのrootを、h-kernelと共有する唯一のcanonical Household rootとして扱います。
 
 ```text
 accounts.journal
@@ -60,7 +68,7 @@ file bin/aledger
 - Alireが選択するGNAT toolchain
 
 ```sh
-cd /path/to/aledger
+cd /path/to/hra
 alr build
 ./bin/test_runner
 ./tools/prove
@@ -86,7 +94,7 @@ h-kernelと同じprivate canonical Household rootを`--base`で指定します�
 このworkspaceと同じ配置なら、例えば次のように実行できます。
 
 ```sh
-cd /path/to/moko/aledger
+cd /path/to/moko/hra
 ./bin/aledger check --base ../household-ledger-data
 ./bin/aledger report --base ../household-ledger-data
 ```
@@ -173,7 +181,7 @@ locale
 
 ```sh
 umask 077
-./bin/aledger report --base /path/to/private-household-root > /private/path/aledger-report.txt
+./bin/aledger report --base /path/to/private-household-root > /private/path/hra-report.txt
 ```
 
 ### `tui`
@@ -194,6 +202,8 @@ native terminal UIを起動します。現在は実験的reader surfaceであり
 private source、生成Report、local pathを公開repositoryやCI logへ出力しないでください。
 
 ## Source layout
+
+内部Ada namespaceは現在まだ`ALedger`を保持しています。
 
 - `src/aledger-proof_core.*`: bounded exact arithmeticのSPARK proof foundation
 - `proof/aledger_proof.gpr`, `tools/prove`: strict proof target
