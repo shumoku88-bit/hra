@@ -51,6 +51,7 @@ run_tests() {
   "$project_root/tests/bin/test_envelope_explanation"
   "$project_root/tests/bin/test_envelope_change"
   "$project_root/tests/bin/test_envelope_change_baseline"
+  "$project_root/tests/bin/test_household_temporal"
 }
 
 command="${1:-help}"
