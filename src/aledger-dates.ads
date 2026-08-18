@@ -21,6 +21,13 @@ package ALedger.Dates is
 
    function Next (Value : Date) return Date;
 
+   --  Date is intentionally bounded to Gregorian years 1 .. 9999. Previous is
+   --  therefore a partial temporal operation with an explicit predicate rather
+   --  than a hidden wraparound or sentinel value.
+   function Has_Previous (Value : Date) return Boolean;
+   function Previous (Value : Date) return Date
+     with Pre => Has_Previous (Value);
+
    function Year  (Value : Date) return Positive;
    function Month (Value : Date) return Positive;
    function Day   (Value : Date) return Positive;
