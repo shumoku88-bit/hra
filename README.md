@@ -205,3 +205,7 @@ private source、生成Report、local pathを公開repositoryやCI logへ出力�
 - `src/aledger-money.*`, `aledger-account.*`, `aledger-ledger.*`: accounting kernel
 - `src/aledger-plan.*`, `aledger-budget.*`, `aledger-report.*`: domain projection
 - `tests/test_runner.adb`: synthetic test suite
+
+## License
+
+MIT License. See [`LICENSE`](LICENSE).

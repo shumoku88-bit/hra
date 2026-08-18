@@ -10,3 +10,25 @@ config/
 /tmp/
 proof/obj/
 proof/gnatprove/
+
+# Canonical Household sources are user-owned private data
+accounts.journal
+actual.journal
+plan.journal
+budget.journal
+budget.toml
+household.toml
+report.toml
+issues.tsv
+
+# Local credentials and secret material
+.env
+.env.*
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+*.keystore
+credentials*.json
+secrets*.json
