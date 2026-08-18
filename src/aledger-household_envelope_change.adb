@@ -188,7 +188,7 @@ package body ALedger.Household_Envelope_Change is
                        Difference
                          (After_Ev.Plan_Commitment, Before_Ev.Plan_Commitment),
                      Headroom             =>
-                       Difference (After_Pos.Headroom, Before_Pos.Headroom))));
+                       Difference (After_Pos.Headroom, Before_Pos.Headroom)));
             end;
          end loop;
       end if;
