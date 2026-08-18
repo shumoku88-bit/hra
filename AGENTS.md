@@ -12,7 +12,6 @@
 ./tools/al qualify
 ./tools/al check --base /path/to/canonical-root
 ./tools/al report --base /path/to/canonical-root
-./tools/al tui --base /path/to/canonical-root
 ```
 
 - `build`はcurrent sourceをAlireでbuildする

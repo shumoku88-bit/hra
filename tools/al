@@ -18,7 +18,6 @@ Repository commands:
 Application commands:
   check [--base ROOT]   Validate an admitted canonical Household
   report [--base ROOT]  Render the current report portfolio
-  tui [--base ROOT]     Launch the experimental TUI
   version               Show the aledger version
   app-help              Show the aledger application help
 
@@ -89,7 +88,7 @@ case "$command" in
     alr clean "$@"
     rm -rf "$project_root/tests/obj" "$project_root/tests/bin" "$project_root/proof/obj"
     ;;
-  check|report|tui|version)
+  check|report|version)
     build_production
     exec "$project_root/bin/aledger" "$command" "$@"
     ;;

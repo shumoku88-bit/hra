@@ -17,7 +17,6 @@ with ALedger.Planned_Payments;
 with ALedger.Planned_Payments_Render;
 with ALedger.Envelope_Report_Render;
 with ALedger.Issues;         use ALedger.Issues;
-with ALedger.TUI;            use ALedger.TUI;
 with ALedger.Output;         use ALedger.Output;
 
 procedure ALedger_Main is
@@ -29,7 +28,6 @@ procedure ALedger_Main is
       Put_Line ("Commands:");
       Put_Line ("  check    Validate the fixed 8-source topology, typed policy, and balance laws");
       Put_Line ("  report   Render the currently admitted Household report portfolio");
-      Put_Line ("  tui      Launch the experimental native terminal UI");
       Put_Line ("  version  Show version information");
       Put_Line ("  help     Show this help message");
       New_Line;
@@ -97,7 +95,7 @@ begin
          Put_Line ("aledger " & ALedger.Version);
       elsif Cmd = "help" then
          Print_Help;
-      elsif Cmd = "tui" or Cmd = "check" or Cmd = "report" then
+      elsif Cmd = "check" or Cmd = "report" then
          declare
             State : Household_State;
             Err   : Unbounded_String;
@@ -108,9 +106,7 @@ begin
                return;
             end if;
 
-            if Cmd = "tui" then
-               Run_Interactive_TUI (State);
-            elsif Cmd = "check" then
+            if Cmd = "check" then
                Put_Line ("SUCCESS: Fixed 8-source topology and currently supported admissions verified for " & Root_Dir);
                Put_Line ("  Configuration       : typed budget, household, and report policy admitted");
                Put_Line ("  Actual Transactions : " & Natural'Image (Natural (State.Actual_Ledger.Transactions.Length)));
