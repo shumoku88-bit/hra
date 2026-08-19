@@ -232,10 +232,10 @@ Envelope allocation、Plan、funding actionなどのproposal previewも、final 
 proof toolはAlire dependencyとして固定する。
 
 ```sh
-./tools/prove
+./tools/hra prove
 ```
 
-これは次を実行する。
+内部では次を実行する。
 
 ```sh
 alr exec -- gnatprove \
@@ -249,12 +249,11 @@ alr exec -- gnatprove \
 
 `--checks-as-errors=on`により未証明checkを成功扱いしない。
 
-通常検証も別に実行する。
+repository-only qualificationとcanonical Householdの確認は別に実行する。
 
 ```sh
-alr build
-./bin/test_runner
-./bin/hra check --base /path/to/private-household-root
+./tools/hra qualify
+./tools/hra check --base /path/to/private-household-root
 ```
 
 proof、runtime test、canonical rehearsal、cross-engine parityは互いの代替ではない。
@@ -264,7 +263,7 @@ proof、runtime test、canonical rehearsal、cross-engine parityは互いの代�
 Actual、Plan、Budget、Envelope、Backingの金額式またはproof-facing boundsを変更するときは、同じchangeで次を更新する。
 
 - `HRA.Proof_Core` contract/body
-- `./tools/prove`成功
+- `./tools/hra prove`成功
 - focused runtime test
 - 必要なh-kernel / BQN parity evidence
 - この文書のcurrent proved / not-proved境界

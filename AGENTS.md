@@ -26,9 +26,9 @@
 
 公開project / repository名は **HRA**、long nameは **Household Reckoning Apparatus** とする。
 
-現在のAda namespace、Alire crate、native executableには移行前の`HRA` / `hra`が残る。これらはpublic project identityとは別のinternal compatibility nameとして扱い、semantic changeへ機械的renameを混ぜない。internal namingを変更する場合は、それ自体をnon-semantic migrationとして分離する。
+Ada namespaceは`HRA`、Alire crate、native executable、source prefixは`hra`を現在のinternal machine nameとする。旧`ALedger` / `aledger`のcompatibility aliasは持たない。internal namingを変更する場合は、それ自体をnon-semantic migrationとして分離する。
 
-`./tools/hra`はrepository command hubのstable entry pointとして維持し、public project名へ合わせるためだけにはrenameしない。
+`./tools/hra`はrepository command hubのstable entry pointとして維持し、public project名の表示上の大文字小文字に合わせるためだけにはrenameしない。
 
 ## Canonical Household law
 

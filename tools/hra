@@ -35,7 +35,8 @@ need_alr() {
 
 build_production() {
   need_alr
-  alr build
+  # Keep application stdout reserved for application output (not build logs).
+  alr build >&2
 }
 
 build_tests() {
@@ -95,7 +96,13 @@ case "$command" in
   clean)
     need_alr
     alr clean "$@"
-    rm -rf "$project_root/tests/obj" "$project_root/tests/bin" "$project_root/proof/obj"
+    rm -rf \
+      "$project_root/obj" \
+      "$project_root/bin" \
+      "$project_root/config" \
+      "$project_root/tests/obj" \
+      "$project_root/tests/bin" \
+      "$project_root/proof/obj"
     ;;
   check|report|version)
     build_production

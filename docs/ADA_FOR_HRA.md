@@ -443,10 +443,8 @@ Adaの語彙を使って、これらを明瞭に表現する。
 正式な入口は`AGENTS.md`とrepository scriptsをsource of truthにする。
 
 ```sh
-alr build
-./bin/test_runner
-./tools/prove
-./bin/hra check --base /path/to/canonical-root
+./tools/hra qualify
+./tools/hra check --base /path/to/canonical-root
 ```
 
 focused executableがある変更ではそれも実行する。
