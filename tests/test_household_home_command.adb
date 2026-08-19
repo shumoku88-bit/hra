@@ -12,7 +12,7 @@ with HRA.Household_Home_Presentation;
 with HRA.Household_Home_Text;
 
 procedure Test_Household_Home_Command is
-   use type HRA.Household_Home_Command.Resolve_Status;
+   use type HRA.Household_Home_Command.Parse_Status;
    use type HRA.Household_Home_Command.Date_Option_Source;
 
    Passed_Count : Natural := 0;

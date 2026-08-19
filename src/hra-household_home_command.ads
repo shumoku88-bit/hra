@@ -30,9 +30,6 @@ package HRA.Household_Home_Command is
       Invalid_Through_Date,
       Invalid_Day_Date);
 
-   --  Compatibility subtype alias
-   subtype Resolve_Status is Parse_Status;
-
    --  Stage A: Pure parsed CLI arguments without temporal default resolution
    type Parsed_Home_Arguments is record
       Base_Directory : Ada.Strings.Unbounded.Unbounded_String;
@@ -48,8 +45,6 @@ package HRA.Household_Home_Command is
       Parsed  : Parsed_Home_Arguments;
       Message : Ada.Strings.Unbounded.Unbounded_String;
    end record;
-
-   subtype Command_Resolution is Parse_Resolution;
 
    --  Array of argument strings for pure CLI option parsing
    type String_Array is array (Positive range <>) of Ada.Strings.Unbounded.Unbounded_String;
