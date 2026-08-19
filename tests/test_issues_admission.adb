@@ -56,7 +56,8 @@ begin
    --  1. exact current 10-column header (empty inventory)
    Assert
      (Admit_Issues_TSV (Canonical_Header & ASCII.LF, Inv, Diag)
-      and then Natural (Inv.Items.Length) = 0,
+      and then Item_Count (Inv) = 0
+      and then Is_Empty (Inv),
       "exact current 10-column header admits empty inventory");
 
    --  2. Open + Due_On + Amount present
@@ -70,19 +71,19 @@ begin
    begin
       Assert
         (Admit_Issues_TSV (Source, Inv, Diag)
-         and then Natural (Inv.Items.Length) = 1
-         and then Text (Inv.Items.Element (1).ID) = "ISSUE-1"
-         and then Inv.Items.Element (1).Status = Open
-         and then Inv.Items.Element (1).Recorded_On = D ("2026-08-01")
-         and then Inv.Items.Element (1).Due.Kind = Due_On
-         and then Inv.Items.Element (1).Due.Due_Date = D ("2026-08-15")
-         and then Inv.Items.Element (1).Closed.Kind = Not_Closed
-         and then Inv.Items.Element (1).Amt.Has_Amount
-         and then Inv.Items.Element (1).Amt.Value.Val = 15000.0
-         and then Code (Inv.Items.Element (1).Amt.Value.Comm) = "JPY"
-         and then To_String (Inv.Items.Element (1).Category) = "taxes"
-         and then To_String (Inv.Items.Element (1).Title) = "Resident Tax"
-         and then To_String (Inv.Items.Element (1).Details) = "city office payment",
+         and then Item_Count (Inv) = 1
+         and then Text (Element (Inv, 1).ID) = "ISSUE-1"
+         and then Element (Inv, 1).Status = Open
+         and then Element (Inv, 1).Recorded_On = D ("2026-08-01")
+         and then Element (Inv, 1).Due.Kind = Due_On
+         and then Element (Inv, 1).Due.Due_Date = D ("2026-08-15")
+         and then Element (Inv, 1).Closed.Kind = Not_Closed
+         and then Element (Inv, 1).Amt.Has_Amount
+         and then Element (Inv, 1).Amt.Value.Val = 15000.0
+         and then Code (Element (Inv, 1).Amt.Value.Comm) = "JPY"
+         and then To_String (Element (Inv, 1).Category) = "taxes"
+         and then To_String (Element (Inv, 1).Title) = "Resident Tax"
+         and then To_String (Element (Inv, 1).Details) = "city office payment",
          "Open + Due_On + optional Amount present admits full typed facts");
    end;
 
@@ -97,9 +98,9 @@ begin
    begin
       Assert
         (Admit_Issues_TSV (Source, Inv, Diag)
-         and then Natural (Inv.Items.Length) = 1
-         and then Inv.Items.Element (1).Due.Kind = No_Due_Date
-         and then not Inv.Items.Element (1).Amt.Has_Amount,
+         and then Item_Count (Inv) = 1
+         and then Element (Inv, 1).Due.Kind = No_Due_Date
+         and then not Element (Inv, 1).Amt.Has_Amount,
          "No_Due_Date admits due=none and optional amount absent");
    end;
 
@@ -114,8 +115,8 @@ begin
    begin
       Assert
         (Admit_Issues_TSV (Source, Inv, Diag)
-         and then Natural (Inv.Items.Length) = 1
-         and then Inv.Items.Element (1).Due.Kind = Due_Undetermined,
+         and then Item_Count (Inv) = 1
+         and then Element (Inv, 1).Due.Kind = Due_Undetermined,
          "Due_Undetermined admits due=undetermined");
    end;
 
@@ -130,10 +131,10 @@ begin
    begin
       Assert
         (Admit_Issues_TSV (Source, Inv, Diag)
-         and then Natural (Inv.Items.Length) = 1
-         and then Inv.Items.Element (1).Status = Resolved
-         and then Inv.Items.Element (1).Closed.Kind = Closed_On
-         and then Inv.Items.Element (1).Closed.Closed_Date = D ("2026-08-04"),
+         and then Item_Count (Inv) = 1
+         and then Element (Inv, 1).Status = Resolved
+         and then Element (Inv, 1).Closed.Kind = Closed_On
+         and then Element (Inv, 1).Closed.Closed_Date = D ("2026-08-04"),
          "Resolved + Closed_On admits closed date >= recorded date");
    end;
 
@@ -148,9 +149,9 @@ begin
    begin
       Assert
         (Admit_Issues_TSV (Source, Inv, Diag)
-         and then Natural (Inv.Items.Length) = 1
-         and then Inv.Items.Element (1).Status = Resolved
-         and then Inv.Items.Element (1).Closed.Kind = Closed_Undetermined,
+         and then Item_Count (Inv) = 1
+         and then Element (Inv, 1).Status = Resolved
+         and then Element (Inv, 1).Closed.Kind = Closed_Undetermined,
          "historical Closed_Undetermined admits closed=undetermined");
    end;
 
@@ -165,10 +166,10 @@ begin
    begin
       Assert
         (Admit_Issues_TSV (Source, Inv, Diag)
-         and then Natural (Inv.Items.Length) = 1
-         and then Inv.Items.Element (1).Status = Dropped
-         and then Inv.Items.Element (1).Closed.Kind = Closed_On
-         and then Inv.Items.Element (1).Closed.Closed_Date = D ("2026-08-02"),
+         and then Item_Count (Inv) = 1
+         and then Element (Inv, 1).Status = Dropped
+         and then Element (Inv, 1).Closed.Kind = Closed_On
+         and then Element (Inv, 1).Closed.Closed_Date = D ("2026-08-02"),
          "Dropped admits status=dropped with valid closure");
    end;
 
@@ -332,9 +333,9 @@ begin
    begin
       Assert
         (Admit_Issues_TSV (Source, Inv, Diag)
-         and then Inv.Items.Element (1).Amt.Has_Amount
-         and then Inv.Items.Element (1).Amt.Value.Val = 123.45
-         and then Code (Inv.Items.Element (1).Amt.Value.Comm) = "USD",
+         and then Element (Inv, 1).Amt.Has_Amount
+         and then Element (Inv, 1).Amt.Value.Val = 123.45
+         and then Code (Element (Inv, 1).Amt.Value.Comm) = "USD",
          "optional amount present preserves exact quantity and commodity");
    end;
 
@@ -348,7 +349,7 @@ begin
    begin
       Assert
         (Admit_Issues_TSV (Source, Inv, Diag)
-         and then not Inv.Items.Element (1).Amt.Has_Amount,
+         and then not Element (Inv, 1).Amt.Has_Amount,
          "optional amount absent preserves blank amount/currency");
    end;
 
@@ -459,14 +460,14 @@ begin
         "none" & ASCII.HT & "2026-08-04" & ASCII.HT & "cat" & ASCII.HT &
         "Drop 1" & ASCII.HT & "" & ASCII.HT & "" & ASCII.HT & "" & ASCII.LF;
       Admit_OK : constant Boolean := Admit_Issues_TSV (Source, Inv, Diag);
-      Opens    : Issue_Vectors.Vector;
+      Opens    : Issues_Inventory;
    begin
-      Assert (Admit_OK and then Natural (Inv.Items.Length) = 4, "Admit 4 mixed lifecycle issues");
+      Assert (Admit_OK and then Item_Count (Inv) = 4, "Admit 4 mixed lifecycle issues");
       Opens := Open_Issues (Inv);
       Assert
-        (Natural (Opens.Length) = 2
-         and then Text (Opens.Element (1).ID) = "OPEN-1"
-         and then Text (Opens.Element (2).ID) = "OPEN-2",
+        (Item_Count (Opens) = 2
+         and then Text (Element (Opens, 1).ID) = "OPEN-1"
+         and then Text (Element (Opens, 2).ID) = "OPEN-2",
          "Open_Issues excludes Resolved and Dropped issues");
    end;
 
@@ -487,6 +488,208 @@ begin
          and then Index (To_String (Diag.Message), "Super Secret") = 0
          and then Index (To_String (Diag.Message), "Confidential") = 0,
          "Diagnostic message contains safe reason without echoing private fields");
+   end;
+
+   --  ========================================================================
+   --  Exactness & Non-Normalization Review Correction Tests
+   --  ========================================================================
+
+   --  25. Uppercase status reject (no To_Lower normalization)
+   declare
+      Source_Upper : constant String :=
+        Canonical_Header & ASCII.LF &
+        "NORM-1" & ASCII.HT & "OPEN" & ASCII.HT & "2026-08-01" & ASCII.HT &
+        "none" & ASCII.HT & "none" & ASCII.HT & "cat" & ASCII.HT &
+        "Upper status" & ASCII.HT & "" & ASCII.HT & "" & ASCII.HT & "" & ASCII.LF;
+
+      Source_Mixed : constant String :=
+        Canonical_Header & ASCII.LF &
+        "NORM-2" & ASCII.HT & "Resolved" & ASCII.HT & "2026-08-01" & ASCII.HT &
+        "none" & ASCII.HT & "2026-08-02" & ASCII.HT & "cat" & ASCII.HT &
+        "Mixed status" & ASCII.HT & "" & ASCII.HT & "" & ASCII.HT & "" & ASCII.LF;
+   begin
+      Assert
+        (not Admit_Issues_TSV (Source_Upper, Inv, Diag)
+         and then Diag.Status = Unknown_Status
+         and then Diag.Line_Number = 2,
+         "Uppercase status 'OPEN' is rejected without silent case normalization");
+      Assert
+        (not Admit_Issues_TSV (Source_Mixed, Inv, Diag)
+         and then Diag.Status = Unknown_Status
+         and then Diag.Line_Number = 2,
+         "Capitalized status 'Resolved' is rejected without silent case normalization");
+   end;
+
+   --  26. Whitespace-normalized status reject (no Trim normalization)
+   declare
+      Source_Padded : constant String :=
+        Canonical_Header & ASCII.LF &
+        "NORM-3" & ASCII.HT & " open " & ASCII.HT & "2026-08-01" & ASCII.HT &
+        "none" & ASCII.HT & "none" & ASCII.HT & "cat" & ASCII.HT &
+        "Padded status" & ASCII.HT & "" & ASCII.HT & "" & ASCII.HT & "" & ASCII.LF;
+   begin
+      Assert
+        (not Admit_Issues_TSV (Source_Padded, Inv, Diag)
+         and then Diag.Status = Unknown_Status
+         and then Diag.Line_Number = 2,
+         "Padded status ' open ' is rejected without silent whitespace trimming");
+   end;
+
+   --  27. Due/Closed case and whitespace normalization reject
+   declare
+      Source_Due_Upper : constant String :=
+        Canonical_Header & ASCII.LF &
+        "NORM-4" & ASCII.HT & "open" & ASCII.HT & "2026-08-01" & ASCII.HT &
+        "None" & ASCII.HT & "none" & ASCII.HT & "cat" & ASCII.HT &
+        "Title" & ASCII.HT & "" & ASCII.HT & "" & ASCII.HT & "" & ASCII.LF;
+
+      Source_Due_Padded : constant String :=
+        Canonical_Header & ASCII.LF &
+        "NORM-5" & ASCII.HT & "open" & ASCII.HT & "2026-08-01" & ASCII.HT &
+        " undetermined " & ASCII.HT & "none" & ASCII.HT & "cat" & ASCII.HT &
+        "Title" & ASCII.HT & "" & ASCII.HT & "" & ASCII.HT & "" & ASCII.LF;
+
+      Source_Closed_Upper : constant String :=
+        Canonical_Header & ASCII.LF &
+        "NORM-6" & ASCII.HT & "resolved" & ASCII.HT & "2026-08-01" & ASCII.HT &
+        "none" & ASCII.HT & "Undetermined" & ASCII.HT & "cat" & ASCII.HT &
+        "Title" & ASCII.HT & "" & ASCII.HT & "" & ASCII.HT & "" & ASCII.LF;
+
+      Source_Closed_Padded : constant String :=
+        Canonical_Header & ASCII.LF &
+        "NORM-7" & ASCII.HT & "open" & ASCII.HT & "2026-08-01" & ASCII.HT &
+        "none" & ASCII.HT & " none " & ASCII.HT & "cat" & ASCII.HT &
+        "Title" & ASCII.HT & "" & ASCII.HT & "" & ASCII.HT & "" & ASCII.LF;
+   begin
+      Assert
+        (not Admit_Issues_TSV (Source_Due_Upper, Inv, Diag)
+         and then Diag.Status = Invalid_Due_Date
+         and then Diag.Line_Number = 2,
+         "Capitalized due 'None' is rejected without silent case normalization");
+      Assert
+        (not Admit_Issues_TSV (Source_Due_Padded, Inv, Diag)
+         and then Diag.Status = Invalid_Due_Date
+         and then Diag.Line_Number = 2,
+         "Padded due ' undetermined ' is rejected without silent trimming");
+      Assert
+        (not Admit_Issues_TSV (Source_Closed_Upper, Inv, Diag)
+         and then Diag.Status = Invalid_Closed_Date
+         and then Diag.Line_Number = 2,
+         "Capitalized closed 'Undetermined' is rejected without silent case normalization");
+      Assert
+        (not Admit_Issues_TSV (Source_Closed_Padded, Inv, Diag)
+         and then Diag.Status = Invalid_Closed_Date
+         and then Diag.Line_Number = 2,
+         "Padded closed ' none ' is rejected without silent trimming");
+   end;
+
+   --  28. Currency and Amount surrounding whitespace reject
+   declare
+      Source_Curr_Padded : constant String :=
+        Canonical_Header & ASCII.LF &
+        "NORM-8" & ASCII.HT & "open" & ASCII.HT & "2026-08-01" & ASCII.HT &
+        "none" & ASCII.HT & "none" & ASCII.HT & "cat" & ASCII.HT &
+        "Title" & ASCII.HT & "100" & ASCII.HT & " JPY " & ASCII.HT & "" & ASCII.LF;
+
+      Source_Amt_Padded : constant String :=
+        Canonical_Header & ASCII.LF &
+        "NORM-9" & ASCII.HT & "open" & ASCII.HT & "2026-08-01" & ASCII.HT &
+        "none" & ASCII.HT & "none" & ASCII.HT & "cat" & ASCII.HT &
+        "Title" & ASCII.HT & " 100 " & ASCII.HT & "JPY" & ASCII.HT & "" & ASCII.LF;
+   begin
+      Assert
+        (not Admit_Issues_TSV (Source_Curr_Padded, Inv, Diag)
+         and then Diag.Status = Invalid_Commodity
+         and then Diag.Line_Number = 2,
+         "Padded currency ' JPY ' is rejected without silent trimming");
+      Assert
+        (not Admit_Issues_TSV (Source_Amt_Padded, Inv, Diag)
+         and then Diag.Status = Invalid_Amount
+         and then Diag.Line_Number = 2,
+         "Padded amount ' 100 ' is rejected without silent trimming");
+   end;
+
+   --  29. Control characters in fields reject
+   declare
+      Source_Control : constant String :=
+        Canonical_Header & ASCII.LF &
+        "CTRL-1" & ASCII.HT & "open" & ASCII.HT & "2026-08-01" & ASCII.HT &
+        "none" & ASCII.HT & "none" & ASCII.HT & "cat" & ASCII.HT &
+        "Title" & ASCII.ESC & "evil" & ASCII.HT & "" & ASCII.HT & "" & ASCII.HT & "" & ASCII.LF;
+   begin
+      Assert
+        (not Admit_Issues_TSV (Source_Control, Inv, Diag)
+         and then Diag.Status = Contains_Control_Character
+         and then Diag.Line_Number = 2,
+         "Field containing ASCII control character is rejected");
+   end;
+
+   --  30. Issue_Id private construction invariant & helper operations
+   declare
+      Valid_ID   : Issue_Id;
+      Invalid_ID : Issue_Id;
+      ID_Stat    : Issue_Id_Status;
+      Raised_CE  : Boolean := False;
+   begin
+      Assert
+        (Create_Issue_Id ("ISS-VALID-1", Valid_ID, ID_Stat)
+         and then ID_Stat = Success
+         and then Text (Valid_ID) = "ISS-VALID-1"
+         and then To_Unbounded (Valid_ID) = "ISS-VALID-1",
+         "Create_Issue_Id succeeds on valid non-empty identity");
+
+      Assert
+        (not Create_Issue_Id ("", Invalid_ID, ID_Stat)
+         and then ID_Stat = Empty_Issue_Id,
+         "Create_Issue_Id rejects empty string");
+
+      Assert
+        (not Create_Issue_Id ("ISS UE", Invalid_ID, ID_Stat)
+         and then ID_Stat = Issue_Id_Contains_Whitespace,
+         "Create_Issue_Id rejects whitespace");
+
+      Assert
+        (not Create_Issue_Id ("ISS" & ASCII.NUL, Invalid_ID, ID_Stat)
+         and then ID_Stat = Issue_Id_Contains_Control_Character,
+         "Create_Issue_Id rejects control character");
+
+      begin
+         declare
+            Bad : constant Issue_Id := Make_Issue_Id ("");
+         begin
+            null;
+         end;
+      exception
+         when Constraint_Error =>
+            Raised_CE := True;
+      end;
+      Assert (Raised_CE, "Make_Issue_Id raises Constraint_Error on invalid input");
+   end;
+
+   --  31. Issues_Inventory private operations (Count, Append, Clear, Element, All_Issues)
+   declare
+      Test_Inv : Issues_Inventory := Empty_Inventory;
+      Item1    : constant Household_Issue :=
+        Household_Issue'
+          (ID          => Make_Issue_Id ("INV-1"),
+           Status      => Open,
+           Recorded_On => D ("2026-08-01"),
+           Due         => No_Due,
+           Closed      => Not_Closed,
+           Category    => To_Unbounded_String ("cat1"),
+           Title       => To_Unbounded_String ("title1"),
+           Amt         => No_Amount,
+           Details     => To_Unbounded_String ("det1"));
+      Arr      : Issue_Array (1 .. 1);
+   begin
+      Assert (Is_Empty (Test_Inv) and then Item_Count (Test_Inv) = 0, "Empty_Inventory has 0 count");
+      Append (Test_Inv, Item1);
+      Assert (not Is_Empty (Test_Inv) and then Item_Count (Test_Inv) = 1, "Append increments count to 1");
+      Assert (Text (Element (Test_Inv, 1).ID) = "INV-1", "Element returns appended issue");
+      Arr := All_Issues (Test_Inv);
+      Assert (Arr'Length = 1 and then Text (Arr (1).ID) = "INV-1", "All_Issues projects array slice");
+      Clear (Test_Inv);
+      Assert (Is_Empty (Test_Inv) and then Item_Count (Test_Inv) = 0, "Clear resets inventory to empty");
    end;
 
    New_Line;

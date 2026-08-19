@@ -181,13 +181,15 @@ package body HRA.Render is
      (Value : HRA.Household_Report_Observation.Issues_Report_Observation)
       return String
    is
-      Buf : Unbounded_String;
+      Buf        : Unbounded_String;
+      Open_Array : constant HRA.Issues.Issue_Array :=
+        HRA.Issues.All_Issues (Value.Open_Items);
    begin
       Append (Buf, "== Household Issues ==" & ASCII.LF);
       Append
         (Buf,
          "Open issues only | Displayed: " &
-         Trim (Natural'Image (Natural (Value.Open_Items.Length)), Both) &
+         Trim (Natural'Image (Open_Array'Length), Both) &
          " | Resolved hidden: " &
          Trim (Natural'Image (Value.Resolved_Count), Both) & ASCII.LF);
       Append
@@ -195,7 +197,7 @@ package body HRA.Render is
          "Issues do not change accounting or budget values" &
          ASCII.LF & ASCII.LF);
 
-      for Issue of Value.Open_Items loop
+      for Issue of Open_Array loop
          Append
            (Buf,
             "+- OPEN -------------------------------------------------------------------------------+" &

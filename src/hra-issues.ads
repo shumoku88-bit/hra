@@ -9,9 +9,7 @@ package HRA.Issues is
    --  Issue Identity
    --  ========================================================================
 
-   type Issue_Id is record
-      ID_Text : Unbounded_String;
-   end record;
+   type Issue_Id is private;
 
    type Issue_Id_Status is
      (Success,
@@ -24,8 +22,7 @@ package HRA.Issues is
       ID     : out Issue_Id;
       Status : out Issue_Id_Status) return Boolean;
 
-   function Make_Issue_Id (Value : String) return Issue_Id
-     with Pre => Value'Length > 0;
+   function Make_Issue_Id (Value : String) return Issue_Id;
 
    function Text (ID : Issue_Id) return String;
    function To_Unbounded (ID : Issue_Id) return Unbounded_String;
@@ -85,7 +82,7 @@ package HRA.Issues is
    function Make_Optional_Amount (A : Amount) return Optional_Amount;
 
    --  ========================================================================
-   --  Household Issue Record & Collection
+   --  Household Issue Record & Inventory
    --  ========================================================================
 
    type Household_Issue is record
@@ -100,13 +97,27 @@ package HRA.Issues is
       Details     : Unbounded_String;
    end record;
 
-   package Issue_Vectors is new Ada.Containers.Indefinite_Vectors
-     (Index_Type   => Positive,
-      Element_Type => Household_Issue);
+   type Issues_Inventory is private;
 
-   type Issues_Inventory is record
-      Items : Issue_Vectors.Vector;
-   end record;
+   function Empty_Inventory return Issues_Inventory;
+   function Count (Inv : Issues_Inventory) return Natural;
+   function Item_Count (Inv : Issues_Inventory) return Natural;
+   function Is_Empty (Inv : Issues_Inventory) return Boolean;
+   function Element
+     (Inv   : Issues_Inventory;
+      Index : Positive) return Household_Issue
+     with Pre => Index in 1 .. Count (Inv);
+
+   type Issue_Array is array (Positive range <>) of Household_Issue;
+
+   function All_Issues (Inv : Issues_Inventory) return Issue_Array;
+   function Open_Issues (Inv : Issues_Inventory) return Issues_Inventory;
+
+   procedure Append
+     (Inv   : in out Issues_Inventory;
+      Issue : Household_Issue);
+
+   procedure Clear (Inv : in out Issues_Inventory);
 
    --  ========================================================================
    --  Admission Status & Diagnostics
@@ -127,7 +138,8 @@ package HRA.Issues is
       Partial_Amount_Currency,
       Open_Issue_With_Closure,
       Closed_Issue_Without_Closure,
-      Closed_Before_Recorded);
+      Closed_Before_Recorded,
+      Contains_Control_Character);
 
    type Admission_Diagnostic is record
       Status      : Admission_Status := Success;
@@ -141,10 +153,18 @@ package HRA.Issues is
       Inv      : out Issues_Inventory;
       Diag     : out Admission_Diagnostic) return Boolean;
 
-   function Parse_Issues_TSV
-     (TSV_Text : String;
-      Inv      : out Issues_Inventory) return Boolean;
+private
 
-   function Open_Issues (Inv : Issues_Inventory) return Issue_Vectors.Vector;
+   type Issue_Id is record
+      ID_Text : Unbounded_String;
+   end record;
+
+   package Issue_Vectors is new Ada.Containers.Indefinite_Vectors
+     (Index_Type   => Positive,
+      Element_Type => Household_Issue);
+
+   type Issues_Inventory is record
+      Items : Issue_Vectors.Vector;
+   end record;
 
 end HRA.Issues;

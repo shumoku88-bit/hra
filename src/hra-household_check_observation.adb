@@ -18,7 +18,7 @@ package body HRA.Household_Check_Observation is
          Registered_Accounts =>
            HRA.Account.Declarations (State.Registry)'Length,
          Open_Issues         =>
-           Natural (HRA.Issues.Open_Issues (State.Issues).Length));
+           HRA.Issues.Count (HRA.Issues.Open_Issues (State.Issues)));
    end Observe;
 
 end HRA.Household_Check_Observation;

@@ -1,7 +1,5 @@
 with Ada.Characters.Handling; use Ada.Characters.Handling;
 with Ada.Containers.Indefinite_Ordered_Sets;
-with Ada.Strings;             use Ada.Strings;
-with Ada.Strings.Fixed;       use Ada.Strings.Fixed;
 with HRA.Dates;               use HRA.Dates;
 
 package body HRA.Issues is
@@ -111,6 +109,72 @@ package body HRA.Issues is
    end Make_Optional_Amount;
 
    --  ========================================================================
+   --  Inventory Operations
+   --  ========================================================================
+
+   function Empty_Inventory return Issues_Inventory is
+      Result : Issues_Inventory;
+   begin
+      return Result;
+   end Empty_Inventory;
+
+   function Count (Inv : Issues_Inventory) return Natural is
+   begin
+      return Natural (Inv.Items.Length);
+   end Count;
+
+   function Item_Count (Inv : Issues_Inventory) return Natural is
+   begin
+      return Natural (Inv.Items.Length);
+   end Item_Count;
+
+   function Is_Empty (Inv : Issues_Inventory) return Boolean is
+   begin
+      return Inv.Items.Is_Empty;
+   end Is_Empty;
+
+   function Element
+     (Inv   : Issues_Inventory;
+      Index : Positive) return Household_Issue is
+   begin
+      return Inv.Items.Element (Index);
+   end Element;
+
+   function All_Issues (Inv : Issues_Inventory) return Issue_Array is
+      Result : Issue_Array (1 .. Natural (Inv.Items.Length));
+      Idx    : Positive := 1;
+   begin
+      for Issue of Inv.Items loop
+         Result (Idx) := Issue;
+         Idx := Idx + 1;
+      end loop;
+      return Result;
+   end All_Issues;
+
+   function Open_Issues (Inv : Issues_Inventory) return Issues_Inventory is
+      Result : Issues_Inventory;
+   begin
+      for Issue of Inv.Items loop
+         if Issue.Status = Open then
+            Result.Items.Append (Issue);
+         end if;
+      end loop;
+      return Result;
+   end Open_Issues;
+
+   procedure Append
+     (Inv   : in out Issues_Inventory;
+      Issue : Household_Issue) is
+   begin
+      Inv.Items.Append (Issue);
+   end Append;
+
+   procedure Clear (Inv : in out Issues_Inventory) is
+   begin
+      Inv.Items.Clear;
+   end Clear;
+
+   --  ========================================================================
    --  Admission
    --  ========================================================================
 
@@ -173,6 +237,16 @@ package body HRA.Issues is
       return Field_Count = 10;
    end Split_Line;
 
+   function Contains_Control (Str : String) return Boolean is
+   begin
+      for I in Str'Range loop
+         if Character'Pos (Str (I)) < 32 or else Character'Pos (Str (I)) = 127 then
+            return True;
+         end if;
+      end loop;
+      return False;
+   end Contains_Control;
+
    function Admit_Issues_TSV
      (TSV_Text : String;
       Inv      : out Issues_Inventory;
@@ -232,7 +306,7 @@ package body HRA.Issues is
                   end if;
                   Header_Seen := True;
                else
-                  if Trim (Raw_Line, Both)'Length > 0 then
+                  if Raw_Line'Length > 0 then
                      declare
                         Fields      : Field_Array;
                         Field_Count : Natural;
@@ -246,6 +320,19 @@ package body HRA.Issues is
                            Inv := Result;
                            return False;
                         end if;
+
+                        --  Control character check across all fields
+                        for F_Idx in 1 .. 10 loop
+                           if Contains_Control (To_String (Fields (F_Idx))) then
+                              Diag :=
+                                (Status      => Contains_Control_Character,
+                                 Line_Number => Line_Num,
+                                 Issue_ID    => Fields (1),
+                                 Message     => To_Unbounded_String ("field contains control character"));
+                              Inv := Result;
+                              return False;
+                           end if;
+                        end loop;
 
                         declare
                            ID_Str       : constant String := To_String (Fields (1));
@@ -273,9 +360,9 @@ package body HRA.Issues is
                            end if;
                            Seen_Ids.Insert (ID_Str);
 
+                           --  Status: exact token match without normalization
                            declare
-                              Stat_Str   : constant String :=
-                                To_Lower (Trim (To_String (Fields (2)), Both));
+                              Stat_Str   : constant String := To_String (Fields (2));
                               Issue_Stat : Issue_Status;
                            begin
                               if Stat_Str = "open" then
@@ -289,14 +376,14 @@ package body HRA.Issues is
                                    (Status      => Unknown_Status,
                                     Line_Number => Line_Num,
                                     Issue_ID    => Fields (1),
-                                    Message     => To_Unbounded_String ("unknown issue status: " & To_String (Fields (2))));
+                                    Message     => To_Unbounded_String ("unknown issue status: " & Stat_Str));
                                  Inv := Result;
                                  return False;
                               end if;
 
+                              --  Recorded Date: exact format without normalization
                               declare
-                                 Date_Str  : constant String :=
-                                   Trim (To_String (Fields (3)), Both);
+                                 Date_Str  : constant String := To_String (Fields (3));
                                  Rec_Date  : HRA.Dates.Date;
                                  Date_Stat : HRA.Dates.Date_Status;
                               begin
@@ -310,15 +397,14 @@ package body HRA.Issues is
                                     return False;
                                  end if;
 
+                                 --  Due: exact token match without normalization
                                  declare
-                                    Due_Str   : constant String :=
-                                      Trim (To_String (Fields (4)), Both);
-                                    Due_Lower : constant String := To_Lower (Due_Str);
-                                    Due_Obj   : Issue_Due;
+                                    Due_Str : constant String := To_String (Fields (4));
+                                    Due_Obj : Issue_Due;
                                  begin
-                                    if Due_Lower = "none" then
+                                    if Due_Str = "none" then
                                        Due_Obj := (Kind => No_Due_Date);
-                                    elsif Due_Lower = "undetermined" then
+                                    elsif Due_Str = "undetermined" then
                                        Due_Obj := (Kind => Due_Undetermined);
                                     else
                                        declare
@@ -339,15 +425,14 @@ package body HRA.Issues is
                                        end;
                                     end if;
 
+                                    --  Closed: exact token match without normalization
                                     declare
-                                       Closed_Str   : constant String :=
-                                         Trim (To_String (Fields (5)), Both);
-                                       Closed_Lower : constant String := To_Lower (Closed_Str);
-                                       Closed_Obj   : Issue_Closed;
+                                       Closed_Str : constant String := To_String (Fields (5));
+                                       Closed_Obj : Issue_Closed;
                                     begin
-                                       if Closed_Lower = "none" then
+                                       if Closed_Str = "none" then
                                           Closed_Obj := (Kind => Not_Closed);
-                                       elsif Closed_Lower = "undetermined" then
+                                       elsif Closed_Str = "undetermined" then
                                           Closed_Obj := (Kind => Closed_Undetermined);
                                        else
                                           declare
@@ -405,11 +490,10 @@ package body HRA.Issues is
                                           return False;
                                        end if;
 
+                                       --  Amount & Currency: exact without silent trim
                                        declare
-                                          Amt_Str  : constant String :=
-                                            Trim (To_String (Fields (8)), Both);
-                                          Curr_Str : constant String :=
-                                            Trim (To_String (Fields (9)), Both);
+                                          Amt_Str  : constant String := To_String (Fields (8));
+                                          Curr_Str : constant String := To_String (Fields (9));
                                           Amt_Obj  : Optional_Amount;
                                        begin
                                           if Amt_Str'Length = 0 and then Curr_Str'Length = 0 then
@@ -423,6 +507,19 @@ package body HRA.Issues is
                                              Inv := Result;
                                              return False;
                                           else
+                                             --  Reject surrounding whitespace in amount
+                                             if Is_Space (Amt_Str (Amt_Str'First))
+                                               or else Is_Space (Amt_Str (Amt_Str'Last))
+                                             then
+                                                Diag :=
+                                                  (Status      => Invalid_Amount,
+                                                   Line_Number => Line_Num,
+                                                   Issue_ID    => Fields (1),
+                                                   Message     => To_Unbounded_String ("amount contains surrounding whitespace"));
+                                                Inv := Result;
+                                                return False;
+                                             end if;
+
                                              declare
                                                 Q      : Quantity;
                                                 Comm   : Commodity;
@@ -490,25 +587,5 @@ package body HRA.Issues is
       Inv := Result;
       return True;
    end Admit_Issues_TSV;
-
-   function Parse_Issues_TSV
-     (TSV_Text : String;
-      Inv      : out Issues_Inventory) return Boolean
-   is
-      Diag : Admission_Diagnostic;
-   begin
-      return Admit_Issues_TSV (TSV_Text, Inv, Diag);
-   end Parse_Issues_TSV;
-
-   function Open_Issues (Inv : Issues_Inventory) return Issue_Vectors.Vector is
-      Vec : Issue_Vectors.Vector;
-   begin
-      for Issue of Inv.Items loop
-         if Issue.Status = Open then
-            Vec.Append (Issue);
-         end if;
-      end loop;
-      return Vec;
-   end Open_Issues;
 
 end HRA.Issues;

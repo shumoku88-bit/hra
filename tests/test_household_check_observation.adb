@@ -88,8 +88,9 @@ procedure Test_Household_Check_Observation is
    is
       JPY : constant HRA.Money.Commodity := HRA.Money.Make_Commodity ("JPY");
    begin
-      Inv.Items.Append
-        (HRA.Issues.Household_Issue'
+      HRA.Issues.Append
+        (Inv,
+         HRA.Issues.Household_Issue'
            (ID          => HRA.Issues.Make_Issue_Id (Issue_ID),
             Status      => Status,
             Recorded_On => D ("2026-08-01"),
