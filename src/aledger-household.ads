@@ -54,6 +54,16 @@ package ALedger.Household is
 
    function Empty_Household_State return Household_State;
 
+   --  Admit one already-observed canonical source set without reading the
+   --  eight root files again. This is the semantic boundary mutation use cases
+   --  can exercise before any filesystem publication.
+   function Admit_Canonical_Household
+     (Observation : ALedger.Canonical_Source.Source_Observation;
+      State       : out Household_State;
+      Error_Msg   : out Unbounded_String) return Boolean;
+
+   --  Filesystem convenience boundary: observe all eight exact root bytes,
+   --  then delegate the complete semantic admission to Admit_Canonical_Household.
    function Load_Canonical_Household
      (Root_Dir  : String;
       State     : out Household_State;

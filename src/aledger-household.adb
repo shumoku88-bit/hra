@@ -26,13 +26,12 @@ package body ALedger.Household is
       return State;
    end Empty_Household_State;
 
-   function Load_Canonical_Household
-     (Root_Dir  : String;
-      State     : out Household_State;
-      Error_Msg : out Unbounded_String) return Boolean
+   function Admit_Canonical_Household
+     (Observation : ALedger.Canonical_Source.Source_Observation;
+      State       : out Household_State;
+      Error_Msg   : out Unbounded_String) return Boolean
    is
       Result      : Household_State := Empty_Household_State;
-      Observation : Source_Observation;
       Config_Diag : ALedger.Config_Support.Config_Diagnostic;
 
       function Merge_Transactions (From : Ledger.Ledger) return Boolean is
@@ -206,12 +205,6 @@ package body ALedger.Household is
          return True;
       end Validate_Envelope_References;
    begin
-      if not Observe_Canonical_Sources
-        (Root_Dir, Observation, Error_Msg)
-      then
-         return False;
-      end if;
-
       Result.Root_Path := Observation.Root_Path;
       Result.Paths     := Observation.Paths;
       Result.Sources   := Observation;
@@ -583,6 +576,22 @@ package body ALedger.Household is
       State := Result;
       Error_Msg := Null_Unbounded_String;
       return True;
+   end Admit_Canonical_Household;
+
+   function Load_Canonical_Household
+     (Root_Dir  : String;
+      State     : out Household_State;
+      Error_Msg : out Unbounded_String) return Boolean
+   is
+      Observation : Source_Observation;
+   begin
+      if not Observe_Canonical_Sources
+        (Root_Dir, Observation, Error_Msg)
+      then
+         return False;
+      end if;
+
+      return Admit_Canonical_Household (Observation, State, Error_Msg);
    end Load_Canonical_Household;
 
 end ALedger.Household;

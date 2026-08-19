@@ -26,7 +26,8 @@ project ALedger_Tests is
       "test_envelope_explanation.adb",
       "test_envelope_change.adb",
       "test_envelope_change_baseline.adb",
-      "test_household_temporal.adb");
+      "test_household_temporal.adb",
+      "test_household_source_admission.adb");
 
    package Compiler is
       for Default_Switches ("Ada") use
@@ -59,5 +60,6 @@ project ALedger_Tests is
       for Executable ("test_envelope_change.adb") use "test_envelope_change";
       for Executable ("test_envelope_change_baseline.adb") use "test_envelope_change_baseline";
       for Executable ("test_household_temporal.adb") use "test_household_temporal";
+      for Executable ("test_household_source_admission.adb") use "test_household_source_admission";
    end Builder;
 end ALedger_Tests;
