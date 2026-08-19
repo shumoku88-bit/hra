@@ -34,7 +34,7 @@ project HRA_Tests is
 
    package Compiler is
       for Default_Switches ("Ada") use
-        ("-gnat2022", "-gnata", "-gnatwa", "-gnatW8", "-g", "-O2");
+        ("-gnat2012", "-gnata", "-gnatwa", "-gnatW8", "-g", "-O2");
    end Compiler;
 
    package Binder is
