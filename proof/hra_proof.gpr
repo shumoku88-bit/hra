@@ -9,6 +9,6 @@ project HRA_Proof is
 
    package Compiler is
       for Default_Switches ("Ada") use
-        ("-gnat2022", "-gnata", "-gnatW8", "-gnatwa");
+        ("-gnat2012", "-gnata", "-gnatW8", "-gnatwa");
    end Compiler;
 end HRA_Proof;
