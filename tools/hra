@@ -16,6 +16,8 @@ Repository commands:
   clean                 Clean production, test, and proof build products
 
 Application commands:
+  home [--base ROOT] [--through DATE] [--day DATE]
+                        Render the Household Home overview
   check [--base ROOT]   Validate an admitted canonical Household
   report [--base ROOT]  Render the current report portfolio
   version               Show the hra version
@@ -64,6 +66,7 @@ run_tests() {
   "$project_root/tests/bin/test_issue_observation"
   "$project_root/tests/bin/test_household_home_observation"
   "$project_root/tests/bin/test_household_home_presentation"
+  "$project_root/tests/bin/test_household_home_command"
 }
 
 command="${1:-help}"
@@ -111,7 +114,7 @@ case "$command" in
       "$project_root/tests/bin" \
       "$project_root/proof/obj"
     ;;
-  check|report|version)
+  home|check|report|version)
     build_production
     exec "$project_root/bin/hra" "$command" "$@"
     ;;
