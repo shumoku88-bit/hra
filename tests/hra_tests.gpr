@@ -27,7 +27,8 @@ project HRA_Tests is
       "test_envelope_change.adb",
       "test_envelope_change_baseline.adb",
       "test_household_temporal.adb",
-      "test_household_source_admission.adb");
+      "test_household_source_admission.adb",
+      "test_envelope_cycle_comparison.adb");
 
    package Compiler is
       for Default_Switches ("Ada") use
@@ -61,5 +62,6 @@ project HRA_Tests is
       for Executable ("test_envelope_change_baseline.adb") use "test_envelope_change_baseline";
       for Executable ("test_household_temporal.adb") use "test_household_temporal";
       for Executable ("test_household_source_admission.adb") use "test_household_source_admission";
+      for Executable ("test_envelope_cycle_comparison.adb") use "test_envelope_cycle_comparison";
    end Builder;
 end HRA_Tests;
