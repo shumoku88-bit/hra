@@ -100,6 +100,10 @@ private
       Reversals  : Reversal_Collection;
    end record;
 
+   function Ledger_Of
+     (Observation : Actual_Observation) return HRA.Ledger.Ledger is
+     (Observation.Value);
+
    function Identified_Count (Observation : Actual_Observation) return Natural is
      (Natural (Observation.Identified.Length));
 
