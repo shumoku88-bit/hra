@@ -323,7 +323,9 @@ package body HRA.Household_Envelope_Cycle_Comparison is
          Baseline_Through => Baseline_Through,
          Lines            => Comparison_Line_Vectors.Empty_Vector);
 
-      if Current_Why.Lines.Length /= Baseline_Why.Lines.Length then
+      if Natural (Current_Why.Lines.Length) /=
+        Natural (Baseline_Why.Lines.Length)
+      then
          Result := Output;
          Set_Diagnostic
            (Diag,
