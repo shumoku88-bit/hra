@@ -58,6 +58,14 @@ ensure_local_index() {
   if [[ -d "$overlay_path" ]] && ! alr index 2>/dev/null | grep -q "hra_overlay"; then
     alr index --add "$overlay_path" --name hra_overlay --before community >&2
   fi
+
+  # Toolchain preference is also stored under ALIRE_SETTINGS_DIR. Select the
+  # standard native components explicitly in this isolated settings space so
+  # Alire can reuse already available matching toolchains without invoking its
+  # first-run interactive assistant. Do not pin concrete versions here.
+  if ! alr toolchain 2>/dev/null | grep -q "Default"; then
+    alr toolchain --select gnat_native gprbuild >&2
+  fi
 }
 
 build_production() {
