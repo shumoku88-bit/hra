@@ -34,11 +34,12 @@ project HRA_Tests is
       "test_account_reconciliation.adb",
       "test_household_check_observation.adb",
       "test_issues_admission.adb",
-       "test_issue_observation.adb",
-       "test_household_home_observation.adb",
-       "test_household_home_presentation.adb",
-       "test_household_home_command.adb",
-       "test_household_home_interaction.adb");
+      "test_issue_observation.adb",
+      "test_household_home_observation.adb",
+      "test_household_home_presentation.adb",
+      "test_household_home_command.adb",
+      "test_household_home_interaction.adb",
+      "test_household_home_tui_input.adb");
 
    package Compiler is
       for Default_Switches ("Ada") use
@@ -83,5 +84,6 @@ project HRA_Tests is
       for Executable ("test_household_home_presentation.adb") use "test_household_home_presentation";
       for Executable ("test_household_home_command.adb") use "test_household_home_command";
       for Executable ("test_household_home_interaction.adb") use "test_household_home_interaction";
+      for Executable ("test_household_home_tui_input.adb") use "test_household_home_tui_input";
    end Builder;
 end HRA_Tests;
