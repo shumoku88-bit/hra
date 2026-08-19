@@ -48,6 +48,8 @@ procedure Test_Issues_Admission is
      "currency"   & ASCII.HT &
      "details";
 
+   function Count (Inv : Issues_Inventory) return Natural renames HRA.Issues.Count;
+
    Inv  : Issues_Inventory;
    Diag : Admission_Diagnostic;
 begin
@@ -56,7 +58,7 @@ begin
    --  1. exact current 10-column header (empty inventory)
    Assert
      (Admit_Issues_TSV (Canonical_Header & ASCII.LF, Inv, Diag)
-      and then Item_Count (Inv) = 0
+      and then Count (Inv) = 0
       and then Is_Empty (Inv),
       "exact current 10-column header admits empty inventory");
 
@@ -71,7 +73,7 @@ begin
    begin
       Assert
         (Admit_Issues_TSV (Source, Inv, Diag)
-         and then Item_Count (Inv) = 1
+         and then Count (Inv) = 1
          and then Text (Element (Inv, 1).ID) = "ISSUE-1"
          and then Element (Inv, 1).Status = Open
          and then Element (Inv, 1).Recorded_On = D ("2026-08-01")
@@ -98,7 +100,7 @@ begin
    begin
       Assert
         (Admit_Issues_TSV (Source, Inv, Diag)
-         and then Item_Count (Inv) = 1
+         and then Count (Inv) = 1
          and then Element (Inv, 1).Due.Kind = No_Due_Date
          and then not Element (Inv, 1).Amt.Has_Amount,
          "No_Due_Date admits due=none and optional amount absent");
@@ -115,7 +117,7 @@ begin
    begin
       Assert
         (Admit_Issues_TSV (Source, Inv, Diag)
-         and then Item_Count (Inv) = 1
+         and then Count (Inv) = 1
          and then Element (Inv, 1).Due.Kind = Due_Undetermined,
          "Due_Undetermined admits due=undetermined");
    end;
@@ -131,7 +133,7 @@ begin
    begin
       Assert
         (Admit_Issues_TSV (Source, Inv, Diag)
-         and then Item_Count (Inv) = 1
+         and then Count (Inv) = 1
          and then Element (Inv, 1).Status = Resolved
          and then Element (Inv, 1).Closed.Kind = Closed_On
          and then Element (Inv, 1).Closed.Closed_Date = D ("2026-08-04"),
@@ -149,7 +151,7 @@ begin
    begin
       Assert
         (Admit_Issues_TSV (Source, Inv, Diag)
-         and then Item_Count (Inv) = 1
+         and then Count (Inv) = 1
          and then Element (Inv, 1).Status = Resolved
          and then Element (Inv, 1).Closed.Kind = Closed_Undetermined,
          "historical Closed_Undetermined admits closed=undetermined");
@@ -166,7 +168,7 @@ begin
    begin
       Assert
         (Admit_Issues_TSV (Source, Inv, Diag)
-         and then Item_Count (Inv) = 1
+         and then Count (Inv) = 1
          and then Element (Inv, 1).Status = Dropped
          and then Element (Inv, 1).Closed.Kind = Closed_On
          and then Element (Inv, 1).Closed.Closed_Date = D ("2026-08-02"),
@@ -462,10 +464,10 @@ begin
       Admit_OK : constant Boolean := Admit_Issues_TSV (Source, Inv, Diag);
       Opens    : Issues_Inventory;
    begin
-      Assert (Admit_OK and then Item_Count (Inv) = 4, "Admit 4 mixed lifecycle issues");
+      Assert (Admit_OK and then Count (Inv) = 4, "Admit 4 mixed lifecycle issues");
       Opens := Open_Issues (Inv);
       Assert
-        (Item_Count (Opens) = 2
+        (Count (Opens) = 2
          and then Text (Element (Opens, 1).ID) = "OPEN-1"
          and then Text (Element (Opens, 2).ID) = "OPEN-2",
          "Open_Issues excludes Resolved and Dropped issues");
@@ -682,14 +684,14 @@ begin
            Details     => To_Unbounded_String ("det1"));
       Arr      : Issue_Array (1 .. 1);
    begin
-      Assert (Is_Empty (Test_Inv) and then Item_Count (Test_Inv) = 0, "Empty_Inventory has 0 count");
+      Assert (Is_Empty (Test_Inv) and then Count (Test_Inv) = 0, "Empty_Inventory has 0 count");
       Append (Test_Inv, Item1);
-      Assert (not Is_Empty (Test_Inv) and then Item_Count (Test_Inv) = 1, "Append increments count to 1");
+      Assert (not Is_Empty (Test_Inv) and then Count (Test_Inv) = 1, "Append increments count to 1");
       Assert (Text (Element (Test_Inv, 1).ID) = "INV-1", "Element returns appended issue");
       Arr := All_Issues (Test_Inv);
       Assert (Arr'Length = 1 and then Text (Arr (1).ID) = "INV-1", "All_Issues projects array slice");
       Clear (Test_Inv);
-      Assert (Is_Empty (Test_Inv) and then Item_Count (Test_Inv) = 0, "Clear resets inventory to empty");
+      Assert (Is_Empty (Test_Inv) and then Count (Test_Inv) = 0, "Clear resets inventory to empty");
    end;
 
    New_Line;

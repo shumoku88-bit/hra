@@ -123,11 +123,6 @@ package body HRA.Issues is
       return Natural (Inv.Items.Length);
    end Count;
 
-   function Item_Count (Inv : Issues_Inventory) return Natural is
-   begin
-      return Natural (Inv.Items.Length);
-   end Item_Count;
-
    function Is_Empty (Inv : Issues_Inventory) return Boolean is
    begin
       return Inv.Items.Is_Empty;

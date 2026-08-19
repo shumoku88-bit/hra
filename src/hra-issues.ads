@@ -101,7 +101,6 @@ package HRA.Issues is
 
    function Empty_Inventory return Issues_Inventory;
    function Count (Inv : Issues_Inventory) return Natural;
-   function Item_Count (Inv : Issues_Inventory) return Natural;
    function Is_Empty (Inv : Issues_Inventory) return Boolean;
    function Element
      (Inv   : Issues_Inventory;
