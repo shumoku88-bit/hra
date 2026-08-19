@@ -4,6 +4,13 @@ set -euo pipefail
 project_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$project_root"
 
+# Keep HRA's repository-local Alire index registration out of the user's
+# ordinary Alire settings. The generated settings live under the already
+# ignored repository alire/ area and are inherited by tools/prove.
+alire_settings_dir="$project_root/alire/settings"
+mkdir -p "$alire_settings_dir"
+export ALIRE_SETTINGS_DIR="$alire_settings_dir"
+
 usage() {
   cat <<'EOF'
 Usage: tools/hra COMMAND [ARGS...]
