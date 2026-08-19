@@ -11,7 +11,7 @@ with HRA.Money;
 
 procedure Test_Household_Temporal_Cycle_Context is
    use type HRA.Dates.Date;
-   use type HRA.Household_Temporal.Observe_Status;
+   use type HRA.Household_Temporal.Cycle_Comparison_View_Status;
    use type HRA.Money.Quantity;
 
    package Comparison renames HRA.Household_Envelope_Cycle_Comparison;
@@ -50,7 +50,7 @@ procedure Test_Household_Temporal_Cycle_Context is
    State       : HRA.Household.Household_State;
    Err         : Unbounded_String;
    Result      : Comparison.Comparison_Observation;
-   Diag        : HRA.Household_Temporal.Observe_Diagnostic;
+   Diag        : HRA.Household_Temporal.Cycle_Comparison_View_Diagnostic;
 
 begin
    Put_Line ("--- Testing Household temporal cycle context ---");
@@ -177,12 +177,15 @@ begin
    begin
       if not Succeeded then
          Put_Line
-           ("[DIAG] temporal status = " &
-            HRA.Household_Temporal.Observe_Status'Image (Diag.Status));
+           ("[DIAG] temporal cycle-comparison status = " &
+            HRA.Household_Temporal.Cycle_Comparison_View_Status'Image
+              (Diag.Status));
       end if;
 
       Assert
-        (Succeeded and then Diag.Status = HRA.Household_Temporal.Success,
+        (Succeeded
+           and then Diag.Status =
+             HRA.Household_Temporal.Cycle_Comparison_View_Success,
          "Household Temporal selects aligned previous cycle from admitted anchors");
 
       if Succeeded then
