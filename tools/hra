@@ -59,6 +59,7 @@ run_tests() {
   "$project_root/tests/bin/test_envelope_cycle_comparison"
   "$project_root/tests/bin/test_household_temporal_cycle_context"
   "$project_root/tests/bin/test_account_reconciliation"
+  "$project_root/tests/bin/test_household_check_observation"
 }
 
 command="${1:-help}"

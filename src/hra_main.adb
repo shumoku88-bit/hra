@@ -6,15 +6,14 @@ with Ada.Calendar;
 with Ada.Calendar.Formatting;
 with Ada.Calendar.Time_Zones;
 with HRA;
-with HRA.Account;        use HRA.Account;
 with HRA.Dates;
 with HRA.Household;      use HRA.Household;
+with HRA.Household_Check_Observation;
 with HRA.Household_Report_Observation;
 with HRA.Render;         use HRA.Render;
 with HRA.Recent_Journal_Render;
 with HRA.Planned_Payments_Render;
 with HRA.Envelope_Report_Render;
-with HRA.Issues;         use HRA.Issues;
 with HRA.Output;         use HRA.Output;
 
 procedure HRA_Main is
@@ -105,13 +104,18 @@ begin
             end if;
 
             if Cmd = "check" then
-               Put_Line ("SUCCESS: Fixed 8-source topology and currently supported admissions verified for " & Root_Dir);
-               Put_Line ("  Configuration       : typed budget, household, and report policy admitted");
-               Put_Line ("  Actual Transactions : " & Natural'Image (Natural (State.Actual_Ledger.Transactions.Length)));
-               Put_Line ("  Plan Transactions   : " & Natural'Image (Natural (State.Plan_Ledger.Transactions.Length)));
-               Put_Line ("  Budget Transactions : " & Natural'Image (Natural (State.Budget_Ledger.Transactions.Length)));
-               Put_Line ("  Registered Accounts : " & Natural'Image (Declarations (State.Registry)'Length));
-               Put_Line ("  Open Issues         : " & Natural'Image (Natural (Open_Issues (State.Issues).Length)));
+               declare
+                  Check_Obs : constant HRA.Household_Check_Observation.Observation :=
+                    HRA.Household_Check_Observation.Observe (State);
+               begin
+                  Put_Line ("SUCCESS: Fixed 8-source topology and currently supported admissions verified for " & Root_Dir);
+                  Put_Line ("  Configuration       : typed budget, household, and report policy admitted");
+                  Put_Line ("  Actual Transactions : " & Natural'Image (Check_Obs.Actual_Transactions));
+                  Put_Line ("  Plan Transactions   : " & Natural'Image (Check_Obs.Plan_Transactions));
+                  Put_Line ("  Budget Transactions : " & Natural'Image (Check_Obs.Budget_Transactions));
+                  Put_Line ("  Registered Accounts : " & Natural'Image (Check_Obs.Registered_Accounts));
+                  Put_Line ("  Open Issues         : " & Natural'Image (Check_Obs.Open_Issues));
+               end;
             elsif Cmd = "report" then
                declare
                   Report_Day    : constant HRA.Dates.Date := Local_Today;

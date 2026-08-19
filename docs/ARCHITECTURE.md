@@ -24,7 +24,7 @@ edit intent
 
 会計計算はpath、environment variable、terminal、renameを知らない。Renderはsourceを読まない。CLI/TUIはAccount分類、期間、予算、writer lawを再実装しない。
 
-現在のhuman report commandは`HRA.Household_Report_Observation`をcomplete semantic boundaryとする。一つのadmitted `Household_State`とapplication境界で一回取得した観測日から、resolved query、current section order、Envelope/Backing、Trial Balance、Balance Sheet、P&L、Recent Journal、Planned Payments、open Issuesを一つのtyped report-book observationとしてall-or-nothingで生成する。CLIはtyped sectionを順にrendererへ渡すだけで、rendererは`Household_State`、Ledger、source、clockを受け取らない。
+現在のhuman check / report commandはそれぞれ`HRA.Household_Check_Observation`および`HRA.Household_Report_Observation`をfocused semantic boundaryとする。check commandはadmitted factsのtyped summaryを`HRA.Household_Check_Observation`から受け取り表示する。report commandは一つのadmitted `Household_State`とapplication境界で一回取得した観測日から、resolved query、current section order、Envelope/Backing、Trial Balance、Balance Sheet、P&L、Recent Journal、Planned Payments、open Issuesを一つのtyped report-book observationとしてall-or-nothingで生成する。CLIはtyped summaryまたはtyped sectionを順にrendererへ渡すだけで、rendererやCLI presentationは`Household_State`、Ledger、source、clockを受け取らない。
 
 SPARK境界は[`PROOF_CORE.md`](PROOF_CORE.md)が所有する。parserやUIを全面SPARK化せず、ordinary Ada admissionが正規化したbounded factsだけをpure proof coreへ渡す。現在、Envelope Remaining/Headroomは`HRA.Envelope_Position`経由でSPARK Proof_Coreに接続完了している（Phase C）。Backingの証明接続（Phase D）は独立して進行中。
 
