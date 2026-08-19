@@ -37,7 +37,8 @@ project HRA_Tests is
        "test_issue_observation.adb",
        "test_household_home_observation.adb",
        "test_household_home_presentation.adb",
-       "test_household_home_command.adb");
+       "test_household_home_command.adb",
+       "test_household_home_interaction.adb");
 
    package Compiler is
       for Default_Switches ("Ada") use
@@ -81,5 +82,6 @@ project HRA_Tests is
       for Executable ("test_household_home_observation.adb") use "test_household_home_observation";
       for Executable ("test_household_home_presentation.adb") use "test_household_home_presentation";
       for Executable ("test_household_home_command.adb") use "test_household_home_command";
+      for Executable ("test_household_home_interaction.adb") use "test_household_home_interaction";
    end Builder;
 end HRA_Tests;
