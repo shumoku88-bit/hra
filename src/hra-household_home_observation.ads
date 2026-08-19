@@ -110,16 +110,23 @@ package HRA.Household_Home_Observation is
      (Plan_Dependency_Unavailable,
       Cycle_Resolution_Failed);
 
+   type Cycle_Unavailable_Detail
+     (Reason : Cycle_Unavailable_Reason := Cycle_Resolution_Failed)
+   is record
+      case Reason is
+         when Plan_Dependency_Unavailable =>
+            Plan_Error : HRA.Plan_Observation.Admission_Diagnostic;
+         when Cycle_Resolution_Failed =>
+            Cycle_Error : HRA.Cycle_Observation.Resolve_Status;
+      end case;
+   end record;
+
    type Cycle_Home_Observation (Status : Cycle_Availability := Unavailable) is record
       case Status is
          when Available =>
-            Current_Window : HRA.Cycle_Observation.Cycle_Window;
-            Human_End_Day  : HRA.Dates.Date;
+            Observation : HRA.Cycle_Observation.Observation;
          when Unavailable =>
-            Reason      : Cycle_Unavailable_Reason := Cycle_Resolution_Failed;
-            Plan_Error  : HRA.Plan_Observation.Admission_Diagnostic;
-            Cycle_Error : HRA.Cycle_Observation.Resolve_Status :=
-              HRA.Cycle_Observation.Success;
+            Failure : Cycle_Unavailable_Detail;
       end case;
    end record;
 

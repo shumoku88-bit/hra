@@ -88,11 +88,26 @@ package body HRA.Household_Home_Observation is
       if Obs.Cycle.Status = Unavailable then
          Result.Cycle_End := Unavailable;
       else
-         if Day = Obs.Cycle.Human_End_Day then
-            Result.Cycle_End := Present;
-         else
-            Result.Cycle_End := Absent;
-         end if;
+         declare
+            Prev_Win : constant HRA.Cycle_Observation.Cycle_Window :=
+              Obs.Cycle.Observation.Previous_Window;
+            Curr_Win : constant HRA.Cycle_Observation.Cycle_Window :=
+              Obs.Cycle.Observation.Current_Window;
+            Prev_End : constant HRA.Dates.Date :=
+              HRA.Dates.Previous (HRA.Cycle_Observation.End_Exclusive (Prev_Win));
+            Curr_End : constant HRA.Dates.Date :=
+              HRA.Dates.Previous (HRA.Cycle_Observation.End_Exclusive (Curr_Win));
+         begin
+            if Day = Prev_End or else Day = Curr_End then
+               Result.Cycle_End := Present;
+            elsif HRA.Cycle_Observation.Contains (Prev_Win, Day)
+              or else HRA.Cycle_Observation.Contains (Curr_Win, Day)
+            then
+               Result.Cycle_End := Absent;
+            else
+               Result.Cycle_End := Unavailable;
+            end if;
+         end;
       end if;
 
       return Result;
@@ -110,9 +125,9 @@ package body HRA.Household_Home_Observation is
       Plan_Ok   : Boolean := False;
 
       --  Cycle evaluation
-      Income_Acc    : HRA.Account.Account;
-      Current_Win   : HRA.Cycle_Observation.Cycle_Window;
-      Cycle_Stat    : HRA.Cycle_Observation.Resolve_Status;
+      Income_Acc : HRA.Account.Account;
+      Cycle_Obs  : HRA.Cycle_Observation.Observation;
+      Cycle_Stat : HRA.Cycle_Observation.Resolve_Status;
    begin
       Result.Observed_Through := Observed_Through;
       Result.Selected_Day     := Selected_Day;
@@ -194,56 +209,36 @@ package body HRA.Household_Home_Observation is
       end if;
 
       --  4. Cycle Projection:
-      --  Evaluate current cycle window as of Observed_Through.
+      --  Evaluate cycle observation as of Observed_Through.
       if not Plan_Ok then
          Result.Cycle :=
-           (Status      => Unavailable,
-            Reason      => Plan_Dependency_Unavailable,
-            Plan_Error  => Plan_Diag,
-            Cycle_Error => HRA.Cycle_Observation.Success);
+           (Status  => Unavailable,
+            Failure =>
+              (Reason     => Plan_Dependency_Unavailable,
+               Plan_Error => Plan_Diag));
       else
          Income_Acc :=
            HRA.Account.Make_Account
              (To_String (State.Household_Policy.Cycle_Income_Account));
 
-         if HRA.Cycle_Observation.Resolve_Current
+         if HRA.Cycle_Observation.Observe
               (Observed_Through => Observed_Through,
                Actual_Ledger    => State.Actual_Ledger,
                Open_Plans       => Result.All_Open_Plans,
                Registry         => State.Registry,
                Income_Account   => Income_Acc,
-               Window           => Current_Win,
+               Result           => Cycle_Obs,
                Status           => Cycle_Stat)
          then
-            declare
-               Limit_Day : constant HRA.Dates.Date :=
-                 HRA.Cycle_Observation.End_Exclusive (Current_Win);
-            begin
-               if HRA.Dates.Has_Previous (Limit_Day) then
-                  Result.Cycle :=
-                    (Status         => Available,
-                     Current_Window => Current_Win,
-                     Human_End_Day  => HRA.Dates.Previous (Limit_Day));
-               else
-                  Result.Cycle :=
-                    (Status      => Unavailable,
-                     Reason      => Cycle_Resolution_Failed,
-                     Plan_Error  => (Status => HRA.Plan_Observation.Success,
-                                     Line_Number => 0,
-                                     Plan_Id => Null_Unbounded_String,
-                                     Message => Null_Unbounded_String),
-                     Cycle_Error => HRA.Cycle_Observation.Invalid_Cycle_Window);
-               end if;
-            end;
+            Result.Cycle :=
+              (Status      => Available,
+               Observation => Cycle_Obs);
          else
             Result.Cycle :=
-              (Status      => Unavailable,
-               Reason      => Cycle_Resolution_Failed,
-               Plan_Error  => (Status => HRA.Plan_Observation.Success,
-                               Line_Number => 0,
-                               Plan_Id => Null_Unbounded_String,
-                               Message => Null_Unbounded_String),
-               Cycle_Error => Cycle_Stat);
+              (Status  => Unavailable,
+               Failure =>
+                 (Reason      => Cycle_Resolution_Failed,
+                  Cycle_Error => Cycle_Stat));
          end if;
       end if;
 
