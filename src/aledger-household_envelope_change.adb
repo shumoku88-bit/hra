@@ -1,9 +1,8 @@
 with Ada.Containers;
-with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
 with ALedger.Cycle_Observation;
 with ALedger.Dates;
 with ALedger.Envelope;
-with ALedger.Envelope_Position;
+with ALedger.Household_Envelope_Explanation;
 with ALedger.Money; use ALedger.Money;
 
 package body ALedger.Household_Envelope_Change is
@@ -11,6 +10,8 @@ package body ALedger.Household_Envelope_Change is
    use type Ada.Containers.Count_Type;
    use type ALedger.Dates.Date;
    use type ALedger.Envelope.Envelope_Id;
+
+   package Explanation renames ALedger.Household_Envelope_Explanation;
 
    function Resolve_Baseline
      (Window   : ALedger.Cycle_Observation.Cycle_Window;
@@ -139,78 +140,6 @@ package body ALedger.Household_Envelope_Change is
       return Baseline.Day;
    end Resolved_Day;
 
-   function Capture
-     (Policy           : ALedger.Budget_Config.Budget_Policy;
-      Registry         : ALedger.Envelope.Envelope_Registry;
-      Window           : ALedger.Cycle_Observation.Cycle_Window;
-      Observed_Through : ALedger.Dates.Date;
-      Positions        : ALedger.Envelope_Position.Observation;
-      Result           : out Explanation_Snapshot;
-      Diag             : out Snapshot_Diagnostic) return Boolean
-   is
-      Output : Explanation_Snapshot :=
-        (Window           => Window,
-         Observed_Through => Observed_Through,
-         Lines            => Explanation_Line_Vectors.Empty_Vector);
-   begin
-      if not ALedger.Cycle_Observation.Contains (Window, Observed_Through) then
-         Result := Output;
-         Diag :=
-           (Status           => Observation_Outside_Window,
-            Envelope_Id_Text => Null_Unbounded_String);
-         return False;
-      end if;
-
-      for Def of Policy.Envelopes loop
-         declare
-            Env_Text : constant String := To_String (Def.ID);
-            Env      : ALedger.Envelope.Envelope_Id;
-         begin
-            if not ALedger.Envelope.Lookup (Registry, Env_Text, Env) then
-               Result := Output;
-               Diag :=
-                 (Status           => Unknown_Current_Envelope,
-                  Envelope_Id_Text => To_Unbounded_String (Env_Text));
-               return False;
-            end if;
-
-            if not ALedger.Envelope_Position.Has_Explanation (Positions, Env) then
-               Result := Output;
-               Diag :=
-                 (Status           => Missing_Envelope_Explanation,
-                  Envelope_Id_Text => To_Unbounded_String (Env_Text));
-               return False;
-            end if;
-
-            Output.Lines.Append
-              (Explanation_Line'
-                 (Env_Id => Env,
-                  Why    => ALedger.Envelope_Position.Explain (Positions, Env)));
-         end;
-      end loop;
-
-      Result := Output;
-      Diag :=
-        (Status           => Success,
-         Envelope_Id_Text => Null_Unbounded_String);
-      return True;
-   end Capture;
-
-   function Observed_Through
-     (Snapshot : Explanation_Snapshot) return ALedger.Dates.Date
-   is
-   begin
-      return Snapshot.Observed_Through;
-   end Observed_Through;
-
-   function Window_Of
-     (Snapshot : Explanation_Snapshot)
-      return ALedger.Cycle_Observation.Cycle_Window
-   is
-   begin
-      return Snapshot.Window;
-   end Window_Of;
-
    function Same_Window
      (Left, Right : ALedger.Cycle_Observation.Cycle_Window) return Boolean
    is
@@ -229,8 +158,8 @@ package body ALedger.Household_Envelope_Change is
    end Difference;
 
    function Observe_Change
-     (Earlier : Explanation_Snapshot;
-      Later   : Explanation_Snapshot;
+     (Earlier : Explanation.Explanation_Observation;
+      Later   : Explanation.Explanation_Observation;
       Result  : out Change_Observation;
       Diag    : out Change_Diagnostic) return Boolean
    is
@@ -271,8 +200,10 @@ package body ALedger.Household_Envelope_Change is
 
          for I in Earlier.Lines.First_Index .. Earlier.Lines.Last_Index loop
             declare
-               Before_Line : constant Explanation_Line := Earlier.Lines.Element (I);
-               After_Line  : constant Explanation_Line := Later.Lines.Element (I);
+               Before_Line : constant Explanation.Explanation_Line :=
+                 Earlier.Lines.Element (I);
+               After_Line  : constant Explanation.Explanation_Line :=
+                 Later.Lines.Element (I);
                Before_Ev   : constant ALedger.Envelope_Position.Arithmetic_Evidence :=
                  Before_Line.Why.Evidence;
                After_Ev    : constant ALedger.Envelope_Position.Arithmetic_Evidence :=
