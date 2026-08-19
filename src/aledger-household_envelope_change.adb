@@ -2,6 +2,7 @@ with Ada.Containers;
 with ALedger.Cycle_Observation;
 with ALedger.Dates;
 with ALedger.Envelope;
+with ALedger.Envelope_Position;
 with ALedger.Household_Envelope_Explanation;
 with ALedger.Money; use ALedger.Money;
 
