@@ -1,7 +1,6 @@
 with ALedger.Journal_Loader;
 with ALedger.Canonical_Source; use ALedger.Canonical_Source;
 with ALedger.Config_Support;
-with ALedger.Budget_Source_Adapter;
 with ALedger.Actual_Admission;
 with ALedger.Plan;
 with ALedger.Plan_Observation;
@@ -23,9 +22,6 @@ package body ALedger.Household is
       State.Envelope_Registry   := ALedger.Envelope.Empty_Registry;
       State.Routing_History     := ALedger.Envelope_Routing.Empty_History;
       State.Fulfillment_History := ALedger.Fulfillment_Routing.Empty_History;
-      State.Entitlement         := ALedger.Envelope_Entitlement.Empty_Observation;
-      State.Consumption         := ALedger.Envelope_Consumption.Empty_Consumption;
-      State.Envelope_Positions  := ALedger.Envelope_Position.Empty_Observation;
       return State;
    end Empty_Household_State;
 
@@ -562,59 +558,6 @@ package body ALedger.Household is
             return False;
          end if;
       end;
-
-      declare
-         Ad_Diag : ALedger.Budget_Source_Adapter.Adapter_Diagnostic;
-      begin
-         if not ALedger.Budget_Source_Adapter.Observe_Entitlements
-           (Result.Budget_Ledger.Transactions,
-            Result.Household_Policy,
-            Result.Envelope_Registry,
-            Result.Entitlement,
-            Ad_Diag)
-         then
-            Error_Msg := To_Unbounded_String
-              ("budget.journal: " & To_String (Ad_Diag.Message));
-            return False;
-         end if;
-      end;
-
-      Result.Consumption :=
-        ALedger.Envelope_Consumption.Observe_Stock_Consumption
-          (Result.Actual_Ledger,
-           Result.Routing_History,
-           Result.Entitlement);
-
-      declare
-         Pos_Diag : ALedger.Envelope_Position.Observe_Diagnostic;
-      begin
-         if not ALedger.Envelope_Position.Observe_Base
-           (Result.Budget_Policy,
-            Result.Envelope_Registry,
-            Result.Entitlement,
-            Result.Consumption,
-            Result.Envelope_Positions,
-            Pos_Diag)
-         then
-            Error_Msg := To_Unbounded_String
-              ("failed to observe base envelope positions: " &
-               ALedger.Envelope_Position.Observe_Status'Image (Pos_Diag.Status) &
-               (if Length (Pos_Diag.Envelope_Id_Text) > 0
-                then " [envelope=" & To_String (Pos_Diag.Envelope_Id_Text) & "]"
-                else "") &
-               (if Length (Pos_Diag.Commodity_Code) > 0
-                then " [commodity=" & To_String (Pos_Diag.Commodity_Code) & "]"
-                else "") &
-               " [role=" & ALedger.Envelope_Position.Value_Role'Image (Pos_Diag.Role) & "]");
-            return False;
-         end if;
-      end;
-
-      Result.Backing :=
-        ALedger.Backing_Policy.Observe_Backing
-          (Result.Backing_Policy_Spec,
-           Result.Actual_Ledger,
-           Result.Envelope_Positions);
 
       State := Result;
       Error_Msg := Null_Unbounded_String;
