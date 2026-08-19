@@ -26,8 +26,21 @@ package HRA.Household_Envelope_Observation is
       Envelope_Positions : HRA.Envelope_Position.Observation;
    end record;
 
+   --  Current-cycle convenience boundary. The cycle is resolved from admitted
+   --  income-anchor evidence at Observed_Through before composition.
    function Observe
      (Observed_Through : HRA.Dates.Date;
+      State            : HRA.Household.Household_State;
+      Result           : out Observation;
+      Error_Msg        : out Unbounded_String) return Boolean;
+
+   --  Explicit-cycle observation used when the caller already owns the temporal
+   --  coordinate, for example an aligned historical cycle comparison. The
+   --  supplied window is not silently replaced by a newly inferred current
+   --  cycle. Observed_Through must be contained by Window.
+   function Observe_In_Window
+     (Observed_Through : HRA.Dates.Date;
+      Window           : HRA.Cycle_Observation.Cycle_Window;
       State            : HRA.Household.Household_State;
       Result           : out Observation;
       Error_Msg        : out Unbounded_String) return Boolean;
