@@ -54,6 +54,7 @@ run_tests() {
   "$project_root/tests/bin/test_household_temporal"
   "$project_root/tests/bin/test_household_source_admission"
   "$project_root/tests/bin/test_envelope_cycle_comparison"
+  "$project_root/tests/bin/test_household_temporal_cycle_context"
 }
 
 command="${1:-help}"
