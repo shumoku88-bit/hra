@@ -11,40 +11,43 @@ package body HRA.Household_Home_Observation is
      (Obs.Status = Available);
 
    function Transaction_Count (Obs : Actual_Home_Observation) return Natural is
-   begin
-      if Obs.Status = Available then
-         return Natural (Obs.Transactions.Length);
-      else
-         return 0;
-      end if;
-   end Transaction_Count;
+     (Natural (Obs.Transactions.Length));
 
    function Is_Available (Obs : Plan_Home_Observation) return Boolean is
      (Obs.Status = Available);
 
    function Open_Plan_Count (Obs : Plan_Home_Observation) return Natural is
-   begin
-      if Obs.Status = Available then
-         return Natural (Obs.Open_Plans.Length);
-      else
-         return 0;
-      end if;
-   end Open_Plan_Count;
+     (Natural (Obs.Open_Plans.Length));
 
    function Is_Available (Obs : Issue_Home_Observation) return Boolean is
      (Obs.Status = Available);
 
    function Due_Issue_Count (Obs : Issue_Home_Observation) return Natural is
-   begin
-      if Obs.Status = Available then
-         return Natural (Obs.Due_Issues.Length);
-      else
-         return 0;
-      end if;
-   end Due_Issue_Count;
+     (Natural (Obs.Due_Issues.Length));
 
    function Is_Available (Obs : Cycle_Home_Observation) return Boolean is
      (Obs.Status = Available);
+
+   function Observed_Through (Obs : Home_Observation) return HRA.Dates.Date is
+     (Obs.Observed_Through);
+
+   function Selected_Day (Obs : Home_Observation) return HRA.Dates.Date is
+     (Obs.Selected_Day);
+
+   function Actual (Obs : Home_Observation) return Actual_Home_Observation is
+     (Obs.Actual);
+
+   function Plan (Obs : Home_Observation) return Plan_Home_Observation is
+     (Obs.Plan);
+
+   function Issue (Obs : Home_Observation) return Issue_Home_Observation is
+     (Obs.Issue);
+
+   function Cycle (Obs : Home_Observation) return Cycle_Home_Observation is
+     (Obs.Cycle);
+
+   function Selected_Attention (Obs : Home_Observation) return Attention_Observation is
+     (Day_Attention (Obs, Obs.Selected_Day));
 
    function Day_Attention
      (Obs : Home_Observation;
@@ -54,12 +57,12 @@ package body HRA.Household_Home_Observation is
    begin
       --  Plan Attention
       if Obs.Plan.Status = Unavailable then
-         Result.Plan_Due := Unavailable;
+         Result.Plan_Scheduled := Unavailable;
       else
-         Result.Plan_Due := Absent;
+         Result.Plan_Scheduled := Absent;
          for P of Obs.All_Open_Plans loop
             if P.Tx.Date = Day then
-               Result.Plan_Due := Present;
+               Result.Plan_Scheduled := Present;
                exit;
             end if;
          end loop;
@@ -131,7 +134,9 @@ package body HRA.Household_Home_Observation is
                Transactions => Selected_Txs);
          end;
       else
-         Result.Actual := (Status => Unavailable);
+         Result.Actual :=
+           (Status => Unavailable,
+            Reason => Observation_Horizon_Exceeded);
       end if;
 
       --  2. Plan Projection:
@@ -172,7 +177,9 @@ package body HRA.Household_Home_Observation is
       if HRA.Issue_Observation.Has_Undetermined_Due_On
            (Result.Issue_Context, Selected_Day)
       then
-         Result.Issue := (Status => Unavailable);
+         Result.Issue :=
+           (Status => Unavailable,
+            Reason => Closure_Timing_Undetermined);
       else
          declare
             Selected_Due_Issues : constant
@@ -190,8 +197,10 @@ package body HRA.Household_Home_Observation is
       --  Evaluate current cycle window as of Observed_Through.
       if not Plan_Ok then
          Result.Cycle :=
-           (Status => Unavailable,
-            Error  => HRA.Cycle_Observation.Missing_Future_Plan_Anchor);
+           (Status      => Unavailable,
+            Reason      => Plan_Dependency_Unavailable,
+            Plan_Error  => Plan_Diag,
+            Cycle_Error => HRA.Cycle_Observation.Success);
       else
          Income_Acc :=
            HRA.Account.Make_Account
@@ -217,19 +226,26 @@ package body HRA.Household_Home_Observation is
                      Human_End_Day  => HRA.Dates.Previous (Limit_Day));
                else
                   Result.Cycle :=
-                    (Status => Unavailable,
-                     Error  => HRA.Cycle_Observation.Invalid_Cycle_Window);
+                    (Status      => Unavailable,
+                     Reason      => Cycle_Resolution_Failed,
+                     Plan_Error  => (Status => HRA.Plan_Observation.Success,
+                                     Line_Number => 0,
+                                     Plan_Id => Null_Unbounded_String,
+                                     Message => Null_Unbounded_String),
+                     Cycle_Error => HRA.Cycle_Observation.Invalid_Cycle_Window);
                end if;
             end;
          else
             Result.Cycle :=
-              (Status => Unavailable,
-               Error  => Cycle_Stat);
+              (Status      => Unavailable,
+               Reason      => Cycle_Resolution_Failed,
+               Plan_Error  => (Status => HRA.Plan_Observation.Success,
+                               Line_Number => 0,
+                               Plan_Id => Null_Unbounded_String,
+                               Message => Null_Unbounded_String),
+               Cycle_Error => Cycle_Stat);
          end if;
       end if;
-
-      --  5. Attention on Selected_Day:
-      Result.Attention := Day_Attention (Result, Selected_Day);
 
       return Result;
    end Observe;
