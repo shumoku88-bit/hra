@@ -1,6 +1,7 @@
 with ALedger.Journal_Loader;
 with ALedger.Canonical_Source; use ALedger.Canonical_Source;
 with ALedger.Config_Support;
+with ALedger.Budget_Source_Adapter;
 with ALedger.Actual_Admission;
 with ALedger.Plan;
 with ALedger.Plan_Observation;
@@ -543,6 +544,26 @@ package body ALedger.Household is
             end if;
          end;
       end if;
+
+      --  Budget source shape and endpoint meaning are admission laws. Validate
+      --  the complete source here, but do not retain a time-dependent
+      --  Entitlement observation in Household_State.
+      declare
+         Movements : ALedger.Budget_Source_Adapter.Movement_Vectors.Vector;
+         Ad_Diag   : ALedger.Budget_Source_Adapter.Adapter_Diagnostic;
+      begin
+         if not ALedger.Budget_Source_Adapter.Adapt_Budget_Journal
+           (Result.Budget_Ledger.Transactions,
+            Result.Household_Policy,
+            Result.Envelope_Registry,
+            Movements,
+            Ad_Diag)
+         then
+            Error_Msg := To_Unbounded_String
+              ("budget.journal: " & To_String (Ad_Diag.Message));
+            return False;
+         end if;
+      end;
 
       declare
          P_Status : ALedger.Backing_Policy.Policy_Status;
