@@ -32,6 +32,22 @@ package HRA.Dates is
    function Month (Value : Date) return Positive;
    function Day   (Value : Date) return Positive;
 
+   type Day_Of_Week is
+     (Monday,
+      Tuesday,
+      Wednesday,
+      Thursday,
+      Friday,
+      Saturday,
+      Sunday);
+
+   function Day_Of_Week_Of (Value : Date) return Day_Of_Week;
+
+   function Days_In_Month
+     (Year  : Positive;
+      Month : Positive) return Positive
+     with Pre => Year in 1 .. 9_999 and then Month in 1 .. 12;
+
    type Closed_Period is private;
 
    function Make_Closed_Period

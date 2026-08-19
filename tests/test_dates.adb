@@ -119,6 +119,41 @@ begin
          "half-open period rejects empty window");
    end;
 
+   Assert
+     (Day_Of_Week_Of (Must_Date ("2026-08-19")) = Wednesday,
+      "2026-08-19 is Wednesday");
+   Assert
+     (Day_Of_Week_Of (Must_Date ("2026-08-01")) = Saturday,
+      "2026-08-01 is Saturday");
+   Assert
+     (Day_Of_Week_Of (Must_Date ("2026-08-31")) = Monday,
+      "2026-08-31 is Monday");
+   Assert
+     (Day_Of_Week_Of (Must_Date ("2024-02-29")) = Thursday,
+      "2024-02-29 is Thursday (leap day)");
+   Assert
+     (Day_Of_Week_Of (Must_Date ("2000-01-01")) = Saturday,
+      "2000-01-01 is Saturday (leap century)");
+   Assert
+     (Day_Of_Week_Of (Must_Date ("1970-01-01")) = Thursday,
+      "1970-01-01 is Thursday (epoch)");
+   Assert
+     (Day_Of_Week_Of (Must_Date ("0001-01-01")) = Monday,
+      "0001-01-01 is Monday (origin)");
+
+   Assert
+     (Days_In_Month (2024, 2) = 29,
+      "Days_In_Month(2024, 2) = 29 (leap year)");
+   Assert
+     (Days_In_Month (2026, 2) = 28,
+      "Days_In_Month(2026, 2) = 28 (common year)");
+   Assert
+     (Days_In_Month (2026, 8) = 31,
+      "Days_In_Month(2026, 8) = 31");
+   Assert
+     (Days_In_Month (2026, 4) = 30,
+      "Days_In_Month(2026, 4) = 30");
+
    Put_Line
      (Natural'Image (Passed_Count) & " passed, " &
       Natural'Image (Failed_Count) & " failed");

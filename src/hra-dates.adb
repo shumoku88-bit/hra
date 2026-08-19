@@ -3,7 +3,7 @@ package body HRA.Dates is
    function Is_Leap_Year (Y : Year_Number) return Boolean is
      (Y mod 400 = 0 or else (Y mod 4 = 0 and then Y mod 100 /= 0));
 
-   function Days_In_Month
+   function Internal_Days_In_Month
      (Y : Year_Number;
       M : Month_Number) return Day_Number
    is
@@ -13,7 +13,7 @@ package body HRA.Dates is
             when 2 => (if Is_Leap_Year (Y) then 29 else 28),
             when 4 | 6 | 9 | 11 => 30,
             when others => 31);
-   end Days_In_Month;
+   end Internal_Days_In_Month;
 
    function Parse
      (Text   : String;
@@ -56,7 +56,7 @@ package body HRA.Dates is
          Typed_Y : constant Year_Number := Year_Number (Y);
          Typed_M : constant Month_Number := Month_Number (M);
       begin
-         if D = 0 or else D > Natural (Days_In_Month (Typed_Y, Typed_M)) then
+         if D = 0 or else D > Natural (Internal_Days_In_Month (Typed_Y, Typed_M)) then
             Status := Invalid_Gregorian_Date;
             return False;
          end if;
@@ -120,7 +120,7 @@ package body HRA.Dates is
    end ">=";
 
    function Next (Value : Date) return Date is
-      Max_Day : constant Day_Number := Days_In_Month (Value.Y, Value.M);
+      Max_Day : constant Day_Number := Internal_Days_In_Month (Value.Y, Value.M);
    begin
       if Value.D < Max_Day then
          return (Y => Value.Y, M => Value.M, D => Value.D + 1);
@@ -152,7 +152,7 @@ package body HRA.Dates is
             return
               (Y => Value.Y,
                M => Previous_Month,
-               D => Days_In_Month (Value.Y, Previous_Month));
+               D => Internal_Days_In_Month (Value.Y, Previous_Month));
          end;
       else
          declare
@@ -171,6 +171,41 @@ package body HRA.Dates is
 
    function Day (Value : Date) return Positive is
      (Positive (Value.D));
+
+   function Days_In_Month
+     (Year  : Positive;
+      Month : Positive) return Positive
+   is
+   begin
+      return Positive
+        (Internal_Days_In_Month
+           (Year_Number (Year),
+            Month_Number (Month)));
+   end Days_In_Month;
+
+   function Day_Of_Week_Of (Value : Date) return Day_Of_Week is
+      type Month_Table is array (Month_Number) of Natural;
+      T : constant Month_Table := [0, 3, 2, 5, 0, 3, 5, 1, 4, 6, 2, 4];
+      Y : Natural := Natural (Value.Y);
+      M : constant Month_Number := Value.M;
+      D : constant Natural := Natural (Value.D);
+      W : Natural;
+   begin
+      if M < 3 then
+         Y := Y - 1;
+      end if;
+      W := (Y + Y / 4 - Y / 100 + Y / 400 + T (M) + D) mod 7;
+      return
+        (case W is
+            when 0 => Sunday,
+            when 1 => Monday,
+            when 2 => Tuesday,
+            when 3 => Wednesday,
+            when 4 => Thursday,
+            when 5 => Friday,
+            when 6 => Saturday,
+            when others => Sunday);
+   end Day_Of_Week_Of;
 
    function Make_Closed_Period
      (First  : Date;
