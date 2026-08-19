@@ -12,7 +12,9 @@ use type HRA.Dates.Date;
 --    3. Selected_Day may freely move before, on, or beyond Observed_Through.
 --    4. Boundary transitions fail closed without wraparound, sentinels, or exceptions.
 --    5. No system clock, no file I/O, no UI glyph/key/terminal coupling.
-package HRA.Household_Home_Interaction is
+package HRA.Household_Home_Interaction
+  with Pure, SPARK_Mode => On
+is
 
    --  ========================================================================
    --  Home Focus Coordinates
@@ -25,12 +27,18 @@ package HRA.Household_Home_Interaction is
 
    --  Construct focus coordinates with initial focus matching the observation horizon.
    function Make_Coordinates
-     (Observed_Through : HRA.Dates.Date) return Home_Coordinates;
+     (Observed_Through : HRA.Dates.Date) return Home_Coordinates
+     with Post =>
+       Make_Coordinates'Result.Observed_Through = Observed_Through
+       and then Make_Coordinates'Result.Selected_Day = Observed_Through;
 
    --  Construct focus coordinates with explicit observation horizon and selected day.
    function Make_Coordinates
      (Observed_Through : HRA.Dates.Date;
-      Selected_Day     : HRA.Dates.Date) return Home_Coordinates;
+      Selected_Day     : HRA.Dates.Date) return Home_Coordinates
+     with Post =>
+       Make_Coordinates'Result.Observed_Through = Observed_Through
+       and then Make_Coordinates'Result.Selected_Day = Selected_Day;
 
    --  ========================================================================
    --  Navigation Intents
@@ -111,28 +119,40 @@ package HRA.Household_Home_Interaction is
    function Previous_Day
      (Coordinates : Home_Coordinates) return Transition_Result
      with Post =>
-       Previous_Day'Result.Coordinates.Observed_Through = Coordinates.Observed_Through;
+       Previous_Day'Result.Coordinates.Observed_Through = Coordinates.Observed_Through
+       and then Previous_Day'Result.Status in Applied | Lower_Bound_Exceeded
+       and then (if Previous_Day'Result.Status = Lower_Bound_Exceeded
+                 then Previous_Day'Result.Coordinates.Selected_Day = Coordinates.Selected_Day);
 
    --  Move focus 1 day forward (+1 day).
    --  Fails closed with Upper_Bound_Exceeded if Selected_Day is 9999-12-31.
    function Next_Day
      (Coordinates : Home_Coordinates) return Transition_Result
      with Post =>
-       Next_Day'Result.Coordinates.Observed_Through = Coordinates.Observed_Through;
+       Next_Day'Result.Coordinates.Observed_Through = Coordinates.Observed_Through
+       and then Next_Day'Result.Status in Applied | Upper_Bound_Exceeded
+       and then (if Next_Day'Result.Status = Upper_Bound_Exceeded
+                 then Next_Day'Result.Coordinates.Selected_Day = Coordinates.Selected_Day);
 
    --  Move focus 1 week (7 days) backward (-7 days).
    --  Fails closed with Lower_Bound_Exceeded if stepping 7 days reaches before 0001-01-01.
    function Previous_Week
      (Coordinates : Home_Coordinates) return Transition_Result
      with Post =>
-       Previous_Week'Result.Coordinates.Observed_Through = Coordinates.Observed_Through;
+       Previous_Week'Result.Coordinates.Observed_Through = Coordinates.Observed_Through
+       and then Previous_Week'Result.Status in Applied | Lower_Bound_Exceeded
+       and then (if Previous_Week'Result.Status = Lower_Bound_Exceeded
+                 then Previous_Week'Result.Coordinates.Selected_Day = Coordinates.Selected_Day);
 
    --  Move focus 1 week (7 days) forward (+7 days).
    --  Fails closed with Upper_Bound_Exceeded if stepping 7 days reaches after 9999-12-31.
    function Next_Week
      (Coordinates : Home_Coordinates) return Transition_Result
      with Post =>
-       Next_Week'Result.Coordinates.Observed_Through = Coordinates.Observed_Through;
+       Next_Week'Result.Coordinates.Observed_Through = Coordinates.Observed_Through
+       and then Next_Week'Result.Status in Applied | Upper_Bound_Exceeded
+       and then (if Next_Week'Result.Status = Upper_Bound_Exceeded
+                 then Next_Week'Result.Coordinates.Selected_Day = Coordinates.Selected_Day);
 
    --  Reset focus to Observed_Through. Always succeeds.
    function Focus_Observed_Through
@@ -151,6 +171,8 @@ package HRA.Household_Home_Interaction is
      (Coordinates : Home_Coordinates;
       Intent      : Home_Intent) return Transition_Result
      with Post =>
-       Apply_Intent'Result.Coordinates.Observed_Through = Coordinates.Observed_Through;
+       Apply_Intent'Result.Coordinates.Observed_Through = Coordinates.Observed_Through
+       and then (if Apply_Intent'Result.Status /= Applied
+                 then Apply_Intent'Result.Coordinates.Selected_Day = Coordinates.Selected_Day);
 
 end HRA.Household_Home_Interaction;

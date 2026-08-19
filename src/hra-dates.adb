@@ -1,4 +1,6 @@
-package body HRA.Dates is
+package body HRA.Dates
+  with SPARK_Mode => Off
+is
 
    function Is_Leap_Year (Y : Year_Number) return Boolean is
      (Y mod 400 = 0 or else (Y mod 4 = 0 and then Y mod 100 /= 0));

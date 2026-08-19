@@ -1,39 +1,58 @@
-package body HRA.Household_Home_Interaction is
+package body HRA.Household_Home_Interaction
+  with SPARK_Mode => On
+is
 
    Days_Per_Week : constant Positive := 7;
 
+   type Step_Outcome is (Step_Applied, Step_Bound_Exceeded);
+
+   type Step_Result is record
+      Status : Step_Outcome;
+      Day    : HRA.Dates.Date;
+   end record;
+
    function Step_Days_Forward
-     (Start  : HRA.Dates.Date;
-      Count  : Positive;
-      Result : out HRA.Dates.Date) return Boolean
+     (Start : HRA.Dates.Date;
+      Count : Positive) return Step_Result
+     with Post =>
+       (if Step_Days_Forward'Result.Status = Step_Bound_Exceeded
+        then Step_Days_Forward'Result.Day = Start);
+
+   function Step_Days_Backward
+     (Start : HRA.Dates.Date;
+      Count : Positive) return Step_Result
+     with Post =>
+       (if Step_Days_Backward'Result.Status = Step_Bound_Exceeded
+        then Step_Days_Backward'Result.Day = Start);
+
+   function Step_Days_Forward
+     (Start : HRA.Dates.Date;
+      Count : Positive) return Step_Result
    is
       Cur : HRA.Dates.Date := Start;
    begin
       for Step in 1 .. Count loop
          if not HRA.Dates.Has_Next (Cur) then
-            return False;
+            return (Status => Step_Bound_Exceeded, Day => Start);
          end if;
          Cur := HRA.Dates.Next (Cur);
       end loop;
-      Result := Cur;
-      return True;
+      return (Status => Step_Applied, Day => Cur);
    end Step_Days_Forward;
 
    function Step_Days_Backward
-     (Start  : HRA.Dates.Date;
-      Count  : Positive;
-      Result : out HRA.Dates.Date) return Boolean
+     (Start : HRA.Dates.Date;
+      Count : Positive) return Step_Result
    is
       Cur : HRA.Dates.Date := Start;
    begin
       for Step in 1 .. Count loop
          if not HRA.Dates.Has_Previous (Cur) then
-            return False;
+            return (Status => Step_Bound_Exceeded, Day => Start);
          end if;
          Cur := HRA.Dates.Previous (Cur);
       end loop;
-      Result := Cur;
-      return True;
+      return (Status => Step_Applied, Day => Cur);
    end Step_Days_Backward;
 
    function Make_Coordinates
@@ -61,14 +80,15 @@ package body HRA.Household_Home_Interaction is
    function Previous_Day
      (Coordinates : Home_Coordinates) return Transition_Result
    is
-      Target : HRA.Dates.Date;
+      Step : constant Step_Result :=
+        Step_Days_Backward (Coordinates.Selected_Day, 1);
    begin
-      if Step_Days_Backward (Coordinates.Selected_Day, 1, Target) then
+      if Step.Status = Step_Applied then
          return
            (Status      => Applied,
             Coordinates =>
               (Observed_Through => Coordinates.Observed_Through,
-               Selected_Day     => Target));
+               Selected_Day     => Step.Day));
       else
          return
            (Status      => Lower_Bound_Exceeded,
@@ -79,14 +99,15 @@ package body HRA.Household_Home_Interaction is
    function Next_Day
      (Coordinates : Home_Coordinates) return Transition_Result
    is
-      Target : HRA.Dates.Date;
+      Step : constant Step_Result :=
+        Step_Days_Forward (Coordinates.Selected_Day, 1);
    begin
-      if Step_Days_Forward (Coordinates.Selected_Day, 1, Target) then
+      if Step.Status = Step_Applied then
          return
            (Status      => Applied,
             Coordinates =>
               (Observed_Through => Coordinates.Observed_Through,
-               Selected_Day     => Target));
+               Selected_Day     => Step.Day));
       else
          return
            (Status      => Upper_Bound_Exceeded,
@@ -97,14 +118,15 @@ package body HRA.Household_Home_Interaction is
    function Previous_Week
      (Coordinates : Home_Coordinates) return Transition_Result
    is
-      Target : HRA.Dates.Date;
+      Step : constant Step_Result :=
+        Step_Days_Backward (Coordinates.Selected_Day, Days_Per_Week);
    begin
-      if Step_Days_Backward (Coordinates.Selected_Day, Days_Per_Week, Target) then
+      if Step.Status = Step_Applied then
          return
            (Status      => Applied,
             Coordinates =>
               (Observed_Through => Coordinates.Observed_Through,
-               Selected_Day     => Target));
+               Selected_Day     => Step.Day));
       else
          return
            (Status      => Lower_Bound_Exceeded,
@@ -115,14 +137,15 @@ package body HRA.Household_Home_Interaction is
    function Next_Week
      (Coordinates : Home_Coordinates) return Transition_Result
    is
-      Target : HRA.Dates.Date;
+      Step : constant Step_Result :=
+        Step_Days_Forward (Coordinates.Selected_Day, Days_Per_Week);
    begin
-      if Step_Days_Forward (Coordinates.Selected_Day, Days_Per_Week, Target) then
+      if Step.Status = Step_Applied then
          return
            (Status      => Applied,
             Coordinates =>
               (Observed_Through => Coordinates.Observed_Through,
-               Selected_Day     => Target));
+               Selected_Day     => Step.Day));
       else
          return
            (Status      => Upper_Bound_Exceeded,
