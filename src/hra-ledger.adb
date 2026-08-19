@@ -129,7 +129,7 @@ package body HRA.Ledger is
       declare
          type Match_Array is array (Positive range <>) of Boolean;
          Matched : Match_Array (1 .. Natural (Candidate_Rev.Postings.Length)) :=
-           [others => False];
+           (others => False);
       begin
          for Target_Posting of Target_Tx.Postings loop
             declare
