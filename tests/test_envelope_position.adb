@@ -1276,7 +1276,7 @@ begin
          "Law L: Day 5 Daily Remaining is 0 JPY");
 
       Render_D5 := To_Unbounded_String
-        (HRA.Envelope_Report_Render.Render (State, Obs_Day5));
+        (HRA.Envelope_Report_Render.Render (Obs_Day5.Envelope_Report));
       Assert
         (Ada.Strings.Fixed.Index (To_String (Render_D5), "food | 100 JPY") > 0,
          "Law L: Day 5 render contains 'food | 100 JPY'");
@@ -1316,7 +1316,7 @@ begin
          "Law L: Day 10 Daily Remaining is 20 JPY");
 
       Render_D10 := To_Unbounded_String
-        (HRA.Envelope_Report_Render.Render (State, Obs_Day10));
+        (HRA.Envelope_Report_Render.Render (Obs_Day10.Envelope_Report));
       Assert
         (Ada.Strings.Fixed.Index (To_String (Render_D10), "food | 130 JPY") > 0,
          "Law L: Day 10 render contains 'food | 130 JPY'");
@@ -1325,7 +1325,7 @@ begin
          "Law L: Day 10 render contains 'daily | 20 JPY'");
       Assert
         (Ada.Strings.Fixed.Index
-           (To_String (Render_D10), "Signed envelope total     | 150 JPY") > 0,
+           (To_String (Render_D10), "Signed envelope total | 150 JPY") > 0,
          "Law L: Day 10 render signed envelope total is 150 JPY");
    end;
 

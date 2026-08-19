@@ -81,7 +81,7 @@ cycle、Envelope、Account policy、Report query/presentationはcanonical TOML�
 | Issues admission | partial | current private sourceを読めるがschema/lifecycle parityの精査が必要 |
 | Accounting kernel | partial | exact Quantity、Commodity Balance、Transaction、基本集計 |
 | SPARK proof core | foundation | bounded quanta、Commodity別balance、ordered reversal、Envelope/Backing式を独立証明。production接続は未完了 |
-| Reports | partial | P&L、Balance Sheet、Issues、Envelope/Backingの確認用出力 |
+| Reports | partial | current renderable portfolioはcomplete typed report-book observation経由。section catalog/parityは未完了 |
 | Report policy application | partial | `report.toml`はadmitするが全query/renderingへ未適用 |
 | Editor / writer | prototype | safe-writer experimentはあるがcanonical authorityなし |
 | TUI | prototype | fixed date、固定JPY、画面内rule、未承認writer入口が残る |

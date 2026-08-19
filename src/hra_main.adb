@@ -8,12 +8,10 @@ with Ada.Calendar.Time_Zones;
 with HRA;
 with HRA.Account;        use HRA.Account;
 with HRA.Dates;
-with HRA.Ledger;         use HRA.Ledger;
 with HRA.Household;      use HRA.Household;
 with HRA.Household_Report_Observation;
 with HRA.Render;         use HRA.Render;
 with HRA.Recent_Journal_Render;
-with HRA.Planned_Payments;
 with HRA.Planned_Payments_Render;
 with HRA.Envelope_Report_Render;
 with HRA.Issues;         use HRA.Issues;
@@ -118,32 +116,12 @@ begin
                declare
                   Report_Day    : constant HRA.Dates.Date := Local_Today;
                   Household_Obs : HRA.Household_Report_Observation.Report_Observation;
-                  Payments      : HRA.Planned_Payments.Observation;
-                  Payment_Diag  : HRA.Planned_Payments.Admission_Diagnostic;
                begin
                   if not HRA.Household_Report_Observation.Observe
                     (Report_Day, State, Household_Obs, Err)
                   then
                      Put_Line
                        ("Error observing Household report state: " & To_String (Err));
-                     Set_Exit_Status (Failure);
-                     return;
-                  end if;
-
-                  if not HRA.Planned_Payments.Project
-                    (Household_Obs.Open_Plans,
-                     State.Registry,
-                     Report_Day,
-                     Payments,
-                     Payment_Diag)
-                  then
-                     Put_Line
-                       ("Error projecting Planned Payments: " &
-                        HRA.Planned_Payments.Admission_Status'Image
-                          (Payment_Diag.Status) &
-                        (if Length (Payment_Diag.Message) > 0
-                         then ": " & To_String (Payment_Diag.Message)
-                         else ""));
                      Set_Exit_Status (Failure);
                      return;
                   end if;
@@ -157,35 +135,40 @@ begin
                   Put_Line ("==================================================");
                   New_Line;
 
-                  --  Current renderable portfolio follows the shared report
-                  --  order. Each section consumes an already admitted semantic
-                  --  observation; no renderer selects source files or dates.
-                  Put
-                    (HRA.Envelope_Report_Render.Render
-                       (State, Household_Obs));
-                  New_Line;
-                  Put
-                    (Render_Account_Balances
-                       (State.Actual_Ledger,
-                        Household_Obs.Query_Plan.Trial_Balance_As_Of));
-                  New_Line;
-                  Put
-                    (Render_Balance_Sheet
-                       (State.Actual_Ledger,
-                        Household_Obs.Query_Plan.Balance_Sheet_As_Of));
-                  New_Line;
-                  Put
-                    (Render_Profit_And_Loss
-                       (State.Actual_Ledger,
-                        Household_Obs.Query_Plan.Profit_And_Loss));
-                  New_Line;
-                  Put
-                    (HRA.Recent_Journal_Render.Render
-                       (Household_Obs.Recent_Journal));
-                  New_Line;
-                  Put (HRA.Planned_Payments_Render.Render (Payments));
-                  New_Line;
-                  Put (Render_Household_Issues (State.Issues));
+                  --  Semantic membership and order come from the complete
+                  --  report observation. This loop only dispatches each typed
+                  --  section to its renderer.
+                  for Section of Household_Obs.Section_Order loop
+                     case Section is
+                        when HRA.Household_Report_Observation.Envelope_And_Backing_Section =>
+                           Put
+                             (HRA.Envelope_Report_Render.Render
+                                (Household_Obs.Envelope_Report));
+                        when HRA.Household_Report_Observation.Account_Balances_Section =>
+                           Put
+                             (Render_Account_Balances
+                                (Household_Obs.Account_Balances));
+                        when HRA.Household_Report_Observation.Balance_Sheet_Section =>
+                           Put
+                             (Render_Balance_Sheet
+                                (Household_Obs.Balance_Sheet));
+                        when HRA.Household_Report_Observation.Profit_And_Loss_Section =>
+                           Put
+                             (Render_Profit_And_Loss
+                                (Household_Obs.Profit_And_Loss));
+                        when HRA.Household_Report_Observation.Recent_Journal_Section =>
+                           Put
+                             (HRA.Recent_Journal_Render.Render
+                                (Household_Obs.Recent_Journal));
+                        when HRA.Household_Report_Observation.Planned_Payments_Section =>
+                           Put
+                             (HRA.Planned_Payments_Render.Render
+                                (Household_Obs.Planned_Payments));
+                        when HRA.Household_Report_Observation.Open_Issues_Section =>
+                           Put (Render_Household_Issues (Household_Obs.Open_Issues));
+                     end case;
+                     New_Line;
+                  end loop;
                end;
             end if;
          end;
