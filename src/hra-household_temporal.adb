@@ -117,7 +117,7 @@ package body HRA.Household_Temporal is
       State            : HRA.Household.Household_State;
       Result           : out
         HRA.Household_Envelope_Cycle_Comparison.Comparison_Observation;
-      Diag             : out Observe_Diagnostic) return Boolean
+      Diag             : out Cycle_Comparison_View_Diagnostic) return Boolean
    is
       Current : HRA.Household_Envelope_Observation.Observation;
       Observation_Error : Unbounded_String;
@@ -136,7 +136,7 @@ package body HRA.Household_Temporal is
         (Observed_Through, State, Current, Observation_Error)
       then
          Diag :=
-           (Status            => Current_Observation_Unavailable,
+           (Status            => Cycle_Current_Observation_Unavailable,
             Observation_Error => Observation_Error);
          return False;
       end if;
@@ -170,7 +170,7 @@ package body HRA.Household_Temporal is
          return False;
       end if;
 
-      Diag := (Status => Success);
+      Diag := (Status => Cycle_Comparison_View_Success);
       return True;
    end Observe_Envelope_Aligned_Previous_Cycle;
 
