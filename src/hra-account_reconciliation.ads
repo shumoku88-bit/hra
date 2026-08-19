@@ -1,10 +1,10 @@
 with HRA.Account;
+with HRA.Actual_Admission;
 with HRA.Dates;
-with HRA.Ledger;
 with HRA.Money;
 
 --  Read-only comparison between one externally observed Account balance and the
---  canonical Actual Ledger at the same day.
+--  canonical admitted Actual observation at the same day.
 --
 --  External observations are evidence for reconciliation only. They are not
 --  Journal facts, do not mutate canonical Actual, and carry no writer authority.
@@ -28,13 +28,13 @@ package HRA.Account_Reconciliation is
 
    type Reconciliation is private;
 
-   --  Compare the external observation with the canonical ledger balance as of
-   --  the same inclusive day. Difference is deliberately external - ledger.
-   --  Positive coordinates mean the external source contains more than the
-   --  canonical ledger for that Commodity; negative coordinates mean less.
+   --  Compare the external observation with the typed admitted Actual balance
+   --  as of the same inclusive day. Difference is deliberately external -
+   --  canonical Actual. Requiring Actual_Observation prevents Plan/Budget Ledger
+   --  values from being accepted at this boundary by accident.
    function Reconcile
-     (Actual_Ledger : HRA.Ledger.Ledger;
-      External      : External_Balance_Observation) return Reconciliation;
+     (Actual   : HRA.Actual_Admission.Actual_Observation;
+      External : External_Balance_Observation) return Reconciliation;
 
    function External_Observation
      (Result : Reconciliation) return External_Balance_Observation;
