@@ -225,22 +225,28 @@ begin
 
    State.Issues.Items.Append
      (HRA.Issues.Household_Issue'
-        (Issue_ID => To_Unbounded_String ("issue-open"),
-         Status   => HRA.Issues.Open,
-         Date_Str => To_Unbounded_String ("2026-08-02"),
-         Title    => To_Unbounded_String ("Synthetic open issue"),
-         Amt      => HRA.Money.Make_Amount (USD, 3.0),
-         Category => To_Unbounded_String ("test"),
-         Details  => To_Unbounded_String ("typed observation only")));
+        (ID          => HRA.Issues.Make_Issue_Id ("issue-open"),
+         Status      => HRA.Issues.Open,
+         Recorded_On => D ("2026-08-02"),
+         Due         => HRA.Issues.No_Due,
+         Closed      => HRA.Issues.Not_Closed,
+         Title       => To_Unbounded_String ("Synthetic open issue"),
+         Amt         =>
+           HRA.Issues.Make_Optional_Amount (HRA.Money.Make_Amount (USD, 3.0)),
+         Category    => To_Unbounded_String ("test"),
+         Details     => To_Unbounded_String ("typed observation only")));
    State.Issues.Items.Append
      (HRA.Issues.Household_Issue'
-        (Issue_ID => To_Unbounded_String ("issue-resolved"),
-         Status   => HRA.Issues.Resolved,
-         Date_Str => To_Unbounded_String ("2026-08-01"),
-         Title    => To_Unbounded_String ("Synthetic resolved issue"),
-         Amt      => HRA.Money.Make_Amount (JPY, 0.0),
-         Category => To_Unbounded_String ("test"),
-         Details  => To_Unbounded_String ("not displayed")));
+        (ID          => HRA.Issues.Make_Issue_Id ("issue-resolved"),
+         Status      => HRA.Issues.Resolved,
+         Recorded_On => D ("2026-08-01"),
+         Due         => HRA.Issues.No_Due,
+         Closed      => HRA.Issues.Make_Closed_On (D ("2026-08-05")),
+         Title       => To_Unbounded_String ("Synthetic resolved issue"),
+         Amt         =>
+           HRA.Issues.Make_Optional_Amount (HRA.Money.Make_Amount (JPY, 0.0)),
+         Category    => To_Unbounded_String ("test"),
+         Details     => To_Unbounded_String ("not displayed")));
 
    Assert
      (HRA.Household_Report_Observation.Observe

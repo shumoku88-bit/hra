@@ -10,6 +10,7 @@ with HRA.Money;
 
 procedure Test_Household_Check_Observation is
    use type HRA.Money.Quantity;
+   use type HRA.Issues.Issue_Status;
 
    Passed_Count : Natural := 0;
    Failed_Count : Natural := 0;
@@ -89,13 +90,19 @@ procedure Test_Household_Check_Observation is
    begin
       Inv.Items.Append
         (HRA.Issues.Household_Issue'
-           (Issue_ID => To_Unbounded_String (Issue_ID),
-            Status   => Status,
-            Date_Str => To_Unbounded_String ("2026-08-01"),
-            Title    => To_Unbounded_String (Title),
-            Amt      => HRA.Money.Make_Amount (JPY, 0.0),
-            Category => To_Unbounded_String ("test"),
-            Details  => To_Unbounded_String ("details")));
+           (ID          => HRA.Issues.Make_Issue_Id (Issue_ID),
+            Status      => Status,
+            Recorded_On => D ("2026-08-01"),
+            Due         => HRA.Issues.No_Due,
+            Closed      =>
+              (if Status = HRA.Issues.Open
+               then HRA.Issues.Not_Closed
+               else HRA.Issues.Make_Closed_On (D ("2026-08-01"))),
+            Title       => To_Unbounded_String (Title),
+            Amt         =>
+              HRA.Issues.Make_Optional_Amount (HRA.Money.Make_Amount (JPY, 0.0)),
+            Category    => To_Unbounded_String ("test"),
+            Details     => To_Unbounded_String ("details")));
    end Add_Issue;
 
    Empty_State : constant HRA.Household.Household_State :=

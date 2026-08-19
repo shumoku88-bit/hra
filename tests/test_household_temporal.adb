@@ -200,7 +200,10 @@ begin
 
    Write_File
      (To_String (Paths.Issues_TSV),
-      "issue_id" & ASCII.HT & "status" & ASCII.LF);
+      "issue_id" & ASCII.HT & "status" & ASCII.HT & "date" & ASCII.HT &
+      "due" & ASCII.HT & "closed" & ASCII.HT & "category" & ASCII.HT &
+      "title" & ASCII.HT & "amount" & ASCII.HT & "currency" & ASCII.HT &
+      "details" & ASCII.LF);
 
    Assert
      (HRA.Household.Load_Canonical_Household (Tmp_Dir, State, Err),

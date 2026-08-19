@@ -3,6 +3,7 @@ with Ada.Strings.Fixed;     use Ada.Strings.Fixed;
 with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
 with HRA.Account;           use HRA.Account;
 with HRA.Dates;
+with HRA.Issues;
 with HRA.Money;             use HRA.Money;
 
 package body HRA.Render is
@@ -199,12 +200,14 @@ package body HRA.Render is
            (Buf,
             "+- OPEN -------------------------------------------------------------------------------+" &
             ASCII.LF);
-         Append (Buf, "| ID       : " & To_String (Issue.Issue_ID) & ASCII.LF);
-         Append (Buf, "| Recorded : " & To_String (Issue.Date_Str) & ASCII.LF);
-         Append
-           (Buf,
-            "| Amount   : " & Render_Quantity (Issue.Amt.Val) & " " &
-            Code (Issue.Amt.Comm) & ASCII.LF);
+         Append (Buf, "| ID       : " & HRA.Issues.Text (Issue.ID) & ASCII.LF);
+         Append (Buf, "| Recorded : " & HRA.Dates.Image (Issue.Recorded_On) & ASCII.LF);
+         if Issue.Amt.Has_Amount then
+            Append
+              (Buf,
+               "| Amount   : " & Render_Quantity (Issue.Amt.Value.Val) & " " &
+               Code (Issue.Amt.Value.Comm) & ASCII.LF);
+         end if;
          Append (Buf, "| Title    : " & To_String (Issue.Title) & ASCII.LF);
          Append
            (Buf,

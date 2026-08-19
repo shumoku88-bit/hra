@@ -2,8 +2,6 @@ with HRA.Journal_Loader;
 with HRA.Canonical_Source; use HRA.Canonical_Source;
 with HRA.Config_Support;
 with HRA.Budget_Source_Adapter;
-with HRA.Actual_Admission;
-with HRA.Plan;
 with HRA.Plan_Observation;
 
 package body HRA.Household is
@@ -376,14 +374,28 @@ package body HRA.Household is
          return False;
       end if;
 
-      if not Parse_Issues_TSV
-        (Text_For (Observation, Issues_Source), Result.Issues)
-      then
-         Error_Msg := To_Unbounded_String
-           (Path_For (Observation.Paths, Issues_Source) &
-            ": invalid issues.tsv");
-         return False;
-      end if;
+      declare
+         Issues_Diag : HRA.Issues.Admission_Diagnostic;
+      begin
+         if not HRA.Issues.Admit_Issues_TSV
+           (Text_For (Observation, Issues_Source), Result.Issues, Issues_Diag)
+         then
+            Error_Msg := To_Unbounded_String
+              (Path_For (Observation.Paths, Issues_Source) & ":" &
+               (if Issues_Diag.Line_Number > 0
+                then Natural'Image (Issues_Diag.Line_Number) & ":"
+                else "") &
+               " failed Issues admission: " &
+               HRA.Issues.Admission_Status'Image (Issues_Diag.Status) &
+               (if Length (Issues_Diag.Issue_ID) > 0
+                then " [issue-id=" & To_String (Issues_Diag.Issue_ID) & "]"
+                else "") &
+               (if Length (Issues_Diag.Message) > 0
+                then ": " & To_String (Issues_Diag.Message)
+                else ""));
+            return False;
+         end if;
+      end;
 
       Result.Combined_Ledger.Registry := Result.Registry;
       Result.Actual_Ledger.Registry   := Result.Registry;

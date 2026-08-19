@@ -163,7 +163,10 @@ begin
       "count = 10" & ASCII.LF);
 
    Observation.Texts (Issues_Source) := To_Unbounded_String
-     ("issue_id" & ASCII.HT & "status" & ASCII.LF);
+     ("issue_id" & ASCII.HT & "status" & ASCII.HT & "date" & ASCII.HT &
+      "due" & ASCII.HT & "closed" & ASCII.HT & "category" & ASCII.HT &
+      "title" & ASCII.HT & "amount" & ASCII.HT & "currency" & ASCII.HT &
+      "details" & ASCII.LF);
 
    Assert
      (HRA.Household.Admit_Canonical_Household
