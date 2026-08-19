@@ -1,3 +1,5 @@
+with HRA.Ledger;
+
 package body HRA.Account_Reconciliation is
 
    function Observe_External_Balance
@@ -25,12 +27,12 @@ package body HRA.Account_Reconciliation is
    is (Observation.Value);
 
    function Reconcile
-     (Actual_Ledger : HRA.Ledger.Ledger;
-      External      : External_Balance_Observation) return Reconciliation
+     (Actual   : HRA.Actual_Admission.Actual_Observation;
+      External : External_Balance_Observation) return Reconciliation
    is
       Canonical : constant HRA.Money.Balance :=
         HRA.Ledger.Compute_Account_Balance_Through
-          (Actual_Ledger,
+          (Actual.Value,
            External.Acc,
            External.Observed_On);
    begin
