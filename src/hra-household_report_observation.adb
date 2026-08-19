@@ -1,3 +1,7 @@
+with HRA.Envelope_Commitment;
+with HRA.Envelope_Consumption;
+with HRA.Envelope_Entitlement;
+with HRA.Envelope_Position;
 with HRA.Household_Envelope_Observation;
 
 package body HRA.Household_Report_Observation is
@@ -20,20 +24,23 @@ package body HRA.Household_Report_Observation is
       Report_Status : HRA.Report_Plan.Resolve_Status;
       Recent_Status : HRA.Recent_Journal.Observe_Status;
       Payment_Diag  : HRA.Planned_Payments.Admission_Diagnostic;
-      Envelope_Obs  : HRA.Household_Envelope_Observation.Observation;
-      Output        : Report_Observation;
+      Envelope_Obs : HRA.Household_Envelope_Observation.Observation;
+      Funding      : HRA.Backing_Policy.Funding_Commitment_Observation;
+      Backing      : HRA.Backing_Policy.Backing_Observation;
+      Output       : Report_Observation;
 
       function Build_Envelope_Report return Boolean is
          View : Envelope_Report_Observation;
       begin
          View.Observed_Through := Observed_Through;
-         View.Current_Cycle := Output.Current_Cycle;
+         View.Current_Cycle := Envelope_Obs.Current_Cycle;
          View.Signed_Envelope_Total := Empty_Balance;
          View.Unallocated :=
            HRA.Envelope_Entitlement.Unallocated_Balance
-             (Output.Entitlement);
-         View.Total_Funding_Assets := Output.Backing.Total_Assets;
-         View.Backing_Status := Fully_Backed;
+             (Envelope_Obs.Entitlement);
+         View.Total_Funding_Assets := Backing.Total_Assets;
+         View.Backing_Status :=
+           HRA.Backing_Policy.Backing_Condition_For (Backing);
 
          --  Current membership and order are admitted policy. Resolve stable
          --  identity once here; a renderer must never reconstruct it from text.
@@ -49,7 +56,7 @@ package body HRA.Household_Report_Observation is
                     ("report Envelope identity is unavailable: " & Id_Text);
                   return False;
                elsif not HRA.Envelope_Position.Has_Explanation
-                 (Output.Envelope_Positions, Env_Id)
+                 (Envelope_Obs.Envelope_Positions, Env_Id)
                then
                   Error_Msg := To_Unbounded_String
                     ("report Envelope explanation is unavailable: " & Id_Text);
@@ -59,7 +66,7 @@ package body HRA.Household_Report_Observation is
                declare
                   Why : constant HRA.Envelope_Position.Explanation :=
                     HRA.Envelope_Position.Explain
-                      (Output.Envelope_Positions, Env_Id);
+                      (Envelope_Obs.Envelope_Positions, Env_Id);
                begin
                   View.Lines.Append
                     (Envelope_Report_Line'
@@ -84,7 +91,7 @@ package body HRA.Household_Report_Observation is
             end;
          end loop;
 
-         for Cursor in Output.Consumption.Unmanaged.Iterate loop
+         for Cursor in Envelope_Obs.Consumption.Unmanaged.Iterate loop
             declare
                Name : constant String :=
                  HRA.Envelope_Consumption.Account_Amounts_Maps.Key (Cursor);
@@ -101,7 +108,7 @@ package body HRA.Household_Report_Observation is
             end;
          end loop;
 
-         for Cursor in Output.Consumption.Unrouted.Iterate loop
+         for Cursor in Envelope_Obs.Consumption.Unrouted.Iterate loop
             declare
                Name : constant String :=
                  HRA.Envelope_Consumption.Account_Amounts_Maps.Key (Cursor);
@@ -118,7 +125,7 @@ package body HRA.Household_Report_Observation is
             end;
          end loop;
 
-         for Cursor in Output.Commitment.Unmanaged.Iterate loop
+         for Cursor in Envelope_Obs.Commitment.Unmanaged.Iterate loop
             View.Unmanaged_Commitment.Append
               (Account_Commitment_Line'
                  (Account_Name => To_Unbounded_String
@@ -128,7 +135,7 @@ package body HRA.Household_Report_Observation is
                       (Cursor)));
          end loop;
 
-         for Cursor in Output.Commitment.Unrouted.Iterate loop
+         for Cursor in Envelope_Obs.Commitment.Unrouted.Iterate loop
             View.Unrouted_Commitment.Append
               (Account_Commitment_Line'
                  (Account_Name => To_Unbounded_String
@@ -138,21 +145,13 @@ package body HRA.Household_Report_Observation is
                       (Cursor)));
          end loop;
 
-         for Cursor in Output.Backing.Positions.Iterate loop
+         for Cursor in Backing.Positions.Iterate loop
             declare
                Position : constant HRA.Backing_Policy.Backing_Pool_Position :=
                  HRA.Backing_Policy.Pool_Position_Maps.Element (Cursor);
                Gross : constant Balance :=
                  HRA.Backing_Policy.Gross_Surplus (Position);
             begin
-               --  Backing condition is evaluated over every Commodity. It is
-               --  never narrowed to the configured primary Commodity.
-               for Item of Entries (Gross) loop
-                  if Item.Val < Zero_Quantity then
-                     View.Backing_Status := Under_Backed;
-                  end if;
-               end loop;
-
                View.Backing_Lines.Append
                  (Backing_Report_Line'
                     (Pool_Id                     => Position.Pool_Id,
@@ -186,21 +185,12 @@ package body HRA.Household_Report_Observation is
 
       Output.Observed_Through := Envelope_Obs.Observed_Through;
       Output.Section_Order := Current_Section_Order;
-      Output.Open_Plans := Envelope_Obs.Open_Plans;
-      Output.Completed_Plans := Envelope_Obs.Completed_Plans;
-      Output.Current_Cycle := Envelope_Obs.Current_Cycle;
-      Output.Entitlement := Envelope_Obs.Entitlement;
-      Output.Consumption := Envelope_Obs.Consumption;
-      Output.Fulfillment := Envelope_Obs.Fulfillment;
-      Output.Commitment := Envelope_Obs.Commitment;
-      Output.Envelope_Positions := Envelope_Obs.Envelope_Positions;
-
       --  Report policy is resolved exactly once. Every bounded section below
       --  consumes a coordinate from this one resolved plan.
       if not HRA.Report_Plan.Resolve_With_Current_Cycle
         (Observed_Through,
          State.Actual_Ledger,
-         Output.Current_Cycle,
+         Envelope_Obs.Current_Cycle,
          State.Report_Policy.Plan,
          Output.Query_Plan,
          Report_Status)
@@ -220,15 +210,9 @@ package body HRA.Household_Report_Observation is
             Output.Account_Balances.Display_Lines.Append (Line);
          end if;
       end loop;
-      Output.Account_Balances.Is_Balanced :=
-        Is_Zero_Balance (Output.Account_Balances.Value.Total);
-
       Output.Balance_Sheet.As_Of := Output.Query_Plan.Balance_Sheet_As_Of;
       Output.Balance_Sheet.Value := HRA.Report.Generate_Balance_Sheet_As_Of
         (State.Actual_Ledger, Output.Balance_Sheet.As_Of);
-      Output.Balance_Sheet.Equation_Is_Balanced :=
-        Is_Zero_Balance
-          (Output.Balance_Sheet.Value.Accounting_Equation_Delta);
       Output.Profit_And_Loss.Period := Output.Query_Plan.Profit_And_Loss;
       Output.Profit_And_Loss.Value := HRA.Report.Generate_Profit_And_Loss_Period
         (State.Actual_Ledger, Output.Profit_And_Loss.Period);
@@ -248,7 +232,7 @@ package body HRA.Household_Report_Observation is
       end if;
 
       if not HRA.Planned_Payments.Project
-        (Output.Open_Plans,
+        (Envelope_Obs.Open_Plans,
          State.Registry,
          Observed_Through,
          Output.Planned_Payments,
@@ -270,19 +254,17 @@ package body HRA.Household_Report_Observation is
         Output.Open_Issues.Total_Count -
         Natural (Output.Open_Issues.Open_Items.Length);
 
-      Output.Funding_Commitment :=
-        HRA.Backing_Policy.Observe_Funding_Commitment
-          (State.Backing_Policy_Spec,
-           Output.Open_Plans,
-           Output.Current_Cycle);
+      Funding := HRA.Backing_Policy.Observe_Funding_Commitment
+        (State.Backing_Policy_Spec,
+         Envelope_Obs.Open_Plans,
+         Envelope_Obs.Current_Cycle);
 
-      Output.Backing :=
-        HRA.Backing_Policy.Observe_Backing
-          (State.Backing_Policy_Spec,
-           State.Actual_Ledger,
-           Observed_Through,
-           Output.Envelope_Positions,
-           Output.Funding_Commitment);
+      Backing := HRA.Backing_Policy.Observe_Backing
+        (State.Backing_Policy_Spec,
+         State.Actual_Ledger,
+         Observed_Through,
+         Envelope_Obs.Envelope_Positions,
+         Funding);
 
       if not Build_Envelope_Report then
          return False;

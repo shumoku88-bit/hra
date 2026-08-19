@@ -4,15 +4,9 @@ with HRA.Backing_Policy;
 with HRA.Cycle_Observation;
 with HRA.Dates;
 with HRA.Envelope;
-with HRA.Envelope_Commitment;
-with HRA.Envelope_Consumption;
-with HRA.Envelope_Entitlement;
-with HRA.Envelope_Fulfillment;
-with HRA.Envelope_Position;
 with HRA.Household;
 with HRA.Issues;
 with HRA.Money; use HRA.Money;
-with HRA.Plan_Observation;
 with HRA.Planned_Payments;
 with HRA.Recent_Journal;
 with HRA.Report;
@@ -91,8 +85,6 @@ package HRA.Household_Report_Observation is
      (Index_Type   => Positive,
       Element_Type => Backing_Report_Line);
 
-   type Backing_Condition is (Fully_Backed, Under_Backed);
-
    type Envelope_Report_Observation is record
       Observed_Through       : HRA.Dates.Date;
       Current_Cycle          : HRA.Cycle_Observation.Cycle_Window;
@@ -105,20 +97,21 @@ package HRA.Household_Report_Observation is
       Signed_Envelope_Total  : Balance;
       Unallocated            : Balance;
       Total_Funding_Assets   : Balance;
-      Backing_Status         : Backing_Condition := Fully_Backed;
+      Backing_Status         : HRA.Backing_Policy.Backing_Condition :=
+        HRA.Backing_Policy.Fully_Backed;
    end record;
 
+   --  Display_Lines is the current report section's explicit zero-row policy,
+   --  not a second Trial Balance. Exact totals remain authoritative in Value.
    type Account_Balances_Report_Observation is record
       As_Of         : HRA.Dates.Date;
       Value         : HRA.Report.Trial_Balance;
       Display_Lines : HRA.Report.Line_Vectors.Vector;
-      Is_Balanced   : Boolean := False;
    end record;
 
    type Balance_Sheet_Report_Observation is record
-      As_Of                : HRA.Dates.Date;
-      Value                : HRA.Report.Balance_Sheet;
-      Equation_Is_Balanced : Boolean := False;
+      As_Of : HRA.Dates.Date;
+      Value : HRA.Report.Balance_Sheet;
    end record;
 
    type Profit_And_Loss_Report_Observation is record
@@ -143,20 +136,6 @@ package HRA.Household_Report_Observation is
       Recent_Journal     : HRA.Recent_Journal.Observation;
       Planned_Payments   : HRA.Planned_Payments.Observation;
       Open_Issues        : Issues_Report_Observation;
-
-      --  Retain the constituent typed observations for non-rendering
-      --  application consumers. The ordered report projections above remain
-      --  the sole input to the current renderers.
-      Open_Plans         : HRA.Plan_Observation.Open_Plan_Vectors.Vector;
-      Completed_Plans    : HRA.Plan_Observation.Completed_Plan_Vectors.Vector;
-      Current_Cycle      : HRA.Cycle_Observation.Cycle_Window;
-      Entitlement        : HRA.Envelope_Entitlement.Entitlement_Observation;
-      Consumption        : HRA.Envelope_Consumption.Envelope_Consumption;
-      Fulfillment        : HRA.Envelope_Fulfillment.Envelope_Fulfillment;
-      Commitment         : HRA.Envelope_Commitment.Commitment_Observation;
-      Envelope_Positions : HRA.Envelope_Position.Observation;
-      Funding_Commitment : HRA.Backing_Policy.Funding_Commitment_Observation;
-      Backing            : HRA.Backing_Policy.Backing_Observation;
    end record;
 
    function Observe

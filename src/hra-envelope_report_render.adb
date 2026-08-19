@@ -1,4 +1,5 @@
 with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
+with HRA.Backing_Policy;
 with HRA.Cycle_Observation;
 with HRA.Dates;
 with HRA.Envelope;
@@ -179,10 +180,9 @@ package body HRA.Envelope_Report_Render is
         (Buf,
          "Status: " &
          (case Observation.Backing_Status is
-             when HRA.Household_Report_Observation.Fully_Backed =>
-               "fully_backed",
-             when HRA.Household_Report_Observation.Under_Backed =>
-               "under_backed") & ASCII.LF);
+             when HRA.Backing_Policy.Fully_Backed => "fully_backed",
+             when HRA.Backing_Policy.Under_Backed => "under_backed") &
+         ASCII.LF);
 
       return To_String (Buf);
    end Render;

@@ -21,7 +21,7 @@ with HRA.Report_Config;
 
 procedure Test_Household_Report_Observation is
    use type HRA.Dates.Date;
-   use type HRA.Household_Report_Observation.Backing_Condition;
+   use type HRA.Backing_Policy.Backing_Condition;
    use type HRA.Household_Report_Observation.Current_Report_Section_Order;
    use type HRA.Money.Quantity;
 
@@ -289,7 +289,7 @@ begin
       and then HRA.Money.Lookup_Balance
         (Observation.Envelope_Report.Lines.Element (1).Entitlement, USD) = 10.0
       and then Observation.Envelope_Report.Backing_Status =
-        HRA.Household_Report_Observation.Under_Backed,
+        HRA.Backing_Policy.Under_Backed,
       "Envelope result and Backing condition retain every Commodity");
 
    declare

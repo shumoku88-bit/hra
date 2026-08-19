@@ -49,6 +49,27 @@ package body HRA.Backing_Policy is
         (Available_Funding (Pos), Pos.Available_Envelope_Required);
    end Available_Surplus;
 
+   function Backing_Condition_For
+     (Obs : Backing_Observation) return Backing_Condition
+   is
+   begin
+      for Cursor in Obs.Positions.Iterate loop
+         declare
+            Position : constant Backing_Pool_Position :=
+              Pool_Position_Maps.Element (Cursor);
+         begin
+            --  Gross_Surplus remains the arithmetic owner. Classification
+            --  observes every retained Commodity coordinate of that result.
+            for Item of Entries (Gross_Surplus (Position)) loop
+               if Item.Val < Zero_Quantity then
+                  return Under_Backed;
+               end if;
+            end loop;
+         end;
+      end loop;
+      return Fully_Backed;
+   end Backing_Condition_For;
+
    function Admit_Backing_Policy
      (Config   : Budget_Config.Budget_Policy;
       Registry : Envelope.Envelope_Registry;

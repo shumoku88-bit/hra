@@ -1258,21 +1258,21 @@ begin
 
       Assert
         (Lookup_Balance
-           (HRA.Envelope_Entitlement.Entitlement_For
-              (Obs_Day5.Entitlement, Food_Env), JPY) = 100.0,
+           (Obs_Day5.Envelope_Report.Lines.Element (1).Entitlement, JPY) = 100.0,
          "Law L: Day 5 Food Entitlement is 100 JPY");
       Assert
         (Lookup_Balance
-           (HRA.Envelope_Entitlement.Entitlement_For
-              (Obs_Day5.Entitlement, Daily_Env), JPY) = Zero_Quantity,
+           (Obs_Day5.Envelope_Report.Lines.Element (2).Entitlement, JPY) =
+             Zero_Quantity,
          "Law L: Day 5 Daily Entitlement is 0 JPY");
       Assert
         (Lookup_Balance
-           (Position_For (Obs_Day5.Envelope_Positions, Food_Env).Remaining, JPY) = 100.0,
+           (Obs_Day5.Envelope_Report.Lines.Element (1).Remaining, JPY) = 100.0,
          "Law L: Day 5 Food Remaining is 100 JPY");
       Assert
         (Lookup_Balance
-           (Position_For (Obs_Day5.Envelope_Positions, Daily_Env).Remaining, JPY) = Zero_Quantity,
+           (Obs_Day5.Envelope_Report.Lines.Element (2).Remaining, JPY) =
+             Zero_Quantity,
          "Law L: Day 5 Daily Remaining is 0 JPY");
 
       Render_D5 := To_Unbounded_String
@@ -1298,21 +1298,19 @@ begin
 
       Assert
         (Lookup_Balance
-           (HRA.Envelope_Entitlement.Entitlement_For
-              (Obs_Day10.Entitlement, Food_Env), JPY) = 130.0,
+           (Obs_Day10.Envelope_Report.Lines.Element (1).Entitlement, JPY) = 130.0,
          "Law L: Day 10 Food Entitlement is 130 JPY (100 + 50 - 20)");
       Assert
         (Lookup_Balance
-           (HRA.Envelope_Entitlement.Entitlement_For
-              (Obs_Day10.Entitlement, Daily_Env), JPY) = 20.0,
+           (Obs_Day10.Envelope_Report.Lines.Element (2).Entitlement, JPY) = 20.0,
          "Law L: Day 10 Daily Entitlement is 20 JPY");
       Assert
         (Lookup_Balance
-           (Position_For (Obs_Day10.Envelope_Positions, Food_Env).Remaining, JPY) = 130.0,
+           (Obs_Day10.Envelope_Report.Lines.Element (1).Remaining, JPY) = 130.0,
          "Law L: Day 10 Food Remaining is 130 JPY");
       Assert
         (Lookup_Balance
-           (Position_For (Obs_Day10.Envelope_Positions, Daily_Env).Remaining, JPY) = 20.0,
+           (Obs_Day10.Envelope_Report.Lines.Element (2).Remaining, JPY) = 20.0,
          "Law L: Day 10 Daily Remaining is 20 JPY");
 
       Render_D10 := To_Unbounded_String

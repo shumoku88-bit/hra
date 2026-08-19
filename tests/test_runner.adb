@@ -1033,20 +1033,18 @@ procedure Test_Runner is
            Render_Account_Balances
              ((As_Of         => Report_Day,
                Value         => TB_Obj,
-               Display_Lines => TB_Obj.Lines,
-               Is_Balanced   => Is_Zero_Balance (TB_Obj.Total)));
+               Display_Lines => TB_Obj.Lines));
          BS_Report  : constant String :=
            Render_Balance_Sheet
-             ((As_Of                => Report_Day,
-               Value                => BS_Obj,
-               Equation_Is_Balanced =>
-                 Is_Zero_Balance (BS_Obj.Accounting_Equation_Delta)));
+             ((As_Of => Report_Day, Value => BS_Obj));
          PL_Report  : constant String :=
            Render_Profit_And_Loss
              ((Period => PL_Period, Value => PL_Obj));
       begin
          Assert (Index (Bal_Report, "assets:cash | 13,000 JPY") > 0, "Equivalence: assets:cash = 13,000 JPY as of 2026-07-31");
-         Assert (Index (Bal_Report, "Balanced: YES") > 0, "Account Balances verified Balanced: YES");
+         Assert
+           (Index (Bal_Report, "Balance delta: 0") > 0,
+            "Account Balances renders the exact zero balance delta");
 
          Assert (Index (BS_Report, "Total assets | 13,000 JPY") > 0, "Equivalence: Balance Sheet Total Assets = 13,000 JPY");
          Assert (Index (BS_Report, "Current earnings | 3,000 JPY") > 0, "Equivalence: Balance Sheet Current Earnings = 3,000 JPY");

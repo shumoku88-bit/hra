@@ -82,6 +82,14 @@ package HRA.Backing_Policy is
       Total_Assets : Balance;
    end record;
 
+   type Backing_Condition is (Fully_Backed, Under_Backed);
+
+   --  Classify the complete Backing observation without narrowing to a primary
+   --  Commodity. A negative Gross_Surplus coordinate in any pool means the
+   --  Household is under-backed at that observation.
+   function Backing_Condition_For
+     (Obs : Backing_Observation) return Backing_Condition;
+
    --  Base admitted-Household view. Funding reflects the complete admitted
    --  Ledger; claims come directly from base Envelope_Position.Observation.
    function Observe_Backing

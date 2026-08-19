@@ -21,6 +21,7 @@ with HRA.Plan;
 with HRA.Plan_Observation;
 
 procedure Test_Envelope_Commitment is
+   use type HRA.Backing_Policy.Backing_Condition;
    use type HRA.Backing_Policy.Policy_Status;
    use type HRA.Fulfillment_Routing.Admission_Status;
    use type HRA.Money.Quantity;
@@ -343,6 +344,35 @@ begin
            (HRA.Money.Lookup_Balance (Position.Funding_Balance, JPY) = 2450.0,
             "Funding becomes visible on its own observation day");
       end;
+   end;
+
+   declare
+      USD : constant HRA.Money.Commodity :=
+        HRA.Money.Make_Commodity ("USD");
+      Mixed : HRA.Backing_Policy.Backing_Observation;
+      Position : HRA.Backing_Policy.Backing_Pool_Position :=
+        (Pool_Id                     => To_Unbounded_String ("mixed"),
+         Claims                      =>
+           HRA.Backing_Policy.Claim_Vectors.Empty_Vector,
+         Funding_Balance             => HRA.Money.Singleton_Balance
+           (HRA.Money.Make_Amount (JPY, 200.0)),
+         Funding_Commitment          => HRA.Money.Empty_Balance,
+         Gross_Envelope_Required     => HRA.Money.Add_Balance
+           (HRA.Money.Singleton_Balance
+              (HRA.Money.Make_Amount (JPY, 100.0)),
+            HRA.Money.Singleton_Balance
+              (HRA.Money.Make_Amount (USD, 10.0))),
+         Available_Envelope_Required => HRA.Money.Empty_Balance);
+      Gross : HRA.Money.Balance;
+   begin
+      Mixed.Positions.Insert ("mixed", Position);
+      Gross := HRA.Backing_Policy.Gross_Surplus (Position);
+      Assert
+        (HRA.Money.Lookup_Balance (Gross, JPY) = 100.0
+         and then HRA.Money.Lookup_Balance (Gross, USD) = -10.0
+         and then HRA.Backing_Policy.Backing_Condition_For (Mixed) =
+           HRA.Backing_Policy.Under_Backed,
+         "Backing condition inspects every Commodity, not only positive JPY");
    end;
 
    Put_Line

@@ -62,7 +62,7 @@ package body HRA.Render is
       Append (Buf, ASCII.LF);
       Append
         (Buf,
-         (if Value.Is_Balanced then "Balanced: YES" else "Balanced: NO") &
+         "Balance delta: " & Render_Multi_Balance (Value.Value.Total) &
          ASCII.LF);
       return To_String (Buf);
    end Render_Account_Balances;
@@ -122,10 +122,9 @@ package body HRA.Render is
          Render_Multi_Balance (Value.Value.Current_Earnings) & ASCII.LF);
       Append
         (Buf,
-         "Accounting Equation (Assets = Liabilities + Equity): " &
-         (if Value.Equation_Is_Balanced
-          then "BALANCED (delta is strictly ZERO)"
-          else "UNBALANCED") & ASCII.LF);
+         "Accounting Equation delta (Assets - Liabilities - Equity): " &
+         Render_Multi_Balance (Value.Value.Accounting_Equation_Delta) &
+         ASCII.LF);
       return To_String (Buf);
    end Render_Balance_Sheet;
 
