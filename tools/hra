@@ -63,6 +63,7 @@ run_tests() {
   "$project_root/tests/bin/test_issues_admission"
   "$project_root/tests/bin/test_issue_observation"
   "$project_root/tests/bin/test_household_home_observation"
+  "$project_root/tests/bin/test_household_home_presentation"
 }
 
 command="${1:-help}"

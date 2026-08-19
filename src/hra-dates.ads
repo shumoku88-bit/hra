@@ -19,7 +19,9 @@ package HRA.Dates is
    function ">"  (Left, Right : Date) return Boolean;
    function ">=" (Left, Right : Date) return Boolean;
 
-   function Next (Value : Date) return Date;
+   function Has_Next (Value : Date) return Boolean;
+   function Next (Value : Date) return Date
+     with Pre => Has_Next (Value);
 
    --  Date is intentionally bounded to Gregorian years 1 .. 9999. Previous is
    --  therefore a partial temporal operation with an explicit predicate rather
@@ -31,6 +33,25 @@ package HRA.Dates is
    function Year  (Value : Date) return Positive;
    function Month (Value : Date) return Positive;
    function Day   (Value : Date) return Positive;
+
+   function First_Of_Month (Value : Date) return Date;
+   function Last_Of_Month  (Value : Date) return Date;
+
+   type Day_Of_Week is
+     (Monday,
+      Tuesday,
+      Wednesday,
+      Thursday,
+      Friday,
+      Saturday,
+      Sunday);
+
+   function Day_Of_Week_Of (Value : Date) return Day_Of_Week;
+
+   function Days_In_Month
+     (Year  : Positive;
+      Month : Positive) return Positive
+     with Pre => Year in 1 .. 9_999 and then Month in 1 .. 12;
 
    type Closed_Period is private;
 
