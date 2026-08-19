@@ -4,8 +4,6 @@ with HRA.Dates;   use HRA.Dates;
 with HRA.Household_Home_Interaction; use HRA.Household_Home_Interaction;
 
 procedure Test_Household_Home_Interaction is
-   use type HRA.Household_Home_Interaction.Transition_Status;
-
    Passed_Count : Natural := 0;
    Failed_Count : Natural := 0;
 
