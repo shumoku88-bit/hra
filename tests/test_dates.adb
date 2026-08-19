@@ -154,6 +154,26 @@ begin
      (Days_In_Month (2026, 4) = 30,
       "Days_In_Month(2026, 4) = 30");
 
+   Assert
+     (Has_Next (Must_Date ("2026-08-19")),
+      "ordinary day has successor");
+   Assert
+     (not Has_Next (Must_Date ("9999-12-31")),
+      "maximum supported Gregorian day has no successor");
+
+   Assert
+     (Image (First_Of_Month (Must_Date ("2026-08-19"))) = "2026-08-01",
+      "First_Of_Month(2026-08-19) is 2026-08-01");
+   Assert
+     (Image (Last_Of_Month (Must_Date ("2026-08-19"))) = "2026-08-31",
+      "Last_Of_Month(2026-08-19) is 2026-08-31");
+   Assert
+     (Image (Last_Of_Month (Must_Date ("2024-02-15"))) = "2024-02-29",
+      "Last_Of_Month(2024-02-15) is 2024-02-29 (leap)");
+   Assert
+     (Image (Last_Of_Month (Must_Date ("2026-02-15"))) = "2026-02-28",
+      "Last_Of_Month(2026-02-15) is 2026-02-28 (common)");
+
    Put_Line
      (Natural'Image (Passed_Count) & " passed, " &
       Natural'Image (Failed_Count) & " failed");

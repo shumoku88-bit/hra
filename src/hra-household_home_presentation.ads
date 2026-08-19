@@ -5,15 +5,25 @@ with HRA.Household_Home_Observation;
 with HRA.Report_Config;
 
 --  Pure presentation mapping for Household Home observation.
---  Transforms semantic Home_Observation into UI/render-ready view models:
+--  Transforms semantic Home_Observation into UI-neutral structured view models:
 --    - Monthly calendar grid with attention markers
---    - Formatted Selected-Day details for Actual, Plan, Issue, and Cycle
---    - Pure text rendering for CLI / TUI previews
+--    - Structured Selected-Day details for Actual, Plan, Issue, and Cycle
+--
+--  Terminal-specific formatting (fixed-width cells, ASCII boxes, layout)
+--  is strictly excluded and owned by HRA.Household_Home_Text.
 package HRA.Household_Home_Presentation is
 
    --  ========================================================================
-   --  Attention Marker Resolution
+   --  Attention Presentation Model
    --  ========================================================================
+
+   type Attention_State is (Absent, Present, Unavailable);
+
+   type Attention_Summary is record
+      Plan_Scheduled : Attention_State := Absent;
+      Issue_Due      : Attention_State := Absent;
+      Cycle_End      : Attention_State := Absent;
+   end record;
 
    --  Resolve attention facts (Plan_Scheduled, Issue_Due, Cycle_End) into a
    --  single character marker using configured marker glyphs:
@@ -23,6 +33,11 @@ package HRA.Household_Home_Presentation is
    --        Issue_Due = Present      => Markers.Issue_Due (default '!')
    --        Cycle_End = Present      => Markers.Cycle_End (default '|')
    --    - 0 Present (Absent / Unavailable): ' '
+   function Resolve_Marker
+     (Attention : Attention_Summary;
+      Markers   : HRA.Report_Config.Calendar_Markers) return Character;
+
+   --  Overload accepting semantic Attention_Observation directly
    function Resolve_Marker
      (Attention : HRA.Household_Home_Observation.Attention_Observation;
       Markers   : HRA.Report_Config.Calendar_Markers) return Character;
@@ -38,7 +53,7 @@ package HRA.Household_Home_Presentation is
       Is_Selected         : Boolean := False;
       Is_Observed_Through : Boolean := False;
       Is_Future           : Boolean := False;
-      Attention           : HRA.Household_Home_Observation.Attention_Observation;
+      Attention           : Attention_Summary;
       Marker              : Character := ' ';
    end record;
 
@@ -58,53 +73,47 @@ package HRA.Household_Home_Presentation is
    --  Selected Day Domain Presentations
    --  ========================================================================
 
+   type Domain_Availability is (Available, Unavailable);
+
    --  Actual Detail Presentation
    type Actual_Item is record
       Transaction_Id : Unbounded_String;
       Date_Text      : Unbounded_String;
       Description    : Unbounded_String;
       Postings_Text  : Unbounded_String;
-      Total_Amount   : Unbounded_String;
    end record;
 
    package Actual_Item_Vectors is new Ada.Containers.Vectors
      (Index_Type   => Positive,
       Element_Type => Actual_Item);
 
-   type Actual_Presentation
-     (Status : HRA.Household_Home_Observation.Actual_Availability :=
-        HRA.Household_Home_Observation.Unavailable)
-   is record
+   type Actual_Presentation (Status : Domain_Availability := Unavailable) is record
       case Status is
-         when HRA.Household_Home_Observation.Available =>
+         when Available =>
             Items : Actual_Item_Vectors.Vector;
-         when HRA.Household_Home_Observation.Unavailable =>
+         when Unavailable =>
             Unavailable_Message : Unbounded_String;
       end case;
    end record;
 
    --  Plan Detail Presentation
    type Plan_Item is record
-      Plan_Id       : Unbounded_String;
-      Due_Date_Text : Unbounded_String;
-      Status_Text   : Unbounded_String;
-      Description   : Unbounded_String;
-      Postings_Text : Unbounded_String;
-      Total_Amount  : Unbounded_String;
+      Plan_Id             : Unbounded_String;
+      Scheduled_Date_Text : Unbounded_String;
+      Status_Text         : Unbounded_String;
+      Description         : Unbounded_String;
+      Postings_Text       : Unbounded_String;
    end record;
 
    package Plan_Item_Vectors is new Ada.Containers.Vectors
      (Index_Type   => Positive,
       Element_Type => Plan_Item);
 
-   type Plan_Presentation
-     (Status : HRA.Household_Home_Observation.Plan_Availability :=
-        HRA.Household_Home_Observation.Unavailable)
-   is record
+   type Plan_Presentation (Status : Domain_Availability := Unavailable) is record
       case Status is
-         when HRA.Household_Home_Observation.Available =>
+         when Available =>
             Items : Plan_Item_Vectors.Vector;
-         when HRA.Household_Home_Observation.Unavailable =>
+         when Unavailable =>
             Unavailable_Message : Unbounded_String;
       end case;
    end record;
@@ -124,31 +133,23 @@ package HRA.Household_Home_Presentation is
      (Index_Type   => Positive,
       Element_Type => Issue_Item);
 
-   type Issue_Presentation
-     (Status : HRA.Household_Home_Observation.Issue_Availability :=
-        HRA.Household_Home_Observation.Unavailable)
-   is record
+   type Issue_Presentation (Status : Domain_Availability := Unavailable) is record
       case Status is
-         when HRA.Household_Home_Observation.Available =>
+         when Available =>
             Items : Issue_Item_Vectors.Vector;
-         when HRA.Household_Home_Observation.Unavailable =>
+         when Unavailable =>
             Unavailable_Message : Unbounded_String;
       end case;
    end record;
 
    --  Cycle Detail Presentation
-   type Cycle_Presentation
-     (Status : HRA.Household_Home_Observation.Cycle_Availability :=
-        HRA.Household_Home_Observation.Unavailable)
-   is record
+   type Cycle_Presentation (Status : Domain_Availability := Unavailable) is record
       case Status is
-         when HRA.Household_Home_Observation.Available =>
-            Has_Previous_Window  : Boolean := False;
+         when Available =>
             Previous_Window_Text : Unbounded_String;
-            Has_Current_Window   : Boolean := False;
             Current_Window_Text  : Unbounded_String;
             Focus_Cycle_Role     : Unbounded_String;
-         when HRA.Household_Home_Observation.Unavailable =>
+         when Unavailable =>
             Unavailable_Message : Unbounded_String;
       end case;
    end record;
@@ -161,7 +162,7 @@ package HRA.Household_Home_Presentation is
       Observed_Through : HRA.Dates.Date;
       Selected_Day     : HRA.Dates.Date;
       Is_Future_Focus  : Boolean := False;
-      Attention        : HRA.Household_Home_Observation.Attention_Observation;
+      Attention        : Attention_Summary;
       Calendar         : Calendar_Grid;
       Actual           : Actual_Presentation;
       Plan             : Plan_Presentation;
@@ -175,18 +176,5 @@ package HRA.Household_Home_Presentation is
       Markers     : HRA.Report_Config.Calendar_Markers :=
         (Cycle_End => '|', Plan_Due => '$', Issue_Due => '!', Multiple => '+'))
       return Home_Presentation;
-
-   --  ========================================================================
-   --  Rendering and Text Formatting
-   --  ========================================================================
-
-   --  Format a single cell for terminal grid display (5 columns, e.g. "   19 ", " [19] ", "  25$ ", " [25$]")
-   function Format_Cell (Cell : Calendar_Cell) return String;
-
-   --  Render the monthly calendar grid view
-   function Render_Calendar_Grid (Grid : Calendar_Grid) return String;
-
-   --  Render full Household Home presentation into formatted text
-   function Render_Home (Pres : Home_Presentation) return String;
 
 end HRA.Household_Home_Presentation;

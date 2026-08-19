@@ -119,6 +119,14 @@ package body HRA.Dates is
       return Right <= Left;
    end ">=";
 
+   function Has_Next (Value : Date) return Boolean is
+   begin
+      return not
+        (Value.Y = Year_Number'Last
+         and then Value.M = Month_Number'Last
+         and then Value.D = 31);
+   end Has_Next;
+
    function Next (Value : Date) return Date is
       Max_Day : constant Day_Number := Internal_Days_In_Month (Value.Y, Value.M);
    begin
@@ -171,6 +179,12 @@ package body HRA.Dates is
 
    function Day (Value : Date) return Positive is
      (Positive (Value.D));
+
+   function First_Of_Month (Value : Date) return Date is
+     ((Y => Value.Y, M => Value.M, D => 1));
+
+   function Last_Of_Month (Value : Date) return Date is
+     ((Y => Value.Y, M => Value.M, D => Internal_Days_In_Month (Value.Y, Value.M)));
 
    function Days_In_Month
      (Year  : Positive;
