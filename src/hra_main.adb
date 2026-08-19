@@ -11,6 +11,7 @@ with HRA.Household;          use HRA.Household;
 with HRA.Household_Check_Observation;
 with HRA.Household_Report_Observation;
 with HRA.Household_Home_Command;
+with HRA.Household_Home_TUI;
 with HRA.Render;             use HRA.Render;
 with HRA.Recent_Journal_Render;
 with HRA.Planned_Payments_Render;
@@ -25,6 +26,8 @@ procedure HRA_Main is
       New_Line;
       Put_Line ("Commands:");
       Put_Line ("  home     Render the Household Home overview with calendar and day details");
+      Put_Line ("           Options: [--base ROOT] [--through DATE] [--day DATE]");
+      Put_Line ("  tui      Open the interactive Household Home terminal view");
       Put_Line ("           Options: [--base ROOT] [--through DATE] [--day DATE]");
       Put_Line ("  check    Validate the fixed 8-source topology, typed policy, and balance laws");
       Put_Line ("           Options: [--base ROOT]");
@@ -92,7 +95,7 @@ begin
          Put_Line ("hra " & HRA.Version);
       elsif Cmd = "help" or Cmd = "-h" or Cmd = "--help" then
          Print_Help;
-      elsif Cmd = "home" then
+      elsif Cmd = "home" or else Cmd = "tui" then
          declare
             use HRA.Household_Home_Command;
             Arg_Count : constant Natural := Argument_Count - 1;
@@ -130,11 +133,18 @@ begin
                      return;
                   end if;
 
-                  Put
-                    (Execute_Home
+                  if Cmd = "home" then
+                     Put
+                       (Execute_Home
+                          (State,
+                           Options.Observed_Through,
+                           Options.Selected_Day));
+                  else
+                     HRA.Household_Home_TUI.Run
                        (State,
                         Options.Observed_Through,
-                        Options.Selected_Day));
+                        Options.Selected_Day);
+                  end if;
                end;
             end;
          end;
