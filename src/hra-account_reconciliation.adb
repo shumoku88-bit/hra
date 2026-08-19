@@ -35,9 +35,10 @@ package body HRA.Account_Reconciliation is
            External.Observed_On);
    begin
       return
-        (External => External,
-         Ledger   => Canonical,
-         Delta    => HRA.Money.Subtract_Balance (External.Value, Canonical));
+        (External         => External,
+         Ledger           => Canonical,
+         Difference_Value => HRA.Money.Subtract_Balance
+           (External.Value, Canonical));
    end Reconcile;
 
    function External_Observation
@@ -50,9 +51,9 @@ package body HRA.Account_Reconciliation is
 
    function Difference
      (Result : Reconciliation) return HRA.Money.Balance
-   is (Result.Delta);
+   is (Result.Difference_Value);
 
    function Matches (Result : Reconciliation) return Boolean is
-     (HRA.Money.Is_Zero_Balance (Result.Delta));
+     (HRA.Money.Is_Zero_Balance (Result.Difference_Value));
 
 end HRA.Account_Reconciliation;
