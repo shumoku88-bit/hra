@@ -41,7 +41,7 @@ ensure_local_index() {
   need_alr
   local overlay_path="$project_root/support/alire-index"
   if [[ -d "$overlay_path" ]] && ! alr index 2>/dev/null | grep -q "hra_overlay"; then
-    alr index --add "$overlay_path" --name hra_overlay --before community >&2 || true
+    alr index --add "$overlay_path" --name hra_overlay --before community >&2
   fi
 }
 
