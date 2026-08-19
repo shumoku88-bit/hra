@@ -1,4 +1,6 @@
-package HRA.Dates is
+package HRA.Dates
+  with Pure, SPARK_Mode => On
+is
 
    type Date is private;
 
@@ -10,7 +12,8 @@ package HRA.Dates is
    function Parse
      (Text   : String;
       Value  : out Date;
-      Status : out Date_Status) return Boolean;
+      Status : out Date_Status) return Boolean
+     with SPARK_Mode => Off;
 
    function Image (Value : Date) return String;
 
@@ -58,7 +61,8 @@ package HRA.Dates is
    function Make_Closed_Period
      (First  : Date;
       Last   : Date;
-      Result : out Closed_Period) return Boolean;
+      Result : out Closed_Period) return Boolean
+     with SPARK_Mode => Off;
 
    function First (Period : Closed_Period) return Date;
    function Last  (Period : Closed_Period) return Date;
@@ -72,7 +76,8 @@ package HRA.Dates is
    function Make_Half_Open_Period
      (First  : Date;
       Limit  : Date;
-      Result : out Half_Open_Period) return Boolean;
+      Result : out Half_Open_Period) return Boolean
+     with SPARK_Mode => Off;
 
    function First (Period : Half_Open_Period) return Date;
    function Limit (Period : Half_Open_Period) return Date;
