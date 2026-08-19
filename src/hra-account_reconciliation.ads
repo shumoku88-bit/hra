@@ -28,10 +28,10 @@ package HRA.Account_Reconciliation is
 
    type Reconciliation is private;
 
-   --  Compare the external observation with the typed admitted Actual balance
+   --  Compare the external observation with the opaque admitted Actual balance
    --  as of the same inclusive day. Difference is deliberately external -
-   --  canonical Actual. Requiring Actual_Observation prevents Plan/Budget Ledger
-   --  values from being accepted at this boundary by accident.
+   --  canonical Actual. Actual_Observation itself cannot be assembled around an
+   --  arbitrary Plan/Budget Ledger outside the admission owner.
    function Reconcile
      (Actual   : HRA.Actual_Admission.Actual_Observation;
       External : External_Balance_Observation) return Reconciliation;
