@@ -12,6 +12,7 @@ project HRA_Tests is
       "test_envelope_entitlement_standalone.adb",
       "test_report_plan.adb",
       "test_report_account_order.adb",
+      "test_household_report_observation.adb",
       "test_recent_journal.adb",
       "test_planned_payments.adb",
       "test_envelope_commitment.adb",
@@ -48,6 +49,7 @@ project HRA_Tests is
       for Executable ("test_envelope_entitlement_standalone.adb") use "test_entitlement";
       for Executable ("test_report_plan.adb") use "test_report_plan";
       for Executable ("test_report_account_order.adb") use "test_report_account_order";
+      for Executable ("test_household_report_observation.adb") use "test_household_report_observation";
       for Executable ("test_recent_journal.adb") use "test_recent_journal";
       for Executable ("test_planned_payments.adb") use "test_planned_payments";
       for Executable ("test_envelope_commitment.adb") use "test_envelope_commitment";

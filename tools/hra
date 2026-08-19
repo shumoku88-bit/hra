@@ -49,6 +49,8 @@ run_tests() {
   "$project_root/tests/bin/test_actual_admission"
   "$project_root/tests/bin/test_plan_completion_admission"
   "$project_root/tests/bin/test_report_account_order"
+  "$project_root/tests/bin/test_household_report_observation"
+  "$project_root/tests/bin/test_envelope_commitment"
   "$project_root/tests/bin/test_envelope_explanation"
   "$project_root/tests/bin/test_envelope_change"
   "$project_root/tests/bin/test_envelope_change_baseline"

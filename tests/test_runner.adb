@@ -1020,15 +1020,31 @@ procedure Test_Runner is
       Assert (Parse_Journal_Text (Golden_Journal_Text, L, Err), "Parse h-kernel report contract journal text");
 
       declare
-         Bal_Report : constant String := Render_Account_Balances (L, D ("2026-07-31"));
-         BS_Report  : constant String := Render_Balance_Sheet (L, D ("2026-07-31"));
-         PL_Report  : constant String := Render_Profit_And_Loss (L, P ("2026-07-01", "2026-07-31"));
-
-         BS_Obj     : constant Balance_Sheet := Generate_Balance_Sheet_As_Of (L, D ("2026-07-31"));
-         PL_Obj     : constant Profit_And_Loss := Generate_Profit_And_Loss_Period (L, P ("2026-07-01", "2026-07-31"));
+         Report_Day : constant HRA.Dates.Date := D ("2026-07-31");
+         PL_Period  : constant HRA.Dates.Closed_Period :=
+           P ("2026-07-01", "2026-07-31");
+         TB_Obj     : constant Trial_Balance :=
+           Generate_Trial_Balance_As_Of (L, Report_Day);
+         BS_Obj     : constant Balance_Sheet :=
+           Generate_Balance_Sheet_As_Of (L, Report_Day);
+         PL_Obj     : constant Profit_And_Loss :=
+           Generate_Profit_And_Loss_Period (L, PL_Period);
+         Bal_Report : constant String :=
+           Render_Account_Balances
+             ((As_Of         => Report_Day,
+               Value         => TB_Obj,
+               Display_Lines => TB_Obj.Lines));
+         BS_Report  : constant String :=
+           Render_Balance_Sheet
+             ((As_Of => Report_Day, Value => BS_Obj));
+         PL_Report  : constant String :=
+           Render_Profit_And_Loss
+             ((Period => PL_Period, Value => PL_Obj));
       begin
          Assert (Index (Bal_Report, "assets:cash | 13,000 JPY") > 0, "Equivalence: assets:cash = 13,000 JPY as of 2026-07-31");
-         Assert (Index (Bal_Report, "Balanced: YES") > 0, "Account Balances verified Balanced: YES");
+         Assert
+           (Index (Bal_Report, "Balance delta: 0") > 0,
+            "Account Balances renders the exact zero balance delta");
 
          Assert (Index (BS_Report, "Total assets | 13,000 JPY") > 0, "Equivalence: Balance Sheet Total Assets = 13,000 JPY");
          Assert (Index (BS_Report, "Current earnings | 3,000 JPY") > 0, "Equivalence: Balance Sheet Current Earnings = 3,000 JPY");
