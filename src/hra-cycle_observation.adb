@@ -41,13 +41,13 @@ package body HRA.Cycle_Observation is
       return Has_Income and Has_Asset;
    end Is_Incoming_Anchor;
 
-   function Resolve_Current
+   function Observe
      (Observed_Through : HRA.Dates.Date;
       Actual_Ledger    : HRA.Ledger.Ledger;
       Open_Plans       : HRA.Plan_Observation.Open_Plan_Vectors.Vector;
       Registry         : HRA.Account.Account_Registry;
       Income_Account   : HRA.Account.Account;
-      Window           : out Cycle_Window;
+      Result           : out Observation;
       Status           : out Resolve_Status) return Boolean
    is
       Latest_Actual       : HRA.Dates.Date;
@@ -57,6 +57,8 @@ package body HRA.Cycle_Observation is
       Has_Previous_Actual : Boolean := False;
       Has_Future_Anchor   : Boolean := False;
       Income_Kind         : HRA.Account.Account_Type;
+      Previous_Window     : Cycle_Window;
+      Current_Window      : Cycle_Window;
    begin
       if not HRA.Account.Account_Type_For
         (Registry, Income_Account, Income_Kind)
@@ -130,13 +132,45 @@ package body HRA.Cycle_Observation is
       end if;
 
       if not HRA.Dates.Make_Half_Open_Period
-        (Latest_Actual, Future_Anchor, Window)
+        (Previous_Actual, Latest_Actual, Previous_Window)
+        or else not HRA.Dates.Make_Half_Open_Period
+          (Latest_Actual, Future_Anchor, Current_Window)
       then
          Status := Invalid_Cycle_Window;
          return False;
       end if;
 
+      Result :=
+        (Current_Window  => Current_Window,
+         Previous_Window => Previous_Window);
       Status := Success;
+      return True;
+   end Observe;
+
+   function Resolve_Current
+     (Observed_Through : HRA.Dates.Date;
+      Actual_Ledger    : HRA.Ledger.Ledger;
+      Open_Plans       : HRA.Plan_Observation.Open_Plan_Vectors.Vector;
+      Registry         : HRA.Account.Account_Registry;
+      Income_Account   : HRA.Account.Account;
+      Window           : out Cycle_Window;
+      Status           : out Resolve_Status) return Boolean
+   is
+      Result : Observation;
+   begin
+      if not Observe
+        (Observed_Through,
+         Actual_Ledger,
+         Open_Plans,
+         Registry,
+         Income_Account,
+         Result,
+         Status)
+      then
+         return False;
+      end if;
+
+      Window := Result.Current_Window;
       return True;
    end Resolve_Current;
 
