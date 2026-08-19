@@ -1,4 +1,5 @@
 with Ada.Directories; use Ada.Directories;
+with Ada.Strings.Fixed; use Ada.Strings.Fixed;
 with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
 with Ada.Text_IO; use Ada.Text_IO;
 with ALedger.Dates;
@@ -111,6 +112,8 @@ begin
       "account budget:unassigned" & ASCII.LF &
       "  ; type: Budget" & ASCII.LF &
       "account budget:opening" & ASCII.LF &
+      "  ; type: Budget" & ASCII.LF &
+      "account budget:rogue" & ASCII.LF &
       "  ; type: Budget" & ASCII.LF);
 
    Write_File
@@ -286,6 +289,19 @@ begin
              ALedger.Household_Envelope_Change.Previous_Observation_Unavailable,
          "Missing Previous Observation fails closed without evidence fallback");
    end;
+
+   Write_File
+     (To_String (Paths.Budget_Journal),
+      "2026-08-01 Clean Envelope epoch" & ASCII.LF &
+      "    budget:opening          0 JPY" & ASCII.LF &
+      "    budget:unassigned       0 JPY" & ASCII.LF & ASCII.LF &
+      "2026-08-02 Rogue Budget coordinate" & ASCII.LF &
+      "    budget:unassigned      -1 JPY" & ASCII.LF &
+      "    budget:rogue             1 JPY" & ASCII.LF);
+   Assert
+     (not ALedger.Household.Load_Canonical_Household (Tmp_Dir, State, Err)
+        and then Index (To_String (Err), "unrecognized") > 0,
+      "Canonical Household rejects declared but semantically unknown Budget coordinate");
 
    Delete_Tree (Tmp_Dir);
 
