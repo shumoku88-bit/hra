@@ -124,15 +124,21 @@ begin
      (HRA.Actual_Admission.Identified_Count (Observation) = 2 and then
       HRA.Actual_Admission.Reversal_Count (Observation) = 1,
       "Actual admission retains identified transactions and reversal edge");
-   Assert
-     (Natural (Observation.Value.Transactions.Length) = 2 and then
-      To_String (Observation.Value.Transactions.Element (1).Event_ID) =
-        "plan-completion-plan-a" and then
-      To_String (Observation.Value.Transactions.Element (1).Reverses_ID) = "" and then
-      To_String (Observation.Value.Transactions.Element (2).Event_ID) = "rev-a" and then
-      To_String (Observation.Value.Transactions.Element (2).Reverses_ID) =
-        "plan-completion-plan-a",
-      "Admitted Ledger carries only normalized identity provenance");
+
+   declare
+      Admitted : constant HRA.Ledger.Ledger :=
+        HRA.Actual_Admission.Ledger_Of (Observation);
+   begin
+      Assert
+        (Natural (Admitted.Transactions.Length) = 2 and then
+         To_String (Admitted.Transactions.Element (1).Event_ID) =
+           "plan-completion-plan-a" and then
+         To_String (Admitted.Transactions.Element (1).Reverses_ID) = "" and then
+         To_String (Admitted.Transactions.Element (2).Event_ID) = "rev-a" and then
+         To_String (Admitted.Transactions.Element (2).Reverses_ID) =
+           "plan-completion-plan-a",
+         "Admitted Ledger carries only normalized identity provenance");
+   end;
 
    Assert
      (not Admit_Source (Duplicate_Id_Source, Observation, Diag) and then

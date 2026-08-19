@@ -261,6 +261,12 @@ package body HRA.Household is
       if not Validate_Ledger_Accounts (Result.Actual_Ledger, "actual.journal") then
          return False;
       end if;
+
+      --  Registry is part of the Ledger observation admitted as canonical
+      --  Actual. Attach it before admission so the opaque Actual value never
+      --  requires post-admission mutation.
+      Result.Actual_Ledger.Registry := Result.Registry;
+
       declare
          Actual_Diag : HRA.Actual_Admission.Admission_Diagnostic;
       begin
@@ -288,7 +294,8 @@ package body HRA.Household is
       --  reversal coordinates admitted from retained Journal source evidence.
       --  The Journal parser's description-derived compatibility fields cannot
       --  become a second authority path.
-      Result.Actual_Ledger := Result.Actual_Identity.Value;
+      Result.Actual_Ledger :=
+        HRA.Actual_Admission.Ledger_Of (Result.Actual_Identity);
       if not Merge_Transactions (Result.Actual_Ledger) then
          return False;
       end if;
@@ -380,7 +387,6 @@ package body HRA.Household is
 
       Result.Combined_Ledger.Registry := Result.Registry;
       Result.Actual_Ledger.Registry   := Result.Registry;
-      Result.Actual_Identity.Value.Registry := Result.Registry;
       Result.Plan_Ledger.Registry     := Result.Registry;
       Result.Budget_Ledger.Registry   := Result.Registry;
 
