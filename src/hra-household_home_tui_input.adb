@@ -1,3 +1,4 @@
+with HRA.Household_Home_Interaction;
 with Terminal_Interface.Curses;
 
 package body HRA.Household_Home_TUI_Input is
