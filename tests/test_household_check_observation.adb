@@ -186,17 +186,6 @@ begin
      (Resolved_Only_Obs.Open_Issues = 0,
       "State with only resolved issues projects 0 open issues");
 
-   --  5. Observation result is a pure summary of Natural values
-   pragma Warnings (Off, "condition is always True");
-   Assert
-     (Empty_Obs.Actual_Transactions'Valid
-      and then Empty_Obs.Plan_Transactions'Valid
-      and then Empty_Obs.Budget_Transactions'Valid
-      and then Empty_Obs.Registered_Accounts'Valid
-      and then Empty_Obs.Open_Issues'Valid,
-      "Observation result exposes only typed Natural counts");
-   pragma Warnings (On, "condition is always True");
-
    Put_Line
      (Natural'Image (Passed_Count) & " passed, " &
       Natural'Image (Failed_Count) & " failed");
