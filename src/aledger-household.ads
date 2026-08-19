@@ -12,9 +12,6 @@ with ALedger.Plan;
 with ALedger.Envelope;
 with ALedger.Envelope_Routing;
 with ALedger.Fulfillment_Routing;
-with ALedger.Envelope_Entitlement;
-with ALedger.Envelope_Consumption;
-with ALedger.Envelope_Position;
 with ALedger.Backing_Policy;
 
 package ALedger.Household is
@@ -52,11 +49,7 @@ package ALedger.Household is
       Envelope_Registry   : ALedger.Envelope.Envelope_Registry;
       Routing_History     : ALedger.Envelope_Routing.Routing_History;
       Fulfillment_History : ALedger.Fulfillment_Routing.Fulfillment_Routing_History;
-      Entitlement         : ALedger.Envelope_Entitlement.Entitlement_Observation;
-      Consumption         : ALedger.Envelope_Consumption.Envelope_Consumption;
-      Envelope_Positions  : ALedger.Envelope_Position.Observation;
       Backing_Policy_Spec : ALedger.Backing_Policy.Backing_Policy;
-      Backing             : ALedger.Backing_Policy.Backing_Observation;
    end record;
 
    function Empty_Household_State return Household_State;
