@@ -1,32 +1,84 @@
 with Ada.Strings;           use Ada.Strings;
 with Ada.Strings.Fixed;     use Ada.Strings.Fixed;
 with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
+with HRA.Account;
+with HRA.Cycle_Observation;
 with HRA.Dates;
+with HRA.Issue_Observation;
+with HRA.Issues;
+with HRA.Money;
+with HRA.Plan;
 
 package body HRA.Household_Home_Text is
 
-   function Format_Cell
-     (Cell : HRA.Household_Home_Presentation.Calendar_Cell) return String
-   is
-      Day_Str : constant String :=
-        (if Cell.Day_Number < 10
-         then " " & Trim (Positive'Image (Cell.Day_Number), Both)
-         else Trim (Positive'Image (Cell.Day_Number), Both));
-      M : constant Character := Cell.Marker;
+   function Render_Amount (Amt : HRA.Money.Amount) return String is
    begin
-      if Cell.Is_Selected then
-         if M /= ' ' then
-            return "[" & Day_Str & M & "]";
-         else
-            return "[" & Day_Str & "] ";
-         end if;
+      return HRA.Money.Render_Quantity (Amt.Val) & " " & HRA.Money.Code (Amt.Comm);
+   end Render_Amount;
+
+   function Resolve_Marker
+     (Attention : HRA.Household_Home_Presentation.Attention_Summary;
+      Markers   : HRA.Report_Config.Calendar_Markers :=
+        (Cycle_End => '|', Plan_Due => '$', Issue_Due => '!', Multiple => '+'))
+      return Character
+   is
+      use HRA.Household_Home_Presentation;
+      Plan_Count  : constant Natural :=
+        (if Attention.Plan_Scheduled = Present then 1 else 0);
+      Issue_Count : constant Natural :=
+        (if Attention.Issue_Due = Present then 1 else 0);
+      Cycle_Count : constant Natural :=
+        (if Attention.Cycle_End = Present then 1 else 0);
+      Total_Count : constant Natural := Plan_Count + Issue_Count + Cycle_Count;
+   begin
+      if Total_Count >= 2 then
+         return Markers.Multiple;
+      elsif Plan_Count = 1 then
+         return Markers.Plan_Due;
+      elsif Issue_Count = 1 then
+         return Markers.Issue_Due;
+      elsif Cycle_Count = 1 then
+         return Markers.Cycle_End;
       else
-         if M /= ' ' then
-            return " " & Day_Str & M & " ";
-         else
-            return "  " & Day_Str & " ";
-         end if;
+         return ' ';
       end if;
+   end Resolve_Marker;
+
+   function Format_Cell
+     (Cell    : HRA.Household_Home_Presentation.Calendar_Cell;
+      Markers : HRA.Report_Config.Calendar_Markers :=
+        (Cycle_End => '|', Plan_Due => '$', Issue_Due => '!', Multiple => '+'))
+      return String
+   is
+      use HRA.Household_Home_Presentation;
+   begin
+      case Cell.Kind is
+         when Out_Of_Range_Padding =>
+            return "     ";
+         when Dated_Cell =>
+            declare
+               Day_Num : constant Positive := HRA.Dates.Day (Cell.Date_Value);
+               Day_Str : constant String :=
+                 (if Day_Num < 10
+                  then " " & Trim (Positive'Image (Day_Num), Both)
+                  else Trim (Positive'Image (Day_Num), Both));
+               M       : constant Character := Resolve_Marker (Cell.Attention, Markers);
+            begin
+               if Cell.Is_Selected then
+                  if M /= ' ' then
+                     return "[" & Day_Str & M & "]";
+                  else
+                     return "[" & Day_Str & "] ";
+                  end if;
+               else
+                  if M /= ' ' then
+                     return " " & Day_Str & M & " ";
+                  else
+                     return "  " & Day_Str & " ";
+                  end if;
+               end if;
+            end;
+      end case;
    end Format_Cell;
 
    function Month_Name (Month_Num : Positive) return String is
@@ -49,9 +101,12 @@ package body HRA.Household_Home_Text is
    end Month_Name;
 
    function Render_Calendar_Grid
-     (Grid : HRA.Household_Home_Presentation.Calendar_Grid) return String
+     (Grid    : HRA.Household_Home_Presentation.Calendar_Grid;
+      Markers : HRA.Report_Config.Calendar_Markers :=
+        (Cycle_End => '|', Plan_Due => '$', Issue_Due => '!', Multiple => '+'))
+      return String
    is
-      Buf : Unbounded_String;
+      Buf   : Unbounded_String;
       Title : constant String :=
         Month_Name (Grid.Month) & " " & Trim (Positive'Image (Grid.Year), Both);
    begin
@@ -60,7 +115,7 @@ package body HRA.Household_Home_Text is
 
       for Week of Grid.Weeks loop
          for Wday in HRA.Dates.Day_Of_Week loop
-            Append (Buf, Format_Cell (Week (Wday)));
+            Append (Buf, Format_Cell (Week (Wday), Markers));
          end loop;
          Append (Buf, ASCII.LF);
       end loop;
@@ -68,8 +123,28 @@ package body HRA.Household_Home_Text is
       return To_String (Buf);
    end Render_Calendar_Grid;
 
+   function Focus_Role_Label
+     (Role : HRA.Household_Home_Presentation.Cycle_Focus_Role) return String is
+   begin
+      case Role is
+         when HRA.Household_Home_Presentation.Previous_Cycle_End =>
+            return "Previous Cycle End";
+         when HRA.Household_Home_Presentation.Current_Cycle_End =>
+            return "Current Cycle End";
+         when HRA.Household_Home_Presentation.Previous_Cycle =>
+            return "Previous Cycle";
+         when HRA.Household_Home_Presentation.Current_Cycle =>
+            return "Current Cycle";
+         when HRA.Household_Home_Presentation.Outside_Known_Cycles =>
+            return "Outside Known Cycles";
+      end case;
+   end Focus_Role_Label;
+
    function Render_Home
-     (Pres : HRA.Household_Home_Presentation.Home_Presentation) return String
+     (Pres    : HRA.Household_Home_Presentation.Home_Presentation;
+      Markers : HRA.Report_Config.Calendar_Markers :=
+        (Cycle_End => '|', Plan_Due => '$', Issue_Due => '!', Multiple => '+'))
+      return String
    is
       use HRA.Household_Home_Presentation;
       Buf : Unbounded_String;
@@ -91,7 +166,7 @@ package body HRA.Household_Home_Text is
          "================================================================================" &
          ASCII.LF);
 
-      Append (Buf, Render_Calendar_Grid (Pres.Calendar));
+      Append (Buf, Render_Calendar_Grid (Pres.Calendar, Markers));
       Append
         (Buf,
          "--------------------------------------------------------------------------------" &
@@ -131,16 +206,22 @@ package body HRA.Household_Home_Text is
                   Append
                     (Buf,
                      "   - " & To_String (Item.Description) & ASCII.LF);
-                  if Length (Item.Postings_Text) > 0 then
-                     Append (Buf, To_String (Item.Postings_Text) & ASCII.LF);
-                  end if;
+                  for P of Item.Postings loop
+                     Append
+                       (Buf,
+                        "       " & HRA.Account.Name (P.Account) & "  " &
+                        Render_Amount (P.Amount) & ASCII.LF);
+                  end loop;
                end loop;
             end if;
          when Unavailable =>
-            Append
-              (Buf,
-               "   [Unavailable] " &
-               To_String (Pres.Actual.Unavailable_Message) & ASCII.LF);
+            case Pres.Actual.Reason is
+               when Observation_Horizon_Exceeded =>
+                  Append
+                    (Buf,
+                     "   [Unavailable] Observation horizon exceeded (Observed through: " &
+                     HRA.Dates.Image (Pres.Observed_Through) & ")" & ASCII.LF);
+            end case;
       end case;
       Append (Buf, ASCII.LF);
 
@@ -154,22 +235,25 @@ package body HRA.Household_Home_Text is
                for Item of Pres.Plan.Items loop
                   Append
                     (Buf,
-                     "   - Scheduled: " & To_String (Item.Scheduled_Date_Text) &
-                     "  [" & To_String (Item.Status_Text) & "] " &
-                     To_String (Item.Plan_Id) & ASCII.LF);
+                     "   - Scheduled: " & HRA.Dates.Image (Item.Scheduled_Date) &
+                     "  [Open] " &
+                     HRA.Plan.Text (Item.Plan_Id) & ASCII.LF);
                   Append
                     (Buf,
                      "       " & To_String (Item.Description) & ASCII.LF);
-                  if Length (Item.Postings_Text) > 0 then
-                     Append (Buf, To_String (Item.Postings_Text) & ASCII.LF);
-                  end if;
+                  for P of Item.Postings loop
+                     Append
+                       (Buf,
+                        "       " & HRA.Account.Name (P.Account) & "  " &
+                        Render_Amount (P.Amount) & ASCII.LF);
+                  end loop;
                end loop;
             end if;
          when Unavailable =>
             Append
               (Buf,
-               "   [Unavailable] " &
-               To_String (Pres.Plan.Unavailable_Message) & ASCII.LF);
+               "   [Unavailable] Plan observation unavailable: " &
+               To_String (Pres.Plan.Diagnostic.Message) & ASCII.LF);
       end case;
       Append (Buf, ASCII.LF);
 
@@ -183,21 +267,26 @@ package body HRA.Household_Home_Text is
                for Item of Pres.Issue.Items loop
                   Append
                     (Buf,
-                     "   - [" & To_String (Item.Status_Text) & "] " &
-                     To_String (Item.Issue_Id) & ": " &
+                     "   - [" &
+                     HRA.Issue_Observation.As_Of_Status'Image (Item.Status_As_Of) &
+                     "] " &
+                     HRA.Issues.Text (Item.Issue_Id) & ": " &
                      To_String (Item.Title) & " [" &
                      To_String (Item.Category) & "]");
-                  if Length (Item.Amount_Text) > 0 then
-                     Append (Buf, "  " & To_String (Item.Amount_Text));
+                  if Item.Amount.Has_Amount then
+                     Append (Buf, "  " & Render_Amount (Item.Amount.Value));
                   end if;
                   Append (Buf, ASCII.LF);
                end loop;
             end if;
          when Unavailable =>
-            Append
-              (Buf,
-               "   [Unavailable] " &
-               To_String (Pres.Issue.Unavailable_Message) & ASCII.LF);
+            case Pres.Issue.Reason is
+               when Closure_Timing_Undetermined =>
+                  Append
+                    (Buf,
+                     "   [Unavailable] Closure timing undetermined for issues due on this day" &
+                     ASCII.LF);
+            end case;
       end case;
       Append (Buf, ASCII.LF);
 
@@ -205,23 +294,43 @@ package body HRA.Household_Home_Text is
       Append (Buf, " Cycle:" & ASCII.LF);
       case Pres.Cycle.Status is
          when Available =>
-            Append
-              (Buf,
-               "   Previous Window: " &
-               To_String (Pres.Cycle.Previous_Window_Text) & ASCII.LF);
-            Append
-              (Buf,
-               "   Current Window : " &
-               To_String (Pres.Cycle.Current_Window_Text) & ASCII.LF);
-            Append
-              (Buf,
-               "   Role on Focus  : " &
-               To_String (Pres.Cycle.Focus_Cycle_Role) & ASCII.LF);
+            declare
+               Prev_End : constant HRA.Dates.Date :=
+                 HRA.Dates.Previous (HRA.Dates.Limit (Pres.Cycle.Previous_Window));
+               Curr_End : constant HRA.Dates.Date :=
+                 HRA.Dates.Previous (HRA.Dates.Limit (Pres.Cycle.Current_Window));
+            begin
+               Append
+                 (Buf,
+                  "   Previous Window: " &
+                  HRA.Dates.Image (HRA.Dates.First (Pres.Cycle.Previous_Window)) &
+                  " .. " &
+                  HRA.Dates.Image (Prev_End) & ASCII.LF);
+               Append
+                 (Buf,
+                  "   Current Window : " &
+                  HRA.Dates.Image (HRA.Dates.First (Pres.Cycle.Current_Window)) &
+                  " .. " &
+                  HRA.Dates.Image (Curr_End) & ASCII.LF);
+               Append
+                 (Buf,
+                  "   Role on Focus  : " &
+                  Focus_Role_Label (Pres.Cycle.Focus_Role) & ASCII.LF);
+            end;
          when Unavailable =>
-            Append
-              (Buf,
-               "   [Unavailable] " &
-               To_String (Pres.Cycle.Unavailable_Message) & ASCII.LF);
+            case Pres.Cycle.Failure.Reason is
+               when Plan_Dependency_Unavailable =>
+                  Append
+                    (Buf,
+                     "   [Unavailable] Cycle unavailable due to Plan dependency: " &
+                     To_String (Pres.Cycle.Failure.Plan_Error.Message) & ASCII.LF);
+               when Cycle_Resolution_Failed =>
+                  Append
+                    (Buf,
+                     "   [Unavailable] Cycle resolution failed: " &
+                     HRA.Cycle_Observation.Resolve_Status'Image
+                       (Pres.Cycle.Failure.Cycle_Error) & ASCII.LF);
+            end case;
       end case;
       Append
         (Buf,

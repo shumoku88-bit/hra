@@ -1,19 +1,8 @@
-with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
-with HRA.Account;
-with HRA.Cycle_Observation;
-with HRA.Dates;             use type HRA.Dates.Date;
-                            use type HRA.Dates.Day_Of_Week;
-with HRA.Issue_Observation;
-with HRA.Issues;            use type HRA.Issues.Issue_Due_Kind;
-with HRA.Money;
-with HRA.Plan;
+with HRA.Dates;  use type HRA.Dates.Date;
+                 use type HRA.Dates.Day_Of_Week;
+with HRA.Issues; use type HRA.Issues.Issue_Due_Kind;
 
 package body HRA.Household_Home_Presentation is
-
-   function Render_Amount (Amt : HRA.Money.Amount) return String is
-   begin
-      return HRA.Money.Render_Quantity (Amt.Val) & " " & HRA.Money.Code (Amt.Comm);
-   end Render_Amount;
 
    function Map_Attention_Status
      (Status : HRA.Household_Home_Observation.Attention_Status) return Attention_State is
@@ -34,41 +23,9 @@ package body HRA.Household_Home_Presentation is
          Cycle_End      => Map_Attention_Status (Obs.Cycle_End));
    end Map_Attention;
 
-   function Resolve_Marker
-     (Attention : Attention_Summary;
-      Markers   : HRA.Report_Config.Calendar_Markers) return Character
-   is
-      Plan_Count  : constant Natural :=
-        (if Attention.Plan_Scheduled = Present then 1 else 0);
-      Issue_Count : constant Natural :=
-        (if Attention.Issue_Due = Present then 1 else 0);
-      Cycle_Count : constant Natural :=
-        (if Attention.Cycle_End = Present then 1 else 0);
-      Total_Count : constant Natural := Plan_Count + Issue_Count + Cycle_Count;
-   begin
-      if Total_Count >= 2 then
-         return Markers.Multiple;
-      elsif Plan_Count = 1 then
-         return Markers.Plan_Due;
-      elsif Issue_Count = 1 then
-         return Markers.Issue_Due;
-      elsif Cycle_Count = 1 then
-         return Markers.Cycle_End;
-      else
-         return ' ';
-      end if;
-   end Resolve_Marker;
-
-   function Resolve_Marker
-     (Attention : HRA.Household_Home_Observation.Attention_Observation;
-      Markers   : HRA.Report_Config.Calendar_Markers) return Character is
-   begin
-      return Resolve_Marker (Map_Attention (Attention), Markers);
-   end Resolve_Marker;
-
    function Build_Calendar_Grid
-     (Observation : HRA.Household_Home_Observation.Home_Observation;
-      Markers     : HRA.Report_Config.Calendar_Markers) return Calendar_Grid
+     (Observation : HRA.Household_Home_Observation.Home_Observation)
+      return Calendar_Grid
    is
       Focus_Day     : constant HRA.Dates.Date :=
         HRA.Household_Home_Observation.Selected_Day (Observation);
@@ -136,7 +93,6 @@ package body HRA.Household_Home_Presentation is
          Current_Day : HRA.Dates.Date := Grid_Start;
          Done        : Boolean := False;
          Past_Limit  : Boolean := False;
-         Pad_Day_Num : Positive := 1;
       begin
          while not Done loop
             declare
@@ -147,20 +103,19 @@ package body HRA.Household_Home_Presentation is
                      Cell : Calendar_Cell;
                   begin
                      if not Past_Limit then
-                        Cell.Date_Value          := Current_Day;
-                        Cell.Day_Number          := HRA.Dates.Day (Current_Day);
-                        Cell.Is_Current_Month    :=
-                          (HRA.Dates.Year (Current_Day) = Focus_Year
-                           and then HRA.Dates.Month (Current_Day) = Focus_Month);
-                        Cell.Is_Selected         := (Current_Day = Focus_Day);
-                        Cell.Is_Observed_Through := (Current_Day = Obs_Through);
-                        Cell.Is_Future           := (Current_Day > Obs_Through);
-                        Cell.Attention           :=
-                          Map_Attention
-                            (HRA.Household_Home_Observation.Day_Attention
-                               (Observation, Current_Day));
-                        Cell.Marker              :=
-                          Resolve_Marker (Cell.Attention, Markers);
+                        Cell :=
+                          (Kind                => Dated_Cell,
+                           Date_Value          => Current_Day,
+                           Is_Current_Month    =>
+                             (HRA.Dates.Year (Current_Day) = Focus_Year
+                              and then HRA.Dates.Month (Current_Day) = Focus_Month),
+                           Is_Selected         => (Current_Day = Focus_Day),
+                           Is_Observed_Through => (Current_Day = Obs_Through),
+                           Is_Future           => (Current_Day > Obs_Through),
+                           Attention           =>
+                             Map_Attention
+                               (HRA.Household_Home_Observation.Day_Attention
+                                  (Observation, Current_Day)));
 
                         if Current_Day = Last_Date and then Wday = HRA.Dates.Sunday then
                            Done := True;
@@ -172,16 +127,8 @@ package body HRA.Household_Home_Presentation is
                            Past_Limit := True;
                         end if;
                      else
-                        --  Gracefully pad trailing week cells beyond Gregorian limit (e.g. 9999-12)
-                        Cell.Date_Value          := Last_Date;
-                        Cell.Day_Number          := Pad_Day_Num;
-                        Cell.Is_Current_Month    := False;
-                        Cell.Is_Selected         := False;
-                        Cell.Is_Observed_Through := False;
-                        Cell.Is_Future           := True;
-                        Cell.Attention           := (others => Absent);
-                        Cell.Marker              := ' ';
-                        Pad_Day_Num              := Pad_Day_Num + 1;
+                        --  Explicit typed padding beyond Gregorian limit (e.g. 9999-12 trailing cells)
+                        Cell := (Kind => Out_Of_Range_Padding);
                      end if;
 
                      Week (Wday) := Cell;
@@ -201,8 +148,8 @@ package body HRA.Household_Home_Presentation is
    end Build_Calendar_Grid;
 
    function Build_Actual_Presentation
-     (Obs         : HRA.Household_Home_Observation.Actual_Home_Observation;
-      Obs_Through : HRA.Dates.Date) return Actual_Presentation
+     (Obs : HRA.Household_Home_Observation.Actual_Home_Observation)
+      return Actual_Presentation
    is
    begin
       case Obs.Status is
@@ -212,26 +159,18 @@ package body HRA.Household_Home_Presentation is
             begin
                for Tx of Obs.Transactions loop
                   declare
-                     Item         : Actual_Item;
-                     Postings_Buf : Unbounded_String;
-                     First_Post   : Boolean := True;
+                     Item : Actual_Item;
                   begin
                      Item.Transaction_Id := Tx.Event_ID;
-                     Item.Date_Text      :=
-                       To_Unbounded_String (HRA.Dates.Image (Tx.Date));
+                     Item.Date           := Tx.Date;
                      Item.Description    := Tx.Code_Or_Payee;
 
                      for P of Tx.Postings loop
-                        if not First_Post then
-                           Append (Postings_Buf, ASCII.LF);
-                        end if;
-                        First_Post := False;
-                        Append
-                          (Postings_Buf,
-                           "       " & HRA.Account.Name (P.Acc) & "  " &
-                           Render_Amount (P.Amt));
+                        Item.Postings.Append
+                          (Posting_Item'
+                             (Account => P.Acc,
+                              Amount  => P.Amt));
                      end loop;
-                     Item.Postings_Text := Postings_Buf;
 
                      Result.Items.Append (Item);
                   end;
@@ -241,22 +180,19 @@ package body HRA.Household_Home_Presentation is
 
          when HRA.Household_Home_Observation.Unavailable =>
             declare
-               Result : Actual_Presentation (Status => Unavailable);
+               Reason : constant Actual_Unavailable_Reason :=
+                 (case Obs.Reason is
+                     when HRA.Household_Home_Observation.Observation_Horizon_Exceeded =>
+                        Observation_Horizon_Exceeded);
             begin
-               case Obs.Reason is
-                  when HRA.Household_Home_Observation.Observation_Horizon_Exceeded =>
-                     Result.Unavailable_Message :=
-                       To_Unbounded_String
-                         ("Observation horizon exceeded (Observed through: " &
-                          HRA.Dates.Image (Obs_Through) & ")");
-               end case;
-               return Result;
+               return (Status => Unavailable, Reason => Reason);
             end;
       end case;
    end Build_Actual_Presentation;
 
    function Build_Plan_Presentation
-     (Obs : HRA.Household_Home_Observation.Plan_Home_Observation) return Plan_Presentation
+     (Obs : HRA.Household_Home_Observation.Plan_Home_Observation)
+      return Plan_Presentation
    is
    begin
       case Obs.Status is
@@ -266,28 +202,18 @@ package body HRA.Household_Home_Presentation is
             begin
                for P of Obs.Open_Plans loop
                   declare
-                     Item         : Plan_Item;
-                     Postings_Buf : Unbounded_String;
-                     First_Post   : Boolean := True;
+                     Item : Plan_Item;
                   begin
-                     Item.Plan_Id             :=
-                       To_Unbounded_String (HRA.Plan.Text (P.ID));
-                     Item.Scheduled_Date_Text :=
-                       To_Unbounded_String (HRA.Dates.Image (P.Tx.Date));
-                     Item.Status_Text         := To_Unbounded_String ("Open");
-                     Item.Description         := P.Tx.Code_Or_Payee;
+                     Item.Plan_Id        := P.ID;
+                     Item.Scheduled_Date := P.Tx.Date;
+                     Item.Description    := P.Tx.Code_Or_Payee;
 
                      for Post of P.Tx.Postings loop
-                        if not First_Post then
-                           Append (Postings_Buf, ASCII.LF);
-                        end if;
-                        First_Post := False;
-                        Append
-                          (Postings_Buf,
-                           "       " & HRA.Account.Name (Post.Acc) & "  " &
-                           Render_Amount (Post.Amt));
+                        Item.Postings.Append
+                          (Posting_Item'
+                             (Account => Post.Acc,
+                              Amount  => Post.Amt));
                      end loop;
-                     Item.Postings_Text := Postings_Buf;
 
                      Result.Items.Append (Item);
                   end;
@@ -296,20 +222,13 @@ package body HRA.Household_Home_Presentation is
             end;
 
          when HRA.Household_Home_Observation.Unavailable =>
-            declare
-               Result : Plan_Presentation (Status => Unavailable);
-            begin
-               Result.Unavailable_Message :=
-                 To_Unbounded_String
-                   ("Plan observation unavailable: " &
-                    To_String (Obs.Error.Message));
-               return Result;
-            end;
+            return (Status => Unavailable, Diagnostic => Obs.Error);
       end case;
    end Build_Plan_Presentation;
 
    function Build_Issue_Presentation
-     (Obs : HRA.Household_Home_Observation.Issue_Home_Observation) return Issue_Presentation
+     (Obs : HRA.Household_Home_Observation.Issue_Home_Observation)
+      return Issue_Presentation
    is
    begin
       case Obs.Status is
@@ -321,27 +240,17 @@ package body HRA.Household_Home_Presentation is
                   declare
                      Item : Issue_Item;
                   begin
-                     Item.Issue_Id     :=
-                       To_Unbounded_String (HRA.Issues.Text (I.Issue.ID));
+                     Item.Issue_Id     := I.Issue.ID;
                      Item.Title        := I.Issue.Title;
                      Item.Category     := I.Issue.Category;
-                     Item.Status_Text  :=
-                       To_Unbounded_String
-                         (HRA.Issue_Observation.As_Of_Status'Image (I.Status_As_Of));
-                     Item.Details_Text := I.Issue.Details;
+                     Item.Status_As_Of := I.Status_As_Of;
+                     Item.Details      := I.Issue.Details;
+                     Item.Amount       := I.Issue.Amt;
 
                      if I.Issue.Due.Kind = HRA.Issues.Due_On then
-                        Item.Due_Date_Text :=
-                          To_Unbounded_String (HRA.Dates.Image (I.Issue.Due.Due_Date));
+                        Item.Due_Date := I.Issue.Due.Due_Date;
                      else
-                        Item.Due_Date_Text := Null_Unbounded_String;
-                     end if;
-
-                     if I.Issue.Amt.Has_Amount then
-                        Item.Amount_Text :=
-                          To_Unbounded_String (Render_Amount (I.Issue.Amt.Value));
-                     else
-                        Item.Amount_Text := Null_Unbounded_String;
+                        Item.Due_Date := I.Issue.Recorded_On;
                      end if;
 
                      Result.Items.Append (Item);
@@ -352,15 +261,12 @@ package body HRA.Household_Home_Presentation is
 
          when HRA.Household_Home_Observation.Unavailable =>
             declare
-               Result : Issue_Presentation (Status => Unavailable);
+               Reason : constant Issue_Unavailable_Reason :=
+                 (case Obs.Reason is
+                     when HRA.Household_Home_Observation.Closure_Timing_Undetermined =>
+                        Closure_Timing_Undetermined);
             begin
-               case Obs.Reason is
-                  when HRA.Household_Home_Observation.Closure_Timing_Undetermined =>
-                     Result.Unavailable_Message :=
-                       To_Unbounded_String
-                         ("Closure timing undetermined for issues due on this day");
-               end case;
-               return Result;
+               return (Status => Unavailable, Reason => Reason);
             end;
       end case;
    end Build_Issue_Presentation;
@@ -373,72 +279,56 @@ package body HRA.Household_Home_Presentation is
       case Obs.Status is
          when HRA.Household_Home_Observation.Available =>
             declare
-               Result    : Cycle_Presentation (Status => Available);
-               Prev      : constant HRA.Dates.Half_Open_Period :=
+               Prev     : constant HRA.Dates.Half_Open_Period :=
                  Obs.Observation.Previous_Window;
-               Curr      : constant HRA.Dates.Half_Open_Period :=
+               Curr     : constant HRA.Dates.Half_Open_Period :=
                  Obs.Observation.Current_Window;
-               Prev_End  : constant HRA.Dates.Date :=
+               Prev_End : constant HRA.Dates.Date :=
                  HRA.Dates.Previous (HRA.Dates.Limit (Prev));
-               Curr_End  : constant HRA.Dates.Date :=
+               Curr_End : constant HRA.Dates.Date :=
                  HRA.Dates.Previous (HRA.Dates.Limit (Curr));
+               Role     : Cycle_Focus_Role;
             begin
-               Result.Previous_Window_Text :=
-                 To_Unbounded_String
-                   (HRA.Dates.Image (HRA.Dates.First (Prev)) & " .. " &
-                    HRA.Dates.Image (Prev_End));
-
-               Result.Current_Window_Text :=
-                 To_Unbounded_String
-                   (HRA.Dates.Image (HRA.Dates.First (Curr)) & " .. " &
-                    HRA.Dates.Image (Curr_End));
-
                if Focus_Day = Prev_End then
-                  Result.Focus_Cycle_Role :=
-                    To_Unbounded_String ("Previous Cycle End");
+                  Role := Previous_Cycle_End;
                elsif Focus_Day = Curr_End then
-                  Result.Focus_Cycle_Role :=
-                    To_Unbounded_String ("Current Cycle End");
+                  Role := Current_Cycle_End;
                elsif HRA.Dates.Contains (Curr, Focus_Day) then
-                  Result.Focus_Cycle_Role :=
-                    To_Unbounded_String ("Current Cycle");
+                  Role := Current_Cycle;
                elsif HRA.Dates.Contains (Prev, Focus_Day) then
-                  Result.Focus_Cycle_Role :=
-                    To_Unbounded_String ("Previous Cycle");
+                  Role := Previous_Cycle;
                else
-                  Result.Focus_Cycle_Role :=
-                    To_Unbounded_String ("Outside Known Cycles");
+                  Role := Outside_Known_Cycles;
                end if;
 
-               return Result;
+               return
+                 (Status          => Available,
+                  Previous_Window => Prev,
+                  Current_Window  => Curr,
+                  Focus_Role      => Role);
             end;
 
          when HRA.Household_Home_Observation.Unavailable =>
             declare
-               Result : Cycle_Presentation (Status => Unavailable);
+               Detail : Cycle_Unavailable_Detail;
             begin
                case Obs.Failure.Reason is
                   when HRA.Household_Home_Observation.Plan_Dependency_Unavailable =>
-                     Result.Unavailable_Message :=
-                       To_Unbounded_String
-                         ("Cycle unavailable due to Plan dependency: " &
-                          To_String (Obs.Failure.Plan_Error.Message));
+                     Detail :=
+                       (Reason     => Plan_Dependency_Unavailable,
+                        Plan_Error => Obs.Failure.Plan_Error);
                   when HRA.Household_Home_Observation.Cycle_Resolution_Failed =>
-                     Result.Unavailable_Message :=
-                       To_Unbounded_String
-                         ("Cycle resolution failed: " &
-                          HRA.Cycle_Observation.Resolve_Status'Image
-                            (Obs.Failure.Cycle_Error));
+                     Detail :=
+                       (Reason      => Cycle_Resolution_Failed,
+                        Cycle_Error => Obs.Failure.Cycle_Error);
                end case;
-               return Result;
+               return (Status => Unavailable, Failure => Detail);
             end;
       end case;
    end Build_Cycle_Presentation;
 
    function Present
-     (Observation : HRA.Household_Home_Observation.Home_Observation;
-      Markers     : HRA.Report_Config.Calendar_Markers :=
-        (Cycle_End => '|', Plan_Due => '$', Issue_Due => '!', Multiple => '+'))
+     (Observation : HRA.Household_Home_Observation.Home_Observation)
       return Home_Presentation
    is
       Focus_Day   : constant HRA.Dates.Date :=
@@ -454,11 +344,10 @@ package body HRA.Household_Home_Presentation is
         Map_Attention
           (HRA.Household_Home_Observation.Selected_Attention (Observation));
 
-      Result.Calendar := Build_Calendar_Grid (Observation, Markers);
+      Result.Calendar := Build_Calendar_Grid (Observation);
       Result.Actual   :=
         Build_Actual_Presentation
-          (HRA.Household_Home_Observation.Actual (Observation),
-           Obs_Through);
+          (HRA.Household_Home_Observation.Actual (Observation));
       Result.Plan     :=
         Build_Plan_Presentation
           (HRA.Household_Home_Observation.Plan (Observation));
