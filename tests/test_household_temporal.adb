@@ -2,20 +2,20 @@ with Ada.Directories; use Ada.Directories;
 with Ada.Strings.Fixed; use Ada.Strings.Fixed;
 with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
 with Ada.Text_IO; use Ada.Text_IO;
-with ALedger.Dates;
-with ALedger.Envelope;
-with ALedger.Household;
-with ALedger.Household_Envelope_Change;
-with ALedger.Household_Envelope_Explanation;
-with ALedger.Household_Temporal;
-with ALedger.Money;
+with HRA.Dates;
+with HRA.Envelope;
+with HRA.Household;
+with HRA.Household_Envelope_Change;
+with HRA.Household_Envelope_Explanation;
+with HRA.Household_Temporal;
+with HRA.Money;
 
 procedure Test_Household_Temporal is
-   use type ALedger.Dates.Date;
-   use type ALedger.Household_Envelope_Change.Baseline_Status;
-   use type ALedger.Household_Envelope_Explanation.Explain_Status;
-   use type ALedger.Household_Temporal.Observe_Status;
-   use type ALedger.Money.Quantity;
+   use type HRA.Dates.Date;
+   use type HRA.Household_Envelope_Change.Baseline_Status;
+   use type HRA.Household_Envelope_Explanation.Explain_Status;
+   use type HRA.Household_Temporal.Observe_Status;
+   use type HRA.Money.Quantity;
 
    Passed_Count : Natural := 0;
    Failed_Count : Natural := 0;
@@ -31,11 +31,11 @@ procedure Test_Household_Temporal is
       end if;
    end Assert;
 
-   function D (S : String) return ALedger.Dates.Date is
-      Value  : ALedger.Dates.Date;
-      Status : ALedger.Dates.Date_Status;
+   function D (S : String) return HRA.Dates.Date is
+      Value  : HRA.Dates.Date;
+      Status : HRA.Dates.Date_Status;
    begin
-      if not ALedger.Dates.Parse (S, Value, Status) then
+      if not HRA.Dates.Parse (S, Value, Status) then
          raise Program_Error with "invalid test date: " & S;
       end if;
       return Value;
@@ -50,48 +50,48 @@ procedure Test_Household_Temporal is
    end Write_File;
 
    procedure Put_Diagnostic
-     (Diag : ALedger.Household_Temporal.Observe_Diagnostic)
+     (Diag : HRA.Household_Temporal.Observe_Diagnostic)
    is
    begin
       Put_Line
         ("[DIAG] Household temporal status = " &
-         ALedger.Household_Temporal.Observe_Status'Image (Diag.Status));
+         HRA.Household_Temporal.Observe_Status'Image (Diag.Status));
 
       case Diag.Status is
-         when ALedger.Household_Temporal.Success =>
+         when HRA.Household_Temporal.Success =>
             null;
-         when ALedger.Household_Temporal.Current_Observation_Unavailable |
-              ALedger.Household_Temporal.Earlier_Observation_Unavailable =>
+         when HRA.Household_Temporal.Current_Observation_Unavailable |
+              HRA.Household_Temporal.Earlier_Observation_Unavailable =>
             Put_Line ("[DIAG] observation = " & To_String (Diag.Observation_Error));
-         when ALedger.Household_Temporal.Baseline_Unavailable =>
+         when HRA.Household_Temporal.Baseline_Unavailable =>
             Put_Line
               ("[DIAG] baseline = " &
-               ALedger.Household_Envelope_Change.Baseline_Status'Image
+               HRA.Household_Envelope_Change.Baseline_Status'Image
                  (Diag.Baseline.Status));
-         when ALedger.Household_Temporal.Current_Explanation_Unavailable |
-              ALedger.Household_Temporal.Earlier_Explanation_Unavailable =>
+         when HRA.Household_Temporal.Current_Explanation_Unavailable |
+              HRA.Household_Temporal.Earlier_Explanation_Unavailable =>
             Put_Line
               ("[DIAG] explanation = " &
-               ALedger.Household_Envelope_Explanation.Explain_Status'Image
+               HRA.Household_Envelope_Explanation.Explain_Status'Image
                  (Diag.Explanation.Status));
-         when ALedger.Household_Temporal.Change_Rejected =>
+         when HRA.Household_Temporal.Change_Rejected =>
             Put_Line
               ("[DIAG] change = " &
-               ALedger.Household_Envelope_Change.Change_Status'Image
+               HRA.Household_Envelope_Change.Change_Status'Image
                  (Diag.Change.Status));
       end case;
    end Put_Diagnostic;
 
-   Tmp_Dir : constant String := "/tmp/aledger_test_household_temporal";
-   Paths   : constant ALedger.Household.Source_Paths :=
-     ALedger.Household.Resolve_Source_Paths (Tmp_Dir);
-   State   : ALedger.Household.Household_State;
+   Tmp_Dir : constant String := "/tmp/hra_test_household_temporal";
+   Paths   : constant HRA.Household.Source_Paths :=
+     HRA.Household.Resolve_Source_Paths (Tmp_Dir);
+   State   : HRA.Household.Household_State;
    Err     : Unbounded_String;
-   JPY     : constant ALedger.Money.Commodity :=
-     ALedger.Money.Make_Commodity ("JPY");
+   JPY     : constant HRA.Money.Commodity :=
+     HRA.Money.Make_Commodity ("JPY");
 
-   Change : ALedger.Household_Envelope_Change.Change_Observation;
-   Diag   : ALedger.Household_Temporal.Observe_Diagnostic;
+   Change : HRA.Household_Envelope_Change.Change_Observation;
+   Diag   : HRA.Household_Temporal.Observe_Diagnostic;
 
 begin
    Put_Line ("--- Testing Household temporal application composition ---");
@@ -203,20 +203,20 @@ begin
       "issue_id" & ASCII.HT & "status" & ASCII.LF);
 
    Assert
-     (ALedger.Household.Load_Canonical_Household (Tmp_Dir, State, Err),
+     (HRA.Household.Load_Canonical_Household (Tmp_Dir, State, Err),
       "Setup: admit complete synthetic Household");
 
    declare
-      Why : ALedger.Household_Envelope_Explanation.Explanation_Observation;
-      Why_Diag : ALedger.Household_Envelope_Explanation.Explain_Diagnostic;
+      Why : HRA.Household_Envelope_Explanation.Explanation_Observation;
+      Why_Diag : HRA.Household_Envelope_Explanation.Explain_Diagnostic;
       Succeeded : constant Boolean :=
-        ALedger.Household_Envelope_Explanation.Explain
+        HRA.Household_Envelope_Explanation.Explain
           (D ("2026-08-15"), State, Why, Why_Diag);
    begin
       Assert
         (Succeeded
            and then Why_Diag.Status =
-             ALedger.Household_Envelope_Explanation.Success,
+             HRA.Household_Envelope_Explanation.Success,
          "Explain current Envelope directly from admitted Household state");
       if Succeeded then
          Assert
@@ -226,18 +226,18 @@ begin
          if Natural (Why.Lines.Length) = 1 then
             declare
                Line : constant
-                 ALedger.Household_Envelope_Explanation.Explanation_Line :=
+                 HRA.Household_Envelope_Explanation.Explanation_Line :=
                    Why.Lines.Element (1);
             begin
                Assert
-                 (ALedger.Envelope.Image (Line.Env_Id) = "coffee",
+                 (HRA.Envelope.Image (Line.Env_Id) = "coffee",
                   "Household explanation follows current Envelope order");
                Assert
-                 (ALedger.Money.Lookup_Balance
+                 (HRA.Money.Lookup_Balance
                     (Line.Why.Evidence.Consumption_Charges, JPY) = 500.0,
                   "Household explanation retains gross Consumption evidence");
                Assert
-                 (ALedger.Money.Lookup_Balance
+                 (HRA.Money.Lookup_Balance
                     (Line.Why.Observed_Position.Remaining, JPY) = -500.0,
                   "Household explanation closes over proof-backed Remaining");
             end;
@@ -247,10 +247,10 @@ begin
 
    declare
       Succeeded : constant Boolean :=
-        ALedger.Household_Temporal.Observe_Envelope_Change
+        HRA.Household_Temporal.Observe_Envelope_Change
           (D ("2026-08-15"),
-           (Kind => ALedger.Household_Envelope_Change.No_Previous_Observation),
-           (Kind => ALedger.Household_Envelope_Change.Cycle_Start),
+           (Kind => HRA.Household_Envelope_Change.No_Previous_Observation),
+           (Kind => HRA.Household_Envelope_Change.Cycle_Start),
            State,
            Change,
            Diag);
@@ -259,7 +259,7 @@ begin
          Put_Diagnostic (Diag);
       end if;
       Assert
-        (Succeeded and then Diag.Status = ALedger.Household_Temporal.Success,
+        (Succeeded and then Diag.Status = HRA.Household_Temporal.Success,
          "Cycle Start request composes directly from admitted Household state");
 
       if Succeeded then
@@ -272,14 +272,14 @@ begin
             "Temporal application retains one current Envelope coordinate");
          if Natural (Change.Lines.Length) = 1 then
             Assert
-              (ALedger.Envelope.Image (Change.Lines.Element (1).Env_Id) = "coffee",
+              (HRA.Envelope.Image (Change.Lines.Element (1).Env_Id) = "coffee",
                "Temporal application preserves current Envelope identity and order");
             Assert
-              (ALedger.Money.Lookup_Balance
+              (HRA.Money.Lookup_Balance
                  (Change.Lines.Element (1).Consumption_Charges, JPY) = 500.0,
                "Cycle-start Change observes 500 JPY gross coffee consumption");
             Assert
-              (ALedger.Money.Lookup_Balance
+              (HRA.Money.Lookup_Balance
                  (Change.Lines.Element (1).Remaining, JPY) = -500.0,
                "Cycle-start Change observes resulting -500 JPY Remaining movement");
          end if;
@@ -288,11 +288,11 @@ begin
 
    declare
       Succeeded : constant Boolean :=
-        ALedger.Household_Temporal.Observe_Envelope_Change
+        HRA.Household_Temporal.Observe_Envelope_Change
           (D ("2026-08-15"),
-           (Kind             => ALedger.Household_Envelope_Change.Previous_Observation_Available,
+           (Kind             => HRA.Household_Envelope_Change.Previous_Observation_Available,
             Observed_Through => D ("2026-08-12")),
-           (Kind => ALedger.Household_Envelope_Change.Previous_Observation),
+           (Kind => HRA.Household_Envelope_Change.Previous_Observation),
            State,
            Change,
            Diag);
@@ -301,13 +301,13 @@ begin
          Put_Diagnostic (Diag);
       end if;
       Assert
-        (Succeeded and then Diag.Status = ALedger.Household_Temporal.Success,
+        (Succeeded and then Diag.Status = HRA.Household_Temporal.Success,
          "Previous Observation context composes directly from admitted Household state");
       if Succeeded then
          Assert
            (Change.From_Date = D ("2026-08-12")
               and then Natural (Change.Lines.Length) = 1
-              and then ALedger.Money.Lookup_Balance
+              and then HRA.Money.Lookup_Balance
                 (Change.Lines.Element (1).Consumption_Charges, JPY) = 500.0,
             "Previous Observation is caller supplied and retains later activity");
       end if;
@@ -315,19 +315,19 @@ begin
 
    declare
       Succeeded : constant Boolean :=
-        ALedger.Household_Temporal.Observe_Envelope_Change
+        HRA.Household_Temporal.Observe_Envelope_Change
           (D ("2026-08-15"),
-           (Kind => ALedger.Household_Envelope_Change.No_Previous_Observation),
-           (Kind => ALedger.Household_Envelope_Change.Previous_Observation),
+           (Kind => HRA.Household_Envelope_Change.No_Previous_Observation),
+           (Kind => HRA.Household_Envelope_Change.Previous_Observation),
            State,
            Change,
            Diag);
    begin
       Assert
         (not Succeeded
-           and then Diag.Status = ALedger.Household_Temporal.Baseline_Unavailable
+           and then Diag.Status = HRA.Household_Temporal.Baseline_Unavailable
            and then Diag.Baseline.Status =
-             ALedger.Household_Envelope_Change.Previous_Observation_Unavailable,
+             HRA.Household_Envelope_Change.Previous_Observation_Unavailable,
          "Missing Previous Observation fails closed without evidence fallback");
    end;
 
@@ -340,7 +340,7 @@ begin
       "    budget:unassigned      -1 JPY" & ASCII.LF &
       "    budget:rogue             1 JPY" & ASCII.LF);
    Assert
-     (not ALedger.Household.Load_Canonical_Household (Tmp_Dir, State, Err)
+     (not HRA.Household.Load_Canonical_Household (Tmp_Dir, State, Err)
         and then Index (To_String (Err), "unrecognized") > 0,
       "Canonical Household rejects declared but semantically unknown Budget coordinate");
 

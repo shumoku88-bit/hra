@@ -1,27 +1,27 @@
 with Ada.Text_IO; use Ada.Text_IO;
 with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
-with ALedger.Account;
-with ALedger.Budget_Config;
-with ALedger.Config_Support;
-with ALedger.Cycle_Observation;
-with ALedger.Dates;
-with ALedger.Envelope;
-with ALedger.Envelope_Commitment;
-with ALedger.Envelope_Routing;
-with ALedger.Fulfillment_Routing;
-with ALedger.Household_Config;
-with ALedger.Journal;
-with ALedger.Ledger;
-with ALedger.Money;
-with ALedger.Plan;
-with ALedger.Plan_Observation;
+with HRA.Account;
+with HRA.Budget_Config;
+with HRA.Config_Support;
+with HRA.Cycle_Observation;
+with HRA.Dates;
+with HRA.Envelope;
+with HRA.Envelope_Commitment;
+with HRA.Envelope_Routing;
+with HRA.Fulfillment_Routing;
+with HRA.Household_Config;
+with HRA.Journal;
+with HRA.Ledger;
+with HRA.Money;
+with HRA.Plan;
+with HRA.Plan_Observation;
 
 procedure Test_Fulfillment_Routing is
-   use type ALedger.Envelope.Envelope_Id;
-   use type ALedger.Fulfillment_Routing.Admission_Status;
-   use type ALedger.Fulfillment_Routing.Fulfillment_Route_Kind;
-   use type ALedger.Household_Config.Fulfillment_Route_Kind;
-   use type ALedger.Money.Quantity;
+   use type HRA.Envelope.Envelope_Id;
+   use type HRA.Fulfillment_Routing.Admission_Status;
+   use type HRA.Fulfillment_Routing.Fulfillment_Route_Kind;
+   use type HRA.Household_Config.Fulfillment_Route_Kind;
+   use type HRA.Money.Quantity;
 
    Passed_Count : Natural := 0;
    Failed_Count : Natural := 0;
@@ -37,27 +37,27 @@ procedure Test_Fulfillment_Routing is
       end if;
    end Assert;
 
-   function D (S : String) return ALedger.Dates.Date is
-      Val    : ALedger.Dates.Date;
-      Status : ALedger.Dates.Date_Status;
+   function D (S : String) return HRA.Dates.Date is
+      Val    : HRA.Dates.Date;
+      Status : HRA.Dates.Date_Status;
    begin
-      if not ALedger.Dates.Parse (S, Val, Status) then
+      if not HRA.Dates.Parse (S, Val, Status) then
          raise Program_Error with "Invalid date in test: " & S;
       end if;
       return Val;
    end D;
 
    procedure Register
-     (Registry : in out ALedger.Account.Account_Registry;
+     (Registry : in out HRA.Account.Account_Registry;
       Name     : String;
-      Kind     : ALedger.Account.Account_Type)
+      Kind     : HRA.Account.Account_Type)
    is
-      Status : ALedger.Account.Registry_Status;
+      Status : HRA.Account.Registry_Status;
    begin
-      if not ALedger.Account.Register_Account
+      if not HRA.Account.Register_Account
         (Registry,
-         ALedger.Account.Declare_Account
-           (ALedger.Account.Make_Account (Name), Kind),
+         HRA.Account.Declare_Account
+           (HRA.Account.Make_Account (Name), Kind),
          Status)
       then
          raise Program_Error with "test registry admission failed: " & Name;
@@ -125,43 +125,43 @@ procedure Test_Fulfillment_Routing is
      "    assets:cash        1000 JPY" & ASCII.LF &
      "    income:pension    -1000 JPY" & ASCII.LF;
 
-   Registry     : ALedger.Account.Account_Registry := ALedger.Account.Empty_Registry;
-   Actual       : ALedger.Ledger.Ledger;
-   Plans        : ALedger.Ledger.Ledger;
+   Registry     : HRA.Account.Account_Registry := HRA.Account.Empty_Registry;
+   Actual       : HRA.Ledger.Ledger;
+   Plans        : HRA.Ledger.Ledger;
    Parse_Error  : Unbounded_String;
-   Known_Plans  : ALedger.Plan.Plan_Id_Universe;
-   Plan_Diag    : ALedger.Plan_Observation.Admission_Diagnostic;
-   Open_Plans   : ALedger.Plan_Observation.Open_Plan_Vectors.Vector;
-   Window       : ALedger.Cycle_Observation.Cycle_Window;
-   Cycle_Status : ALedger.Cycle_Observation.Resolve_Status;
-   Income_Acc   : constant ALedger.Account.Account :=
-     ALedger.Account.Make_Account ("income:pension");
-   Env_Names    : ALedger.Config_Support.String_Vectors.Vector;
-   Env_Registry : ALedger.Envelope.Envelope_Registry;
-   Env_Diag     : ALedger.Config_Support.Config_Diagnostic;
-   Savings_Env  : ALedger.Envelope.Envelope_Id;
-   Decisions    : ALedger.Fulfillment_Routing.Decision_Vectors.Vector;
-   History      : ALedger.Fulfillment_Routing.Fulfillment_Routing_History;
-   Route_Status : ALedger.Fulfillment_Routing.Admission_Status;
-   Commitment   : ALedger.Envelope_Commitment.Commitment_Observation;
-   Commit_Diag  : ALedger.Envelope_Commitment.Observe_Diagnostic;
-   JPY          : constant ALedger.Money.Commodity := ALedger.Money.Make_Commodity ("JPY");
+   Known_Plans  : HRA.Plan.Plan_Id_Universe;
+   Plan_Diag    : HRA.Plan_Observation.Admission_Diagnostic;
+   Open_Plans   : HRA.Plan_Observation.Open_Plan_Vectors.Vector;
+   Window       : HRA.Cycle_Observation.Cycle_Window;
+   Cycle_Status : HRA.Cycle_Observation.Resolve_Status;
+   Income_Acc   : constant HRA.Account.Account :=
+     HRA.Account.Make_Account ("income:pension");
+   Env_Names    : HRA.Config_Support.String_Vectors.Vector;
+   Env_Registry : HRA.Envelope.Envelope_Registry;
+   Env_Diag     : HRA.Config_Support.Config_Diagnostic;
+   Savings_Env  : HRA.Envelope.Envelope_Id;
+   Decisions    : HRA.Fulfillment_Routing.Decision_Vectors.Vector;
+   History      : HRA.Fulfillment_Routing.Fulfillment_Routing_History;
+   Route_Status : HRA.Fulfillment_Routing.Admission_Status;
+   Commitment   : HRA.Envelope_Commitment.Commitment_Observation;
+   Commit_Diag  : HRA.Envelope_Commitment.Observe_Diagnostic;
+   JPY          : constant HRA.Money.Commodity := HRA.Money.Make_Commodity ("JPY");
 
 begin
-   Put_Line ("--- Testing ALedger.Fulfillment_Routing ---");
+   Put_Line ("--- Testing HRA.Fulfillment_Routing ---");
 
    declare
-      Budget_Policy : ALedger.Budget_Config.Budget_Policy;
-      Budget_Diag   : ALedger.Config_Support.Config_Diagnostic;
-      Household     : ALedger.Household_Config.Household_Configuration;
-      Household_Diag : ALedger.Config_Support.Config_Diagnostic;
+      Budget_Policy : HRA.Budget_Config.Budget_Policy;
+      Budget_Diag   : HRA.Config_Support.Config_Diagnostic;
+      Household     : HRA.Household_Config.Household_Configuration;
+      Household_Diag : HRA.Config_Support.Config_Diagnostic;
    begin
       Assert
-        (ALedger.Budget_Config.Parse_Budget_Policy
+        (HRA.Budget_Config.Parse_Budget_Policy
            (Budget_TOML, Budget_Policy, Budget_Diag),
          "Setup: parse Budget policy for Fulfillment routing source shape");
       Assert
-        (ALedger.Household_Config.Parse_Household_Configuration
+        (HRA.Household_Config.Parse_Household_Configuration
            (Household_TOML, Budget_Policy, Household, Household_Diag),
          "Admit fulfillment-routing from household.toml");
       Assert
@@ -169,119 +169,119 @@ begin
          "Typed source retains two Fulfillment routing decisions");
       Assert
         (Household.Envelope_History.Fulfillment_Routing.Element (1).Route.Kind =
-           ALedger.Household_Config.Fulfills
+           HRA.Household_Config.Fulfills
          and then To_String
            (Household.Envelope_History.Fulfillment_Routing.Element (1).Route.Target) =
              "savings",
          "fulfills source decision requires and preserves Envelope target");
       Assert
         (Household.Envelope_History.Fulfillment_Routing.Element (2).Route.Kind =
-           ALedger.Household_Config.Not_Target,
+           HRA.Household_Config.Not_Target,
          "not-target source decision is admitted without target");
    end;
 
-   Register (Registry, "income:pension", ALedger.Account.Income);
-   Register (Registry, "assets:cash", ALedger.Account.Asset);
-   Register (Registry, "assets:savings", ALedger.Account.Asset);
-   Register (Registry, "liabilities:loan", ALedger.Account.Liability);
+   Register (Registry, "income:pension", HRA.Account.Income);
+   Register (Registry, "assets:cash", HRA.Account.Asset);
+   Register (Registry, "assets:savings", HRA.Account.Asset);
+   Register (Registry, "liabilities:loan", HRA.Account.Liability);
 
    Assert
-     (ALedger.Journal.Parse_Journal_Text (Actual_Source, Actual, Parse_Error),
+     (HRA.Journal.Parse_Journal_Text (Actual_Source, Actual, Parse_Error),
       "Setup: parse Actual cycle anchors");
    Assert
-     (ALedger.Journal.Parse_Journal_Text (Plan_Source, Plans, Parse_Error),
+     (HRA.Journal.Parse_Journal_Text (Plan_Source, Plans, Parse_Error),
       "Setup: parse role-neutral Plan journal");
 
    Assert
-     (ALedger.Plan_Observation.Admit_Plan_Identities
+     (HRA.Plan_Observation.Admit_Plan_Identities
         (Plans, Plan_Source, Known_Plans, Plan_Diag),
       "Admit stable Plan identity universe from exact Plan source evidence");
    Assert
-     (ALedger.Plan.Length (Known_Plans) = 4,
+     (HRA.Plan.Length (Known_Plans) = 4,
       "Stable Plan identity universe retains all lifecycle-independent PlanIds");
 
    Assert
-     (ALedger.Plan_Observation.Observe_Open_Plans
+     (HRA.Plan_Observation.Observe_Open_Plans
         (Plans, Plan_Source, Actual, Actual_Source,
          D ("2026-08-15"), Open_Plans, Plan_Diag),
       "Observe open role-neutral Plans");
 
    Assert
-     (ALedger.Cycle_Observation.Resolve_Current
+     (HRA.Cycle_Observation.Resolve_Current
         (D ("2026-08-15"), Actual, Open_Plans, Registry, Income_Acc,
          Window, Cycle_Status),
       "Resolve current income-anchor cycle");
    Assert
-     (ALedger.Dates.Image (ALedger.Cycle_Observation.Start_Date (Window)) = "2026-08-14"
-        and then ALedger.Dates.Image (ALedger.Cycle_Observation.End_Exclusive (Window)) = "2026-10-15",
+     (HRA.Dates.Image (HRA.Cycle_Observation.Start_Date (Window)) = "2026-08-14"
+        and then HRA.Dates.Image (HRA.Cycle_Observation.End_Exclusive (Window)) = "2026-10-15",
       "Current cycle excludes next income anchor day");
 
    Env_Names.Append ("savings");
    Assert
-     (ALedger.Envelope.Admit_Registry
+     (HRA.Envelope.Admit_Registry
         (Env_Names, Env_Registry, Env_Diag),
       "Admit stable Envelope registry");
    Assert
-     (ALedger.Envelope.Lookup (Env_Registry, "savings", Savings_Env),
+     (HRA.Envelope.Lookup (Env_Registry, "savings", Savings_Env),
       "Lookup savings Envelope");
 
    declare
-      Save_ID : constant ALedger.Plan.Plan_Id := ALedger.Plan.Make_Plan_Id ("plan-save");
-      Debt_ID : constant ALedger.Plan.Plan_Id := ALedger.Plan.Make_Plan_Id ("plan-debt");
+      Save_ID : constant HRA.Plan.Plan_Id := HRA.Plan.Make_Plan_Id ("plan-save");
+      Debt_ID : constant HRA.Plan.Plan_Id := HRA.Plan.Make_Plan_Id ("plan-debt");
    begin
       Decisions.Append
-        (ALedger.Fulfillment_Routing.Fulfillment_Routing_Decision'
+        (HRA.Fulfillment_Routing.Fulfillment_Routing_Decision'
            (Effective_From => D ("2026-08-01"),
             Plan_ID        => Save_ID,
-            Route          => ALedger.Fulfillment_Routing.Fulfills (Savings_Env),
+            Route          => HRA.Fulfillment_Routing.Fulfills (Savings_Env),
             Note           => To_Unbounded_String ("initial savings intent")));
       Decisions.Append
-        (ALedger.Fulfillment_Routing.Fulfillment_Routing_Decision'
+        (HRA.Fulfillment_Routing.Fulfillment_Routing_Decision'
            (Effective_From => D ("2026-09-01"),
             Plan_ID        => Save_ID,
-            Route          => ALedger.Fulfillment_Routing.Not_Target,
+            Route          => HRA.Fulfillment_Routing.Not_Target,
             Note           => To_Unbounded_String ("prospective intent retirement")));
       Decisions.Append
-        (ALedger.Fulfillment_Routing.Fulfillment_Routing_Decision'
+        (HRA.Fulfillment_Routing.Fulfillment_Routing_Decision'
            (Effective_From => D ("2026-08-01"),
             Plan_ID        => Debt_ID,
-            Route          => ALedger.Fulfillment_Routing.Not_Target,
+            Route          => HRA.Fulfillment_Routing.Not_Target,
             Note           => To_Unbounded_String ("debt Plan is explicit non-target")));
    end;
 
    Assert
-     (ALedger.Fulfillment_Routing.Admit
+     (HRA.Fulfillment_Routing.Admit
         (Decisions, Known_Plans, Env_Registry, History, Route_Status),
       "Admit PlanId/day Fulfillment routing against stable references");
    Assert
-     (ALedger.Fulfillment_Routing.Length (History) = 3,
+     (HRA.Fulfillment_Routing.Length (History) = 3,
       "Fulfillment routing history keeps source decisions");
 
    declare
-      Save_ID : constant ALedger.Plan.Plan_Id := ALedger.Plan.Make_Plan_Id ("plan-save");
-      Before  : constant ALedger.Fulfillment_Routing.Fulfillment_Route :=
-        ALedger.Fulfillment_Routing.Resolve (History, Save_ID, D ("2026-08-15"));
-      After   : constant ALedger.Fulfillment_Routing.Fulfillment_Route :=
-        ALedger.Fulfillment_Routing.Resolve (History, Save_ID, D ("2026-09-01"));
+      Save_ID : constant HRA.Plan.Plan_Id := HRA.Plan.Make_Plan_Id ("plan-save");
+      Before  : constant HRA.Fulfillment_Routing.Fulfillment_Route :=
+        HRA.Fulfillment_Routing.Resolve (History, Save_ID, D ("2026-08-15"));
+      After   : constant HRA.Fulfillment_Routing.Fulfillment_Route :=
+        HRA.Fulfillment_Routing.Resolve (History, Save_ID, D ("2026-09-01"));
    begin
       Assert
-        (not ALedger.Fulfillment_Routing.Has_Routing_At
+        (not HRA.Fulfillment_Routing.Has_Routing_At
            (History, Save_ID, D ("2026-07-31")),
          "Future Fulfillment decision does not rewrite earlier observation");
       Assert
-        (Before.Kind = ALedger.Fulfillment_Routing.Fulfills_Envelope
+        (Before.Kind = HRA.Fulfillment_Routing.Fulfills_Envelope
          and then Before.Target = Savings_Env,
          "Latest applicable fulfills decision resolves at observation day");
       Assert
-        (After.Kind = ALedger.Fulfillment_Routing.Not_Fulfillment_Target,
+        (After.Kind = HRA.Fulfillment_Routing.Not_Fulfillment_Target,
          "Later not-target decision changes intent prospectively");
    end;
 
    Assert
-     (ALedger.Envelope_Commitment.Observe
+     (HRA.Envelope_Commitment.Observe
         (Open_Plans,
          Registry,
-         ALedger.Envelope_Routing.Empty_History,
+         HRA.Envelope_Routing.Empty_History,
          History,
          Window,
          D ("2026-08-15"),
@@ -289,69 +289,69 @@ begin
          Commit_Diag),
       "Observe non-Expense Envelope commitment through PlanId routing");
    Assert
-     (ALedger.Money.Lookup_Balance
-        (ALedger.Envelope_Commitment.Commitment_For (Commitment, Savings_Env), JPY)
+     (HRA.Money.Lookup_Balance
+        (HRA.Envelope_Commitment.Commitment_For (Commitment, Savings_Env), JPY)
         = 500.0,
       "Only explicitly routed savings Plan claims Envelope headroom");
    Assert
-     (ALedger.Money.Lookup_Balance
-        (ALedger.Envelope_Commitment.Commitment_For (Commitment, Savings_Env), JPY)
+     (HRA.Money.Lookup_Balance
+        (HRA.Envelope_Commitment.Commitment_For (Commitment, Savings_Env), JPY)
         /= 800.0,
       "Unrelated Plan using same destination Account inherits no Envelope meaning");
 
    declare
-      Bad : ALedger.Fulfillment_Routing.Decision_Vectors.Vector;
-      Rejected : ALedger.Fulfillment_Routing.Fulfillment_Routing_History;
+      Bad : HRA.Fulfillment_Routing.Decision_Vectors.Vector;
+      Rejected : HRA.Fulfillment_Routing.Fulfillment_Routing_History;
    begin
       Bad.Append
-        (ALedger.Fulfillment_Routing.Fulfillment_Routing_Decision'
+        (HRA.Fulfillment_Routing.Fulfillment_Routing_Decision'
            (Effective_From => D ("2026-08-01"),
-            Plan_ID        => ALedger.Plan.Make_Plan_Id ("plan-missing"),
-            Route          => ALedger.Fulfillment_Routing.Not_Target,
+            Plan_ID        => HRA.Plan.Make_Plan_Id ("plan-missing"),
+            Route          => HRA.Fulfillment_Routing.Not_Target,
             Note           => To_Unbounded_String ("dangling Plan reference")));
       Assert
-        (not ALedger.Fulfillment_Routing.Admit
+        (not HRA.Fulfillment_Routing.Admit
            (Bad, Known_Plans, Env_Registry, Rejected, Route_Status)
-         and then Route_Status = ALedger.Fulfillment_Routing.Unknown_Plan_Reference,
+         and then Route_Status = HRA.Fulfillment_Routing.Unknown_Plan_Reference,
          "Reject Fulfillment routing that references unknown stable PlanId");
    end;
 
    declare
-      Bad : ALedger.Fulfillment_Routing.Decision_Vectors.Vector;
-      Rejected : ALedger.Fulfillment_Routing.Fulfillment_Routing_History;
-      Ghost : constant ALedger.Envelope.Envelope_Id :=
-        ALedger.Envelope.Make_Envelope_Id ("ghost");
+      Bad : HRA.Fulfillment_Routing.Decision_Vectors.Vector;
+      Rejected : HRA.Fulfillment_Routing.Fulfillment_Routing_History;
+      Ghost : constant HRA.Envelope.Envelope_Id :=
+        HRA.Envelope.Make_Envelope_Id ("ghost");
    begin
       Bad.Append
-        (ALedger.Fulfillment_Routing.Fulfillment_Routing_Decision'
+        (HRA.Fulfillment_Routing.Fulfillment_Routing_Decision'
            (Effective_From => D ("2026-08-01"),
-            Plan_ID        => ALedger.Plan.Make_Plan_Id ("plan-save"),
-            Route          => ALedger.Fulfillment_Routing.Fulfills (Ghost),
+            Plan_ID        => HRA.Plan.Make_Plan_Id ("plan-save"),
+            Route          => HRA.Fulfillment_Routing.Fulfills (Ghost),
             Note           => To_Unbounded_String ("dangling Envelope reference")));
       Assert
-        (not ALedger.Fulfillment_Routing.Admit
+        (not HRA.Fulfillment_Routing.Admit
            (Bad, Known_Plans, Env_Registry, Rejected, Route_Status)
-         and then Route_Status = ALedger.Fulfillment_Routing.Unknown_Envelope_Reference,
+         and then Route_Status = HRA.Fulfillment_Routing.Unknown_Envelope_Reference,
          "Reject Fulfillment routing that references unknown EnvelopeId");
    end;
 
    declare
-      Bad : ALedger.Fulfillment_Routing.Decision_Vectors.Vector;
-      Rejected : ALedger.Fulfillment_Routing.Fulfillment_Routing_History;
-      Save_ID : constant ALedger.Plan.Plan_Id := ALedger.Plan.Make_Plan_Id ("plan-save");
-      Decision : constant ALedger.Fulfillment_Routing.Fulfillment_Routing_Decision :=
+      Bad : HRA.Fulfillment_Routing.Decision_Vectors.Vector;
+      Rejected : HRA.Fulfillment_Routing.Fulfillment_Routing_History;
+      Save_ID : constant HRA.Plan.Plan_Id := HRA.Plan.Make_Plan_Id ("plan-save");
+      Decision : constant HRA.Fulfillment_Routing.Fulfillment_Routing_Decision :=
         (Effective_From => D ("2026-08-01"),
          Plan_ID        => Save_ID,
-         Route          => ALedger.Fulfillment_Routing.Fulfills (Savings_Env),
+         Route          => HRA.Fulfillment_Routing.Fulfills (Savings_Env),
          Note           => To_Unbounded_String ("duplicate coordinate"));
    begin
       Bad.Append (Decision);
       Bad.Append (Decision);
       Assert
-        (not ALedger.Fulfillment_Routing.Admit
+        (not HRA.Fulfillment_Routing.Admit
            (Bad, Known_Plans, Env_Registry, Rejected, Route_Status)
          and then Route_Status =
-           ALedger.Fulfillment_Routing.Duplicate_Plan_Date_Coordinate,
+           HRA.Fulfillment_Routing.Duplicate_Plan_Date_Coordinate,
          "Reject duplicate PlanId/day Fulfillment routing coordinate");
    end;
 

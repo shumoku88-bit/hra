@@ -1,10 +1,10 @@
 with Ada.Text_IO;          use Ada.Text_IO;
-with ALedger.Dates;
-with ALedger.Money;          use ALedger.Money;
-with ALedger.Envelope;
-with ALedger.Envelope_Entitlement; use ALedger.Envelope_Entitlement;
+with HRA.Dates;
+with HRA.Money;          use HRA.Money;
+with HRA.Envelope;
+with HRA.Envelope_Entitlement; use HRA.Envelope_Entitlement;
 
---  Standalone smoke test for ALedger.Envelope_Entitlement.
+--  Standalone smoke test for HRA.Envelope_Entitlement.
 --  Verifies: empty obs, Grant, Transfer, Return, Entitlement_For, fold accumulation.
 --  Uses Character'Val byte literals to avoid the String/Wide_Wide_String issue
 --  with non-Latin-1 source text.
@@ -25,11 +25,11 @@ procedure Test_Envelope_Entitlement_Standalone is
       end if;
    end Check;
 
-   function D (S : String) return ALedger.Dates.Date is
-      Val    : ALedger.Dates.Date;
-      Status : ALedger.Dates.Date_Status;
+   function D (S : String) return HRA.Dates.Date is
+      Val    : HRA.Dates.Date;
+      Status : HRA.Dates.Date_Status;
    begin
-      if not ALedger.Dates.Parse (S, Val, Status) then
+      if not HRA.Dates.Parse (S, Val, Status) then
          raise Program_Error with "Invalid date in test: " & S;
       end if;
       return Val;
@@ -49,13 +49,13 @@ procedure Test_Envelope_Entitlement_Standalone is
 
    JPY     : constant Commodity := Make_Commodity ("JPY");
    USD     : constant Commodity := Make_Commodity ("USD");
-   Food_Id : constant ALedger.Envelope.Envelope_Id :=
-     ALedger.Envelope.Make_Envelope_Id (Food_UTF8);
-   Gen_Id  : constant ALedger.Envelope.Envelope_Id :=
-     ALedger.Envelope.Make_Envelope_Id (Gen_UTF8);
+   Food_Id : constant HRA.Envelope.Envelope_Id :=
+     HRA.Envelope.Make_Envelope_Id (Food_UTF8);
+   Gen_Id  : constant HRA.Envelope.Envelope_Id :=
+     HRA.Envelope.Make_Envelope_Id (Gen_UTF8);
    Obs     : Entitlement_Observation := Empty_Observation;
 begin
-   Put_Line ("--- ALedger.Envelope_Entitlement smoke test ---");
+   Put_Line ("--- HRA.Envelope_Entitlement smoke test ---");
 
    --  Empty observation has zero unallocated
    Check

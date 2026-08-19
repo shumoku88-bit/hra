@@ -26,4 +26,4 @@ jobs:
         uses: alire-project/setup-alire@v6
 
       - name: Build, test, and prove
-        run: ./tools/al qualify
+        run: ./tools/hra qualify

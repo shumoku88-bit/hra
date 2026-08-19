@@ -1,9 +1,9 @@
-name = "aledger"
+name = "hra"
 description = "HRA - Ada 2022 Household Reckoning Apparatus"
 version = "0.1.0-dev"
 authors = ["shumoku88-bit"]
 licenses = "MIT"
-executables = ["aledger_main"]
+executables = ["hra_main"]
 
 [[depends-on]]
 ada_toml = "~0.5.0"

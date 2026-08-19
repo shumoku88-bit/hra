@@ -1,0 +1,14 @@
+project HRA_Proof is
+   for Languages use ("Ada");
+   for Source_Dirs use ("../src");
+   for Source_Files use
+     ("hra.ads",
+      "hra-proof_core.ads",
+      "hra-proof_core.adb");
+   for Object_Dir use "obj";
+
+   package Compiler is
+      for Default_Switches ("Ada") use
+        ("-gnat2022", "-gnata", "-gnatW8", "-gnatwa");
+   end Compiler;
+end HRA_Proof;

@@ -2,11 +2,11 @@ with Ada.Directories;       use Ada.Directories;
 with Ada.Strings.Fixed;      use Ada.Strings.Fixed;
 with Ada.Strings.Unbounded;  use Ada.Strings.Unbounded;
 with Ada.Text_IO;            use Ada.Text_IO;
-with ALedger.Account;        use ALedger.Account;
-with ALedger.Household;      use ALedger.Household;
-with ALedger.Journal;        use ALedger.Journal;
-with ALedger.Journal_Loader;
-with ALedger.Ledger;         use ALedger.Ledger;
+with HRA.Account;        use HRA.Account;
+with HRA.Household;      use HRA.Household;
+with HRA.Journal;        use HRA.Journal;
+with HRA.Journal_Loader;
+with HRA.Ledger;         use HRA.Ledger;
 
 procedure Test_Account_Admission is
    Passed_Count : Natural := 0;
@@ -33,7 +33,7 @@ procedure Test_Account_Admission is
    end Write_File;
 
 begin
-   Put_Line ("--- Testing ALedger Account admission laws ---");
+   Put_Line ("--- Testing HRA Account admission laws ---");
 
    declare
       Reg        : Account_Registry := Empty_Registry;
@@ -136,7 +136,7 @@ begin
    end;
 
    declare
-      Tmp_Dir    : constant String := "/tmp/aledger_account_admission";
+      Tmp_Dir    : constant String := "/tmp/hra_account_admission";
       Root_Path  : constant String := Tmp_Dir & "/accounts.journal";
       Child_Path : constant String := Tmp_Dir & "/child.journal";
       Root_Text  : constant String :=
@@ -148,7 +148,7 @@ begin
       Child_Text : constant String :=
         "account income:included" & ASCII.LF &
         "  ; type: Income" & ASCII.LF;
-      Obs : ALedger.Journal_Loader.Journal_Observation;
+      Obs : HRA.Journal_Loader.Journal_Observation;
       Err : Unbounded_String;
    begin
       if Exists (Tmp_Dir) then
@@ -159,7 +159,7 @@ begin
       Write_File (Child_Path, Child_Text);
 
       Assert
-        (ALedger.Journal_Loader.Load_From_Root_Source
+        (HRA.Journal_Loader.Load_From_Root_Source
            (Root_Path, Root_Text, Obs, Err),
          "include graph admits Account declarations");
 
@@ -180,7 +180,7 @@ begin
    --  A declaration in Actual is parser-local evidence only. It cannot expand
    --  the canonical Account universe owned by accounts.journal.
    declare
-      Tmp_Dir : constant String := "/tmp/aledger_account_authority";
+      Tmp_Dir : constant String := "/tmp/hra_account_authority";
       Paths   : constant Source_Paths := Resolve_Source_Paths (Tmp_Dir);
       State   : Household_State;
       Err     : Unbounded_String;

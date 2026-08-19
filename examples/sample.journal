@@ -1,4 +1,4 @@
-; Sample Journal Document for ALedger
+; Sample Journal Document for HRA
 account assets:bank
   ; type: Asset
 account income:salary

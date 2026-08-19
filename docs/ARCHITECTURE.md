@@ -1,4 +1,4 @@
-# aledger architecture
+# hra architecture
 
 ステータス: active foundation
 
@@ -24,7 +24,7 @@ edit intent
 
 会計計算はpath、environment variable、terminal、renameを知らない。Renderはsourceを読まない。CLI/TUIはAccount分類、期間、予算、writer lawを再実装しない。
 
-SPARK境界は[`PROOF_CORE.md`](PROOF_CORE.md)が所有する。parserやUIを全面SPARK化せず、ordinary Ada admissionが正規化したbounded factsだけをpure proof coreへ渡す。現在、Envelope Remaining/Headroomは`ALedger.Envelope_Position`経由でSPARK Proof_Coreに接続完了している（Phase C）。Backingの証明接続（Phase D）は独立して進行中。
+SPARK境界は[`PROOF_CORE.md`](PROOF_CORE.md)が所有する。parserやUIを全面SPARK化せず、ordinary Ada admissionが正規化したbounded factsだけをpure proof coreへ渡す。現在、Envelope Remaining/Headroomは`HRA.Envelope_Position`経由でSPARK Proof_Coreに接続完了している（Phase C）。Backingの証明接続（Phase D）は独立して進行中。
 
 ## Stable invariants
 
@@ -52,7 +52,7 @@ policyはTOML構文のまま計算へ流さず、source-specific parserでtyped 
 
 ## Admission failure and observable conditions
 
-aledgerは「意味をadmitできない状態」と「admitできるが対話が必要な家計状態」を分ける。
+hraは「意味をadmitできない状態」と「admitできるが対話が必要な家計状態」を分ける。
 
 ### Admission failure
 
@@ -110,9 +110,9 @@ AIも同じ境界に従う。AIはallocation、資金移動、Plan、Issue対応
 
 ## Canonical source boundary
 
-`ALedger.Canonical_Source`は固定8 basename、path解決、一回のexact-byte observationだけを所有する。Journal/TOML/TSVを一つのgeneric parserへ統合しない。各syntaxとdomain meaningはnamed admission ownerが持つ。
+`HRA.Canonical_Source`は固定8 basename、path解決、一回のexact-byte observationだけを所有する。Journal/TOML/TSVを一つのgeneric parserへ統合しない。各syntaxとdomain meaningはnamed admission ownerが持つ。
 
-`ALedger.Household`はcomplete observationから各ownerを呼び、cross-source referenceを検証し、一つの`Household_State`を組み立てる。欠落・parse failure・未解決referenceを黙って飛ばさない。
+`HRA.Household`はcomplete observationから各ownerを呼び、cross-source referenceを検証し、一つの`Household_State`を組み立てる。欠落・parse failure・未解決referenceを黙って飛ばさない。
 
 ## Migration chapters
 

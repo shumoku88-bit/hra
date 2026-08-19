@@ -1,29 +1,29 @@
 with Ada.Text_IO; use Ada.Text_IO;
 with Ada.Strings.Fixed;
 with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
-with ALedger.Account;
-with ALedger.Backing_Policy;
-with ALedger.Budget_Config;
-with ALedger.Config_Support;
-with ALedger.Dates;
-with ALedger.Envelope; use ALedger.Envelope;
-with ALedger.Envelope_Commitment;
-with ALedger.Envelope_Consumption;
-with ALedger.Envelope_Entitlement;
-with ALedger.Envelope_Fulfillment;
-with ALedger.Envelope_Position; use ALedger.Envelope_Position;
-with ALedger.Envelope_Report_Render;
-with ALedger.Household;
-with ALedger.Household_Config;
-with ALedger.Household_Report_Observation;
-with ALedger.Journal;
-with ALedger.Journal_Evidence;
-with ALedger.Ledger;
-with ALedger.Money; use ALedger.Money;
-with ALedger.Report_Config;
+with HRA.Account;
+with HRA.Backing_Policy;
+with HRA.Budget_Config;
+with HRA.Config_Support;
+with HRA.Dates;
+with HRA.Envelope; use HRA.Envelope;
+with HRA.Envelope_Commitment;
+with HRA.Envelope_Consumption;
+with HRA.Envelope_Entitlement;
+with HRA.Envelope_Fulfillment;
+with HRA.Envelope_Position; use HRA.Envelope_Position;
+with HRA.Envelope_Report_Render;
+with HRA.Household;
+with HRA.Household_Config;
+with HRA.Household_Report_Observation;
+with HRA.Journal;
+with HRA.Journal_Evidence;
+with HRA.Ledger;
+with HRA.Money; use HRA.Money;
+with HRA.Report_Config;
 
 procedure Test_Envelope_Position is
-   use type ALedger.Backing_Policy.Policy_Status;
+   use type HRA.Backing_Policy.Policy_Status;
 
    Passed_Count : Natural := 0;
    Failed_Count : Natural := 0;
@@ -39,11 +39,11 @@ procedure Test_Envelope_Position is
       end if;
    end Assert;
 
-   function D (S : String) return ALedger.Dates.Date is
-      Result : ALedger.Dates.Date;
-      Status : ALedger.Dates.Date_Status;
+   function D (S : String) return HRA.Dates.Date is
+      Result : HRA.Dates.Date;
+      Status : HRA.Dates.Date_Status;
    begin
-      if not ALedger.Dates.Parse (S, Result, Status) then
+      if not HRA.Dates.Parse (S, Result, Status) then
          raise Program_Error with "invalid test date: " & S;
       end if;
       return Result;
@@ -53,7 +53,7 @@ procedure Test_Envelope_Position is
    USD : constant Commodity := Make_Commodity ("USD");
 
 begin
-   Put_Line ("--- Testing ALedger.Envelope_Position ---");
+   Put_Line ("--- Testing HRA.Envelope_Position ---");
 
    --  ========================================================================
    --  Law A: Standard Position
@@ -71,21 +71,21 @@ begin
         "pacing = ""daily""" & ASCII.LF &
         "backing-pool = ""liquid""" & ASCII.LF;
 
-      Policy_Config : ALedger.Budget_Config.Budget_Policy;
-      Config_Diag   : ALedger.Config_Support.Config_Diagnostic;
-      Ids           : ALedger.Config_Support.String_Vectors.Vector;
+      Policy_Config : HRA.Budget_Config.Budget_Policy;
+      Config_Diag   : HRA.Config_Support.Config_Diagnostic;
+      Ids           : HRA.Config_Support.String_Vectors.Vector;
       Env_Registry  : Envelope_Registry;
-      Reg_Diag      : ALedger.Config_Support.Config_Diagnostic;
+      Reg_Diag      : HRA.Config_Support.Config_Diagnostic;
       Food_Env      : Envelope_Id;
 
-      Entitlement   : ALedger.Envelope_Entitlement.Entitlement_Observation :=
-        ALedger.Envelope_Entitlement.Empty_Observation;
-      Consumption   : ALedger.Envelope_Consumption.Envelope_Consumption :=
-        ALedger.Envelope_Consumption.Empty_Consumption;
-      Fulfillment   : ALedger.Envelope_Fulfillment.Envelope_Fulfillment :=
-        ALedger.Envelope_Fulfillment.Empty_Fulfillment (D ("2026-08-15"));
-      Commitment    : ALedger.Envelope_Commitment.Commitment_Observation :=
-        ALedger.Envelope_Commitment.Empty_Observation
+      Entitlement   : HRA.Envelope_Entitlement.Entitlement_Observation :=
+        HRA.Envelope_Entitlement.Empty_Observation;
+      Consumption   : HRA.Envelope_Consumption.Envelope_Consumption :=
+        HRA.Envelope_Consumption.Empty_Consumption;
+      Fulfillment   : HRA.Envelope_Fulfillment.Envelope_Fulfillment :=
+        HRA.Envelope_Fulfillment.Empty_Fulfillment (D ("2026-08-15"));
+      Commitment    : HRA.Envelope_Commitment.Commitment_Observation :=
+        HRA.Envelope_Commitment.Empty_Observation
           (D ("2026-08-15"), D ("2026-08-15"));
 
       Obs           : Observation;
@@ -93,7 +93,7 @@ begin
       Pos           : Position;
    begin
       Assert
-        (ALedger.Budget_Config.Parse_Budget_Policy
+        (HRA.Budget_Config.Parse_Budget_Policy
            (Budget_TOML, Policy_Config, Config_Diag),
          "Setup: parse budget policy for Law A");
       Ids.Append ("food");
@@ -102,16 +102,16 @@ begin
          "Setup: admit registry for Law A");
       Assert (Lookup (Env_Registry, "food", Food_Env), "Lookup Food_Env");
 
-      Entitlement := ALedger.Envelope_Entitlement.Fold_Movement
+      Entitlement := HRA.Envelope_Entitlement.Fold_Movement
         (Entitlement,
-         (Kind    => ALedger.Envelope_Entitlement.Grant_From_Unallocated,
+         (Kind    => HRA.Envelope_Entitlement.Grant_From_Unallocated,
           Tx_Date => D ("2026-08-01"),
           Amt     => Make_Amount (JPY, 1000.0),
           Target  => Food_Env));
 
       Consumption.Managed.Insert
         ("food",
-         ALedger.Envelope_Consumption.Make_Amounts
+         HRA.Envelope_Consumption.Make_Amounts
            (Charges => Singleton_Balance (Make_Amount (JPY, 300.0)),
             Refunds => Empty_Balance));
 
@@ -151,21 +151,21 @@ begin
    --  Preserved without clamping or rejecting
    --  ========================================================================
    declare
-      Policy_Config : ALedger.Budget_Config.Budget_Policy;
-      Config_Diag   : ALedger.Config_Support.Config_Diagnostic;
-      Ids           : ALedger.Config_Support.String_Vectors.Vector;
+      Policy_Config : HRA.Budget_Config.Budget_Policy;
+      Config_Diag   : HRA.Config_Support.Config_Diagnostic;
+      Ids           : HRA.Config_Support.String_Vectors.Vector;
       Env_Registry  : Envelope_Registry;
-      Reg_Diag      : ALedger.Config_Support.Config_Diagnostic;
+      Reg_Diag      : HRA.Config_Support.Config_Diagnostic;
       Food_Env      : Envelope_Id;
 
-      Entitlement   : ALedger.Envelope_Entitlement.Entitlement_Observation :=
-        ALedger.Envelope_Entitlement.Empty_Observation;
-      Consumption   : ALedger.Envelope_Consumption.Envelope_Consumption :=
-        ALedger.Envelope_Consumption.Empty_Consumption;
-      Fulfillment   : ALedger.Envelope_Fulfillment.Envelope_Fulfillment :=
-        ALedger.Envelope_Fulfillment.Empty_Fulfillment (D ("2026-08-15"));
-      Commitment    : ALedger.Envelope_Commitment.Commitment_Observation :=
-        ALedger.Envelope_Commitment.Empty_Observation
+      Entitlement   : HRA.Envelope_Entitlement.Entitlement_Observation :=
+        HRA.Envelope_Entitlement.Empty_Observation;
+      Consumption   : HRA.Envelope_Consumption.Envelope_Consumption :=
+        HRA.Envelope_Consumption.Empty_Consumption;
+      Fulfillment   : HRA.Envelope_Fulfillment.Envelope_Fulfillment :=
+        HRA.Envelope_Fulfillment.Empty_Fulfillment (D ("2026-08-15"));
+      Commitment    : HRA.Envelope_Commitment.Commitment_Observation :=
+        HRA.Envelope_Commitment.Empty_Observation
           (D ("2026-08-15"), D ("2026-08-15"));
 
       Obs           : Observation;
@@ -173,7 +173,7 @@ begin
       Pos           : Position;
    begin
       Assert
-        (ALedger.Budget_Config.Parse_Budget_Policy
+        (HRA.Budget_Config.Parse_Budget_Policy
            ("[[backing-pools]]" & ASCII.LF &
             "id = ""liquid""" & ASCII.LF &
             "asset-accounts = [""assets:cash""]" & ASCII.LF &
@@ -189,16 +189,16 @@ begin
       Assert (Admit_Registry (Ids, Env_Registry, Reg_Diag), "Setup Law B");
       Assert (Lookup (Env_Registry, "food", Food_Env), "Lookup Food_Env");
 
-      Entitlement := ALedger.Envelope_Entitlement.Fold_Movement
+      Entitlement := HRA.Envelope_Entitlement.Fold_Movement
         (Entitlement,
-         (Kind    => ALedger.Envelope_Entitlement.Grant_From_Unallocated,
+         (Kind    => HRA.Envelope_Entitlement.Grant_From_Unallocated,
           Tx_Date => D ("2026-08-01"),
           Amt     => Make_Amount (JPY, 100.0),
           Target  => Food_Env));
 
       Consumption.Managed.Insert
         ("food",
-         ALedger.Envelope_Consumption.Make_Amounts
+         HRA.Envelope_Consumption.Make_Amounts
            (Charges => Singleton_Balance (Make_Amount (JPY, 300.0)),
             Refunds => Empty_Balance));
 
@@ -237,21 +237,21 @@ begin
    --  Negative Net Consumption (refunds > charges) and negative Net Fulfillment
    --  ========================================================================
    declare
-      Policy_Config : ALedger.Budget_Config.Budget_Policy;
-      Config_Diag   : ALedger.Config_Support.Config_Diagnostic;
-      Ids           : ALedger.Config_Support.String_Vectors.Vector;
+      Policy_Config : HRA.Budget_Config.Budget_Policy;
+      Config_Diag   : HRA.Config_Support.Config_Diagnostic;
+      Ids           : HRA.Config_Support.String_Vectors.Vector;
       Env_Registry  : Envelope_Registry;
-      Reg_Diag      : ALedger.Config_Support.Config_Diagnostic;
+      Reg_Diag      : HRA.Config_Support.Config_Diagnostic;
       Food_Env      : Envelope_Id;
 
-      Entitlement   : ALedger.Envelope_Entitlement.Entitlement_Observation :=
-        ALedger.Envelope_Entitlement.Empty_Observation;
-      Consumption   : ALedger.Envelope_Consumption.Envelope_Consumption :=
-        ALedger.Envelope_Consumption.Empty_Consumption;
-      Fulfillment   : ALedger.Envelope_Fulfillment.Envelope_Fulfillment :=
-        ALedger.Envelope_Fulfillment.Empty_Fulfillment (D ("2026-08-15"));
-      Commitment    : ALedger.Envelope_Commitment.Commitment_Observation :=
-        ALedger.Envelope_Commitment.Empty_Observation
+      Entitlement   : HRA.Envelope_Entitlement.Entitlement_Observation :=
+        HRA.Envelope_Entitlement.Empty_Observation;
+      Consumption   : HRA.Envelope_Consumption.Envelope_Consumption :=
+        HRA.Envelope_Consumption.Empty_Consumption;
+      Fulfillment   : HRA.Envelope_Fulfillment.Envelope_Fulfillment :=
+        HRA.Envelope_Fulfillment.Empty_Fulfillment (D ("2026-08-15"));
+      Commitment    : HRA.Envelope_Commitment.Commitment_Observation :=
+        HRA.Envelope_Commitment.Empty_Observation
           (D ("2026-08-15"), D ("2026-08-15"));
 
       Obs           : Observation;
@@ -259,7 +259,7 @@ begin
       Pos           : Position;
    begin
       Assert
-        (ALedger.Budget_Config.Parse_Budget_Policy
+        (HRA.Budget_Config.Parse_Budget_Policy
            ("[[backing-pools]]" & ASCII.LF &
             "id = ""liquid""" & ASCII.LF &
             "asset-accounts = [""assets:cash""]" & ASCII.LF &
@@ -275,9 +275,9 @@ begin
       Assert (Admit_Registry (Ids, Env_Registry, Reg_Diag), "Setup Law C");
       Assert (Lookup (Env_Registry, "food", Food_Env), "Lookup Food_Env");
 
-      Entitlement := ALedger.Envelope_Entitlement.Fold_Movement
+      Entitlement := HRA.Envelope_Entitlement.Fold_Movement
         (Entitlement,
-         (Kind    => ALedger.Envelope_Entitlement.Grant_From_Unallocated,
+         (Kind    => HRA.Envelope_Entitlement.Grant_From_Unallocated,
           Tx_Date => D ("2026-08-01"),
           Amt     => Make_Amount (JPY, 1000.0),
           Target  => Food_Env));
@@ -285,7 +285,7 @@ begin
       -- Net Consumption = Charges (100) - Refunds (300) = -200
       Consumption.Managed.Insert
         ("food",
-         ALedger.Envelope_Consumption.Make_Amounts
+         HRA.Envelope_Consumption.Make_Amounts
            (Charges => Singleton_Balance (Make_Amount (JPY, 100.0)),
             Refunds => Singleton_Balance (Make_Amount (JPY, 300.0))));
 
@@ -327,21 +327,21 @@ begin
    --  Independent evaluation for JPY and USD without cross-currency cancellation
    --  ========================================================================
    declare
-      Policy_Config : ALedger.Budget_Config.Budget_Policy;
-      Config_Diag   : ALedger.Config_Support.Config_Diagnostic;
-      Ids           : ALedger.Config_Support.String_Vectors.Vector;
+      Policy_Config : HRA.Budget_Config.Budget_Policy;
+      Config_Diag   : HRA.Config_Support.Config_Diagnostic;
+      Ids           : HRA.Config_Support.String_Vectors.Vector;
       Env_Registry  : Envelope_Registry;
-      Reg_Diag      : ALedger.Config_Support.Config_Diagnostic;
+      Reg_Diag      : HRA.Config_Support.Config_Diagnostic;
       Food_Env      : Envelope_Id;
 
-      Entitlement   : ALedger.Envelope_Entitlement.Entitlement_Observation :=
-        ALedger.Envelope_Entitlement.Empty_Observation;
-      Consumption   : ALedger.Envelope_Consumption.Envelope_Consumption :=
-        ALedger.Envelope_Consumption.Empty_Consumption;
-      Fulfillment   : ALedger.Envelope_Fulfillment.Envelope_Fulfillment :=
-        ALedger.Envelope_Fulfillment.Empty_Fulfillment (D ("2026-08-15"));
-      Commitment    : ALedger.Envelope_Commitment.Commitment_Observation :=
-        ALedger.Envelope_Commitment.Empty_Observation
+      Entitlement   : HRA.Envelope_Entitlement.Entitlement_Observation :=
+        HRA.Envelope_Entitlement.Empty_Observation;
+      Consumption   : HRA.Envelope_Consumption.Envelope_Consumption :=
+        HRA.Envelope_Consumption.Empty_Consumption;
+      Fulfillment   : HRA.Envelope_Fulfillment.Envelope_Fulfillment :=
+        HRA.Envelope_Fulfillment.Empty_Fulfillment (D ("2026-08-15"));
+      Commitment    : HRA.Envelope_Commitment.Commitment_Observation :=
+        HRA.Envelope_Commitment.Empty_Observation
           (D ("2026-08-15"), D ("2026-08-15"));
 
       Obs           : Observation;
@@ -352,7 +352,7 @@ begin
       Plan_Bal      : Balance := Empty_Balance;
    begin
       Assert
-        (ALedger.Budget_Config.Parse_Budget_Policy
+        (HRA.Budget_Config.Parse_Budget_Policy
            ("[[backing-pools]]" & ASCII.LF &
             "id = ""liquid""" & ASCII.LF &
             "asset-accounts = [""assets:cash""]" & ASCII.LF &
@@ -368,15 +368,15 @@ begin
       Assert (Admit_Registry (Ids, Env_Registry, Reg_Diag), "Setup Law D");
       Assert (Lookup (Env_Registry, "food", Food_Env), "Lookup Food_Env");
 
-      Entitlement := ALedger.Envelope_Entitlement.Fold_Movement
+      Entitlement := HRA.Envelope_Entitlement.Fold_Movement
         (Entitlement,
-         (Kind    => ALedger.Envelope_Entitlement.Grant_From_Unallocated,
+         (Kind    => HRA.Envelope_Entitlement.Grant_From_Unallocated,
           Tx_Date => D ("2026-08-01"),
           Amt     => Make_Amount (JPY, 1000.0),
           Target  => Food_Env));
-      Entitlement := ALedger.Envelope_Entitlement.Fold_Movement
+      Entitlement := HRA.Envelope_Entitlement.Fold_Movement
         (Entitlement,
-         (Kind    => ALedger.Envelope_Entitlement.Grant_From_Unallocated,
+         (Kind    => HRA.Envelope_Entitlement.Grant_From_Unallocated,
           Tx_Date => D ("2026-08-01"),
           Amt     => Make_Amount (USD, 50.0),
           Target  => Food_Env));
@@ -386,7 +386,7 @@ begin
          Singleton_Balance (Make_Amount (USD, 10.0)));
       Consumption.Managed.Insert
         ("food",
-         ALedger.Envelope_Consumption.Make_Amounts
+         HRA.Envelope_Consumption.Make_Amounts
            (Charges => Cons_Bal, Refunds => Empty_Balance));
 
       Ful_Bal := Add_Balance
@@ -441,21 +441,21 @@ begin
    --  and negative Headroom.
    --  ========================================================================
    declare
-      Policy_Config : ALedger.Budget_Config.Budget_Policy;
-      Config_Diag   : ALedger.Config_Support.Config_Diagnostic;
-      Ids           : ALedger.Config_Support.String_Vectors.Vector;
+      Policy_Config : HRA.Budget_Config.Budget_Policy;
+      Config_Diag   : HRA.Config_Support.Config_Diagnostic;
+      Ids           : HRA.Config_Support.String_Vectors.Vector;
       Env_Registry  : Envelope_Registry;
-      Reg_Diag      : ALedger.Config_Support.Config_Diagnostic;
+      Reg_Diag      : HRA.Config_Support.Config_Diagnostic;
       Food_Env      : Envelope_Id;
 
-      Entitlement   : ALedger.Envelope_Entitlement.Entitlement_Observation :=
-        ALedger.Envelope_Entitlement.Empty_Observation;
-      Consumption   : ALedger.Envelope_Consumption.Envelope_Consumption :=
-        ALedger.Envelope_Consumption.Empty_Consumption;
-      Fulfillment   : constant ALedger.Envelope_Fulfillment.Envelope_Fulfillment :=
-        ALedger.Envelope_Fulfillment.Empty_Fulfillment (D ("2026-08-15"));
-      Commitment    : ALedger.Envelope_Commitment.Commitment_Observation :=
-        ALedger.Envelope_Commitment.Empty_Observation
+      Entitlement   : HRA.Envelope_Entitlement.Entitlement_Observation :=
+        HRA.Envelope_Entitlement.Empty_Observation;
+      Consumption   : HRA.Envelope_Consumption.Envelope_Consumption :=
+        HRA.Envelope_Consumption.Empty_Consumption;
+      Fulfillment   : constant HRA.Envelope_Fulfillment.Envelope_Fulfillment :=
+        HRA.Envelope_Fulfillment.Empty_Fulfillment (D ("2026-08-15"));
+      Commitment    : HRA.Envelope_Commitment.Commitment_Observation :=
+        HRA.Envelope_Commitment.Empty_Observation
           (D ("2026-08-15"), D ("2026-08-15"));
 
       Obs           : Observation;
@@ -463,7 +463,7 @@ begin
       Pos           : Position;
    begin
       Assert
-        (ALedger.Budget_Config.Parse_Budget_Policy
+        (HRA.Budget_Config.Parse_Budget_Policy
            ("[[backing-pools]]" & ASCII.LF &
             "id = ""liquid""" & ASCII.LF &
             "asset-accounts = [""assets:cash""]" & ASCII.LF &
@@ -480,16 +480,16 @@ begin
       Assert (Lookup (Env_Registry, "food", Food_Env), "Lookup Food_Env");
 
       -- JPY: Entitlement 500, Consumption 500 => Remaining = 0, Headroom = 0
-      Entitlement := ALedger.Envelope_Entitlement.Fold_Movement
+      Entitlement := HRA.Envelope_Entitlement.Fold_Movement
         (Entitlement,
-         (Kind    => ALedger.Envelope_Entitlement.Grant_From_Unallocated,
+         (Kind    => HRA.Envelope_Entitlement.Grant_From_Unallocated,
           Tx_Date => D ("2026-08-01"),
           Amt     => Make_Amount (JPY, 500.0),
           Target  => Food_Env));
 
       Consumption.Managed.Insert
         ("food",
-         ALedger.Envelope_Consumption.Make_Amounts
+         HRA.Envelope_Consumption.Make_Amounts
            (Charges => Singleton_Balance (Make_Amount (JPY, 500.0)),
             Refunds => Empty_Balance));
 
@@ -533,21 +533,21 @@ begin
    --  Single input coordinate has missing inputs admitted as 0 quanta
    --  ========================================================================
    declare
-      Policy_Config : ALedger.Budget_Config.Budget_Policy;
-      Config_Diag   : ALedger.Config_Support.Config_Diagnostic;
-      Ids           : ALedger.Config_Support.String_Vectors.Vector;
+      Policy_Config : HRA.Budget_Config.Budget_Policy;
+      Config_Diag   : HRA.Config_Support.Config_Diagnostic;
+      Ids           : HRA.Config_Support.String_Vectors.Vector;
       Env_Registry  : Envelope_Registry;
-      Reg_Diag      : ALedger.Config_Support.Config_Diagnostic;
+      Reg_Diag      : HRA.Config_Support.Config_Diagnostic;
       Food_Env      : Envelope_Id;
 
-      Entitlement   : ALedger.Envelope_Entitlement.Entitlement_Observation :=
-        ALedger.Envelope_Entitlement.Empty_Observation;
-      Consumption   : constant ALedger.Envelope_Consumption.Envelope_Consumption :=
-        ALedger.Envelope_Consumption.Empty_Consumption;
-      Fulfillment   : constant ALedger.Envelope_Fulfillment.Envelope_Fulfillment :=
-        ALedger.Envelope_Fulfillment.Empty_Fulfillment (D ("2026-08-15"));
-      Commitment    : constant ALedger.Envelope_Commitment.Commitment_Observation :=
-        ALedger.Envelope_Commitment.Empty_Observation
+      Entitlement   : HRA.Envelope_Entitlement.Entitlement_Observation :=
+        HRA.Envelope_Entitlement.Empty_Observation;
+      Consumption   : constant HRA.Envelope_Consumption.Envelope_Consumption :=
+        HRA.Envelope_Consumption.Empty_Consumption;
+      Fulfillment   : constant HRA.Envelope_Fulfillment.Envelope_Fulfillment :=
+        HRA.Envelope_Fulfillment.Empty_Fulfillment (D ("2026-08-15"));
+      Commitment    : constant HRA.Envelope_Commitment.Commitment_Observation :=
+        HRA.Envelope_Commitment.Empty_Observation
           (D ("2026-08-15"), D ("2026-08-15"));
 
       Obs           : Observation;
@@ -555,7 +555,7 @@ begin
       Pos           : Position;
    begin
       Assert
-        (ALedger.Budget_Config.Parse_Budget_Policy
+        (HRA.Budget_Config.Parse_Budget_Policy
            ("[[backing-pools]]" & ASCII.LF &
             "id = ""liquid""" & ASCII.LF &
             "asset-accounts = [""assets:cash""]" & ASCII.LF &
@@ -572,9 +572,9 @@ begin
       Assert (Lookup (Env_Registry, "food", Food_Env), "Lookup Food_Env");
 
       -- Only Entitlement exists: 1000 JPY
-      Entitlement := ALedger.Envelope_Entitlement.Fold_Movement
+      Entitlement := HRA.Envelope_Entitlement.Fold_Movement
         (Entitlement,
-         (Kind    => ALedger.Envelope_Entitlement.Grant_From_Unallocated,
+         (Kind    => HRA.Envelope_Entitlement.Grant_From_Unallocated,
           Tx_Date => D ("2026-08-01"),
           Amt     => Make_Amount (JPY, 1000.0),
           Target  => Food_Env));
@@ -606,28 +606,28 @@ begin
    --  Negative Plan Commitment is an explicit Observe failure
    --  ========================================================================
    declare
-      Policy_Config : ALedger.Budget_Config.Budget_Policy;
-      Config_Diag   : ALedger.Config_Support.Config_Diagnostic;
-      Ids           : ALedger.Config_Support.String_Vectors.Vector;
+      Policy_Config : HRA.Budget_Config.Budget_Policy;
+      Config_Diag   : HRA.Config_Support.Config_Diagnostic;
+      Ids           : HRA.Config_Support.String_Vectors.Vector;
       Env_Registry  : Envelope_Registry;
-      Reg_Diag      : ALedger.Config_Support.Config_Diagnostic;
+      Reg_Diag      : HRA.Config_Support.Config_Diagnostic;
       Food_Env      : Envelope_Id;
 
-      Entitlement   : constant ALedger.Envelope_Entitlement.Entitlement_Observation :=
-        ALedger.Envelope_Entitlement.Empty_Observation;
-      Consumption   : constant ALedger.Envelope_Consumption.Envelope_Consumption :=
-        ALedger.Envelope_Consumption.Empty_Consumption;
-      Fulfillment   : constant ALedger.Envelope_Fulfillment.Envelope_Fulfillment :=
-        ALedger.Envelope_Fulfillment.Empty_Fulfillment (D ("2026-08-15"));
-      Commitment    : ALedger.Envelope_Commitment.Commitment_Observation :=
-        ALedger.Envelope_Commitment.Empty_Observation
+      Entitlement   : constant HRA.Envelope_Entitlement.Entitlement_Observation :=
+        HRA.Envelope_Entitlement.Empty_Observation;
+      Consumption   : constant HRA.Envelope_Consumption.Envelope_Consumption :=
+        HRA.Envelope_Consumption.Empty_Consumption;
+      Fulfillment   : constant HRA.Envelope_Fulfillment.Envelope_Fulfillment :=
+        HRA.Envelope_Fulfillment.Empty_Fulfillment (D ("2026-08-15"));
+      Commitment    : HRA.Envelope_Commitment.Commitment_Observation :=
+        HRA.Envelope_Commitment.Empty_Observation
           (D ("2026-08-15"), D ("2026-08-15"));
 
       Obs           : Observation;
       Diag          : Observe_Diagnostic;
    begin
       Assert
-        (ALedger.Budget_Config.Parse_Budget_Policy
+        (HRA.Budget_Config.Parse_Budget_Policy
            ("[[backing-pools]]" & ASCII.LF &
             "id = ""liquid""" & ASCII.LF &
             "asset-accounts = [""assets:cash""]" & ASCII.LF &
@@ -678,21 +678,21 @@ begin
    --  Quantity within Money.Quantity range but outside Atomic_Quanta range
    --  ========================================================================
    declare
-      Policy_Config : ALedger.Budget_Config.Budget_Policy;
-      Config_Diag   : ALedger.Config_Support.Config_Diagnostic;
-      Ids           : ALedger.Config_Support.String_Vectors.Vector;
+      Policy_Config : HRA.Budget_Config.Budget_Policy;
+      Config_Diag   : HRA.Config_Support.Config_Diagnostic;
+      Ids           : HRA.Config_Support.String_Vectors.Vector;
       Env_Registry  : Envelope_Registry;
-      Reg_Diag      : ALedger.Config_Support.Config_Diagnostic;
+      Reg_Diag      : HRA.Config_Support.Config_Diagnostic;
       Food_Env      : Envelope_Id;
 
-      Entitlement   : ALedger.Envelope_Entitlement.Entitlement_Observation :=
-        ALedger.Envelope_Entitlement.Empty_Observation;
-      Consumption   : constant ALedger.Envelope_Consumption.Envelope_Consumption :=
-        ALedger.Envelope_Consumption.Empty_Consumption;
-      Fulfillment   : constant ALedger.Envelope_Fulfillment.Envelope_Fulfillment :=
-        ALedger.Envelope_Fulfillment.Empty_Fulfillment (D ("2026-08-15"));
-      Commitment    : constant ALedger.Envelope_Commitment.Commitment_Observation :=
-        ALedger.Envelope_Commitment.Empty_Observation
+      Entitlement   : HRA.Envelope_Entitlement.Entitlement_Observation :=
+        HRA.Envelope_Entitlement.Empty_Observation;
+      Consumption   : constant HRA.Envelope_Consumption.Envelope_Consumption :=
+        HRA.Envelope_Consumption.Empty_Consumption;
+      Fulfillment   : constant HRA.Envelope_Fulfillment.Envelope_Fulfillment :=
+        HRA.Envelope_Fulfillment.Empty_Fulfillment (D ("2026-08-15"));
+      Commitment    : constant HRA.Envelope_Commitment.Commitment_Observation :=
+        HRA.Envelope_Commitment.Empty_Observation
           (D ("2026-08-15"), D ("2026-08-15"));
 
       Obs           : Observation;
@@ -700,7 +700,7 @@ begin
       Huge_Q        : Quantity;
    begin
       Assert
-        (ALedger.Budget_Config.Parse_Budget_Policy
+        (HRA.Budget_Config.Parse_Budget_Policy
            ("[[backing-pools]]" & ASCII.LF &
             "id = ""liquid""" & ASCII.LF &
             "asset-accounts = [""assets:cash""]" & ASCII.LF &
@@ -721,9 +721,9 @@ begin
         (Parse_Quantity ("100000000.00000000", Huge_Q),
          "Setup: parse out-of-atomic-range Quantity");
 
-      Entitlement := ALedger.Envelope_Entitlement.Fold_Movement
+      Entitlement := HRA.Envelope_Entitlement.Fold_Movement
         (Entitlement,
-         (Kind    => ALedger.Envelope_Entitlement.Grant_From_Unallocated,
+         (Kind    => HRA.Envelope_Entitlement.Grant_From_Unallocated,
           Tx_Date => D ("2026-08-01"),
           Amt     => Make_Amount (JPY, Huge_Q),
           Target  => Food_Env));
@@ -760,22 +760,22 @@ begin
    --  Observation.Positions includes only current envelope.
    --  ========================================================================
    declare
-      Policy_Config : ALedger.Budget_Config.Budget_Policy;
-      Config_Diag   : ALedger.Config_Support.Config_Diagnostic;
-      Ids           : ALedger.Config_Support.String_Vectors.Vector;
+      Policy_Config : HRA.Budget_Config.Budget_Policy;
+      Config_Diag   : HRA.Config_Support.Config_Diagnostic;
+      Ids           : HRA.Config_Support.String_Vectors.Vector;
       Env_Registry  : Envelope_Registry;
-      Reg_Diag      : ALedger.Config_Support.Config_Diagnostic;
+      Reg_Diag      : HRA.Config_Support.Config_Diagnostic;
       Food_Env      : Envelope_Id;
       Retired_Env   : Envelope_Id;
 
-      Entitlement   : ALedger.Envelope_Entitlement.Entitlement_Observation :=
-        ALedger.Envelope_Entitlement.Empty_Observation;
-      Consumption   : constant ALedger.Envelope_Consumption.Envelope_Consumption :=
-        ALedger.Envelope_Consumption.Empty_Consumption;
-      Fulfillment   : constant ALedger.Envelope_Fulfillment.Envelope_Fulfillment :=
-        ALedger.Envelope_Fulfillment.Empty_Fulfillment (D ("2026-08-15"));
-      Commitment    : constant ALedger.Envelope_Commitment.Commitment_Observation :=
-        ALedger.Envelope_Commitment.Empty_Observation
+      Entitlement   : HRA.Envelope_Entitlement.Entitlement_Observation :=
+        HRA.Envelope_Entitlement.Empty_Observation;
+      Consumption   : constant HRA.Envelope_Consumption.Envelope_Consumption :=
+        HRA.Envelope_Consumption.Empty_Consumption;
+      Fulfillment   : constant HRA.Envelope_Fulfillment.Envelope_Fulfillment :=
+        HRA.Envelope_Fulfillment.Empty_Fulfillment (D ("2026-08-15"));
+      Commitment    : constant HRA.Envelope_Commitment.Commitment_Observation :=
+        HRA.Envelope_Commitment.Empty_Observation
           (D ("2026-08-15"), D ("2026-08-15"));
 
       Obs           : Observation;
@@ -783,7 +783,7 @@ begin
    begin
       -- Budget policy defines ONLY "food"
       Assert
-        (ALedger.Budget_Config.Parse_Budget_Policy
+        (HRA.Budget_Config.Parse_Budget_Policy
            ("[[backing-pools]]" & ASCII.LF &
             "id = ""liquid""" & ASCII.LF &
             "asset-accounts = [""assets:cash""]" & ASCII.LF &
@@ -805,17 +805,17 @@ begin
         (Lookup (Env_Registry, "vacation_2025", Retired_Env),
          "Lookup Retired_Env");
 
-      Entitlement := ALedger.Envelope_Entitlement.Fold_Movement
+      Entitlement := HRA.Envelope_Entitlement.Fold_Movement
         (Entitlement,
-         (Kind    => ALedger.Envelope_Entitlement.Grant_From_Unallocated,
+         (Kind    => HRA.Envelope_Entitlement.Grant_From_Unallocated,
           Tx_Date => D ("2026-08-01"),
           Amt     => Make_Amount (JPY, 1000.0),
           Target  => Food_Env));
 
       -- Historical entitlement also exists on retired envelope
-      Entitlement := ALedger.Envelope_Entitlement.Fold_Movement
+      Entitlement := HRA.Envelope_Entitlement.Fold_Movement
         (Entitlement,
-         (Kind    => ALedger.Envelope_Entitlement.Grant_From_Unallocated,
+         (Kind    => HRA.Envelope_Entitlement.Grant_From_Unallocated,
           Tx_Date => D ("2026-08-01"),
           Amt     => Make_Amount (JPY, 500.0),
           Target  => Retired_Env));
@@ -855,20 +855,20 @@ begin
    --  Budget policy references an envelope not admitted in Envelope_Registry
    --  ========================================================================
    declare
-      Policy_Config : ALedger.Budget_Config.Budget_Policy;
-      Config_Diag   : ALedger.Config_Support.Config_Diagnostic;
-      Ids           : ALedger.Config_Support.String_Vectors.Vector;
+      Policy_Config : HRA.Budget_Config.Budget_Policy;
+      Config_Diag   : HRA.Config_Support.Config_Diagnostic;
+      Ids           : HRA.Config_Support.String_Vectors.Vector;
       Env_Registry  : Envelope_Registry;
-      Reg_Diag      : ALedger.Config_Support.Config_Diagnostic;
+      Reg_Diag      : HRA.Config_Support.Config_Diagnostic;
 
-      Entitlement   : constant ALedger.Envelope_Entitlement.Entitlement_Observation :=
-        ALedger.Envelope_Entitlement.Empty_Observation;
-      Consumption   : constant ALedger.Envelope_Consumption.Envelope_Consumption :=
-        ALedger.Envelope_Consumption.Empty_Consumption;
-      Fulfillment   : constant ALedger.Envelope_Fulfillment.Envelope_Fulfillment :=
-        ALedger.Envelope_Fulfillment.Empty_Fulfillment (D ("2026-08-15"));
-      Commitment    : constant ALedger.Envelope_Commitment.Commitment_Observation :=
-        ALedger.Envelope_Commitment.Empty_Observation
+      Entitlement   : constant HRA.Envelope_Entitlement.Entitlement_Observation :=
+        HRA.Envelope_Entitlement.Empty_Observation;
+      Consumption   : constant HRA.Envelope_Consumption.Envelope_Consumption :=
+        HRA.Envelope_Consumption.Empty_Consumption;
+      Fulfillment   : constant HRA.Envelope_Fulfillment.Envelope_Fulfillment :=
+        HRA.Envelope_Fulfillment.Empty_Fulfillment (D ("2026-08-15"));
+      Commitment    : constant HRA.Envelope_Commitment.Commitment_Observation :=
+        HRA.Envelope_Commitment.Empty_Observation
           (D ("2026-08-15"), D ("2026-08-15"));
 
       Obs           : Observation;
@@ -876,7 +876,7 @@ begin
    begin
       -- Budget policy references "unknown_envelope"
       Assert
-        (ALedger.Budget_Config.Parse_Budget_Policy
+        (HRA.Budget_Config.Parse_Budget_Policy
            ("[[backing-pools]]" & ASCII.LF &
             "id = ""liquid""" & ASCII.LF &
             "asset-accounts = [""assets:cash""]" & ASCII.LF &
@@ -919,24 +919,24 @@ begin
    --  without fulfillment or commitment
    --  ========================================================================
    declare
-      Policy_Config : ALedger.Budget_Config.Budget_Policy;
-      Config_Diag   : ALedger.Config_Support.Config_Diagnostic;
-      Ids           : ALedger.Config_Support.String_Vectors.Vector;
+      Policy_Config : HRA.Budget_Config.Budget_Policy;
+      Config_Diag   : HRA.Config_Support.Config_Diagnostic;
+      Ids           : HRA.Config_Support.String_Vectors.Vector;
       Env_Registry  : Envelope_Registry;
-      Reg_Diag      : ALedger.Config_Support.Config_Diagnostic;
+      Reg_Diag      : HRA.Config_Support.Config_Diagnostic;
       Food_Env      : Envelope_Id;
 
-      Entitlement   : ALedger.Envelope_Entitlement.Entitlement_Observation :=
-        ALedger.Envelope_Entitlement.Empty_Observation;
-      Consumption   : ALedger.Envelope_Consumption.Envelope_Consumption :=
-        ALedger.Envelope_Consumption.Empty_Consumption;
+      Entitlement   : HRA.Envelope_Entitlement.Entitlement_Observation :=
+        HRA.Envelope_Entitlement.Empty_Observation;
+      Consumption   : HRA.Envelope_Consumption.Envelope_Consumption :=
+        HRA.Envelope_Consumption.Empty_Consumption;
 
       Obs           : Observation;
       Diag          : Observe_Diagnostic;
       Pos           : Position;
    begin
       Assert
-        (ALedger.Budget_Config.Parse_Budget_Policy
+        (HRA.Budget_Config.Parse_Budget_Policy
            ("[[backing-pools]]" & ASCII.LF &
             "id = ""liquid""" & ASCII.LF &
             "asset-accounts = [""assets:cash""]" & ASCII.LF &
@@ -952,16 +952,16 @@ begin
       Assert (Admit_Registry (Ids, Env_Registry, Reg_Diag), "Setup Observe_Base");
       Assert (Lookup (Env_Registry, "food", Food_Env), "Lookup Food_Env");
 
-      Entitlement := ALedger.Envelope_Entitlement.Fold_Movement
+      Entitlement := HRA.Envelope_Entitlement.Fold_Movement
         (Entitlement,
-         (Kind    => ALedger.Envelope_Entitlement.Grant_From_Unallocated,
+         (Kind    => HRA.Envelope_Entitlement.Grant_From_Unallocated,
           Tx_Date => D ("2026-08-01"),
           Amt     => Make_Amount (JPY, 1000.0),
           Target  => Food_Env));
 
       Consumption.Managed.Insert
         ("food",
-         ALedger.Envelope_Consumption.Make_Amounts
+         HRA.Envelope_Consumption.Make_Amounts
            (Charges => Singleton_Balance (Make_Amount (JPY, 300.0)),
             Refunds => Empty_Balance));
 
@@ -1007,22 +1007,22 @@ begin
         "pacing = ""daily""" & ASCII.LF &
         "backing-pool = ""liquid""" & ASCII.LF;
 
-      Policy_Config : ALedger.Budget_Config.Budget_Policy;
-      Config_Diag   : ALedger.Config_Support.Config_Diagnostic;
-      Backing_Spec  : ALedger.Backing_Policy.Backing_Policy;
-      Backing_Stat  : ALedger.Backing_Policy.Policy_Status;
-      Ids           : ALedger.Config_Support.String_Vectors.Vector;
+      Policy_Config : HRA.Budget_Config.Budget_Policy;
+      Config_Diag   : HRA.Config_Support.Config_Diagnostic;
+      Backing_Spec  : HRA.Backing_Policy.Backing_Policy;
+      Backing_Stat  : HRA.Backing_Policy.Policy_Status;
+      Ids           : HRA.Config_Support.String_Vectors.Vector;
       Env_Registry  : Envelope_Registry;
-      Reg_Diag      : ALedger.Config_Support.Config_Diagnostic;
-      Ledger_Inst   : constant ALedger.Ledger.Ledger := ALedger.Ledger.Empty_Ledger;
+      Reg_Diag      : HRA.Config_Support.Config_Diagnostic;
+      Ledger_Inst   : constant HRA.Ledger.Ledger := HRA.Ledger.Empty_Ledger;
       Partial_Obs   : Observation := Empty_Observation;
       Food_Env      : Envelope_Id;
-      Backing_Obs   : ALedger.Backing_Policy.Backing_Observation;
+      Backing_Obs   : HRA.Backing_Policy.Backing_Observation;
       pragma Unreferenced (Backing_Obs);
       Failed_Loud   : Boolean := False;
    begin
       Assert
-        (ALedger.Budget_Config.Parse_Budget_Policy
+        (HRA.Budget_Config.Parse_Budget_Policy
            (Policy_TOML, Policy_Config, Config_Diag),
          "Setup: parse budget policy for Law K");
       Ids.Append ("food");
@@ -1030,9 +1030,9 @@ begin
       Assert (Admit_Registry (Ids, Env_Registry, Reg_Diag), "Setup Law K");
       Assert (Lookup (Env_Registry, "food", Food_Env), "Lookup Food_Env");
       Assert
-        (ALedger.Backing_Policy.Admit_Backing_Policy
+        (HRA.Backing_Policy.Admit_Backing_Policy
            (Policy_Config, Env_Registry, Backing_Spec, Backing_Stat)
-         and then Backing_Stat = ALedger.Backing_Policy.Success,
+         and then Backing_Stat = HRA.Backing_Policy.Success,
          "Setup: admit backing policy for Law K");
 
       -- Insert only "food" into Partial_Obs, leaving "daily" missing
@@ -1043,7 +1043,7 @@ begin
           Headroom  => Singleton_Balance (Make_Amount (JPY, 500.0))));
 
       begin
-         Backing_Obs := ALedger.Backing_Policy.Observe_Backing
+         Backing_Obs := HRA.Backing_Policy.Observe_Backing
            (Backing_Spec,
             Ledger_Inst,
             Partial_Obs);
@@ -1153,48 +1153,48 @@ begin
         "    assets:cash            200000 JPY" & ASCII.LF &
         "    income:salary         -200000 JPY" & ASCII.LF;
 
-      State         : ALedger.Household.Household_State :=
-        ALedger.Household.Empty_Household_State;
-      Config_Diag   : ALedger.Config_Support.Config_Diagnostic;
-      Backing_Stat  : ALedger.Backing_Policy.Policy_Status;
-      Ids           : ALedger.Config_Support.String_Vectors.Vector;
-      Reg_Diag      : ALedger.Config_Support.Config_Diagnostic;
-      Journal_Diag  : ALedger.Journal.Parse_Diagnostic;
+      State         : HRA.Household.Household_State :=
+        HRA.Household.Empty_Household_State;
+      Config_Diag   : HRA.Config_Support.Config_Diagnostic;
+      Backing_Stat  : HRA.Backing_Policy.Policy_Status;
+      Ids           : HRA.Config_Support.String_Vectors.Vector;
+      Reg_Diag      : HRA.Config_Support.Config_Diagnostic;
+      Journal_Diag  : HRA.Journal.Parse_Diagnostic;
       Food_Env      : Envelope_Id;
       Daily_Env     : Envelope_Id;
 
       procedure Reg_Acc
-        (Reg  : in out ALedger.Account.Account_Registry;
+        (Reg  : in out HRA.Account.Account_Registry;
          Name : String;
-         Cat  : ALedger.Account.Account_Type)
+         Cat  : HRA.Account.Account_Type)
       is
-         Acc  : constant ALedger.Account.Account :=
-           ALedger.Account.Make_Account (Name);
-         Decl : constant ALedger.Account.Account_Declaration :=
-           ALedger.Account.Declare_Account (Acc, Cat);
-         Stat : ALedger.Account.Registry_Status;
+         Acc  : constant HRA.Account.Account :=
+           HRA.Account.Make_Account (Name);
+         Decl : constant HRA.Account.Account_Declaration :=
+           HRA.Account.Declare_Account (Acc, Cat);
+         Stat : HRA.Account.Registry_Status;
       begin
-         if not ALedger.Account.Register_Account (Reg, Decl, Stat) then
+         if not HRA.Account.Register_Account (Reg, Decl, Stat) then
             raise Program_Error with "failed to register account: " & Name;
          end if;
       end Reg_Acc;
 
-      Obs_Day5      : ALedger.Household_Report_Observation.Report_Observation;
-      Obs_Day10     : ALedger.Household_Report_Observation.Report_Observation;
+      Obs_Day5      : HRA.Household_Report_Observation.Report_Observation;
+      Obs_Day10     : HRA.Household_Report_Observation.Report_Observation;
       Error_Msg     : Unbounded_String;
       Render_D5     : Unbounded_String;
       Render_D10    : Unbounded_String;
-      Evidence_Diag : ALedger.Journal_Evidence.Evidence_Diagnostic;
+      Evidence_Diag : HRA.Journal_Evidence.Evidence_Diagnostic;
    begin
-      Reg_Acc (State.Registry, "assets:cash", ALedger.Account.Asset);
-      Reg_Acc (State.Registry, "income:salary", ALedger.Account.Income);
-      Reg_Acc (State.Registry, "budget:opening", ALedger.Account.Budget);
-      Reg_Acc (State.Registry, "budget:unassigned", ALedger.Account.Budget);
-      Reg_Acc (State.Registry, "budget:food", ALedger.Account.Budget);
-      Reg_Acc (State.Registry, "budget:daily", ALedger.Account.Budget);
+      Reg_Acc (State.Registry, "assets:cash", HRA.Account.Asset);
+      Reg_Acc (State.Registry, "income:salary", HRA.Account.Income);
+      Reg_Acc (State.Registry, "budget:opening", HRA.Account.Budget);
+      Reg_Acc (State.Registry, "budget:unassigned", HRA.Account.Budget);
+      Reg_Acc (State.Registry, "budget:food", HRA.Account.Budget);
+      Reg_Acc (State.Registry, "budget:daily", HRA.Account.Budget);
 
       Assert
-        (ALedger.Budget_Config.Parse_Budget_Policy
+        (HRA.Budget_Config.Parse_Budget_Policy
            (Budget_TOML, State.Budget_Policy, Config_Diag),
          "Setup: parse budget policy for Law L");
 
@@ -1211,46 +1211,46 @@ begin
          "Lookup Daily_Env for Law L");
 
       Assert
-        (ALedger.Backing_Policy.Admit_Backing_Policy
+        (HRA.Backing_Policy.Admit_Backing_Policy
            (State.Budget_Policy, State.Envelope_Registry, State.Backing_Policy_Spec, Backing_Stat)
-         and then Backing_Stat = ALedger.Backing_Policy.Success,
+         and then Backing_Stat = HRA.Backing_Policy.Success,
          "Setup: admit backing policy for Law L");
       Assert
-        (ALedger.Household_Config.Parse_Household_Configuration
+        (HRA.Household_Config.Parse_Household_Configuration
            (Household_TOML, State.Budget_Policy, State.Household_Policy, Config_Diag),
          "Setup: parse household config for Law L");
       Assert
-        (ALedger.Report_Config.Parse_Report_Configuration
+        (HRA.Report_Config.Parse_Report_Configuration
            (Report_TOML, State.Report_Policy, Config_Diag),
          "Setup: parse report config for Law L");
 
       Assert
-        (ALedger.Journal.Parse_Journal_Text
+        (HRA.Journal.Parse_Journal_Text
            (Actual_Journal_Text, "actual.journal", State.Actual_Ledger, Journal_Diag),
          "Setup: parse actual journal for Law L");
       Assert
-        (ALedger.Journal_Evidence.Extract
+        (HRA.Journal_Evidence.Extract
            (Actual_Journal_Text, State.Actual_Ledger, State.Actual_Evidence, Evidence_Diag),
          "Setup: extract actual journal evidence for Law L");
 
       Assert
-        (ALedger.Journal.Parse_Journal_Text
+        (HRA.Journal.Parse_Journal_Text
            (Plan_Journal_Text, "plan.journal", State.Plan_Ledger, Journal_Diag),
          "Setup: parse plan journal for Law L");
       Assert
-        (ALedger.Journal_Evidence.Extract
+        (HRA.Journal_Evidence.Extract
            (Plan_Journal_Text, State.Plan_Ledger, State.Plan_Evidence, Evidence_Diag),
          "Setup: extract plan journal evidence for Law L");
 
       Assert
-        (ALedger.Journal.Parse_Journal_Text
+        (HRA.Journal.Parse_Journal_Text
            (Budget_Journal_Text, "budget.journal", State.Budget_Ledger, Journal_Diag),
          "Setup: parse budget journal for Law L");
 
       -- Test Day 5: 2026-08-05
       declare
          Ok_D5 : constant Boolean :=
-           ALedger.Household_Report_Observation.Observe
+           HRA.Household_Report_Observation.Observe
              (D ("2026-08-05"), State, Obs_Day5, Error_Msg);
       begin
          Assert (Ok_D5, "Law L: Observe Report on Day 5");
@@ -1258,12 +1258,12 @@ begin
 
       Assert
         (Lookup_Balance
-           (ALedger.Envelope_Entitlement.Entitlement_For
+           (HRA.Envelope_Entitlement.Entitlement_For
               (Obs_Day5.Entitlement, Food_Env), JPY) = 100.0,
          "Law L: Day 5 Food Entitlement is 100 JPY");
       Assert
         (Lookup_Balance
-           (ALedger.Envelope_Entitlement.Entitlement_For
+           (HRA.Envelope_Entitlement.Entitlement_For
               (Obs_Day5.Entitlement, Daily_Env), JPY) = Zero_Quantity,
          "Law L: Day 5 Daily Entitlement is 0 JPY");
       Assert
@@ -1276,7 +1276,7 @@ begin
          "Law L: Day 5 Daily Remaining is 0 JPY");
 
       Render_D5 := To_Unbounded_String
-        (ALedger.Envelope_Report_Render.Render (State, Obs_Day5));
+        (HRA.Envelope_Report_Render.Render (State, Obs_Day5));
       Assert
         (Ada.Strings.Fixed.Index (To_String (Render_D5), "food | 100 JPY") > 0,
          "Law L: Day 5 render contains 'food | 100 JPY'");
@@ -1292,18 +1292,18 @@ begin
 
       -- Test Day 10: 2026-08-10
       Assert
-        (ALedger.Household_Report_Observation.Observe
+        (HRA.Household_Report_Observation.Observe
            (D ("2026-08-10"), State, Obs_Day10, Error_Msg),
          "Law L: Observe Report on Day 10");
 
       Assert
         (Lookup_Balance
-           (ALedger.Envelope_Entitlement.Entitlement_For
+           (HRA.Envelope_Entitlement.Entitlement_For
               (Obs_Day10.Entitlement, Food_Env), JPY) = 130.0,
          "Law L: Day 10 Food Entitlement is 130 JPY (100 + 50 - 20)");
       Assert
         (Lookup_Balance
-           (ALedger.Envelope_Entitlement.Entitlement_For
+           (HRA.Envelope_Entitlement.Entitlement_For
               (Obs_Day10.Entitlement, Daily_Env), JPY) = 20.0,
          "Law L: Day 10 Daily Entitlement is 20 JPY");
       Assert
@@ -1316,7 +1316,7 @@ begin
          "Law L: Day 10 Daily Remaining is 20 JPY");
 
       Render_D10 := To_Unbounded_String
-        (ALedger.Envelope_Report_Render.Render (State, Obs_Day10));
+        (HRA.Envelope_Report_Render.Render (State, Obs_Day10));
       Assert
         (Ada.Strings.Fixed.Index (To_String (Render_D10), "food | 130 JPY") > 0,
          "Law L: Day 10 render contains 'food | 130 JPY'");

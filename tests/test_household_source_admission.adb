@@ -1,8 +1,8 @@
 with Ada.Strings.Fixed; use Ada.Strings.Fixed;
 with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
 with Ada.Text_IO; use Ada.Text_IO;
-with ALedger.Canonical_Source; use ALedger.Canonical_Source;
-with ALedger.Household;
+with HRA.Canonical_Source; use HRA.Canonical_Source;
+with HRA.Household;
 
 procedure Test_Household_Source_Admission is
    Passed_Count : Natural := 0;
@@ -21,7 +21,7 @@ procedure Test_Household_Source_Admission is
 
    Observation : Source_Observation;
    Candidate   : Source_Observation;
-   State       : ALedger.Household.Household_State;
+   State       : HRA.Household.Household_State;
    Err         : Unbounded_String;
 
    Original_Budget : constant String :=
@@ -34,7 +34,7 @@ begin
 
    Observation.Root_Path := To_Unbounded_String ("/tmp/hra_candidate_admission");
    Observation.Paths :=
-     ALedger.Household.Resolve_Source_Paths
+     HRA.Household.Resolve_Source_Paths
        (To_String (Observation.Root_Path));
 
    Observation.Texts (Accounts_Source) := To_Unbounded_String
@@ -118,7 +118,7 @@ begin
      ("issue_id" & ASCII.HT & "status" & ASCII.LF);
 
    Assert
-     (ALedger.Household.Admit_Canonical_Household
+     (HRA.Household.Admit_Canonical_Household
         (Observation, State, Err),
       "Admit complete canonical Household from in-memory source observation");
    Assert
@@ -134,7 +134,7 @@ begin
       "    budget:rogue             1 JPY" & ASCII.LF);
 
    Assert
-     (not ALedger.Household.Admit_Canonical_Household
+     (not HRA.Household.Admit_Canonical_Household
         (Candidate, State, Err)
         and then Index (To_String (Err), "unrecognized") > 0,
       "Candidate source set fails the same cross-source Budget admission law");
@@ -142,7 +142,7 @@ begin
      (Text_For (Observation, Budget_Journal_Source) = Original_Budget,
       "Candidate replacement does not mutate the original source observation");
    Assert
-     (ALedger.Household.Admit_Canonical_Household
+     (HRA.Household.Admit_Canonical_Household
         (Observation, State, Err),
       "Original source observation remains admissible after rejected candidate");
 

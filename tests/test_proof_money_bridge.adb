@@ -1,7 +1,7 @@
 with Ada.Text_IO; use Ada.Text_IO;
-with ALedger.Money; use ALedger.Money;
-with ALedger.Proof_Core; use ALedger.Proof_Core;
-with ALedger.Proof_Money_Bridge; use ALedger.Proof_Money_Bridge;
+with HRA.Money; use HRA.Money;
+with HRA.Proof_Core; use HRA.Proof_Core;
+with HRA.Proof_Money_Bridge; use HRA.Proof_Money_Bridge;
 
 procedure Test_Proof_Money_Bridge is
    Passed_Count : Natural := 0;
@@ -19,7 +19,7 @@ procedure Test_Proof_Money_Bridge is
    end Assert;
 
 begin
-   Put_Line ("--- Testing ALedger.Proof_Money_Bridge ---");
+   Put_Line ("--- Testing HRA.Proof_Money_Bridge ---");
 
    --  ========================================================================
    --  Law A: Zero

@@ -1,14 +1,14 @@
 with Ada.Text_IO; use Ada.Text_IO;
-with ALedger.Budget_Config;
-with ALedger.Config_Support;
-with ALedger.Dates;
-with ALedger.Envelope; use ALedger.Envelope;
-with ALedger.Envelope_Commitment;
-with ALedger.Envelope_Consumption;
-with ALedger.Envelope_Entitlement;
-with ALedger.Envelope_Fulfillment;
-with ALedger.Envelope_Position; use ALedger.Envelope_Position;
-with ALedger.Money; use ALedger.Money;
+with HRA.Budget_Config;
+with HRA.Config_Support;
+with HRA.Dates;
+with HRA.Envelope; use HRA.Envelope;
+with HRA.Envelope_Commitment;
+with HRA.Envelope_Consumption;
+with HRA.Envelope_Entitlement;
+with HRA.Envelope_Fulfillment;
+with HRA.Envelope_Position; use HRA.Envelope_Position;
+with HRA.Money; use HRA.Money;
 
 procedure Test_Envelope_Explanation is
    Passed_Count : Natural := 0;
@@ -25,11 +25,11 @@ procedure Test_Envelope_Explanation is
       end if;
    end Assert;
 
-   function D (S : String) return ALedger.Dates.Date is
-      Value  : ALedger.Dates.Date;
-      Status : ALedger.Dates.Date_Status;
+   function D (S : String) return HRA.Dates.Date is
+      Value  : HRA.Dates.Date;
+      Status : HRA.Dates.Date_Status;
    begin
-      if not ALedger.Dates.Parse (S, Value, Status) then
+      if not HRA.Dates.Parse (S, Value, Status) then
          raise Program_Error with "invalid test date: " & S;
       end if;
       return Value;
@@ -47,21 +47,21 @@ procedure Test_Envelope_Explanation is
      "pacing = ""daily""" & ASCII.LF &
      "backing-pool = ""liquid""" & ASCII.LF;
 
-   Policy      : ALedger.Budget_Config.Budget_Policy;
-   Config_Diag : ALedger.Config_Support.Config_Diagnostic;
-   Ids         : ALedger.Config_Support.String_Vectors.Vector;
+   Policy      : HRA.Budget_Config.Budget_Policy;
+   Config_Diag : HRA.Config_Support.Config_Diagnostic;
+   Ids         : HRA.Config_Support.String_Vectors.Vector;
    Registry    : Envelope_Registry;
-   Reg_Diag    : ALedger.Config_Support.Config_Diagnostic;
+   Reg_Diag    : HRA.Config_Support.Config_Diagnostic;
    Food        : Envelope_Id;
 
-   Entitlement : ALedger.Envelope_Entitlement.Entitlement_Observation :=
-     ALedger.Envelope_Entitlement.Empty_Observation;
-   Consumption : ALedger.Envelope_Consumption.Envelope_Consumption :=
-     ALedger.Envelope_Consumption.Empty_Consumption;
-   Fulfillment : ALedger.Envelope_Fulfillment.Envelope_Fulfillment :=
-     ALedger.Envelope_Fulfillment.Empty_Fulfillment (D ("2026-08-15"));
-   Commitment  : ALedger.Envelope_Commitment.Commitment_Observation :=
-     ALedger.Envelope_Commitment.Empty_Observation
+   Entitlement : HRA.Envelope_Entitlement.Entitlement_Observation :=
+     HRA.Envelope_Entitlement.Empty_Observation;
+   Consumption : HRA.Envelope_Consumption.Envelope_Consumption :=
+     HRA.Envelope_Consumption.Empty_Consumption;
+   Fulfillment : HRA.Envelope_Fulfillment.Envelope_Fulfillment :=
+     HRA.Envelope_Fulfillment.Empty_Fulfillment (D ("2026-08-15"));
+   Commitment  : HRA.Envelope_Commitment.Commitment_Observation :=
+     HRA.Envelope_Commitment.Empty_Observation
        (D ("2026-08-15"), D ("2026-08-16"));
 
    Obs  : Observation;
@@ -71,7 +71,7 @@ begin
    Put_Line ("--- Testing Envelope arithmetic explanation ---");
 
    Assert
-     (ALedger.Budget_Config.Parse_Budget_Policy
+     (HRA.Budget_Config.Parse_Budget_Policy
         (Budget_TOML, Policy, Config_Diag),
       "Setup: parse current Envelope policy");
 
@@ -81,9 +81,9 @@ begin
       "Setup: admit stable Envelope registry");
    Assert (Lookup (Registry, "food", Food), "Setup: resolve food Envelope");
 
-   Entitlement := ALedger.Envelope_Entitlement.Fold_Movement
+   Entitlement := HRA.Envelope_Entitlement.Fold_Movement
      (Entitlement,
-      (Kind    => ALedger.Envelope_Entitlement.Grant_From_Unallocated,
+      (Kind    => HRA.Envelope_Entitlement.Grant_From_Unallocated,
        Tx_Date => D ("2026-08-01"),
        Amt     => Make_Amount (JPY, 1000.0),
        Target  => Food));
@@ -92,7 +92,7 @@ begin
    --  sides instead of presenting the Envelope as if nothing happened.
    Consumption.Managed.Insert
      ("food",
-      ALedger.Envelope_Consumption.Make_Amounts
+      HRA.Envelope_Consumption.Make_Amounts
         (Charges => Singleton_Balance (Make_Amount (JPY, 300.0)),
          Refunds => Singleton_Balance (Make_Amount (JPY, 300.0))));
 

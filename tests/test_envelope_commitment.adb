@@ -1,29 +1,29 @@
 with Ada.Text_IO; use Ada.Text_IO;
 with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
-with ALedger.Account;
-with ALedger.Backing_Policy;
-with ALedger.Budget_Config;
-with ALedger.Config_Support;
-with ALedger.Cycle_Observation;
-with ALedger.Dates;
-with ALedger.Envelope;
-with ALedger.Envelope_Commitment;
-with ALedger.Envelope_Consumption;
-with ALedger.Envelope_Entitlement;
-with ALedger.Envelope_Fulfillment;
-with ALedger.Envelope_Position;
-with ALedger.Envelope_Routing;
-with ALedger.Fulfillment_Routing;
-with ALedger.Journal;
-with ALedger.Ledger;
-with ALedger.Money;
-with ALedger.Plan;
-with ALedger.Plan_Observation;
+with HRA.Account;
+with HRA.Backing_Policy;
+with HRA.Budget_Config;
+with HRA.Config_Support;
+with HRA.Cycle_Observation;
+with HRA.Dates;
+with HRA.Envelope;
+with HRA.Envelope_Commitment;
+with HRA.Envelope_Consumption;
+with HRA.Envelope_Entitlement;
+with HRA.Envelope_Fulfillment;
+with HRA.Envelope_Position;
+with HRA.Envelope_Routing;
+with HRA.Fulfillment_Routing;
+with HRA.Journal;
+with HRA.Ledger;
+with HRA.Money;
+with HRA.Plan;
+with HRA.Plan_Observation;
 
 procedure Test_Envelope_Commitment is
-   use type ALedger.Backing_Policy.Policy_Status;
-   use type ALedger.Fulfillment_Routing.Admission_Status;
-   use type ALedger.Money.Quantity;
+   use type HRA.Backing_Policy.Policy_Status;
+   use type HRA.Fulfillment_Routing.Admission_Status;
+   use type HRA.Money.Quantity;
 
    Passed_Count : Natural := 0;
    Failed_Count : Natural := 0;
@@ -39,27 +39,27 @@ procedure Test_Envelope_Commitment is
       end if;
    end Assert;
 
-   function D (S : String) return ALedger.Dates.Date is
-      Val    : ALedger.Dates.Date;
-      Status : ALedger.Dates.Date_Status;
+   function D (S : String) return HRA.Dates.Date is
+      Val    : HRA.Dates.Date;
+      Status : HRA.Dates.Date_Status;
    begin
-      if not ALedger.Dates.Parse (S, Val, Status) then
+      if not HRA.Dates.Parse (S, Val, Status) then
          raise Program_Error with "Invalid date in test: " & S;
       end if;
       return Val;
    end D;
 
    procedure Register
-     (Registry : in out ALedger.Account.Account_Registry;
+     (Registry : in out HRA.Account.Account_Registry;
       Name     : String;
-      Kind     : ALedger.Account.Account_Type)
+      Kind     : HRA.Account.Account_Type)
    is
-      Status : ALedger.Account.Registry_Status;
+      Status : HRA.Account.Registry_Status;
    begin
-      if not ALedger.Account.Register_Account
+      if not HRA.Account.Register_Account
         (Registry,
-         ALedger.Account.Declare_Account
-           (ALedger.Account.Make_Account (Name), Kind),
+         HRA.Account.Declare_Account
+           (HRA.Account.Make_Account (Name), Kind),
          Status)
       then
          raise Program_Error with "test registry admission failed: " & Name;
@@ -114,45 +114,45 @@ procedure Test_Envelope_Commitment is
      "pacing = ""daily""" & ASCII.LF &
      "backing-pool = ""liquid""" & ASCII.LF;
 
-   Registry      : ALedger.Account.Account_Registry := ALedger.Account.Empty_Registry;
-   Actual        : ALedger.Ledger.Ledger;
-   Plans         : ALedger.Ledger.Ledger;
+   Registry      : HRA.Account.Account_Registry := HRA.Account.Empty_Registry;
+   Actual        : HRA.Ledger.Ledger;
+   Plans         : HRA.Ledger.Ledger;
    Parse_Error   : Unbounded_String;
-   Open_Plans    : ALedger.Plan_Observation.Open_Plan_Vectors.Vector;
-   Plan_Diag     : ALedger.Plan_Observation.Admission_Diagnostic;
-   Window        : ALedger.Cycle_Observation.Cycle_Window;
-   Cycle_Status  : ALedger.Cycle_Observation.Resolve_Status;
-   Income_Acc    : constant ALedger.Account.Account := ALedger.Account.Make_Account ("income:pension");
-   Env_Registry  : ALedger.Envelope.Envelope_Registry;
-   Env_Diag      : ALedger.Config_Support.Config_Diagnostic;
-   Env_Names     : ALedger.Config_Support.String_Vectors.Vector;
-   Food_Env      : ALedger.Envelope.Envelope_Id;
-   Route_Entries : ALedger.Envelope_Routing.Routing_Entry_Vectors.Vector;
-   Routing       : ALedger.Envelope_Routing.Routing_History;
-   Route_Status    : ALedger.Envelope_Routing.History_Status;
-   Fulfill_History : ALedger.Fulfillment_Routing.Fulfillment_Routing_History;
-   Fulfill_Status  : ALedger.Fulfillment_Routing.Admission_Status;
-   Commitment      : ALedger.Envelope_Commitment.Commitment_Observation;
-   Commit_Diag   : ALedger.Envelope_Commitment.Observe_Diagnostic;
-   JPY           : constant ALedger.Money.Commodity := ALedger.Money.Make_Commodity ("JPY");
+   Open_Plans    : HRA.Plan_Observation.Open_Plan_Vectors.Vector;
+   Plan_Diag     : HRA.Plan_Observation.Admission_Diagnostic;
+   Window        : HRA.Cycle_Observation.Cycle_Window;
+   Cycle_Status  : HRA.Cycle_Observation.Resolve_Status;
+   Income_Acc    : constant HRA.Account.Account := HRA.Account.Make_Account ("income:pension");
+   Env_Registry  : HRA.Envelope.Envelope_Registry;
+   Env_Diag      : HRA.Config_Support.Config_Diagnostic;
+   Env_Names     : HRA.Config_Support.String_Vectors.Vector;
+   Food_Env      : HRA.Envelope.Envelope_Id;
+   Route_Entries : HRA.Envelope_Routing.Routing_Entry_Vectors.Vector;
+   Routing       : HRA.Envelope_Routing.Routing_History;
+   Route_Status    : HRA.Envelope_Routing.History_Status;
+   Fulfill_History : HRA.Fulfillment_Routing.Fulfillment_Routing_History;
+   Fulfill_Status  : HRA.Fulfillment_Routing.Admission_Status;
+   Commitment      : HRA.Envelope_Commitment.Commitment_Observation;
+   Commit_Diag   : HRA.Envelope_Commitment.Observe_Diagnostic;
+   JPY           : constant HRA.Money.Commodity := HRA.Money.Make_Commodity ("JPY");
 
 begin
-   Put_Line ("--- Testing ALedger.Envelope_Commitment ---");
+   Put_Line ("--- Testing HRA.Envelope_Commitment ---");
 
-   Register (Registry, "income:pension", ALedger.Account.Income);
-   Register (Registry, "assets:cash", ALedger.Account.Asset);
-   Register (Registry, "expenses:food", ALedger.Account.Expense);
-   Register (Registry, "expenses:rent", ALedger.Account.Expense);
+   Register (Registry, "income:pension", HRA.Account.Income);
+   Register (Registry, "assets:cash", HRA.Account.Asset);
+   Register (Registry, "expenses:food", HRA.Account.Expense);
+   Register (Registry, "expenses:rent", HRA.Account.Expense);
 
    Assert
-     (ALedger.Journal.Parse_Journal_Text (Actual_Source, Actual, Parse_Error),
+     (HRA.Journal.Parse_Journal_Text (Actual_Source, Actual, Parse_Error),
       "Setup: parse Actual anchors and completion evidence");
    Assert
-     (ALedger.Journal.Parse_Journal_Text (Plan_Source, Plans, Parse_Error),
+     (HRA.Journal.Parse_Journal_Text (Plan_Source, Plans, Parse_Error),
       "Setup: parse current and next-cycle Plans");
 
    Assert
-     (ALedger.Plan_Observation.Observe_Open_Plans
+     (HRA.Plan_Observation.Observe_Open_Plans
         (Plans, Plan_Source, Actual, Actual_Source,
          D ("2026-08-15"), Open_Plans, Plan_Diag),
       "Observe role-neutral open Plans once");
@@ -161,186 +161,186 @@ begin
       "Explicit Actual completion removes one Plan without date matching");
 
    Assert
-     (ALedger.Cycle_Observation.Resolve_Current
+     (HRA.Cycle_Observation.Resolve_Current
         (D ("2026-08-15"), Actual, Open_Plans, Registry, Income_Acc,
          Window, Cycle_Status),
       "Resolve income-anchor current cycle");
    Assert
-     (ALedger.Dates.Image (ALedger.Cycle_Observation.Start_Date (Window)) = "2026-08-14"
-        and then ALedger.Dates.Image (ALedger.Cycle_Observation.End_Exclusive (Window)) = "2026-10-15",
+     (HRA.Dates.Image (HRA.Cycle_Observation.Start_Date (Window)) = "2026-08-14"
+        and then HRA.Dates.Image (HRA.Cycle_Observation.End_Exclusive (Window)) = "2026-10-15",
       "Cycle uses latest Actual anchor and first future Plan anchor");
 
    Env_Names.Append ("food");
    Assert
-     (ALedger.Envelope.Admit_Registry (Env_Names, Env_Registry, Env_Diag),
+     (HRA.Envelope.Admit_Registry (Env_Names, Env_Registry, Env_Diag),
       "Admit Envelope registry");
    Assert
-     (ALedger.Envelope.Lookup (Env_Registry, "food", Food_Env),
+     (HRA.Envelope.Lookup (Env_Registry, "food", Food_Env),
       "Lookup food Envelope");
 
    Assert
-     (ALedger.Fulfillment_Routing.Admit
-        (ALedger.Fulfillment_Routing.Decision_Vectors.Empty_Vector,
-         ALedger.Plan.Empty_Plan_Id_Universe,
+     (HRA.Fulfillment_Routing.Admit
+        (HRA.Fulfillment_Routing.Decision_Vectors.Empty_Vector,
+         HRA.Plan.Empty_Plan_Id_Universe,
          Env_Registry,
          Fulfill_History,
          Fulfill_Status)
-      and then Fulfill_Status = ALedger.Fulfillment_Routing.Success,
+      and then Fulfill_Status = HRA.Fulfillment_Routing.Success,
       "Setup: admit empty Fulfillment routing history");
 
    Route_Entries.Append
-     (ALedger.Envelope_Routing.Routing_Entry'
-        (Effective => ALedger.Envelope_Routing.Initial_Effective_Date,
-         Expense   => ALedger.Account.Make_Account ("expenses:food"),
-         Route     => ALedger.Envelope_Routing.Managed_Route (Food_Env),
+     (HRA.Envelope_Routing.Routing_Entry'
+        (Effective => HRA.Envelope_Routing.Initial_Effective_Date,
+         Expense   => HRA.Account.Make_Account ("expenses:food"),
+         Route     => HRA.Envelope_Routing.Managed_Route (Food_Env),
          Note      => Null_Unbounded_String));
    Route_Entries.Append
-     (ALedger.Envelope_Routing.Routing_Entry'
-        (Effective => ALedger.Envelope_Routing.Dated_Effective (D ("2026-09-01")),
-         Expense   => ALedger.Account.Make_Account ("expenses:rent"),
-         Route     => ALedger.Envelope_Routing.Managed_Route (Food_Env),
+     (HRA.Envelope_Routing.Routing_Entry'
+        (Effective => HRA.Envelope_Routing.Dated_Effective (D ("2026-09-01")),
+         Expense   => HRA.Account.Make_Account ("expenses:rent"),
+         Route     => HRA.Envelope_Routing.Managed_Route (Food_Env),
          Note      => To_Unbounded_String ("future route must not rewrite August")));
    Assert
-     (ALedger.Envelope_Routing.Admit
+     (HRA.Envelope_Routing.Admit
         (Route_Entries, Env_Registry, Routing, Route_Status),
       "Admit historical Expense routing");
    Assert
-     (ALedger.Envelope_Routing.Has_Routing
-        (Routing, ALedger.Account.Make_Account ("expenses:rent"))
-        and then not ALedger.Envelope_Routing.Has_Routing_At
-          (Routing, ALedger.Account.Make_Account ("expenses:rent"), D ("2026-08-15")),
+     (HRA.Envelope_Routing.Has_Routing
+        (Routing, HRA.Account.Make_Account ("expenses:rent"))
+        and then not HRA.Envelope_Routing.Has_Routing_At
+          (Routing, HRA.Account.Make_Account ("expenses:rent"), D ("2026-08-15")),
       "Future-only route is not applicable to an earlier observation");
 
    Assert
-     (ALedger.Envelope_Commitment.Observe
+     (HRA.Envelope_Commitment.Observe
         (Open_Plans, Registry, Routing, Fulfill_History, Window, D ("2026-08-15"),
          Commitment, Commit_Diag),
       "Observe current-cycle Envelope commitments");
    Assert
-     (ALedger.Money.Lookup_Balance
-        (ALedger.Envelope_Commitment.Commitment_For (Commitment, Food_Env), JPY)
+     (HRA.Money.Lookup_Balance
+        (HRA.Envelope_Commitment.Commitment_For (Commitment, Food_Env), JPY)
         = 300.0,
       "Managed commitment includes overdue plus upcoming current-cycle Plans");
    Assert
      (Commitment.Unrouted.Contains ("expenses:rent")
-        and then ALedger.Money.Lookup_Balance
+        and then HRA.Money.Lookup_Balance
           (Commitment.Unrouted.Element ("expenses:rent"), JPY) = 300.0,
       "Future-only Expense route remains unrouted before activation");
    Assert
-     (ALedger.Money.Lookup_Balance
-        (ALedger.Envelope_Commitment.Commitment_For (Commitment, Food_Env), JPY)
+     (HRA.Money.Lookup_Balance
+        (HRA.Envelope_Commitment.Commitment_For (Commitment, Food_Env), JPY)
         = 300.0,
       "Next-cycle Plan is excluded at the end-exclusive boundary");
 
    declare
-      Policy_Config : ALedger.Budget_Config.Budget_Policy;
-      Config_Diag   : ALedger.Config_Support.Config_Diagnostic;
-      Policy        : ALedger.Backing_Policy.Backing_Policy;
-      Policy_Status : ALedger.Backing_Policy.Policy_Status;
-      Entitlement   : ALedger.Envelope_Entitlement.Entitlement_Observation :=
-        ALedger.Envelope_Entitlement.Empty_Observation;
-      Consumption   : constant ALedger.Envelope_Consumption.Envelope_Consumption :=
-        ALedger.Envelope_Consumption.Empty_Consumption;
-      Funding       : ALedger.Backing_Policy.Funding_Commitment_Observation;
-      Backing       : ALedger.Backing_Policy.Backing_Observation;
-      Positions     : ALedger.Envelope_Position.Observation;
-      Pos_Diag      : ALedger.Envelope_Position.Observe_Diagnostic;
-      Claim         : ALedger.Envelope_Position.Position;
-      Position      : ALedger.Backing_Policy.Backing_Pool_Position;
+      Policy_Config : HRA.Budget_Config.Budget_Policy;
+      Config_Diag   : HRA.Config_Support.Config_Diagnostic;
+      Policy        : HRA.Backing_Policy.Backing_Policy;
+      Policy_Status : HRA.Backing_Policy.Policy_Status;
+      Entitlement   : HRA.Envelope_Entitlement.Entitlement_Observation :=
+        HRA.Envelope_Entitlement.Empty_Observation;
+      Consumption   : constant HRA.Envelope_Consumption.Envelope_Consumption :=
+        HRA.Envelope_Consumption.Empty_Consumption;
+      Funding       : HRA.Backing_Policy.Funding_Commitment_Observation;
+      Backing       : HRA.Backing_Policy.Backing_Observation;
+      Positions     : HRA.Envelope_Position.Observation;
+      Pos_Diag      : HRA.Envelope_Position.Observe_Diagnostic;
+      Claim         : HRA.Envelope_Position.Position;
+      Position      : HRA.Backing_Policy.Backing_Pool_Position;
    begin
       Assert
-        (ALedger.Budget_Config.Parse_Budget_Policy
+        (HRA.Budget_Config.Parse_Budget_Policy
            (Budget_TOML, Policy_Config, Config_Diag),
          "Setup: parse backing policy for commitment headroom");
       Assert
-        (ALedger.Backing_Policy.Admit_Backing_Policy
+        (HRA.Backing_Policy.Admit_Backing_Policy
            (Policy_Config, Env_Registry, Policy, Policy_Status)
-           and then Policy_Status = ALedger.Backing_Policy.Success,
+           and then Policy_Status = HRA.Backing_Policy.Success,
          "Setup: admit backing policy for commitment headroom");
 
-      Entitlement := ALedger.Envelope_Entitlement.Fold_Movement
+      Entitlement := HRA.Envelope_Entitlement.Fold_Movement
         (Entitlement,
-         (Kind    => ALedger.Envelope_Entitlement.Grant_From_Unallocated,
+         (Kind    => HRA.Envelope_Entitlement.Grant_From_Unallocated,
           Tx_Date => D ("2026-08-14"),
-          Amt     => ALedger.Money.Make_Amount (JPY, 1000.0),
+          Amt     => HRA.Money.Make_Amount (JPY, 1000.0),
           Target  => Food_Env));
 
       Assert
-        (ALedger.Envelope_Position.Observe
+        (HRA.Envelope_Position.Observe
            (Policy_Config,
             Env_Registry,
             Entitlement,
             Consumption,
-            ALedger.Envelope_Fulfillment.Empty_Fulfillment (D ("2026-08-15")),
+            HRA.Envelope_Fulfillment.Empty_Fulfillment (D ("2026-08-15")),
             Commitment,
             Positions,
             Pos_Diag),
          "Observe Envelope positions for commitment");
 
-      Claim := ALedger.Envelope_Position.Position_For (Positions, Food_Env);
+      Claim := HRA.Envelope_Position.Position_For (Positions, Food_Env);
 
-      Funding := ALedger.Backing_Policy.Observe_Funding_Commitment
+      Funding := HRA.Backing_Policy.Observe_Funding_Commitment
         (Policy, Open_Plans, Window);
-      Backing := ALedger.Backing_Policy.Observe_Backing
+      Backing := HRA.Backing_Policy.Observe_Backing
         (Policy,
          Actual,
          D ("2026-08-15"),
          Positions,
          Funding);
-      Position := ALedger.Backing_Policy.Position_For (Backing, "liquid");
+      Position := HRA.Backing_Policy.Position_For (Backing, "liquid");
 
       Assert
-        (ALedger.Money.Lookup_Balance (Claim.Remaining, JPY) = 1000.0,
+        (HRA.Money.Lookup_Balance (Claim.Remaining, JPY) = 1000.0,
          "Envelope position keeps pre-Plan Remaining at 1,000 JPY");
       Assert
-        (ALedger.Money.Lookup_Balance (Claim.Headroom, JPY) = 700.0,
+        (HRA.Money.Lookup_Balance (Claim.Headroom, JPY) = 700.0,
          "Envelope position deducts 300 JPY Envelope Plan reserve from Headroom");
       Assert
-        (ALedger.Money.Lookup_Balance (Position.Funding_Balance, JPY) = 1950.0,
+        (HRA.Money.Lookup_Balance (Position.Funding_Balance, JPY) = 1950.0,
          "Backing sees 1,950 JPY observed Asset funding");
       Assert
-        (ALedger.Money.Lookup_Balance (Position.Funding_Commitment, JPY) = 600.0,
+        (HRA.Money.Lookup_Balance (Position.Funding_Commitment, JPY) = 600.0,
          "Backing reserves 600 JPY from current-cycle negative Asset Plans");
       Assert
-        (ALedger.Money.Lookup_Balance
-           (ALedger.Backing_Policy.Available_Surplus (Position), JPY) = 650.0,
+        (HRA.Money.Lookup_Balance
+           (HRA.Backing_Policy.Available_Surplus (Position), JPY) = 650.0,
          "Available surplus reconciles funding commitment and Plan headroom");
 
       declare
-         Future_Ledger : ALedger.Ledger.Ledger := Actual;
-         Future_Only   : ALedger.Ledger.Ledger;
+         Future_Ledger : HRA.Ledger.Ledger := Actual;
+         Future_Only   : HRA.Ledger.Ledger;
          Future_Text   : constant String :=
            "2026-08-16 Future funding" & ASCII.LF &
            "    assets:cash         500 JPY" & ASCII.LF &
            "    income:pension     -500 JPY" & ASCII.LF;
       begin
          Assert
-           (ALedger.Journal.Parse_Journal_Text
+           (HRA.Journal.Parse_Journal_Text
               (Future_Text, Future_Only, Parse_Error),
             "Setup: parse future Actual funding");
          Future_Ledger.Transactions.Append
            (Future_Only.Transactions.Element (1));
 
-         Backing := ALedger.Backing_Policy.Observe_Backing
+         Backing := HRA.Backing_Policy.Observe_Backing
            (Policy,
             Future_Ledger,
             D ("2026-08-15"),
             Positions,
             Funding);
-         Position := ALedger.Backing_Policy.Position_For (Backing, "liquid");
+         Position := HRA.Backing_Policy.Position_For (Backing, "liquid");
          Assert
-           (ALedger.Money.Lookup_Balance (Position.Funding_Balance, JPY) = 1950.0,
+           (HRA.Money.Lookup_Balance (Position.Funding_Balance, JPY) = 1950.0,
             "Future Actual funding does not leak into past Backing observation");
 
-         Backing := ALedger.Backing_Policy.Observe_Backing
+         Backing := HRA.Backing_Policy.Observe_Backing
            (Policy,
             Future_Ledger,
             D ("2026-08-16"),
             Positions,
             Funding);
-         Position := ALedger.Backing_Policy.Position_For (Backing, "liquid");
+         Position := HRA.Backing_Policy.Position_For (Backing, "liquid");
          Assert
-           (ALedger.Money.Lookup_Balance (Position.Funding_Balance, JPY) = 2450.0,
+           (HRA.Money.Lookup_Balance (Position.Funding_Balance, JPY) = 2450.0,
             "Funding becomes visible on its own observation day");
       end;
    end;

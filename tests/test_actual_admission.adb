@@ -1,13 +1,13 @@
 with Ada.Command_Line;
 with Ada.Text_IO; use Ada.Text_IO;
 with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
-with ALedger.Actual_Admission;
-with ALedger.Journal;
-with ALedger.Journal_Evidence;
-with ALedger.Ledger;
+with HRA.Actual_Admission;
+with HRA.Journal;
+with HRA.Journal_Evidence;
+with HRA.Ledger;
 
 procedure Test_Actual_Admission is
-   use type ALedger.Actual_Admission.Admission_Status;
+   use type HRA.Actual_Admission.Admission_Status;
 
    Passed_Count : Natural := 0;
    Failed_Count : Natural := 0;
@@ -25,27 +25,27 @@ procedure Test_Actual_Admission is
 
    function Admit_Source
      (Source : String;
-      Result : out ALedger.Actual_Admission.Actual_Observation;
-      Diag   : out ALedger.Actual_Admission.Admission_Diagnostic) return Boolean
+      Result : out HRA.Actual_Admission.Actual_Observation;
+      Diag   : out HRA.Actual_Admission.Admission_Diagnostic) return Boolean
    is
-      L             : ALedger.Ledger.Ledger;
+      L             : HRA.Ledger.Ledger;
       Parse_Error   : Unbounded_String;
-      Evidence      : ALedger.Journal_Evidence.Journal_Evidence;
-      Evidence_Diag : ALedger.Journal_Evidence.Evidence_Diagnostic;
+      Evidence      : HRA.Journal_Evidence.Journal_Evidence;
+      Evidence_Diag : HRA.Journal_Evidence.Evidence_Diagnostic;
    begin
-      if not ALedger.Journal.Parse_Journal_Text (Source, L, Parse_Error) then
+      if not HRA.Journal.Parse_Journal_Text (Source, L, Parse_Error) then
          raise Program_Error with "test source failed Journal admission: " &
            To_String (Parse_Error);
       end if;
 
-      if not ALedger.Journal_Evidence.Extract
+      if not HRA.Journal_Evidence.Extract
         (Source, L, Evidence, Evidence_Diag)
       then
          raise Program_Error with "test source failed evidence extraction: " &
            To_String (Evidence_Diag.Message);
       end if;
 
-      return ALedger.Actual_Admission.Admit (L, Evidence, Result, Diag);
+      return HRA.Actual_Admission.Admit (L, Evidence, Result, Diag);
    end Admit_Source;
 
    Valid_Source : constant String :=
@@ -111,18 +111,18 @@ procedure Test_Actual_Admission is
      "    assets:cash        -10 JPY" & ASCII.LF &
      "    expenses:food      10 JPY" & ASCII.LF;
 
-   Observation : ALedger.Actual_Admission.Actual_Observation;
-   Diag        : ALedger.Actual_Admission.Admission_Diagnostic;
+   Observation : HRA.Actual_Admission.Actual_Observation;
+   Diag        : HRA.Actual_Admission.Admission_Diagnostic;
 
 begin
-   Put_Line ("--- Testing ALedger.Actual_Admission ---");
+   Put_Line ("--- Testing HRA.Actual_Admission ---");
 
    Assert
      (Admit_Source (Valid_Source, Observation, Diag),
       "Explicit reversal may target Plan-derived Actual identity");
    Assert
-     (ALedger.Actual_Admission.Identified_Count (Observation) = 2 and then
-      ALedger.Actual_Admission.Reversal_Count (Observation) = 1,
+     (HRA.Actual_Admission.Identified_Count (Observation) = 2 and then
+      HRA.Actual_Admission.Reversal_Count (Observation) = 1,
       "Actual admission retains identified transactions and reversal edge");
    Assert
      (Natural (Observation.Value.Transactions.Length) = 2 and then
@@ -136,37 +136,37 @@ begin
 
    Assert
      (not Admit_Source (Duplicate_Id_Source, Observation, Diag) and then
-      Diag.Status = ALedger.Actual_Admission.Duplicate_Actual_Id,
+      Diag.Status = HRA.Actual_Admission.Duplicate_Actual_Id,
       "Duplicate Actual identity is rejected");
 
    Assert
      (not Admit_Source (Missing_Reversal_Id_Source, Observation, Diag) and then
-      Diag.Status = ALedger.Actual_Admission.Reversal_Missing_Event_Id,
+      Diag.Status = HRA.Actual_Admission.Reversal_Missing_Event_Id,
       "Reversal requires its own explicit event-id");
 
    Assert
      (not Admit_Source (Unknown_Target_Source, Observation, Diag) and then
-      Diag.Status = ALedger.Actual_Admission.Unknown_Reversal_Target,
+      Diag.Status = HRA.Actual_Admission.Unknown_Reversal_Target,
       "Unknown reversal target is rejected");
 
    Assert
      (not Admit_Source (Duplicate_Target_Source, Observation, Diag) and then
-      Diag.Status = ALedger.Actual_Admission.Duplicate_Reversal_Target,
+      Diag.Status = HRA.Actual_Admission.Duplicate_Reversal_Target,
       "One Actual target cannot be directly reversed twice");
 
    Assert
      (not Admit_Source (Mismatch_Source, Observation, Diag) and then
-      Diag.Status = ALedger.Actual_Admission.Reversal_Posting_Mismatch,
+      Diag.Status = HRA.Actual_Admission.Reversal_Posting_Mismatch,
       "Reversal posting effect must be exact inverse");
 
    Assert
      (not Admit_Source (Cycle_Source, Observation, Diag) and then
-      Diag.Status = ALedger.Actual_Admission.Reversal_Cycle,
+      Diag.Status = HRA.Actual_Admission.Reversal_Cycle,
       "Reversal provenance cycle is rejected");
 
    Assert
      (not Admit_Source (Duplicate_Metadata_Source, Observation, Diag) and then
-      Diag.Status = ALedger.Actual_Admission.Duplicate_Metadata,
+      Diag.Status = HRA.Actual_Admission.Duplicate_Metadata,
       "Header and indented metadata share one duplicate-key law");
 
    New_Line;

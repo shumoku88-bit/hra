@@ -1,16 +1,16 @@
 # Canonical Household contract
 
 ステータス: active foundation contract  
-Owner: aledgerにおけるshared canonical sourceの境界
+Owner: hraにおけるshared canonical sourceの境界
 
 ## 目的
 
-aledgerは独自の正データ、同期copy、変換後databaseを持たない。user-owned private repositoryのrootを、`h-kernel`と共有する唯一のcanonical Household rootとして読む。
+hraは独自の正データ、同期copy、変換後databaseを持たない。user-owned private repositoryのrootを、`h-kernel`と共有する唯一のcanonical Household rootとして読む。
 
 ```text
 one private Household root
   -> h-kernel source-specific admission
-  -> aledger source-specific admission
+  -> hra source-specific admission
   -> engineごとのvalidated representation
 ```
 
@@ -31,7 +31,7 @@ canonical rootのruntime authorityは次の8 sourceだけである。
 | `report.toml` | Report query defaultとpresentation policy |
 | `issues.tsv` | household notebook。会計factを暗黙生成しない |
 
-basenameは`ALedger.Canonical_Source`だけが解決する。別configでsource filenameを変更しない。追加directory、legacy TSV、manifest、generated Reportをcanonical inputへ戻さない。
+basenameは`HRA.Canonical_Source`だけが解決する。別configでsource filenameを変更しない。追加directory、legacy TSV、manifest、generated Reportをcanonical inputへ戻さない。
 
 ## Clean Envelope source contract
 
@@ -62,7 +62,7 @@ complete observationは8 sourceのどれかが欠落・読取不能なら失敗�
 
 `Source_Observation`はrepository/session/cacheではない。一回のadmissionと将来のsafe publicationに必要な、短命な同一観測境界である。
 
-## Current aledger coverage
+## Current hra coverage
 
 2026-08-16時点:
 
@@ -92,12 +92,12 @@ canonical reader互換を宣言するには、以下を満たす。
 
 ## Writer authority
 
-同じsourceを読めることと、書いてよいことは別である。aledgerのwriterは現在canonical writer authorityを持たない。
+同じsourceを読めることと、書いてよいことは別である。hraのwriterは現在canonical writer authorityを持たない。
 
 - shared private sourceにはread-onlyで接続する
 - write capabilityの存在からauthority移動を推測しない
 - source別cutover、semantic parity、stale rejection、atomic publication、post-admission、checked restore、作者の承認なしに切り替えない
-- h-kernelとaledgerを交互にcanonical writerとして使わない
+- h-kernelとhraを交互にcanonical writerとして使わない
 
 ## Private boundary
 

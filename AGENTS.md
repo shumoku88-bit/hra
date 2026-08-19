@@ -2,16 +2,16 @@
 
 ## Repository command hub
 
-人間・AIとも、通常のrepository操作は`./tools/al`を唯一の入口にする。
+人間・AIとも、通常のrepository操作は`./tools/hra`を唯一の入口にする。
 
 ```sh
-./tools/al help
-./tools/al build
-./tools/al test
-./tools/al prove
-./tools/al qualify
-./tools/al check --base /path/to/canonical-root
-./tools/al report --base /path/to/canonical-root
+./tools/hra help
+./tools/hra build
+./tools/hra test
+./tools/hra prove
+./tools/hra qualify
+./tools/hra check --base /path/to/canonical-root
+./tools/hra report --base /path/to/canonical-root
 ```
 
 - `build`はcurrent sourceをAlireでbuildする
@@ -20,15 +20,15 @@
 - `qualify`はbuild + test + proveのrepository-only qualification
 - `check`はcanonical Household sourceのadmission checkであり、repository qualificationとは別
 - raw `alr` / `gprbuild` / `gnatprove` / `bin/*` を通常手順としてdocsやAI指示へ増やさない
-- `tools/al`はdispatchだけを所有し、domain semantics、source admission、writer authorityをshellへ実装しない
+- `tools/hra`はdispatchだけを所有し、domain semantics、source admission、writer authorityをshellへ実装しない
 
 ## Naming boundary
 
 公開project / repository名は **HRA**、long nameは **Household Reckoning Apparatus** とする。
 
-現在のAda namespace、Alire crate、native executableには移行前の`ALedger` / `aledger`が残る。これらはpublic project identityとは別のinternal compatibility nameとして扱い、semantic changeへ機械的renameを混ぜない。internal namingを変更する場合は、それ自体をnon-semantic migrationとして分離する。
+現在のAda namespace、Alire crate、native executableには移行前の`HRA` / `hra`が残る。これらはpublic project identityとは別のinternal compatibility nameとして扱い、semantic changeへ機械的renameを混ぜない。internal namingを変更する場合は、それ自体をnon-semantic migrationとして分離する。
 
-`./tools/al`はrepository command hubのstable entry pointとして維持し、public project名へ合わせるためだけにはrenameしない。
+`./tools/hra`はrepository command hubのstable entry pointとして維持し、public project名へ合わせるためだけにはrenameしない。
 
 ## Canonical Household law
 
@@ -47,13 +47,13 @@ report.toml
 issues.tsv
 ```
 
-- basenameは`ALedger.Canonical_Source`だけが解決する
+- basenameは`HRA.Canonical_Source`だけが解決する
 - legacy source、fallback、redirect、engine別copy、dual authorityを追加しない
 - unknownまたは未対応の意味を推測・黙殺しない
 - private sourceの内容をrepository、test fixture、logへ複製しない
 - reader capabilityとwriter authorityを分ける
 
-詳細は[`docs/CANONICAL_HOUSEHOLD.md`](docs/CANONICAL_HOUSEHOLD.md)を参照する。Report、Editor、TUIを含む実装対象と順序は[`docs/CAPABILITY_ROADMAP.md`](docs/CAPABILITY_ROADMAP.md)を確認する。Actual、Plan、Envelope、Backingの金額式へ触れる場合は[`docs/PROOF_CORE.md`](docs/PROOF_CORE.md)を読み、`./tools/al prove`を実行する。Ada実装時の言語規則とHRA固有のconventionの区別は[`docs/ADA_FOR_ALEDGER.md`](docs/ADA_FOR_ALEDGER.md)を参照する。
+詳細は[`docs/CANONICAL_HOUSEHOLD.md`](docs/CANONICAL_HOUSEHOLD.md)を参照する。Report、Editor、TUIを含む実装対象と順序は[`docs/CAPABILITY_ROADMAP.md`](docs/CAPABILITY_ROADMAP.md)を確認する。Actual、Plan、Envelope、Backingの金額式へ触れる場合は[`docs/PROOF_CORE.md`](docs/PROOF_CORE.md)を読み、`./tools/hra prove`を実行する。Ada実装時の言語規則とHRA固有のconventionの区別は[`docs/ADA_FOR_HRA.md`](docs/ADA_FOR_HRA.md)を参照する。
 
 ## 設計原則
 
@@ -78,13 +78,13 @@ issues.tsv
 Repository-only qualification:
 
 ```sh
-./tools/al qualify
+./tools/hra qualify
 ```
 
 canonical Householdを含む確認:
 
 ```sh
-./tools/al check --base /path/to/canonical-root
+./tools/hra check --base /path/to/canonical-root
 ```
 
 private rootを使う検証ではsource内容や生成Reportを公開ログへ出さない。

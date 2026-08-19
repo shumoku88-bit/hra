@@ -1,7 +1,7 @@
 with Ada.Text_IO; use Ada.Text_IO;
-with ALedger.Budget_Config;
-with ALedger.Config_Support;
-with ALedger.Household_Config;
+with HRA.Budget_Config;
+with HRA.Config_Support;
+with HRA.Household_Config;
 
 procedure Test_Clean_Household_Contract is
    Passed_Count : Natural := 0;
@@ -45,20 +45,20 @@ procedure Test_Clean_Household_Contract is
      "identities = [""food"", ""retired""]" & ASCII.LF &
      "expense-routing = []" & ASCII.LF;
 
-   Policy : ALedger.Budget_Config.Budget_Policy;
-   Config : ALedger.Household_Config.Household_Configuration;
-   Diag   : ALedger.Config_Support.Config_Diagnostic;
+   Policy : HRA.Budget_Config.Budget_Policy;
+   Config : HRA.Household_Config.Household_Configuration;
+   Diag   : HRA.Config_Support.Config_Diagnostic;
 
 begin
    Put_Line ("--- Testing clean Household / Envelope source contract ---");
 
    Assert
-     (ALedger.Budget_Config.Parse_Budget_Policy
+     (HRA.Budget_Config.Parse_Budget_Policy
         (Current_Budget, Policy, Diag),
       "budget.toml admits current Envelope and Backing coordinates only");
 
    Assert
-     (ALedger.Household_Config.Parse_Household_Configuration
+     (HRA.Household_Config.Parse_Household_Configuration
         (Clean_Household, Policy, Config, Diag),
       "household.toml admits current plus retired allocation coordinates");
    Assert
@@ -69,10 +69,10 @@ begin
       Legacy_Budget : constant String :=
         Current_Budget &
         "expense-accounts = [""expenses:food""]" & ASCII.LF;
-      Rejected : ALedger.Budget_Config.Budget_Policy;
+      Rejected : HRA.Budget_Config.Budget_Policy;
    begin
       Assert
-        (not ALedger.Budget_Config.Parse_Budget_Policy
+        (not HRA.Budget_Config.Parse_Budget_Policy
            (Legacy_Budget, Rejected, Diag),
          "retired budget.toml expense-accounts authority is rejected");
    end;
@@ -82,10 +82,10 @@ begin
         Clean_Household &
         "[account-policy]" & ASCII.LF &
         "opening-budget = [""budget:opening""]" & ASCII.LF;
-      Rejected : ALedger.Household_Config.Household_Configuration;
+      Rejected : HRA.Household_Config.Household_Configuration;
    begin
       Assert
-        (not ALedger.Household_Config.Parse_Household_Configuration
+        (not HRA.Household_Config.Parse_Household_Configuration
            (Legacy_Household, Policy, Rejected, Diag),
          "retired account-policy authority is rejected");
    end;
@@ -105,10 +105,10 @@ begin
         "[envelope-history]" & ASCII.LF &
         "identities = [""food""]" & ASCII.LF &
         "expense-routing = []" & ASCII.LF;
-      Rejected : ALedger.Household_Config.Household_Configuration;
+      Rejected : HRA.Household_Config.Household_Configuration;
    begin
       Assert
-        (not ALedger.Household_Config.Parse_Household_Configuration
+        (not HRA.Household_Config.Parse_Household_Configuration
            (Legacy_Household, Policy, Rejected, Diag),
          "retired Plan destination authority is rejected");
    end;
@@ -127,10 +127,10 @@ begin
         "[envelope-history]" & ASCII.LF &
         "identities = [""food"", ""retired""]" & ASCII.LF &
         "expense-routing = []" & ASCII.LF;
-      Rejected : ALedger.Household_Config.Household_Configuration;
+      Rejected : HRA.Household_Config.Household_Configuration;
    begin
       Assert
-        (not ALedger.Household_Config.Parse_Household_Configuration
+        (not HRA.Household_Config.Parse_Household_Configuration
            (Missing_Current_Coordinate, Policy, Rejected, Diag),
          "every current Envelope requires an explicit allocation coordinate");
    end;
@@ -154,10 +154,10 @@ begin
         "route = ""unmanaged""" & ASCII.LF &
         "target = ""food""" & ASCII.LF &
         "note = ""invalid target on unmanaged route""" & ASCII.LF;
-      Rejected : ALedger.Household_Config.Household_Configuration;
+      Rejected : HRA.Household_Config.Household_Configuration;
    begin
       Assert
-        (not ALedger.Household_Config.Parse_Household_Configuration
+        (not HRA.Household_Config.Parse_Household_Configuration
            (Invalid_Unmanaged, Policy, Rejected, Diag),
          "unmanaged history cannot carry an Envelope target");
    end;
