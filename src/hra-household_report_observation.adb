@@ -249,10 +249,10 @@ package body HRA.Household_Report_Observation is
       end if;
 
       Output.Open_Issues.Open_Items := HRA.Issues.Open_Issues (State.Issues);
-      Output.Open_Issues.Total_Count := Natural (State.Issues.Items.Length);
+      Output.Open_Issues.Total_Count := HRA.Issues.Count (State.Issues);
       Output.Open_Issues.Resolved_Count :=
         Output.Open_Issues.Total_Count -
-        Natural (Output.Open_Issues.Open_Items.Length);
+        HRA.Issues.Count (Output.Open_Issues.Open_Items);
 
       Funding := HRA.Backing_Policy.Observe_Funding_Commitment
         (State.Backing_Policy_Spec,

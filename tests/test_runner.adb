@@ -809,7 +809,12 @@ procedure Test_Runner is
       Put_Line (F, "count = 10");
       Close (F);
       Create (F, Out_File, To_String (Paths.Issues_TSV));
-      Put_Line (F, "issue_id" & ASCII.HT & "status");
+      Put_Line
+        (F,
+         "issue_id" & ASCII.HT & "status" & ASCII.HT & "date" & ASCII.HT &
+         "due" & ASCII.HT & "closed" & ASCII.HT & "category" & ASCII.HT &
+         "title" & ASCII.HT & "amount" & ASCII.HT & "currency" & ASCII.HT &
+         "details");
       Close (F);
 
       Assert

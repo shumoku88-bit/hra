@@ -3,6 +3,7 @@ with Ada.Strings.Fixed;     use Ada.Strings.Fixed;
 with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
 with HRA.Account;           use HRA.Account;
 with HRA.Dates;
+with HRA.Issues;
 with HRA.Money;             use HRA.Money;
 
 package body HRA.Render is
@@ -180,13 +181,15 @@ package body HRA.Render is
      (Value : HRA.Household_Report_Observation.Issues_Report_Observation)
       return String
    is
-      Buf : Unbounded_String;
+      Buf        : Unbounded_String;
+      Open_Array : constant HRA.Issues.Issue_Array :=
+        HRA.Issues.All_Issues (Value.Open_Items);
    begin
       Append (Buf, "== Household Issues ==" & ASCII.LF);
       Append
         (Buf,
          "Open issues only | Displayed: " &
-         Trim (Natural'Image (Natural (Value.Open_Items.Length)), Both) &
+         Trim (Natural'Image (Open_Array'Length), Both) &
          " | Resolved hidden: " &
          Trim (Natural'Image (Value.Resolved_Count), Both) & ASCII.LF);
       Append
@@ -194,17 +197,19 @@ package body HRA.Render is
          "Issues do not change accounting or budget values" &
          ASCII.LF & ASCII.LF);
 
-      for Issue of Value.Open_Items loop
+      for Issue of Open_Array loop
          Append
            (Buf,
             "+- OPEN -------------------------------------------------------------------------------+" &
             ASCII.LF);
-         Append (Buf, "| ID       : " & To_String (Issue.Issue_ID) & ASCII.LF);
-         Append (Buf, "| Recorded : " & To_String (Issue.Date_Str) & ASCII.LF);
-         Append
-           (Buf,
-            "| Amount   : " & Render_Quantity (Issue.Amt.Val) & " " &
-            Code (Issue.Amt.Comm) & ASCII.LF);
+         Append (Buf, "| ID       : " & HRA.Issues.Text (Issue.ID) & ASCII.LF);
+         Append (Buf, "| Recorded : " & HRA.Dates.Image (Issue.Recorded_On) & ASCII.LF);
+         if Issue.Amt.Has_Amount then
+            Append
+              (Buf,
+               "| Amount   : " & Render_Quantity (Issue.Amt.Value.Val) & " " &
+               Code (Issue.Amt.Value.Comm) & ASCII.LF);
+         end if;
          Append (Buf, "| Title    : " & To_String (Issue.Title) & ASCII.LF);
          Append
            (Buf,

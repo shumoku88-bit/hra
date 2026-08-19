@@ -223,24 +223,32 @@ begin
    State.Plan_Ledger.Registry := State.Registry;
    State.Budget_Ledger.Registry := State.Registry;
 
-   State.Issues.Items.Append
-     (HRA.Issues.Household_Issue'
-        (Issue_ID => To_Unbounded_String ("issue-open"),
-         Status   => HRA.Issues.Open,
-         Date_Str => To_Unbounded_String ("2026-08-02"),
-         Title    => To_Unbounded_String ("Synthetic open issue"),
-         Amt      => HRA.Money.Make_Amount (USD, 3.0),
-         Category => To_Unbounded_String ("test"),
-         Details  => To_Unbounded_String ("typed observation only")));
-   State.Issues.Items.Append
-     (HRA.Issues.Household_Issue'
-        (Issue_ID => To_Unbounded_String ("issue-resolved"),
-         Status   => HRA.Issues.Resolved,
-         Date_Str => To_Unbounded_String ("2026-08-01"),
-         Title    => To_Unbounded_String ("Synthetic resolved issue"),
-         Amt      => HRA.Money.Make_Amount (JPY, 0.0),
-         Category => To_Unbounded_String ("test"),
-         Details  => To_Unbounded_String ("not displayed")));
+   HRA.Issues.Append
+     (State.Issues,
+      HRA.Issues.Household_Issue'
+        (ID          => HRA.Issues.Make_Issue_Id ("issue-open"),
+         Status      => HRA.Issues.Open,
+         Recorded_On => D ("2026-08-02"),
+         Due         => HRA.Issues.No_Due,
+         Closed      => HRA.Issues.Not_Closed,
+         Title       => To_Unbounded_String ("Synthetic open issue"),
+         Amt         =>
+           HRA.Issues.Make_Optional_Amount (HRA.Money.Make_Amount (USD, 3.0)),
+         Category    => To_Unbounded_String ("test"),
+         Details     => To_Unbounded_String ("typed observation only")));
+   HRA.Issues.Append
+     (State.Issues,
+      HRA.Issues.Household_Issue'
+        (ID          => HRA.Issues.Make_Issue_Id ("issue-resolved"),
+         Status      => HRA.Issues.Resolved,
+         Recorded_On => D ("2026-08-01"),
+         Due         => HRA.Issues.No_Due,
+         Closed      => HRA.Issues.Make_Closed_On (D ("2026-08-05")),
+         Title       => To_Unbounded_String ("Synthetic resolved issue"),
+         Amt         =>
+           HRA.Issues.Make_Optional_Amount (HRA.Money.Make_Amount (JPY, 0.0)),
+         Category    => To_Unbounded_String ("test"),
+         Details     => To_Unbounded_String ("not displayed")));
 
    Assert
      (HRA.Household_Report_Observation.Observe
@@ -264,7 +272,7 @@ begin
      (Natural (Observation.Planned_Payments.Payments.Length) = 1,
       "Planned Payments belongs to the same observation");
    Assert
-     (Natural (Observation.Open_Issues.Open_Items.Length) = 1
+     (HRA.Issues.Count (Observation.Open_Issues.Open_Items) = 1
       and then Observation.Open_Issues.Resolved_Count = 1,
       "open Issues selection belongs to the same observation");
    Assert
@@ -306,11 +314,11 @@ begin
    end;
 
    Empty_State := State;
-   Empty_State.Issues.Items.Clear;
+   HRA.Issues.Clear (Empty_State.Issues);
    Assert
      (HRA.Household_Report_Observation.Observe
         (D ("2026-08-10"), Empty_State, Empty_Book, Error_Msg)
-      and then Empty_Book.Open_Issues.Open_Items.Is_Empty
+      and then HRA.Issues.Is_Empty (Empty_Book.Open_Issues.Open_Items)
       and then Empty_Book.Open_Issues.Total_Count = 0,
       "successful empty section is distinct from unavailable");
 

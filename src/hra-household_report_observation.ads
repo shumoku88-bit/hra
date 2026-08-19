@@ -120,7 +120,7 @@ package HRA.Household_Report_Observation is
    end record;
 
    type Issues_Report_Observation is record
-      Open_Items     : HRA.Issues.Issue_Vectors.Vector;
+      Open_Items     : HRA.Issues.Issues_Inventory;
       Total_Count    : Natural := 0;
       Resolved_Count : Natural := 0;
    end record;
