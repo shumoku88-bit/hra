@@ -30,6 +30,7 @@ package HRA.Actual_Admission is
 
    function Empty_Observation return Actual_Observation;
 
+   --  Read-only value projection of the Ledger retained by admitted Actual.
    function Ledger_Of
      (Observation : Actual_Observation) return HRA.Ledger.Ledger;
 
