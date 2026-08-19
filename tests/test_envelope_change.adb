@@ -9,12 +9,13 @@ with ALedger.Envelope_Entitlement;
 with ALedger.Envelope_Fulfillment;
 with ALedger.Envelope_Position;
 with ALedger.Household_Envelope_Change;
+with ALedger.Household_Envelope_Explanation;
 with ALedger.Money; use ALedger.Money;
 
 procedure Test_Envelope_Change is
    use type ALedger.Dates.Date;
    use type ALedger.Envelope_Position.Observe_Status;
-   use type ALedger.Household_Envelope_Change.Snapshot_Status;
+   use type ALedger.Household_Envelope_Explanation.Explain_Status;
    use type ALedger.Household_Envelope_Change.Change_Status;
 
    Passed_Count : Natural := 0;
@@ -123,11 +124,16 @@ procedure Test_Envelope_Change is
    September : constant ALedger.Dates.Half_Open_Period :=
      Window ("2026-09-01", "2026-10-01");
 
-   Earlier_Snapshot : ALedger.Household_Envelope_Change.Explanation_Snapshot;
-   Later_Snapshot   : ALedger.Household_Envelope_Change.Explanation_Snapshot;
-   Reordered_Snapshot : ALedger.Household_Envelope_Change.Explanation_Snapshot;
-   September_Snapshot : ALedger.Household_Envelope_Change.Explanation_Snapshot;
-   Snapshot_Diag : ALedger.Household_Envelope_Change.Snapshot_Diagnostic;
+   Earlier_Explanation :
+     ALedger.Household_Envelope_Explanation.Explanation_Observation;
+   Later_Explanation :
+     ALedger.Household_Envelope_Explanation.Explanation_Observation;
+   Reordered_Explanation :
+     ALedger.Household_Envelope_Explanation.Explanation_Observation;
+   September_Explanation :
+     ALedger.Household_Envelope_Explanation.Explanation_Observation;
+   Explanation_Diag :
+     ALedger.Household_Envelope_Explanation.Explain_Diagnostic;
 
 begin
    Put_Line ("--- Testing typed Envelope Change ---");
@@ -208,29 +214,29 @@ begin
       "Setup: observe later proof-backed positions");
 
    Assert
-     (ALedger.Household_Envelope_Change.Capture
+     (ALedger.Household_Envelope_Explanation.Capture
         (Policy,
          Registry,
          August,
          D ("2026-08-10"),
          Earlier_Positions,
-         Earlier_Snapshot,
-         Snapshot_Diag)
-        and then Snapshot_Diag.Status =
-          ALedger.Household_Envelope_Change.Success,
-      "Capture earlier typed explanation snapshot");
+         Earlier_Explanation,
+         Explanation_Diag)
+        and then Explanation_Diag.Status =
+          ALedger.Household_Envelope_Explanation.Success,
+      "Capture earlier first-class Household explanation");
    Assert
-     (ALedger.Household_Envelope_Change.Capture
+     (ALedger.Household_Envelope_Explanation.Capture
         (Policy,
          Registry,
          August,
          D ("2026-08-15"),
          Later_Positions,
-         Later_Snapshot,
-         Snapshot_Diag)
-        and then Snapshot_Diag.Status =
-          ALedger.Household_Envelope_Change.Success,
-      "Capture later typed explanation snapshot");
+         Later_Explanation,
+         Explanation_Diag)
+        and then Explanation_Diag.Status =
+          ALedger.Household_Envelope_Explanation.Success,
+      "Capture later first-class Household explanation");
 
    declare
       Change : ALedger.Household_Envelope_Change.Change_Observation;
@@ -238,7 +244,7 @@ begin
    begin
       Assert
         (ALedger.Household_Envelope_Change.Observe_Change
-           (Earlier_Snapshot, Later_Snapshot, Change, Diag)
+           (Earlier_Explanation, Later_Explanation, Change, Diag)
            and then Diag.Status = ALedger.Household_Envelope_Change.Success,
          "Same-cycle typed Change succeeds");
       Assert
@@ -288,34 +294,34 @@ begin
 
       Assert
         (not ALedger.Household_Envelope_Change.Observe_Change
-           (Later_Snapshot, Earlier_Snapshot, Change, Diag)
+           (Later_Explanation, Earlier_Explanation, Change, Diag)
            and then Diag.Status =
              ALedger.Household_Envelope_Change.Observation_Order_Invalid,
          "Change rejects reversed observation time");
    end;
 
    Assert
-     (not ALedger.Household_Envelope_Change.Capture
+     (not ALedger.Household_Envelope_Explanation.Capture
         (Policy,
          Registry,
          August,
          D ("2026-09-01"),
          Later_Positions,
-         Reordered_Snapshot,
-         Snapshot_Diag)
-        and then Snapshot_Diag.Status =
-          ALedger.Household_Envelope_Change.Observation_Outside_Window,
-      "Snapshot fails closed outside its cycle window");
+         Reordered_Explanation,
+         Explanation_Diag)
+        and then Explanation_Diag.Status =
+          ALedger.Household_Envelope_Explanation.Observation_Outside_Window,
+      "Explanation fails closed outside its cycle window");
 
    Assert
-     (ALedger.Household_Envelope_Change.Capture
+     (ALedger.Household_Envelope_Explanation.Capture
         (Reordered_Policy,
          Registry,
          August,
          D ("2026-08-15"),
          Later_Positions,
-         Reordered_Snapshot,
-         Snapshot_Diag),
+         Reordered_Explanation,
+         Explanation_Diag),
       "Capture same Envelope set in a different current order");
 
    declare
@@ -324,7 +330,7 @@ begin
    begin
       Assert
         (not ALedger.Household_Envelope_Change.Observe_Change
-           (Earlier_Snapshot, Reordered_Snapshot, Change, Diag)
+           (Earlier_Explanation, Reordered_Explanation, Change, Diag)
            and then Diag.Status =
              ALedger.Household_Envelope_Change.Envelope_Order_Mismatch
            and then Diag.Mismatch_Index = 1,
@@ -332,15 +338,15 @@ begin
    end;
 
    Assert
-     (ALedger.Household_Envelope_Change.Capture
+     (ALedger.Household_Envelope_Explanation.Capture
         (Policy,
          Registry,
          September,
          D ("2026-09-15"),
          Later_Positions,
-         September_Snapshot,
-         Snapshot_Diag),
-      "Capture a typed snapshot in another cycle window");
+         September_Explanation,
+         Explanation_Diag),
+      "Capture a typed explanation in another cycle window");
 
    declare
       Change : ALedger.Household_Envelope_Change.Change_Observation;
@@ -348,7 +354,7 @@ begin
    begin
       Assert
         (not ALedger.Household_Envelope_Change.Observe_Change
-           (Earlier_Snapshot, September_Snapshot, Change, Diag)
+           (Earlier_Explanation, September_Explanation, Change, Diag)
            and then Diag.Status =
              ALedger.Household_Envelope_Change.Window_Mismatch,
          "Same-cycle Change rejects cross-window comparison");
