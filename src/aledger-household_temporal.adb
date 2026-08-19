@@ -1,3 +1,4 @@
+with ALedger.Household_Envelope_Explanation;
 with ALedger.Household_Envelope_Observation;
 
 package body ALedger.Household_Temporal is
@@ -17,10 +18,13 @@ package body ALedger.Household_Temporal is
       Resolved : ALedger.Household_Envelope_Change.Resolved_Change_Baseline;
       Baseline_Diag : ALedger.Household_Envelope_Change.Baseline_Diagnostic;
 
-      Current_Snapshot : ALedger.Household_Envelope_Change.Explanation_Snapshot;
-      Earlier_Snapshot : ALedger.Household_Envelope_Change.Explanation_Snapshot;
-      Snapshot_Diag    : ALedger.Household_Envelope_Change.Snapshot_Diagnostic;
-      Change_Diag      : ALedger.Household_Envelope_Change.Change_Diagnostic;
+      Current_Explanation :
+        ALedger.Household_Envelope_Explanation.Explanation_Observation;
+      Earlier_Explanation :
+        ALedger.Household_Envelope_Explanation.Explanation_Observation;
+      Explanation_Diag :
+        ALedger.Household_Envelope_Explanation.Explain_Diagnostic;
+      Change_Diag : ALedger.Household_Envelope_Change.Change_Diagnostic;
    begin
       if not ALedger.Household_Envelope_Observation.Observe
         (Observed_Through, State, Current, Observation_Error)
@@ -57,38 +61,38 @@ package body ALedger.Household_Temporal is
          return False;
       end if;
 
-      if not ALedger.Household_Envelope_Change.Capture
+      if not ALedger.Household_Envelope_Explanation.Capture
         (State.Budget_Policy,
          State.Envelope_Registry,
          Earlier.Current_Cycle,
          Earlier.Observed_Through,
          Earlier.Envelope_Positions,
-         Earlier_Snapshot,
-         Snapshot_Diag)
+         Earlier_Explanation,
+         Explanation_Diag)
       then
          Diag :=
-           (Status   => Earlier_Snapshot_Unavailable,
-            Snapshot => Snapshot_Diag);
+           (Status      => Earlier_Explanation_Unavailable,
+            Explanation => Explanation_Diag);
          return False;
       end if;
 
-      if not ALedger.Household_Envelope_Change.Capture
+      if not ALedger.Household_Envelope_Explanation.Capture
         (State.Budget_Policy,
          State.Envelope_Registry,
          Current.Current_Cycle,
          Current.Observed_Through,
          Current.Envelope_Positions,
-         Current_Snapshot,
-         Snapshot_Diag)
+         Current_Explanation,
+         Explanation_Diag)
       then
          Diag :=
-           (Status   => Current_Snapshot_Unavailable,
-            Snapshot => Snapshot_Diag);
+           (Status      => Current_Explanation_Unavailable,
+            Explanation => Explanation_Diag);
          return False;
       end if;
 
       if not ALedger.Household_Envelope_Change.Observe_Change
-        (Earlier_Snapshot, Current_Snapshot, Result, Change_Diag)
+        (Earlier_Explanation, Current_Explanation, Result, Change_Diag)
       then
          Diag :=
            (Status => Change_Rejected,
