@@ -18,6 +18,8 @@ Repository commands:
 Application commands:
   home [--base ROOT] [--through DATE] [--day DATE]
                         Render the Household Home overview
+  tui [--base ROOT] [--through DATE] [--day DATE]
+                        Open the interactive Household Home terminal view
   check [--base ROOT]   Validate an admitted canonical Household
   report [--base ROOT]  Render the current report portfolio
   version               Show the hra version
@@ -76,6 +78,7 @@ run_tests() {
   "$project_root/tests/bin/test_household_home_presentation"
   "$project_root/tests/bin/test_household_home_command"
   "$project_root/tests/bin/test_household_home_interaction"
+  "$project_root/tests/bin/test_household_home_tui_input"
 }
 
 command="${1:-help}"
@@ -123,7 +126,7 @@ case "$command" in
       "$project_root/tests/bin" \
       "$project_root/proof/obj"
     ;;
-  home|check|report|version)
+  home|tui|check|report|version)
     build_production
     exec "$project_root/bin/hra" "$command" "$@"
     ;;
