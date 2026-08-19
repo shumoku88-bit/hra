@@ -8,7 +8,7 @@
 >
 > Long name: **Household Reckoning Apparatus**
 
-現在のAda package名、Alire crate名、native executable名には移行前の`aledger`が残っています。これはsemantic changeと大量の機械的renameを混ぜないためです。公開名をHRAへ固定した後、必要なら別のnon-semantic migrationとして整理します。
+現在のAda package名、Alire crate名、native executable名には移行前の`hra`が残っています。これはsemantic changeと大量の機械的renameを混ぜないためです。公開名をHRAへ固定した後、必要なら別のnon-semantic migrationとして整理します。
 
 ## Canonical data
 
@@ -51,7 +51,7 @@ issues.tsv
 本体とTOML parserはAdaで実装され、GNAT/AlireがOSのnative executableへコンパイルします。interpreter、JVM、Node.js runtimeは使用しません。CLIはcanonical source内のUTF-8を再変換せず、terminalへexact byteとして出力します。
 
 ```sh
-file bin/aledger
+file bin/hra
 # macOSの例: Mach-O 64-bit executable ...
 # Linuxの例: ELF 64-bit ... executable
 ```
@@ -86,16 +86,16 @@ RESULT: SUCCESS
 h-kernelと同じprivate canonical Household rootを`--base`で指定します。
 
 ```sh
-./bin/aledger check --base /path/to/private-household-root
-./bin/aledger report --base /path/to/private-household-root
+./bin/hra check --base /path/to/private-household-root
+./bin/hra report --base /path/to/private-household-root
 ```
 
 このworkspaceと同じ配置なら、例えば次のように実行できます。
 
 ```sh
 cd /path/to/moko/hra
-./bin/aledger check --base ../household-ledger-data
-./bin/aledger report --base ../household-ledger-data
+./bin/hra check --base ../household-ledger-data
+./bin/hra report --base ../household-ledger-data
 ```
 
 ### Household rootの選択順
@@ -110,8 +110,8 @@ cd /path/to/moko/hra
 
 ```sh
 export HKERNEL_LEDGER_DATA_DIR=/path/to/private-household-root
-./bin/aledger check
-./bin/aledger report
+./bin/hra check
+./bin/hra report
 ```
 
 ### `check`
@@ -119,7 +119,7 @@ export HKERNEL_LEDGER_DATA_DIR=/path/to/private-household-root
 固定8 sourceの存在、exact observation、Journal/TSVの現在対応済みadmission、3 TOML policy、Account参照、balance lawを検証します。
 
 ```sh
-./bin/aledger check --base /path/to/private-household-root
+./bin/hra check --base /path/to/private-household-root
 ```
 
 出力形式:
@@ -139,7 +139,7 @@ source本文や金額は`check`出力へ表示しません。
 ### `report`
 
 ```sh
-./bin/aledger report --base /path/to/private-household-root
+./bin/hra report --base /path/to/private-household-root
 ```
 
 現在は一つのreport bookとして、次の順に表示します。
@@ -154,12 +154,12 @@ source本文や金額は`check`出力へ表示しません。
 ```text
 WARNING: typed TOML policies are not yet fully applied; this report is not canonical.
 ==================================================
-   ALedger Financial Statements
+   HRA Financial Statements
 ==================================================
 
-== Profit & Loss Statement (aledger Engine) ==
+== Profit & Loss Statement (hra Engine) ==
 ...
-== Balance Sheet (aledger Engine) ==
+== Balance Sheet (hra Engine) ==
 ...
 == Household Issues ==
 ...
@@ -180,31 +180,31 @@ locale
 
 ```sh
 umask 077
-./bin/aledger report --base /path/to/private-household-root > /private/path/hra-report.txt
+./bin/hra report --base /path/to/private-household-root > /private/path/hra-report.txt
 ```
 
 ### その他
 
 ```sh
-./bin/aledger version
-./bin/aledger help
+./bin/hra version
+./bin/hra help
 ```
 
 private source、生成Report、local pathを公開repositoryやCI logへ出力しないでください。
 
 ## Source layout
 
-内部Ada namespaceは現在まだ`ALedger`を保持しています。
+内部Ada namespaceは現在まだ`HRA`を保持しています。
 
-- `src/aledger-proof_core.*`: bounded exact arithmeticのSPARK proof foundation
-- `proof/aledger_proof.gpr`, `tools/prove`: strict proof target
-- `src/aledger-output.*`: UTF-8を二重encodeしないnative terminal output
-- `src/aledger-canonical_source.*`: 固定8-source pathとexact-byte observation
-- `src/aledger-*_config.*`: Budget、Household、Report TOMLの型付きadmission
-- `src/aledger-household.*`: complete observationからのHousehold composition
-- `src/aledger-journal.*`: Journal admission
-- `src/aledger-money.*`, `aledger-account.*`, `aledger-ledger.*`: accounting kernel
-- `src/aledger-plan.*`, `aledger-budget.*`, `aledger-report.*`: domain projection
+- `src/hra-proof_core.*`: bounded exact arithmeticのSPARK proof foundation
+- `proof/hra_proof.gpr`, `tools/prove`: strict proof target
+- `src/hra-output.*`: UTF-8を二重encodeしないnative terminal output
+- `src/hra-canonical_source.*`: 固定8-source pathとexact-byte observation
+- `src/hra-*_config.*`: Budget、Household、Report TOMLの型付きadmission
+- `src/hra-household.*`: complete observationからのHousehold composition
+- `src/hra-journal.*`: Journal admission
+- `src/hra-money.*`, `hra-account.*`, `hra-ledger.*`: accounting kernel
+- `src/hra-plan.*`, `hra-budget.*`, `hra-report.*`: domain projection
 - `tests/test_runner.adb`: synthetic test suite
 
 ## License

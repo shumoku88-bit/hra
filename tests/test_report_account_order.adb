@@ -1,11 +1,11 @@
 with Ada.Text_IO;          use Ada.Text_IO;
 with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
-with ALedger.Account;       use ALedger.Account;
-with ALedger.Dates;
-with ALedger.Journal;       use ALedger.Journal;
-with ALedger.Ledger;        use ALedger.Ledger;
-with ALedger.Money;         use ALedger.Money;
-with ALedger.Report;        use ALedger.Report;
+with HRA.Account;       use HRA.Account;
+with HRA.Dates;
+with HRA.Journal;       use HRA.Journal;
+with HRA.Ledger;        use HRA.Ledger;
+with HRA.Money;         use HRA.Money;
+with HRA.Report;        use HRA.Report;
 
 procedure Test_Report_Account_Order is
    Passed_Count : Natural := 0;
@@ -22,22 +22,22 @@ procedure Test_Report_Account_Order is
       end if;
    end Assert;
 
-   function D (S : String) return ALedger.Dates.Date is
-      Value  : ALedger.Dates.Date;
-      Status : ALedger.Dates.Date_Status;
+   function D (S : String) return HRA.Dates.Date is
+      Value  : HRA.Dates.Date;
+      Status : HRA.Dates.Date_Status;
    begin
-      if not ALedger.Dates.Parse (S, Value, Status) then
+      if not HRA.Dates.Parse (S, Value, Status) then
          raise Program_Error with "invalid test date: " & S;
       end if;
       return Value;
    end D;
 
    function P (First_Day, Last_Day : String)
-      return ALedger.Dates.Closed_Period
+      return HRA.Dates.Closed_Period
    is
-      Period : ALedger.Dates.Closed_Period;
+      Period : HRA.Dates.Closed_Period;
    begin
-      if not ALedger.Dates.Make_Closed_Period
+      if not HRA.Dates.Make_Closed_Period
         (D (First_Day), D (Last_Day), Period)
       then
          raise Program_Error with
@@ -95,7 +95,7 @@ begin
    end;
 
    declare
-      August : constant ALedger.Dates.Closed_Period :=
+      August : constant HRA.Dates.Closed_Period :=
         P ("2026-08-01", "2026-08-31");
       Zeta   : constant Account := Make_Account ("expenses:zeta");
       PL     : constant Profit_And_Loss :=

@@ -3,31 +3,31 @@ with Ada.Command_Line;
 with Ada.Directories;        use Ada.Directories;
 with Ada.Strings.Fixed;      use Ada.Strings.Fixed;
 with Ada.Strings.Unbounded;  use Ada.Strings.Unbounded;
-with ALedger;
-with ALedger.Dates;
-with ALedger.Money;          use ALedger.Money;
-with ALedger.Account;        use ALedger.Account;
-with ALedger.Ledger;         use ALedger.Ledger;
-with ALedger.Journal;        use ALedger.Journal;
-with ALedger.Report;         use ALedger.Report;
-with ALedger.Household;      use ALedger.Household;
-with ALedger.Household_Config;
-with ALedger.Canonical_Source; use ALedger.Canonical_Source;
-with ALedger.Config_Support;
-with ALedger.Budget_Config;
-with ALedger.Report_Config;
-with ALedger.Proof_Core;
-with ALedger.Proof_Money_Bridge;
-with ALedger.Plan;           use ALedger.Plan;
-with ALedger.Writer;         use ALedger.Writer;
-with ALedger.Render;         use ALedger.Render;
-with ALedger.Envelope;
-with ALedger.Envelope_Routing;
-with ALedger.Envelope_Entitlement;
-with ALedger.Budget_Source_Adapter;
-with ALedger.Envelope_Consumption;
-with ALedger.Envelope_Position;
-with ALedger.Backing_Policy;
+with HRA;
+with HRA.Dates;
+with HRA.Money;          use HRA.Money;
+with HRA.Account;        use HRA.Account;
+with HRA.Ledger;         use HRA.Ledger;
+with HRA.Journal;        use HRA.Journal;
+with HRA.Report;         use HRA.Report;
+with HRA.Household;      use HRA.Household;
+with HRA.Household_Config;
+with HRA.Canonical_Source; use HRA.Canonical_Source;
+with HRA.Config_Support;
+with HRA.Budget_Config;
+with HRA.Report_Config;
+with HRA.Proof_Core;
+with HRA.Proof_Money_Bridge;
+with HRA.Plan;           use HRA.Plan;
+with HRA.Writer;         use HRA.Writer;
+with HRA.Render;         use HRA.Render;
+with HRA.Envelope;
+with HRA.Envelope_Routing;
+with HRA.Envelope_Entitlement;
+with HRA.Budget_Source_Adapter;
+with HRA.Envelope_Consumption;
+with HRA.Envelope_Position;
+with HRA.Backing_Policy;
 
 procedure Test_Runner is
    Passed_Count : Natural := 0;
@@ -44,27 +44,27 @@ procedure Test_Runner is
       end if;
    end Assert;
 
-   function D (S : String) return ALedger.Dates.Date is
-      Val    : ALedger.Dates.Date;
-      Status : ALedger.Dates.Date_Status;
+   function D (S : String) return HRA.Dates.Date is
+      Val    : HRA.Dates.Date;
+      Status : HRA.Dates.Date_Status;
    begin
-      if not ALedger.Dates.Parse (S, Val, Status) then
+      if not HRA.Dates.Parse (S, Val, Status) then
          raise Program_Error with "Invalid date in test: " & S;
       end if;
       return Val;
    end D;
 
-   function P (S1, S2 : String) return ALedger.Dates.Closed_Period is
-      Res : ALedger.Dates.Closed_Period;
+   function P (S1, S2 : String) return HRA.Dates.Closed_Period is
+      Res : HRA.Dates.Closed_Period;
    begin
-      if not ALedger.Dates.Make_Closed_Period (D (S1), D (S2), Res) then
+      if not HRA.Dates.Make_Closed_Period (D (S1), D (S2), Res) then
          raise Program_Error with "Invalid closed period: " & S1 & ".." & S2;
       end if;
       return Res;
    end P;
 
    procedure Test_Proof_Core is
-      package Proof renames ALedger.Proof_Core;
+      package Proof renames HRA.Proof_Core;
       Original : constant Proof.Posting_Array :=
         [1 => (Account => 1, Commodity => 1, Quantity => 1_000),
          2 => (Account => 2, Commodity => 1, Quantity => -1_000),
@@ -131,7 +131,7 @@ procedure Test_Runner is
       Backing_Split : constant Proof.Backing_Result := Proof.Evaluate_Backing
         (Lines_Split, (Funding_Balance => 600, Funding_Commitment => 250));
    begin
-      Put_Line ("--- Testing ALedger.Proof_Core contracts ---");
+      Put_Line ("--- Testing HRA.Proof_Core contracts ---");
       Assert (Proof.Is_Balanced (Original), "Proof core balances each Commodity independently");
       Assert (Proof.Is_Ordered_Inverse (Original, Reversal), "Proof core recognizes exact ordered reversal");
 
@@ -183,8 +183,8 @@ procedure Test_Runner is
    end Test_Proof_Core;
 
    procedure Test_Proof_Money_Bridge is
-      package Bridge renames ALedger.Proof_Money_Bridge;
-      package Proof renames ALedger.Proof_Core;
+      package Bridge renames HRA.Proof_Money_Bridge;
+      package Proof renames HRA.Proof_Core;
       use type Bridge.Bridge_Status;
 
       Q_In        : constant Quantity := Zero_Quantity;
@@ -203,7 +203,7 @@ procedure Test_Runner is
       BTC_Comm    : constant Commodity := Make_Commodity ("BTC");
       Bal         : Balance := Empty_Balance;
    begin
-      Put_Line ("--- Testing ALedger.Proof_Money_Bridge ---");
+      Put_Line ("--- Testing HRA.Proof_Money_Bridge ---");
 
       -- Law A: Zero
       Assert
@@ -365,7 +365,7 @@ procedure Test_Runner is
       A1, A2   : Amount;
       B1, B2   : Balance;
    begin
-      Put_Line ("--- Testing ALedger.Money ---");
+      Put_Line ("--- Testing HRA.Money ---");
 
       Assert (Create_Commodity ("JPY", JPY, C_Status) and then C_Status = Success, "Create JPY Commodity");
       Assert (Create_Commodity ("USD", USD, C_Status) and then C_Status = Success, "Create USD Commodity");
@@ -401,13 +401,13 @@ procedure Test_Runner is
    end Test_Money;
 
    procedure Test_Account is
-      Acc1, Acc2, Acc_Undeclared : ALedger.Account.Account;
+      Acc1, Acc2, Acc_Undeclared : HRA.Account.Account;
       A_Status     : Account_Status;
       Reg          : Account_Registry := Empty_Registry;
       R_Status     : Registry_Status;
       Decl1, Decl2 : Account_Declaration;
    begin
-      Put_Line ("--- Testing ALedger.Account ---");
+      Put_Line ("--- Testing HRA.Account ---");
 
       Assert (Create_Account ("assets:bank:checking", Acc1, A_Status), "Create Account assets:bank:checking");
       Assert (Create_Account ("expenses:food", Acc2, A_Status), "Create Account expenses:food");
@@ -434,8 +434,8 @@ procedure Test_Runner is
 
    procedure Test_Ledger is
       JPY      : constant Commodity := Make_Commodity ("JPY");
-      Acc_Cash : constant ALedger.Account.Account := Make_Account ("assets:cash");
-      Acc_Food : constant ALedger.Account.Account := Make_Account ("expenses:food");
+      Acc_Cash : constant HRA.Account.Account := Make_Account ("assets:cash");
+      Acc_Food : constant HRA.Account.Account := Make_Account ("expenses:food");
       Q_1000   : Quantity;
       Q_M1000  : Quantity;
       Postings : Posting_Vectors.Vector;
@@ -443,7 +443,7 @@ procedure Test_Runner is
       T_Status : Transaction_Error;
       L        : Ledger := Empty_Ledger;
    begin
-      Put_Line ("--- Testing ALedger.Ledger & Balance Law ---");
+      Put_Line ("--- Testing HRA.Ledger & Balance Law ---");
 
       Assert (Parse_Quantity ("1000", Q_1000), "Parse 1000");
       Assert (Parse_Quantity ("-1000", Q_M1000), "Parse -1000");
@@ -482,13 +482,13 @@ procedure Test_Runner is
 
       L         : Ledger;
       Err       : Unbounded_String;
-      Acc_Bank  : constant ALedger.Account.Account := Make_Account ("assets:bank:checking");
-      Acc_Food  : constant ALedger.Account.Account := Make_Account ("expenses:food");
+      Acc_Bank  : constant HRA.Account.Account := Make_Account ("assets:bank:checking");
+      Acc_Food  : constant HRA.Account.Account := Make_Account ("expenses:food");
       JPY       : constant Commodity := Make_Commodity ("JPY");
       Q_M1500   : Quantity;
       Q_1500    : Quantity;
    begin
-      Put_Line ("--- Testing ALedger.Journal Parser & Auto-Balancing ---");
+      Put_Line ("--- Testing HRA.Journal Parser & Auto-Balancing ---");
 
       Assert (Parse_Quantity ("-1500", Q_M1500), "Parse -1500");
       Assert (Parse_Quantity ("1500", Q_1500), "Parse 1500");
@@ -545,9 +545,9 @@ procedure Test_Runner is
    end Test_Journal;
 
    procedure Test_TOML_Config_Admission is
-      Diag   : ALedger.Config_Support.Config_Diagnostic;
-      Policy : ALedger.Budget_Config.Budget_Policy;
-      Report : ALedger.Report_Config.Report_Configuration;
+      Diag   : HRA.Config_Support.Config_Diagnostic;
+      Policy : HRA.Budget_Config.Budget_Policy;
+      Report : HRA.Report_Config.Report_Configuration;
       Food_UTF8 : constant String :=
         Character'Val (16#E9#) & Character'Val (16#A3#) & Character'Val (16#9F#) &
         Character'Val (16#E8#) & Character'Val (16#B2#) & Character'Val (16#BB#);
@@ -599,34 +599,34 @@ procedure Test_Runner is
    begin
       Put_Line ("--- Testing typed canonical TOML admission ---");
       Assert
-        (ALedger.Budget_Config.Parse_Budget_Policy
+        (HRA.Budget_Config.Parse_Budget_Policy
            (Valid_Budget, Policy, Diag) and then
          To_String (Policy.Envelopes.Element (1).ID) = Food_UTF8,
          "Admit UTF-8 Budget policy into typed values");
       Assert
-        (not ALedger.Budget_Config.Parse_Budget_Policy
+        (not HRA.Budget_Config.Parse_Budget_Policy
            (Valid_Budget & "unknown = true" & ASCII.LF, Policy, Diag),
          "Reject unknown Budget TOML key");
       Assert
-        (not ALedger.Report_Config.Parse_Report_Configuration
+        (not HRA.Report_Config.Parse_Report_Configuration
            (Invalid_Report, Report, Diag),
          "Reject impossible Report date");
 
       declare
-         use type ALedger.Household_Config.Effective_Date_Kind;
-         use type ALedger.Household_Config.Expense_Route_Kind;
-         History_Policy : ALedger.Budget_Config.Budget_Policy;
-         History_Diag   : ALedger.Config_Support.Config_Diagnostic;
-         Household_Diag : ALedger.Config_Support.Config_Diagnostic;
-         Household_Cfg  : ALedger.Household_Config.Household_Configuration;
+         use type HRA.Household_Config.Effective_Date_Kind;
+         use type HRA.Household_Config.Expense_Route_Kind;
+         History_Policy : HRA.Budget_Config.Budget_Policy;
+         History_Diag   : HRA.Config_Support.Config_Diagnostic;
+         Household_Diag : HRA.Config_Support.Config_Diagnostic;
+         Household_Cfg  : HRA.Household_Config.Household_Configuration;
       begin
          Assert
-           (ALedger.Budget_Config.Parse_Budget_Policy
+           (HRA.Budget_Config.Parse_Budget_Policy
               (Budget_With_History, History_Policy, History_Diag),
             "Admit current-only Budget policy beside Envelope history");
 
          Assert
-           (ALedger.Household_Config.Parse_Household_Configuration
+           (HRA.Household_Config.Parse_Household_Configuration
               (Household_With_History, History_Policy, Household_Cfg, Household_Diag),
             "Admit Household configuration with envelope-history section");
          Assert
@@ -639,17 +639,17 @@ procedure Test_Runner is
            (Natural (Household_Cfg.Envelope_History.Expense_Routing.Length) = 1,
             "Envelope-history parsed 1 expense-routing entry");
          declare
-            E : constant ALedger.Household_Config.Expense_Routing_Entry_Data :=
+            E : constant HRA.Household_Config.Expense_Routing_Entry_Data :=
               Household_Cfg.Envelope_History.Expense_Routing.Element (1);
          begin
             Assert
-              (E.Effective.Kind = ALedger.Household_Config.Initial,
+              (E.Effective.Kind = HRA.Household_Config.Initial,
                "Expense-routing effective-from is 'initial'");
             Assert
               (To_String (E.Expense_Account) = "expenses:food",
                "Expense-routing expense-account is 'expenses:food'");
             Assert
-              (E.Route.Kind = ALedger.Household_Config.Managed,
+              (E.Route.Kind = HRA.Household_Config.Managed,
                "Expense-routing route is 'managed'");
             Assert
               (To_String (E.Route.Target) = Food_UTF8,
@@ -686,7 +686,7 @@ procedure Test_Runner is
       Q_80k    : Quantity;
       Q_300k   : Quantity;
    begin
-      Put_Line ("--- Testing ALedger.Report & ALedger.Budget ---");
+      Put_Line ("--- Testing HRA.Report & HRA.Budget ---");
 
       Assert (Parse_Quantity ("220000", Q_220k), "Parse 220000");
       Assert (Parse_Quantity ("80000", Q_80k), "Parse 80000");
@@ -709,14 +709,14 @@ procedure Test_Runner is
    end Test_Report_And_Budget;
 
    procedure Test_Canonical_Household is
-      Tmp_Dir : constant String := "/tmp/aledger_test_household";
-      Paths   : constant ALedger.Household.Source_Paths :=
-        ALedger.Household.Resolve_Source_Paths (Tmp_Dir);
+      Tmp_Dir : constant String := "/tmp/hra_test_household";
+      Paths   : constant HRA.Household.Source_Paths :=
+        HRA.Household.Resolve_Source_Paths (Tmp_Dir);
       State   : Household_State;
       Err     : Unbounded_String;
       F       : File_Type;
    begin
-      Put_Line ("--- Testing ALedger.Household (Canonical 8-Source Topology) ---");
+      Put_Line ("--- Testing HRA.Household (Canonical 8-Source Topology) ---");
 
       if Exists (Tmp_Dir) then
          Delete_Tree (Tmp_Dir);
@@ -860,15 +860,15 @@ procedure Test_Runner is
       PID      : Plan_Id;
       P_Stat   : Plan_Id_Status;
       PE       : Plan_Entry;
-      Acc_Bank : constant ALedger.Account.Account := Make_Account ("assets:bank");
-      Acc_Rent : constant ALedger.Account.Account := Make_Account ("expenses:rent");
+      Acc_Bank : constant HRA.Account.Account := Make_Account ("assets:bank");
+      Acc_Rent : constant HRA.Account.Account := Make_Account ("expenses:rent");
       JPY      : constant Commodity := Make_Commodity ("JPY");
       Q_80k    : Quantity;
       Actual_Tx: Transaction;
       L        : Ledger := Empty_Ledger;
       L_Stat   : Transaction_Error;
    begin
-      Put_Line ("--- Testing ALedger.Plan (plan-id & Lifecycle Completion) ---");
+      Put_Line ("--- Testing HRA.Plan (plan-id & Lifecycle Completion) ---");
 
       Assert (Create_Plan_Id ("plan-2026-08-001", PID, P_Stat) and then P_Stat = Success, "Create valid plan-id plan-2026-08-001");
       Assert (not Create_Plan_Id ("plan 2026", PID, P_Stat) and then P_Stat = Plan_Id_Contains_Whitespace, "Reject plan-id with whitespace");
@@ -893,7 +893,7 @@ procedure Test_Runner is
    end Test_Plan_Lifecycle;
 
    procedure Test_Safe_Writer is
-      Target_File : constant String := "/tmp/aledger_test_writer.journal";
+      Target_File : constant String := "/tmp/hra_test_writer.journal";
       Initial_Text: constant String :=
         "account assets:cash" & ASCII.LF &
         "  ; type: Asset" & ASCII.LF &
@@ -913,7 +913,7 @@ procedure Test_Runner is
       Err_Msg : Unbounded_String;
       F       : File_Type;
    begin
-      Put_Line ("--- Testing ALedger.Writer (Safe Writer & Atomic Publication Laws) ---");
+      Put_Line ("--- Testing HRA.Writer (Safe Writer & Atomic Publication Laws) ---");
 
       if Exists (Target_File) then
          Delete_File (Target_File);
@@ -1015,7 +1015,7 @@ procedure Test_Runner is
       L   : Ledger;
       Err : Unbounded_String;
    begin
-      Put_Line ("--- Testing ALedger & h-kernel Cross-Engine Equivalence ---");
+      Put_Line ("--- Testing HRA & h-kernel Cross-Engine Equivalence ---");
 
       Assert (Parse_Journal_Text (Golden_Journal_Text, L, Err), "Parse h-kernel report contract journal text");
 
@@ -1043,15 +1043,15 @@ procedure Test_Runner is
    end Test_Golden_Report_Verification;
 
    procedure Test_Envelope_Identity_And_Registry is
-      use ALedger.Envelope;
-      use ALedger.Config_Support;
+      use HRA.Envelope;
+      use HRA.Config_Support;
       Id, Food_Id : Envelope_Id;
       Status   : Envelope_Id_Status;
       Reg      : Envelope_Registry;
       Diag     : Config_Diagnostic;
       Names    : String_Vectors.Vector;
    begin
-      Put_Line ("--- Testing ALedger.Envelope (Identity & Registry) ---");
+      Put_Line ("--- Testing HRA.Envelope (Identity & Registry) ---");
 
       Assert (Create_Envelope_Id ("food", Id, Status)
               and then Status = Success,
@@ -1153,30 +1153,30 @@ procedure Test_Runner is
 
       declare
          Env : Envelope_Id;
-         Acc : ALedger.Account.Account;
+         Acc : HRA.Account.Account;
          S   : Envelope_Id_Status;
       begin
          Assert (Create_Envelope_Id ("food", Env, S) and then S = Success,
                  "Create Envelope_Id for type-separation test");
-         Acc := ALedger.Account.Make_Account ("food");
-         Assert (Image (Env) = ALedger.Account.Name (Acc),
+         Acc := HRA.Account.Make_Account ("food");
+         Assert (Image (Env) = HRA.Account.Name (Acc),
                  "Envelope and Account can share the same surface string");
       end;
    end Test_Envelope_Identity_And_Registry;
 
    procedure Test_Envelope_Routing is
-      use ALedger.Envelope;
-      use ALedger.Envelope_Routing;
+      use HRA.Envelope;
+      use HRA.Envelope_Routing;
       Food_Acc   : constant Account := Make_Account ("expenses:food");
       Rent_Acc   : constant Account := Make_Account ("expenses:rent");
       Reg      : Envelope_Registry;
-      Reg_Diag : ALedger.Config_Support.Config_Diagnostic;
+      Reg_Diag : HRA.Config_Support.Config_Diagnostic;
       Hist     : Routing_History;
       Status   : History_Status;
-      Names    : ALedger.Config_Support.String_Vectors.Vector;
+      Names    : HRA.Config_Support.String_Vectors.Vector;
       Entries  : Routing_Entry_Vectors.Vector;
    begin
-      Put_Line ("--- Testing ALedger.Envelope_Routing ---");
+      Put_Line ("--- Testing HRA.Envelope_Routing ---");
 
       Names.Append ("food");
       Names.Append ("tabaco");
@@ -1352,14 +1352,14 @@ procedure Test_Runner is
    procedure Test_Reversal_Law is
       L : Ledger := Empty_Ledger;
       JPY : constant Commodity := Make_Commodity ("JPY");
-      Acc_Asset : constant ALedger.Account.Account := Make_Account ("assets:cash");
-      Acc_Expense : constant ALedger.Account.Account := Make_Account ("expenses:gadgets");
+      Acc_Asset : constant HRA.Account.Account := Make_Account ("assets:cash");
+      Acc_Expense : constant HRA.Account.Account := Make_Account ("expenses:gadgets");
       Q_5000 : Quantity;
       Postings : Posting_Vectors.Vector;
       Orig_Tx, Rev_Tx : Transaction;
       Status : Transaction_Error;
    begin
-      Put_Line ("--- Testing ALedger Reversal Law & Durable Identity ---");
+      Put_Line ("--- Testing HRA Reversal Law & Durable Identity ---");
 
       Assert (Parse_Quantity ("5000", Q_5000), "Parse 5000 for Reversal test");
       Postings.Append (Make_Posting (Acc_Expense, Make_Amount (JPY, Q_5000)));
@@ -1415,7 +1415,7 @@ procedure Test_Runner is
    end Test_Reversal_Law;
 
    procedure Test_Envelope_Entitlement is
-      use ALedger.Envelope_Entitlement;
+      use HRA.Envelope_Entitlement;
       Food_UTF8 : constant String :=
         Character'Val (16#E9#) & Character'Val (16#A3#) & Character'Val (16#9F#) &
         Character'Val (16#E8#) & Character'Val (16#B2#) & Character'Val (16#BB#);
@@ -1426,13 +1426,13 @@ procedure Test_Runner is
         Character'Val (16#E6#) & Character'Val (16#B4#) & Character'Val (16#BB#);
       JPY     : constant Commodity := Make_Commodity ("JPY");
       USD     : constant Commodity := Make_Commodity ("USD");
-      Food_Id : constant ALedger.Envelope.Envelope_Id :=
-        ALedger.Envelope.Make_Envelope_Id (Food_UTF8);
-      Gen_Id  : constant ALedger.Envelope.Envelope_Id :=
-        ALedger.Envelope.Make_Envelope_Id (Gen_UTF8);
+      Food_Id : constant HRA.Envelope.Envelope_Id :=
+        HRA.Envelope.Make_Envelope_Id (Food_UTF8);
+      Gen_Id  : constant HRA.Envelope.Envelope_Id :=
+        HRA.Envelope.Make_Envelope_Id (Gen_UTF8);
       Obs     : Entitlement_Observation := Empty_Observation;
    begin
-      Put_Line ("--- Testing ALedger.Envelope_Entitlement ---");
+      Put_Line ("--- Testing HRA.Envelope_Entitlement ---");
 
       Assert
         (Is_Zero_Balance (Unallocated_Balance (Obs)),
@@ -1494,10 +1494,10 @@ procedure Test_Runner is
    end Test_Envelope_Entitlement;
 
    procedure Test_Budget_Source_Adapter is
-      use ALedger.Budget_Source_Adapter;
-      use ALedger.Envelope;
-      use ALedger.Envelope_Entitlement;
-      use ALedger.Config_Support;
+      use HRA.Budget_Source_Adapter;
+      use HRA.Envelope;
+      use HRA.Envelope_Entitlement;
+      use HRA.Config_Support;
 
       Food_UTF8 : constant String :=
         Character'Val (16#E9#) & Character'Val (16#A3#) & Character'Val (16#9F#) &
@@ -1562,10 +1562,10 @@ procedure Test_Runner is
         "    budget:" & Daily_UTF8 & "  -1000 JPY" & ASCII.LF &
         "    budget:unassigned       1000 JPY" & ASCII.LF;
 
-      B_Policy : ALedger.Budget_Config.Budget_Policy;
-      H_Cfg    : ALedger.Household_Config.Household_Configuration;
-      B_Diag   : ALedger.Config_Support.Config_Diagnostic;
-      H_Diag   : ALedger.Config_Support.Config_Diagnostic;
+      B_Policy : HRA.Budget_Config.Budget_Policy;
+      H_Cfg    : HRA.Household_Config.Household_Configuration;
+      B_Diag   : HRA.Config_Support.Config_Diagnostic;
+      H_Diag   : HRA.Config_Support.Config_Diagnostic;
       L        : Ledger;
       Err      : Unbounded_String;
       Reg      : Envelope_Registry;
@@ -1577,13 +1577,13 @@ procedure Test_Runner is
       Food_Id  : Envelope_Id;
       Daily_Id : Envelope_Id;
    begin
-      Put_Line ("--- Testing ALedger.Budget_Source_Adapter ---");
+      Put_Line ("--- Testing HRA.Budget_Source_Adapter ---");
 
       Assert
-        (ALedger.Budget_Config.Parse_Budget_Policy (Budget_TOML, B_Policy, B_Diag),
+        (HRA.Budget_Config.Parse_Budget_Policy (Budget_TOML, B_Policy, B_Diag),
          "Setup: Parse current-only Budget Policy");
       Assert
-        (ALedger.Household_Config.Parse_Household_Configuration (Household_TOML, B_Policy, H_Cfg, H_Diag),
+        (HRA.Household_Config.Parse_Household_Configuration (Household_TOML, B_Policy, H_Cfg, H_Diag),
          "Setup: Parse clean Household Configuration");
 
       Ids.Append (Food_UTF8);
@@ -1617,7 +1617,7 @@ procedure Test_Runner is
          "Observe_Entitlements successfully folds all movements");
       Assert
         (Has_Origin (Obs, JPY)
-         and then ALedger.Dates.Image (Origin_For (Obs, JPY)) = "2026-07-31",
+         and then HRA.Dates.Image (Origin_For (Obs, JPY)) = "2026-07-31",
          "Earliest admitted zero Budget movement owns JPY stock origin");
 
       Assert
@@ -1653,10 +1653,10 @@ procedure Test_Runner is
    end Test_Budget_Source_Adapter;
 
    procedure Test_Envelope_Consumption is
-      use ALedger.Envelope_Consumption;
-      use ALedger.Envelope;
-      use ALedger.Envelope_Routing;
-      use ALedger.Config_Support;
+      use HRA.Envelope_Consumption;
+      use HRA.Envelope;
+      use HRA.Envelope_Routing;
+      use HRA.Config_Support;
 
       Food_UTF8 : constant String :=
         Character'Val (16#E9#) & Character'Val (16#A3#) & Character'Val (16#9F#) &
@@ -1712,7 +1712,7 @@ procedure Test_Runner is
       Err : Unbounded_String;
       Obs : Envelope_Consumption;
    begin
-      Put_Line ("--- Testing ALedger.Envelope_Consumption ---");
+      Put_Line ("--- Testing HRA.Envelope_Consumption ---");
 
       Ids.Append (Food_UTF8);
       Ids.Append (Tabaco_UTF8);
@@ -1808,11 +1808,11 @@ procedure Test_Runner is
       end;
 
       declare
-         Stock_Entitlement : ALedger.Envelope_Entitlement.Entitlement_Observation :=
-           ALedger.Envelope_Entitlement.Empty_Observation;
+         Stock_Entitlement : HRA.Envelope_Entitlement.Entitlement_Observation :=
+           HRA.Envelope_Entitlement.Empty_Observation;
          Stock_Obs : Envelope_Consumption;
       begin
-         Stock_Entitlement := ALedger.Envelope_Entitlement.Record_Origin
+         Stock_Entitlement := HRA.Envelope_Entitlement.Record_Origin
            (Stock_Entitlement, JPY, D ("2026-08-15"));
          Stock_Obs := Observe_Stock_Consumption
            (L, History, Stock_Entitlement);
@@ -1829,11 +1829,11 @@ procedure Test_Runner is
    end Test_Envelope_Consumption;
 
    procedure Test_Backing_Policy is
-      use ALedger.Backing_Policy;
-      use ALedger.Envelope;
-      use ALedger.Envelope_Entitlement;
-      use ALedger.Envelope_Consumption;
-      use ALedger.Config_Support;
+      use HRA.Backing_Policy;
+      use HRA.Envelope;
+      use HRA.Envelope_Entitlement;
+      use HRA.Envelope_Consumption;
+      use HRA.Config_Support;
 
       Food_UTF8 : constant String :=
         Character'Val (16#E9#) & Character'Val (16#A3#) & Character'Val (16#9F#) &
@@ -1880,12 +1880,12 @@ procedure Test_Runner is
            "pacing = ""daily""" & ASCII.LF &
            "backing-pool = ""liquid""" & ASCII.LF;
 
-         B_Policy : ALedger.Budget_Config.Budget_Policy;
-         B_Diag   : ALedger.Config_Support.Config_Diagnostic;
+         B_Policy : HRA.Budget_Config.Budget_Policy;
+         B_Diag   : HRA.Config_Support.Config_Diagnostic;
          Reg      : Envelope_Registry;
          Reg_Diag : Config_Diagnostic;
          Ids      : String_Vectors.Vector;
-         Policy   : ALedger.Backing_Policy.Backing_Policy;
+         Policy   : HRA.Backing_Policy.Backing_Policy;
          P_Status : Policy_Status;
 
          Food_Id  : Envelope_Id;
@@ -1902,10 +1902,10 @@ procedure Test_Runner is
          Cons_Obs : Envelope_Consumption := Empty_Consumption;
          Back_Obs : Backing_Observation;
       begin
-         Put_Line ("--- Testing ALedger.Backing_Policy ---");
+         Put_Line ("--- Testing HRA.Backing_Policy ---");
 
          Assert
-           (ALedger.Budget_Config.Parse_Budget_Policy (Budget_TOML, B_Policy, B_Diag),
+           (HRA.Budget_Config.Parse_Budget_Policy (Budget_TOML, B_Policy, B_Diag),
             "Setup: Parse Budget Policy for Backing");
 
          Ids.Append (New_Item => Food_UTF8);
@@ -1932,7 +1932,7 @@ procedure Test_Runner is
              Amt     => Make_Amount (JPY, 10000.0),
              Target  => Food_Id));
          Cons_Obs.Managed :=
-           ALedger.Envelope_Consumption.Envelope_Amounts_Maps.Empty_Map;
+           HRA.Envelope_Consumption.Envelope_Amounts_Maps.Empty_Map;
          Cons_Obs.Managed.Insert
            (Food_UTF8,
             Make_Amounts
@@ -1952,11 +1952,11 @@ procedure Test_Runner is
                Refunds => Empty_Balance));
 
          declare
-            Positions : ALedger.Envelope_Position.Observation;
-            Pos_Diag  : ALedger.Envelope_Position.Observe_Diagnostic;
+            Positions : HRA.Envelope_Position.Observation;
+            Pos_Diag  : HRA.Envelope_Position.Observe_Diagnostic;
          begin
             Assert
-              (ALedger.Envelope_Position.Observe_Base
+              (HRA.Envelope_Position.Observe_Base
                  (B_Policy, Reg, Ent_Obs, Cons_Obs, Positions, Pos_Diag),
                "Observe Base Envelope Positions for Backing");
             Back_Obs := Observe_Backing (Policy, L, Positions);
@@ -1984,7 +1984,7 @@ procedure Test_Runner is
 
 begin
    Put_Line ("==================================================");
-   Put_Line ("   ALedger Test Suite (v" & ALedger.Version & ")");
+   Put_Line ("   HRA Test Suite (v" & HRA.Version & ")");
    Put_Line ("==================================================");
 
    Test_Proof_Core;

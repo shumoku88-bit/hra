@@ -1,22 +1,22 @@
 with Ada.Text_IO; use Ada.Text_IO;
-with ALedger.Budget_Config;
-with ALedger.Config_Support;
-with ALedger.Dates;
-with ALedger.Envelope; use ALedger.Envelope;
-with ALedger.Envelope_Commitment;
-with ALedger.Envelope_Consumption;
-with ALedger.Envelope_Entitlement;
-with ALedger.Envelope_Fulfillment;
-with ALedger.Envelope_Position;
-with ALedger.Household_Envelope_Change;
-with ALedger.Household_Envelope_Explanation;
-with ALedger.Money; use ALedger.Money;
+with HRA.Budget_Config;
+with HRA.Config_Support;
+with HRA.Dates;
+with HRA.Envelope; use HRA.Envelope;
+with HRA.Envelope_Commitment;
+with HRA.Envelope_Consumption;
+with HRA.Envelope_Entitlement;
+with HRA.Envelope_Fulfillment;
+with HRA.Envelope_Position;
+with HRA.Household_Envelope_Change;
+with HRA.Household_Envelope_Explanation;
+with HRA.Money; use HRA.Money;
 
 procedure Test_Envelope_Change is
-   use type ALedger.Dates.Date;
-   use type ALedger.Envelope_Position.Observe_Status;
-   use type ALedger.Household_Envelope_Explanation.Explain_Status;
-   use type ALedger.Household_Envelope_Change.Change_Status;
+   use type HRA.Dates.Date;
+   use type HRA.Envelope_Position.Observe_Status;
+   use type HRA.Household_Envelope_Explanation.Explain_Status;
+   use type HRA.Household_Envelope_Change.Change_Status;
 
    Passed_Count : Natural := 0;
    Failed_Count : Natural := 0;
@@ -32,22 +32,22 @@ procedure Test_Envelope_Change is
       end if;
    end Assert;
 
-   function D (S : String) return ALedger.Dates.Date is
-      Value  : ALedger.Dates.Date;
-      Status : ALedger.Dates.Date_Status;
+   function D (S : String) return HRA.Dates.Date is
+      Value  : HRA.Dates.Date;
+      Status : HRA.Dates.Date_Status;
    begin
-      if not ALedger.Dates.Parse (S, Value, Status) then
+      if not HRA.Dates.Parse (S, Value, Status) then
          raise Program_Error with "invalid test date: " & S;
       end if;
       return Value;
    end D;
 
    function Window
-     (First_Day, Limit_Day : String) return ALedger.Dates.Half_Open_Period
+     (First_Day, Limit_Day : String) return HRA.Dates.Half_Open_Period
    is
-      Result : ALedger.Dates.Half_Open_Period;
+      Result : HRA.Dates.Half_Open_Period;
    begin
-      if not ALedger.Dates.Make_Half_Open_Period
+      if not HRA.Dates.Make_Half_Open_Period
         (D (First_Day), D (Limit_Day), Result)
       then
          raise Program_Error with
@@ -88,62 +88,62 @@ procedure Test_Envelope_Change is
      "pacing = ""daily""" & ASCII.LF &
      "backing-pool = ""liquid""" & ASCII.LF;
 
-   Policy           : ALedger.Budget_Config.Budget_Policy;
-   Reordered_Policy : ALedger.Budget_Config.Budget_Policy;
-   Config_Diag      : ALedger.Config_Support.Config_Diagnostic;
-   Ids              : ALedger.Config_Support.String_Vectors.Vector;
+   Policy           : HRA.Budget_Config.Budget_Policy;
+   Reordered_Policy : HRA.Budget_Config.Budget_Policy;
+   Config_Diag      : HRA.Config_Support.Config_Diagnostic;
+   Ids              : HRA.Config_Support.String_Vectors.Vector;
    Registry         : Envelope_Registry;
-   Reg_Diag         : ALedger.Config_Support.Config_Diagnostic;
+   Reg_Diag         : HRA.Config_Support.Config_Diagnostic;
    Food             : Envelope_Id;
 
-   Earlier_Entitlement : ALedger.Envelope_Entitlement.Entitlement_Observation :=
-     ALedger.Envelope_Entitlement.Empty_Observation;
-   Later_Entitlement : ALedger.Envelope_Entitlement.Entitlement_Observation :=
-     ALedger.Envelope_Entitlement.Empty_Observation;
-   Earlier_Consumption : ALedger.Envelope_Consumption.Envelope_Consumption :=
-     ALedger.Envelope_Consumption.Empty_Consumption;
-   Later_Consumption : ALedger.Envelope_Consumption.Envelope_Consumption :=
-     ALedger.Envelope_Consumption.Empty_Consumption;
-   Earlier_Fulfillment : ALedger.Envelope_Fulfillment.Envelope_Fulfillment :=
-     ALedger.Envelope_Fulfillment.Empty_Fulfillment (D ("2026-08-10"));
-   Later_Fulfillment : ALedger.Envelope_Fulfillment.Envelope_Fulfillment :=
-     ALedger.Envelope_Fulfillment.Empty_Fulfillment (D ("2026-08-15"));
-   Earlier_Commitment : ALedger.Envelope_Commitment.Commitment_Observation :=
-     ALedger.Envelope_Commitment.Empty_Observation
+   Earlier_Entitlement : HRA.Envelope_Entitlement.Entitlement_Observation :=
+     HRA.Envelope_Entitlement.Empty_Observation;
+   Later_Entitlement : HRA.Envelope_Entitlement.Entitlement_Observation :=
+     HRA.Envelope_Entitlement.Empty_Observation;
+   Earlier_Consumption : HRA.Envelope_Consumption.Envelope_Consumption :=
+     HRA.Envelope_Consumption.Empty_Consumption;
+   Later_Consumption : HRA.Envelope_Consumption.Envelope_Consumption :=
+     HRA.Envelope_Consumption.Empty_Consumption;
+   Earlier_Fulfillment : HRA.Envelope_Fulfillment.Envelope_Fulfillment :=
+     HRA.Envelope_Fulfillment.Empty_Fulfillment (D ("2026-08-10"));
+   Later_Fulfillment : HRA.Envelope_Fulfillment.Envelope_Fulfillment :=
+     HRA.Envelope_Fulfillment.Empty_Fulfillment (D ("2026-08-15"));
+   Earlier_Commitment : HRA.Envelope_Commitment.Commitment_Observation :=
+     HRA.Envelope_Commitment.Empty_Observation
        (D ("2026-08-10"), D ("2026-09-01"));
-   Later_Commitment : ALedger.Envelope_Commitment.Commitment_Observation :=
-     ALedger.Envelope_Commitment.Empty_Observation
+   Later_Commitment : HRA.Envelope_Commitment.Commitment_Observation :=
+     HRA.Envelope_Commitment.Empty_Observation
        (D ("2026-08-15"), D ("2026-09-01"));
 
-   Earlier_Positions : ALedger.Envelope_Position.Observation;
-   Later_Positions   : ALedger.Envelope_Position.Observation;
-   Position_Diag     : ALedger.Envelope_Position.Observe_Diagnostic;
+   Earlier_Positions : HRA.Envelope_Position.Observation;
+   Later_Positions   : HRA.Envelope_Position.Observation;
+   Position_Diag     : HRA.Envelope_Position.Observe_Diagnostic;
 
-   August : constant ALedger.Dates.Half_Open_Period :=
+   August : constant HRA.Dates.Half_Open_Period :=
      Window ("2026-08-01", "2026-09-01");
-   September : constant ALedger.Dates.Half_Open_Period :=
+   September : constant HRA.Dates.Half_Open_Period :=
      Window ("2026-09-01", "2026-10-01");
 
    Earlier_Explanation :
-     ALedger.Household_Envelope_Explanation.Explanation_Observation;
+     HRA.Household_Envelope_Explanation.Explanation_Observation;
    Later_Explanation :
-     ALedger.Household_Envelope_Explanation.Explanation_Observation;
+     HRA.Household_Envelope_Explanation.Explanation_Observation;
    Reordered_Explanation :
-     ALedger.Household_Envelope_Explanation.Explanation_Observation;
+     HRA.Household_Envelope_Explanation.Explanation_Observation;
    September_Explanation :
-     ALedger.Household_Envelope_Explanation.Explanation_Observation;
+     HRA.Household_Envelope_Explanation.Explanation_Observation;
    Explanation_Diag :
-     ALedger.Household_Envelope_Explanation.Explain_Diagnostic;
+     HRA.Household_Envelope_Explanation.Explain_Diagnostic;
 
 begin
    Put_Line ("--- Testing typed Envelope Change ---");
 
    Assert
-     (ALedger.Budget_Config.Parse_Budget_Policy
+     (HRA.Budget_Config.Parse_Budget_Policy
         (Policy_Text, Policy, Config_Diag),
       "Setup: parse food/daily policy");
    Assert
-     (ALedger.Budget_Config.Parse_Budget_Policy
+     (HRA.Budget_Config.Parse_Budget_Policy
         (Reordered_Policy_Text, Reordered_Policy, Config_Diag),
       "Setup: parse reordered policy");
 
@@ -154,27 +154,27 @@ begin
       "Setup: admit stable Envelope registry");
    Assert (Lookup (Registry, "food", Food), "Setup: resolve food Envelope");
 
-   Earlier_Entitlement := ALedger.Envelope_Entitlement.Fold_Movement
+   Earlier_Entitlement := HRA.Envelope_Entitlement.Fold_Movement
      (Earlier_Entitlement,
-      (Kind    => ALedger.Envelope_Entitlement.Grant_From_Unallocated,
+      (Kind    => HRA.Envelope_Entitlement.Grant_From_Unallocated,
        Tx_Date => D ("2026-08-01"),
        Amt     => Make_Amount (JPY, 1000.0),
        Target  => Food));
-   Later_Entitlement := ALedger.Envelope_Entitlement.Fold_Movement
+   Later_Entitlement := HRA.Envelope_Entitlement.Fold_Movement
      (Later_Entitlement,
-      (Kind    => ALedger.Envelope_Entitlement.Grant_From_Unallocated,
+      (Kind    => HRA.Envelope_Entitlement.Grant_From_Unallocated,
        Tx_Date => D ("2026-08-01"),
        Amt     => Make_Amount (JPY, 1050.0),
        Target  => Food));
 
    Earlier_Consumption.Managed.Insert
      ("food",
-      ALedger.Envelope_Consumption.Make_Amounts
+      HRA.Envelope_Consumption.Make_Amounts
         (Charges => Singleton_Balance (Make_Amount (JPY, 100.0)),
          Refunds => Empty_Balance));
    Later_Consumption.Managed.Insert
      ("food",
-      ALedger.Envelope_Consumption.Make_Amounts
+      HRA.Envelope_Consumption.Make_Amounts
         (Charges => Singleton_Balance (Make_Amount (JPY, 150.0)),
          Refunds => Singleton_Balance (Make_Amount (JPY, 20.0))));
 
@@ -189,7 +189,7 @@ begin
      ("food", Singleton_Balance (Make_Amount (JPY, 150.0)));
 
    Assert
-     (ALedger.Envelope_Position.Observe
+     (HRA.Envelope_Position.Observe
         (Policy,
          Registry,
          Earlier_Entitlement,
@@ -198,10 +198,10 @@ begin
          Earlier_Commitment,
          Earlier_Positions,
          Position_Diag)
-        and then Position_Diag.Status = ALedger.Envelope_Position.Success,
+        and then Position_Diag.Status = HRA.Envelope_Position.Success,
       "Setup: observe earlier proof-backed positions");
    Assert
-     (ALedger.Envelope_Position.Observe
+     (HRA.Envelope_Position.Observe
         (Policy,
          Registry,
          Later_Entitlement,
@@ -210,11 +210,11 @@ begin
          Later_Commitment,
          Later_Positions,
          Position_Diag)
-        and then Position_Diag.Status = ALedger.Envelope_Position.Success,
+        and then Position_Diag.Status = HRA.Envelope_Position.Success,
       "Setup: observe later proof-backed positions");
 
    Assert
-     (ALedger.Household_Envelope_Explanation.Capture
+     (HRA.Household_Envelope_Explanation.Capture
         (Policy,
          Registry,
          August,
@@ -223,10 +223,10 @@ begin
          Earlier_Explanation,
          Explanation_Diag)
         and then Explanation_Diag.Status =
-          ALedger.Household_Envelope_Explanation.Success,
+          HRA.Household_Envelope_Explanation.Success,
       "Capture earlier first-class Household explanation");
    Assert
-     (ALedger.Household_Envelope_Explanation.Capture
+     (HRA.Household_Envelope_Explanation.Capture
         (Policy,
          Registry,
          August,
@@ -235,17 +235,17 @@ begin
          Later_Explanation,
          Explanation_Diag)
         and then Explanation_Diag.Status =
-          ALedger.Household_Envelope_Explanation.Success,
+          HRA.Household_Envelope_Explanation.Success,
       "Capture later first-class Household explanation");
 
    declare
-      Change : ALedger.Household_Envelope_Change.Change_Observation;
-      Diag   : ALedger.Household_Envelope_Change.Change_Diagnostic;
+      Change : HRA.Household_Envelope_Change.Change_Observation;
+      Diag   : HRA.Household_Envelope_Change.Change_Diagnostic;
    begin
       Assert
-        (ALedger.Household_Envelope_Change.Observe_Change
+        (HRA.Household_Envelope_Change.Observe_Change
            (Earlier_Explanation, Later_Explanation, Change, Diag)
-           and then Diag.Status = ALedger.Household_Envelope_Change.Success,
+           and then Diag.Status = HRA.Household_Envelope_Change.Success,
          "Same-cycle typed Change succeeds");
       Assert
         (Change.From_Date = D ("2026-08-10")
@@ -256,7 +256,7 @@ begin
          "Change retains current Envelope coordinate count and order");
 
       declare
-         Food_Change : constant ALedger.Household_Envelope_Change.Change_Line :=
+         Food_Change : constant HRA.Household_Envelope_Change.Change_Line :=
            Change.Lines.Element (1);
       begin
          Assert
@@ -293,15 +293,15 @@ begin
       end;
 
       Assert
-        (not ALedger.Household_Envelope_Change.Observe_Change
+        (not HRA.Household_Envelope_Change.Observe_Change
            (Later_Explanation, Earlier_Explanation, Change, Diag)
            and then Diag.Status =
-             ALedger.Household_Envelope_Change.Observation_Order_Invalid,
+             HRA.Household_Envelope_Change.Observation_Order_Invalid,
          "Change rejects reversed observation time");
    end;
 
    Assert
-     (not ALedger.Household_Envelope_Explanation.Capture
+     (not HRA.Household_Envelope_Explanation.Capture
         (Policy,
          Registry,
          August,
@@ -310,11 +310,11 @@ begin
          Reordered_Explanation,
          Explanation_Diag)
         and then Explanation_Diag.Status =
-          ALedger.Household_Envelope_Explanation.Observation_Outside_Window,
+          HRA.Household_Envelope_Explanation.Observation_Outside_Window,
       "Explanation fails closed outside its cycle window");
 
    Assert
-     (ALedger.Household_Envelope_Explanation.Capture
+     (HRA.Household_Envelope_Explanation.Capture
         (Reordered_Policy,
          Registry,
          August,
@@ -325,20 +325,20 @@ begin
       "Capture same Envelope set in a different current order");
 
    declare
-      Change : ALedger.Household_Envelope_Change.Change_Observation;
-      Diag   : ALedger.Household_Envelope_Change.Change_Diagnostic;
+      Change : HRA.Household_Envelope_Change.Change_Observation;
+      Diag   : HRA.Household_Envelope_Change.Change_Diagnostic;
    begin
       Assert
-        (not ALedger.Household_Envelope_Change.Observe_Change
+        (not HRA.Household_Envelope_Change.Observe_Change
            (Earlier_Explanation, Reordered_Explanation, Change, Diag)
            and then Diag.Status =
-             ALedger.Household_Envelope_Change.Envelope_Order_Mismatch
+             HRA.Household_Envelope_Change.Envelope_Order_Mismatch
            and then Diag.Mismatch_Index = 1,
          "Change rejects a different current Envelope order");
    end;
 
    Assert
-     (ALedger.Household_Envelope_Explanation.Capture
+     (HRA.Household_Envelope_Explanation.Capture
         (Policy,
          Registry,
          September,
@@ -349,14 +349,14 @@ begin
       "Capture a typed explanation in another cycle window");
 
    declare
-      Change : ALedger.Household_Envelope_Change.Change_Observation;
-      Diag   : ALedger.Household_Envelope_Change.Change_Diagnostic;
+      Change : HRA.Household_Envelope_Change.Change_Observation;
+      Diag   : HRA.Household_Envelope_Change.Change_Diagnostic;
    begin
       Assert
-        (not ALedger.Household_Envelope_Change.Observe_Change
+        (not HRA.Household_Envelope_Change.Observe_Change
            (Earlier_Explanation, September_Explanation, Change, Diag)
            and then Diag.Status =
-             ALedger.Household_Envelope_Change.Window_Mismatch,
+             HRA.Household_Envelope_Change.Window_Mismatch,
          "Same-cycle Change rejects cross-window comparison");
    end;
 

@@ -1,5 +1,5 @@
 with Ada.Text_IO; use Ada.Text_IO;
-with ALedger.Dates; use ALedger.Dates;
+with HRA.Dates; use HRA.Dates;
 
 procedure Test_Dates is
    Passed_Count : Natural := 0;
@@ -34,7 +34,7 @@ procedure Test_Dates is
    end Assert_Invalid;
 
 begin
-   Put_Line ("--- Testing ALedger.Dates ---");
+   Put_Line ("--- Testing HRA.Dates ---");
 
    declare
       Value  : Date;

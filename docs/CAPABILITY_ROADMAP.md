@@ -1,12 +1,12 @@
-# aledger capability and parity roadmap
+# hra capability and parity roadmap
 
 ステータス: active inventory / implementation roadmap  
 更新日: 2026-08-13  
-Owner: aledgerがcanonical Household engineとして今後必要とする能力と完成条件
+Owner: hraがcanonical Household engineとして今後必要とする能力と完成条件
 
 ## 1. 目的
 
-aledgerを小さく保つこと自体を目標にせず、`h-kernel`と`bqn-ledger`で実際に使われている能力を一度見渡し、何をAda側へ実装するか、何を意図的に実装しないか、どの順序で安全に進めるかを明示する。
+hraを小さく保つこと自体を目標にせず、`h-kernel`と`bqn-ledger`で実際に使われている能力を一度見渡し、何をAda側へ実装するか、何を意図的に実装しないか、どの順序で安全に進めるかを明示する。
 
 この文書は機能数を競うchecklistではない。実装時には一つのuser valueまたはdomain capabilityをend-to-endで完成させ、不要な互換層や抽象を増やさない。
 
@@ -29,11 +29,11 @@ report.toml
 issues.tsv
 ```
 
-aledger用database、同期copy、別schema、legacy fallbackを作らない。
+hra用database、同期copy、別schema、legacy fallbackを作らない。
 
 ### Reader parityとwriter authorityを分ける
 
-同じsourceを正確に読めることは、書いてよいことを意味しない。aledgerのcanonical writer authorityは現在ない。Editorを実装しても、source別cutoverが承認されるまではcandidate previewまたはsynthetic sourceだけに限定する。
+同じsourceを正確に読めることは、書いてよいことを意味しない。hraのcanonical writer authorityは現在ない。Editorを実装しても、source別cutoverが承認されるまではcandidate previewまたはsynthetic sourceだけに限定する。
 
 現在のprototype TUIにはActual writerへの入口が残っているが、canonical operationとして承認されていない。writer authority gateを満たすまでdaily canonical writeへ使用しない。
 
@@ -86,24 +86,24 @@ cycle、Envelope、Account policy、Report query/presentationはcanonical TOML�
 | Editor / writer | prototype | safe-writer experimentはあるがcanonical authorityなし |
 | TUI | prototype | fixed date、固定JPY、画面内rule、未承認writer入口が残る |
 | Cross-engine verification | partial | synthetic golden testのみ。portfolio全体のparity harnessは未実装 |
-| Envelope Registry | implemented | `ALedger.Envelope.Envelope_Registry` をstable identityとして確立 |
-| Expense Routing | implemented | `ALedger.Envelope_Routing.Routing_History` でeffective-dated route解決 |
-| Entitlement Fold | implemented | `ALedger.Envelope_Entitlement` でbudget.journal movementをfold |
-| Consumption calculation | implemented | `ALedger.Envelope_Consumption` でActual Ledger + Routing → Consumptionを計算 |
-| Backing by pool | implemented | `ALedger.Backing_Policy` でpool別のBacking positionを計算 |
+| Envelope Registry | implemented | `HRA.Envelope.Envelope_Registry` をstable identityとして確立 |
+| Expense Routing | implemented | `HRA.Envelope_Routing.Routing_History` でeffective-dated route解決 |
+| Entitlement Fold | implemented | `HRA.Envelope_Entitlement` でbudget.journal movementをfold |
+| Consumption calculation | implemented | `HRA.Envelope_Consumption` でActual Ledger + Routing → Consumptionを計算 |
+| Backing by pool | implemented | `HRA.Backing_Policy` でpool別のBacking positionを計算 |
 
 ### Envelope-native migration progress
 
 詳細は [`PROGRESS.md`](PROGRESS.md) を参照。
 
-- [x] Step 1: `ALedger.Envelope` — 完了 (test_runner に28テスト)
-- [x] Step 2: `ALedger.Envelope_Routing` — 完了 (test_runner に20テスト)
-- [x] Step 3: `household.toml` の `[envelope-history]` parse — 完了 (9テスト + `aledger check` 成功)
-- [x] Step 4: `ALedger.Envelope_Entitlement` — 完了 (test_runner に9テスト)
-- [x] Step 5: `ALedger.Budget_Source_Adapter` — 完了 (test_runner に16テスト)
-- [x] Step 6: `ALedger.Envelope_Consumption` — 完了 (test_runner に18テスト)
-- [x] Step 7: `ALedger.Backing_Policy` — 完了 (test_runner に13テスト)
-- [x] Step 8: `Household_State` 再構成 + report 接続 + `aledger-budget` 退役 — 完了 (test_runner に3テスト + 旧コード退役)
+- [x] Step 1: `HRA.Envelope` — 完了 (test_runner に28テスト)
+- [x] Step 2: `HRA.Envelope_Routing` — 完了 (test_runner に20テスト)
+- [x] Step 3: `household.toml` の `[envelope-history]` parse — 完了 (9テスト + `hra check` 成功)
+- [x] Step 4: `HRA.Envelope_Entitlement` — 完了 (test_runner に9テスト)
+- [x] Step 5: `HRA.Budget_Source_Adapter` — 完了 (test_runner に16テスト)
+- [x] Step 6: `HRA.Envelope_Consumption` — 完了 (test_runner に18テスト)
+- [x] Step 7: `HRA.Backing_Policy` — 完了 (test_runner に13テスト)
+- [x] Step 8: `Household_State` 再構成 + report 接続 + `hra-budget` 退役 — 完了 (test_runner に3テスト + 旧コード退役)
 
 現在の`report`出力は比較・開発確認用であり、canonical resultではない。
 
@@ -226,7 +226,7 @@ Commodity conversion等は現在のBalanceへ暗黙に追加しない。別polic
 
 `bqn-ledger`のcurrent retained portfolioを基準に、次の12 sectionを対象とする。順序もcanonical report-book候補として保持するが、Ada内部module数を12へ固定するものではない。
 
-| # | Report | 優先度 | 必要な出力 | aledger現在地 |
+| # | Report | 優先度 | 必要な出力 | hra現在地 |
 |---:|---|---|---|---|
 | 1 | Envelope & Backing | P0 | Envelope別Entitlement、Consumption、Refund、Remaining、Plan reserve、headroom、Funding、required、surplus、unassigned、reconciliation | partial。policy適用と式parityが必要 |
 | 2 | Account Balances | P0 | as-of残高、AccountType、Commodity別値、balanced status | rendererあり。date/policy/ordering parityが必要 |
@@ -357,7 +357,7 @@ intent
 
 ### Specialized operations
 
-travel exchange/friend-paid等、canonical 8 sourceにownerを持たない実験機能はaledger parity対象へ自動追加しない。普通のmulti-Commodity Journalで表せる部分と、追加source/policyが必要な部分を分けて判断する。
+travel exchange/friend-paid等、canonical 8 sourceにownerを持たない実験機能はhra parity対象へ自動追加しない。普通のmulti-Commodity Journalで表せる部分と、追加source/policyが必要な部分を分けて判断する。
 
 ## 10. Safe writer and authority gate
 
@@ -426,7 +426,7 @@ UIへaccounting rule、source basename、writer law、report key一覧を複製�
 
 ### P1 parity
 
-- 同じsynthetic Householdに対するh-kernel/aledger semantic comparison
+- 同じsynthetic Householdに対するh-kernel/hra semantic comparison
 - 12 report resultのgolden comparison
 - human renderingとは別のmachine-neutral comparison
 - Posting/Account/Envelope orderの比較
@@ -465,7 +465,7 @@ TUIを先に大きくするとdomain ruleとwriter ruleが画面へ複製され�
 
 ## 14. 完成の見方
 
-「h-kernelまたはbqn-ledgerに同名commandがある」だけではaledger capability完成としない。一つの能力は次が揃ったとき完成する。
+「h-kernelまたはbqn-ledgerに同名commandがある」だけではhra capability完成としない。一つの能力は次が揃ったとき完成する。
 
 - canonical ownerが一つ
 - typed input/outputとinvalid state
@@ -476,4 +476,4 @@ TUIを先に大きくするとdomain ruleとwriter ruleが画面へ複製され�
 - current document
 - writerの場合はauthority gate
 
-この条件を守れば、機能が増えてもCLI、TUI、Report、testへ同じdomain ruleを重複実装せず、aledgerを比較的コンパクトに保てる。
+この条件を守れば、機能が増えてもCLI、TUI、Report、testへ同じdomain ruleを重複実装せず、hraを比較的コンパクトに保てる。

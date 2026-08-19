@@ -1,15 +1,15 @@
 with Ada.Strings.Fixed;     use Ada.Strings.Fixed;
 with Ada.Text_IO;           use Ada.Text_IO;
 with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
-with ALedger.Dates;
-with ALedger.Journal;       use ALedger.Journal;
-with ALedger.Journal_Evidence;
-with ALedger.Ledger;
-with ALedger.Recent_Journal;
-with ALedger.Recent_Journal_Render;
+with HRA.Dates;
+with HRA.Journal;       use HRA.Journal;
+with HRA.Journal_Evidence;
+with HRA.Ledger;
+with HRA.Recent_Journal;
+with HRA.Recent_Journal_Render;
 
 procedure Test_Recent_Journal is
-   use type ALedger.Recent_Journal.Observe_Status;
+   use type HRA.Recent_Journal.Observe_Status;
 
    Passed_Count : Natural := 0;
    Failed_Count : Natural := 0;
@@ -25,11 +25,11 @@ procedure Test_Recent_Journal is
       end if;
    end Assert;
 
-   function D (S : String) return ALedger.Dates.Date is
-      Val    : ALedger.Dates.Date;
-      Status : ALedger.Dates.Date_Status;
+   function D (S : String) return HRA.Dates.Date is
+      Val    : HRA.Dates.Date;
+      Status : HRA.Dates.Date_Status;
    begin
-      if not ALedger.Dates.Parse (S, Val, Status) then
+      if not HRA.Dates.Parse (S, Val, Status) then
          raise Program_Error with "Invalid date in test: " & S;
       end if;
       return Val;
@@ -48,21 +48,21 @@ procedure Test_Recent_Journal is
      "    expenses:food       300 JPY" & ASCII.LF &
      "    assets:cash        -300 JPY" & ASCII.LF;
 
-   L             : ALedger.Ledger.Ledger;
+   L             : HRA.Ledger.Ledger;
    Parse_Error   : Unbounded_String;
-   Evidence      : ALedger.Journal_Evidence.Journal_Evidence;
-   Evidence_Diag : ALedger.Journal_Evidence.Evidence_Diagnostic;
-   Result        : ALedger.Recent_Journal.Observation;
-   Status        : ALedger.Recent_Journal.Observe_Status;
+   Evidence      : HRA.Journal_Evidence.Journal_Evidence;
+   Evidence_Diag : HRA.Journal_Evidence.Evidence_Diagnostic;
+   Result        : HRA.Recent_Journal.Observation;
+   Status        : HRA.Recent_Journal.Observe_Status;
 
 begin
-   Put_Line ("--- Testing ALedger.Recent_Journal ---");
+   Put_Line ("--- Testing HRA.Recent_Journal ---");
 
    Assert
      (Parse_Journal_Text (Journal_Text, L, Parse_Error),
       "Setup: parse Actual Journal");
    Assert
-     (ALedger.Journal_Evidence.Extract
+     (HRA.Journal_Evidence.Extract
         (Journal_Text,
          "fixtures/actual.journal",
          L,
@@ -71,26 +71,26 @@ begin
       "Setup: retain aligned Actual source evidence");
 
    Assert
-     (ALedger.Recent_Journal.Observe
+     (HRA.Recent_Journal.Observe
         (L, Evidence, D ("2026-08-15"), 2, Result, Status),
       "Observe bounded Recent Journal");
    Assert
-     (Status = ALedger.Recent_Journal.Success
+     (Status = HRA.Recent_Journal.Success
         and then Natural (Result.Entries.Length) = 2,
       "Recent Journal returns requested count when available");
 
    if Natural (Result.Entries.Length) = 2 then
       declare
-         Newest : constant ALedger.Recent_Journal.Recent_Entry :=
+         Newest : constant HRA.Recent_Journal.Recent_Entry :=
            Result.Entries.Element (1);
-         Older  : constant ALedger.Recent_Journal.Recent_Entry :=
+         Older  : constant HRA.Recent_Journal.Recent_Entry :=
            Result.Entries.Element (2);
          Rendered : constant String :=
-           ALedger.Recent_Journal_Render.Render (Result);
+           HRA.Recent_Journal_Render.Render (Result);
       begin
          Assert
-           (ALedger.Dates.Image (Newest.Value.Date) = "2026-07-20"
-              and then ALedger.Dates.Image (Older.Value.Date) = "2026-06-10",
+           (HRA.Dates.Image (Newest.Value.Date) = "2026-07-20"
+              and then HRA.Dates.Image (Older.Value.Date) = "2026-06-10",
             "Selection excludes future Actual and returns newest source entry first");
          Assert
            (To_String (Newest.Source.Source_Path) = "fixtures/actual.journal"
@@ -105,27 +105,27 @@ begin
    end if;
 
    declare
-      Bad_Evidence : ALedger.Journal_Evidence.Journal_Evidence := Evidence;
+      Bad_Evidence : HRA.Journal_Evidence.Journal_Evidence := Evidence;
    begin
       Bad_Evidence.Transactions.Delete_Last;
       Assert
-        (not ALedger.Recent_Journal.Observe
+        (not HRA.Recent_Journal.Observe
            (L, Bad_Evidence, D ("2026-08-15"), 2, Result, Status)
-           and then Status = ALedger.Recent_Journal.Evidence_Count_Mismatch,
+           and then Status = HRA.Recent_Journal.Evidence_Count_Mismatch,
          "Reject Ledger/Evidence count drift");
    end;
 
    declare
-      Bad_Evidence : ALedger.Journal_Evidence.Journal_Evidence := Evidence;
-      Source       : ALedger.Journal_Evidence.Transaction_Source :=
+      Bad_Evidence : HRA.Journal_Evidence.Journal_Evidence := Evidence;
+      Source       : HRA.Journal_Evidence.Transaction_Source :=
         Bad_Evidence.Transactions.Element (1);
    begin
       Source.Description := To_Unbounded_String ("not First");
       Bad_Evidence.Transactions.Replace_Element (1, Source);
       Assert
-        (not ALedger.Recent_Journal.Observe
+        (not HRA.Recent_Journal.Observe
            (L, Bad_Evidence, D ("2026-08-15"), 2, Result, Status)
-           and then Status = ALedger.Recent_Journal.Evidence_Alignment_Mismatch,
+           and then Status = HRA.Recent_Journal.Evidence_Alignment_Mismatch,
          "Reject Ledger/Evidence transaction alignment drift");
    end;
 

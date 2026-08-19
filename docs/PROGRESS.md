@@ -20,7 +20,7 @@ main `a94a67663b212304d79ac4e3e4e20171b400ab38` で確認済み:
 
 branch: `refactor/clean-envelope-household-contract`
 
-h-kernelとprivate canonical Householdのclean epoch source shapeへ、aledgerのreader semanticsを揃える作業。
+h-kernelとprivate canonical Householdのclean epoch source shapeへ、hraのreader semanticsを揃える作業。
 
 ### Source authority
 
@@ -61,13 +61,13 @@ h-kernelとprivate canonical Householdのclean epoch source shapeへ、aledger�
 
 | Step | 内容 | 状態 |
 |---:|---|---|
-| 1 | `ALedger.Envelope` — EnvelopeId private type + Registry admission | done |
-| 2 | `ALedger.Envelope_Routing` — effective-dated Routing_History | done |
+| 1 | `HRA.Envelope` — EnvelopeId private type + Registry admission | done |
+| 2 | `HRA.Envelope_Routing` — effective-dated Routing_History | done |
 | 3 | `household.toml` `[envelope-history]` admission | done |
-| 4 | `ALedger.Envelope_Entitlement` — movement fold + source-owned Commodity origin | done, PR #12でorigin保持追加 |
-| 5 | `ALedger.Budget_Source_Adapter` — budget.journal projection | done, PR #12でclean endpointsへ更新 |
-| 6 | `ALedger.Envelope_Consumption` — Actual + Routing | done, PR #12でstock horizon追加 |
-| 7 | `ALedger.Backing_Policy` — pool別Backing | done, PR #12でobserved-through funding追加 |
+| 4 | `HRA.Envelope_Entitlement` — movement fold + source-owned Commodity origin | done, PR #12でorigin保持追加 |
+| 5 | `HRA.Budget_Source_Adapter` — budget.journal projection | done, PR #12でclean endpointsへ更新 |
+| 6 | `HRA.Envelope_Consumption` — Actual + Routing | done, PR #12でstock horizon追加 |
+| 7 | `HRA.Backing_Policy` — pool別Backing | done, PR #12でobserved-through funding追加 |
 | 8 | `Household_State` + report composition | done, PR #12でclean authority/stock/observation pathへ更新 |
 
 ## Ada implementation notes

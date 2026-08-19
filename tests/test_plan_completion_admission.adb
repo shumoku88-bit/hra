@@ -1,14 +1,14 @@
 with Ada.Command_Line;
 with Ada.Text_IO; use Ada.Text_IO;
 with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
-with ALedger.Journal;
-with ALedger.Journal_Evidence;
-with ALedger.Ledger;
-with ALedger.Plan;
-with ALedger.Plan_Observation;
+with HRA.Journal;
+with HRA.Journal_Evidence;
+with HRA.Ledger;
+with HRA.Plan;
+with HRA.Plan_Observation;
 
 procedure Test_Plan_Completion_Admission is
-   use type ALedger.Plan_Observation.Admission_Status;
+   use type HRA.Plan_Observation.Admission_Status;
 
    Passed_Count : Natural := 0;
    Failed_Count : Natural := 0;
@@ -24,34 +24,34 @@ procedure Test_Plan_Completion_Admission is
       end if;
    end Assert;
 
-   function Known_Plans return ALedger.Plan.Plan_Id_Universe is
-      Result : ALedger.Plan.Plan_Id_Universe :=
-        ALedger.Plan.Empty_Plan_Id_Universe;
-      PID    : ALedger.Plan.Plan_Id;
-      Status : ALedger.Plan.Plan_Id_Status;
+   function Known_Plans return HRA.Plan.Plan_Id_Universe is
+      Result : HRA.Plan.Plan_Id_Universe :=
+        HRA.Plan.Empty_Plan_Id_Universe;
+      PID    : HRA.Plan.Plan_Id;
+      Status : HRA.Plan.Plan_Id_Status;
    begin
-      if not ALedger.Plan.Create_Plan_Id ("plan-a", PID, Status) then
+      if not HRA.Plan.Create_Plan_Id ("plan-a", PID, Status) then
          raise Program_Error with "test PlanId setup failed";
       end if;
-      ALedger.Plan.Include (Result, PID);
+      HRA.Plan.Include (Result, PID);
       return Result;
    end Known_Plans;
 
    function Admit_Source
      (Source : String;
-      Diag   : out ALedger.Plan_Observation.Admission_Diagnostic) return Boolean
+      Diag   : out HRA.Plan_Observation.Admission_Diagnostic) return Boolean
    is
-      L             : ALedger.Ledger.Ledger;
+      L             : HRA.Ledger.Ledger;
       Parse_Error   : Unbounded_String;
-      Evidence      : ALedger.Journal_Evidence.Journal_Evidence;
-      Evidence_Diag : ALedger.Journal_Evidence.Evidence_Diagnostic;
+      Evidence      : HRA.Journal_Evidence.Journal_Evidence;
+      Evidence_Diag : HRA.Journal_Evidence.Evidence_Diagnostic;
    begin
-      if not ALedger.Journal.Parse_Journal_Text (Source, L, Parse_Error) then
+      if not HRA.Journal.Parse_Journal_Text (Source, L, Parse_Error) then
          raise Program_Error with
            "test source failed Journal admission: " & To_String (Parse_Error);
       end if;
 
-      if not ALedger.Journal_Evidence.Extract
+      if not HRA.Journal_Evidence.Extract
         (Source, L, Evidence, Evidence_Diag)
       then
          raise Program_Error with
@@ -59,7 +59,7 @@ procedure Test_Plan_Completion_Admission is
            To_String (Evidence_Diag.Message);
       end if;
 
-      return ALedger.Plan_Observation.Admit_Plan_Completions
+      return HRA.Plan_Observation.Admit_Plan_Completions
         (Known_Plans, L, Evidence, Diag);
    end Admit_Source;
 
@@ -103,7 +103,7 @@ procedure Test_Plan_Completion_Admission is
      "    assets:cash        -100 JPY" & ASCII.LF &
      "    expenses:food       100 JPY" & ASCII.LF;
 
-   Diag : ALedger.Plan_Observation.Admission_Diagnostic;
+   Diag : HRA.Plan_Observation.Admission_Diagnostic;
 
 begin
    Put_Line ("--- Testing Plan completion admission ---");
@@ -118,22 +118,22 @@ begin
 
    Assert
      (not Admit_Source (Unknown_Source, Diag)
-        and then Diag.Status = ALedger.Plan_Observation.Unknown_Completion_Plan,
+        and then Diag.Status = HRA.Plan_Observation.Unknown_Completion_Plan,
       "Actual completion must reference an admitted Plan");
 
    Assert
      (not Admit_Source (Multiple_Source, Diag)
-        and then Diag.Status = ALedger.Plan_Observation.Multiple_Completion_Actuals,
+        and then Diag.Status = HRA.Plan_Observation.Multiple_Completion_Actuals,
       "Distinct Actual identities cannot complete one Plan twice");
 
    Assert
      (not Admit_Source (Duplicate_Metadata_Source, Diag)
-        and then Diag.Status = ALedger.Plan_Observation.Duplicate_Plan_Metadata,
+        and then Diag.Status = HRA.Plan_Observation.Duplicate_Plan_Metadata,
       "Completion metadata is singular per Actual transaction");
 
    Assert
      (not Admit_Source (Invalid_Source, Diag)
-        and then Diag.Status = ALedger.Plan_Observation.Invalid_Actual_Plan_Id,
+        and then Diag.Status = HRA.Plan_Observation.Invalid_Actual_Plan_Id,
       "Completion PlanId must be a valid durable Plan identity");
 
    New_Line;

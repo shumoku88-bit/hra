@@ -2,10 +2,10 @@ with Ada.Directories;       use Ada.Directories;
 with Ada.Strings.Fixed;     use Ada.Strings.Fixed;
 with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
 with Ada.Text_IO;           use Ada.Text_IO;
-with ALedger.Journal_Loader;
-with ALedger.Ledger;        use ALedger.Ledger;
-with ALedger.Plan;
-with ALedger.Plan_Observation;
+with HRA.Journal_Loader;
+with HRA.Ledger;        use HRA.Ledger;
+with HRA.Plan;
+with HRA.Plan_Observation;
 
 procedure Test_Journal_Loader is
    Passed_Count : Natural := 0;
@@ -30,7 +30,7 @@ procedure Test_Journal_Loader is
       Close (File);
    end Write_Text;
 
-   Temp_Dir   : constant String := ".aledger-test-journal-loader";
+   Temp_Dir   : constant String := ".hra-test-journal-loader";
    Sub_Dir    : constant String := Compose (Temp_Dir, "sub");
    Root_Path  : constant String := Compose (Temp_Dir, "root.journal");
    Child_Path : constant String := Compose (Sub_Dir, "child.journal");
@@ -65,11 +65,11 @@ procedure Test_Journal_Loader is
      "    expenses:grand      300 JPY" & ASCII.LF &
      "    assets:cash        -300 JPY" & ASCII.LF;
 
-   L   : ALedger.Ledger.Ledger;
+   L   : HRA.Ledger.Ledger;
    Err : Unbounded_String;
 
 begin
-   Put_Line ("--- Testing ALedger.Journal_Loader ---");
+   Put_Line ("--- Testing HRA.Journal_Loader ---");
 
    if Exists (Temp_Dir) then
       Delete_Tree (Temp_Dir);
@@ -84,10 +84,10 @@ begin
    Write_Text (Grand_Path, Grand_Source);
 
    declare
-      Obs : ALedger.Journal_Loader.Journal_Observation;
+      Obs : HRA.Journal_Loader.Journal_Observation;
    begin
       Assert
-        (ALedger.Journal_Loader.Load_From_Root_Source
+        (HRA.Journal_Loader.Load_From_Root_Source
            (Root_Path, Root_Source, Obs, Err),
          "load nested document-relative include graph from supplied root bytes");
 
@@ -136,13 +136,13 @@ begin
          "included transaction metadata stays attached to its source evidence");
 
       declare
-         Universe : ALedger.Plan.Plan_Id_Universe;
-         Diag     : ALedger.Plan_Observation.Admission_Diagnostic;
+         Universe : HRA.Plan.Plan_Id_Universe;
+         Diag     : HRA.Plan_Observation.Admission_Diagnostic;
       begin
          Assert
-           (ALedger.Plan_Observation.Admit_Plan_Identities
+           (HRA.Plan_Observation.Admit_Plan_Identities
               (Obs.Value, Obs.Evidence, Universe, Diag)
-              and then ALedger.Plan.Length (Universe) = 4,
+              and then HRA.Plan.Length (Universe) = 4,
             "Plan identity admission consumes resolved graph evidence directly");
       end;
    end;
@@ -153,7 +153,7 @@ begin
         "include sub/child.journal" & ASCII.LF;
    begin
       Assert
-        (not ALedger.Journal_Loader.Load_From_Root_Source
+        (not HRA.Journal_Loader.Load_From_Root_Source
            (Root_Path, Duplicate_Source, L, Err)
            and then Index (To_String (Err), "already loaded") > 0,
          "reject duplicate include load with explicit diagnostic");
@@ -166,7 +166,7 @@ begin
       Write_Text (Root_Path, Cycle_Root);
       Write_Text (Cycle_Path, Cycle_Child);
       Assert
-        (not ALedger.Journal_Loader.Load_From_Root_Source
+        (not HRA.Journal_Loader.Load_From_Root_Source
            (Root_Path, Cycle_Root, L, Err)
            and then Index (To_String (Err), "include cycle") > 0,
          "reject recursive include cycle");
@@ -177,7 +177,7 @@ begin
         "include sub/does-not-exist.journal" & ASCII.LF;
    begin
       Assert
-        (not ALedger.Journal_Loader.Load_From_Root_Source
+        (not HRA.Journal_Loader.Load_From_Root_Source
            (Root_Path, Missing_Source, L, Err)
            and then Index (To_String (Err), "missing or not a regular file") > 0,
          "reject missing included document");
@@ -192,7 +192,7 @@ begin
    begin
       Write_Text (Bad_Path, Bad_Source);
       Assert
-        (not ALedger.Journal_Loader.Load_From_Root_Source
+        (not HRA.Journal_Loader.Load_From_Root_Source
            (Root_Path, Root_With_Bad, L, Err)
            and then Index (To_String (Err), "bad.journal:") > 0,
          "included parse failure retains included source path");
@@ -202,7 +202,7 @@ begin
       Empty_Include : constant String := "include ; no path" & ASCII.LF;
    begin
       Assert
-        (not ALedger.Journal_Loader.Load_From_Root_Source
+        (not HRA.Journal_Loader.Load_From_Root_Source
            (Root_Path, Empty_Include, L, Err)
            and then Index (To_String (Err), "requires a path") > 0,
          "reject empty include path instead of silently ignoring it");
@@ -213,7 +213,7 @@ begin
         "includeXYZ sub/child.journal" & ASCII.LF;
    begin
       Assert
-        (not ALedger.Journal_Loader.Load_From_Root_Source
+        (not HRA.Journal_Loader.Load_From_Root_Source
            (Root_Path, Malformed_Include, L, Err)
            and then Index (To_String (Err), "invalid include directive") > 0,
          "reject malformed include token boundary");
