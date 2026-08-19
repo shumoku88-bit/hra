@@ -35,7 +35,12 @@ jobs:
           from pathlib import Path
           import subprocess
 
+          def is_workflow(path: str) -> bool:
+              return path.startswith('.github/workflows/')
+
           def new_path(path: str) -> str:
+              if is_workflow(path):
+                  return path
               if path == 'tools/al':
                   return 'tools/hra'
               for old, new in (
@@ -60,7 +65,12 @@ jobs:
               ('ALEDGER', 'HRA'),
               ('aledger', 'hra'),
           )
+          legacy_tokens = tuple(old for old, _ in replacements)
+          content_leftovers = []
+
           for name in subprocess.check_output(['git', 'ls-files'], text=True).splitlines():
+              if is_workflow(name):
+                  continue
               path = Path(name)
               try:
                   text = path.read_text(encoding='utf-8')
@@ -71,20 +81,27 @@ jobs:
                   updated = updated.replace(old, new)
               if updated != text:
                   path.write_text(updated, encoding='utf-8')
+              if any(token in updated for token in legacy_tokens):
+                  content_leftovers.append(name)
 
-          leftovers = []
+          path_leftovers = []
           for name in subprocess.check_output(['git', 'ls-files'], text=True).splitlines():
+              if is_workflow(name):
+                  continue
               if any(token in name for token in ('aledger', 'ALedger', 'Aledger', 'ALEDGER')) or name == 'tools/al':
-                  leftovers.append(name)
-          if leftovers:
-              raise SystemExit('legacy paths remain: ' + ', '.join(leftovers))
+                  path_leftovers.append(name)
+
+          if path_leftovers:
+              raise SystemExit('legacy paths remain: ' + ', '.join(path_leftovers))
+          if content_leftovers:
+              raise SystemExit('legacy content remains: ' + ', '.join(content_leftovers))
           PY
 
           ./tools/hra qualify
 
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add -A
+          git add -u
           if ! git diff --cached --quiet; then
             git commit -m 'refactor: rename ALedger namespace to HRA'
             git push origin HEAD:${{ github.head_ref }}
