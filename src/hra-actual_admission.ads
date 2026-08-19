@@ -21,19 +21,17 @@ package HRA.Actual_Admission is
    function Text (ID : Actual_Id) return String;
    function "=" (Left, Right : Actual_Id) return Boolean;
 
-   --  Durable identity/provenance collections stay opaque. The normalized
-   --  Ledger remains an explicit observation coordinate because downstream
-   --  accounting projections consume it directly.
+   --  Durable identity/provenance collections and their admitted aggregate stay
+   --  opaque. Callers may observe the normalized Ledger, but cannot manufacture
+   --  an Actual_Observation by inserting an arbitrary Plan/Budget Ledger.
    type Identified_Actual_Collection is tagged private;
    type Reversal_Collection is tagged private;
-
-   type Actual_Observation is record
-      Value      : HRA.Ledger.Ledger;
-      Identified : Identified_Actual_Collection;
-      Reversals  : Reversal_Collection;
-   end record;
+   type Actual_Observation is private;
 
    function Empty_Observation return Actual_Observation;
+
+   function Ledger_Of
+     (Observation : Actual_Observation) return HRA.Ledger.Ledger;
 
    function Identified_Count (Observation : Actual_Observation) return Natural;
    function Reversal_Count (Observation : Actual_Observation) return Natural;
@@ -95,6 +93,12 @@ private
       Element_Type => Reversal_Declaration);
 
    type Reversal_Collection is new Reversal_Vectors.Vector with null record;
+
+   type Actual_Observation is record
+      Value      : HRA.Ledger.Ledger;
+      Identified : Identified_Actual_Collection;
+      Reversals  : Reversal_Collection;
+   end record;
 
    function Identified_Count (Observation : Actual_Observation) return Natural is
      (Natural (Observation.Identified.Length));
