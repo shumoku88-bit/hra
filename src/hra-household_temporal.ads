@@ -12,6 +12,7 @@ with HRA.Household_Envelope_Explanation;
 --  named owners.
 package HRA.Household_Temporal is
 
+   --  Same-cycle Change diagnostics remain specific to that temporal question.
    type Observe_Status is
      (Success,
       Current_Observation_Unavailable,
@@ -19,9 +20,7 @@ package HRA.Household_Temporal is
       Earlier_Observation_Unavailable,
       Current_Explanation_Unavailable,
       Earlier_Explanation_Unavailable,
-      Change_Rejected,
-      Cycle_Context_Unavailable,
-      Cycle_Comparison_Rejected);
+      Change_Rejected);
 
    type Observe_Diagnostic (Status : Observe_Status := Success) is record
       case Status is
@@ -38,6 +37,25 @@ package HRA.Household_Temporal is
               HRA.Household_Envelope_Explanation.Explain_Diagnostic;
          when Change_Rejected =>
             Change : HRA.Household_Envelope_Change.Change_Diagnostic;
+      end case;
+   end record;
+
+   --  Cross-cycle comparison is a distinct temporal question and therefore has
+   --  its own diagnostic algebra instead of widening the meaning of Change.
+   type Cycle_Comparison_View_Status is
+     (Cycle_Comparison_View_Success,
+      Cycle_Current_Observation_Unavailable,
+      Cycle_Context_Unavailable,
+      Cycle_Comparison_Rejected);
+
+   type Cycle_Comparison_View_Diagnostic
+     (Status : Cycle_Comparison_View_Status := Cycle_Comparison_View_Success)
+   is record
+      case Status is
+         when Cycle_Comparison_View_Success =>
+            null;
+         when Cycle_Current_Observation_Unavailable =>
+            Observation_Error : Unbounded_String;
          when Cycle_Context_Unavailable =>
             Cycle_Status : HRA.Cycle_Observation.Resolve_Status;
          when Cycle_Comparison_Rejected =>
@@ -62,6 +80,6 @@ package HRA.Household_Temporal is
       State            : HRA.Household.Household_State;
       Result           : out
         HRA.Household_Envelope_Cycle_Comparison.Comparison_Observation;
-      Diag             : out Observe_Diagnostic) return Boolean;
+      Diag             : out Cycle_Comparison_View_Diagnostic) return Boolean;
 
 end HRA.Household_Temporal;
