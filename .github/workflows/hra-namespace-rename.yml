@@ -93,3 +93,5 @@ jobs:
           fi
           git commit -m 'refactor: rename ALedger namespace to HRA'
           git push origin HEAD:chore/hra-namespace-rename
+
+# Trigger the rename after the workflow exists on the branch.
