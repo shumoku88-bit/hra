@@ -1,6 +1,7 @@
 with Ada.Text_IO; use Ada.Text_IO;
 with HRA.Account;
 with HRA.Account_Reconciliation;
+with HRA.Actual_Admission;
 with HRA.Dates;
 with HRA.Ledger;
 with HRA.Money;
@@ -85,17 +86,21 @@ procedure Test_Account_Reconciliation is
       end if;
    end Add_Balanced_Account_Movement;
 
-   Actual : HRA.Ledger.Ledger := HRA.Ledger.Empty_Ledger;
+   Actual_Ledger : HRA.Ledger.Ledger := HRA.Ledger.Empty_Ledger;
+   Actual : HRA.Actual_Admission.Actual_Observation :=
+     HRA.Actual_Admission.Empty_Observation;
 
 begin
    Put_Line ("--- Testing external Account balance reconciliation ---");
 
    Add_Balanced_Account_Movement
-     (Actual, D ("2026-08-01"), JPY, 100.0, "Opening JPY");
+     (Actual_Ledger, D ("2026-08-01"), JPY, 100.0, "Opening JPY");
    Add_Balanced_Account_Movement
-     (Actual, D ("2026-08-05"), USD, 20.0, "Opening USD");
+     (Actual_Ledger, D ("2026-08-05"), USD, 20.0, "Opening USD");
    Add_Balanced_Account_Movement
-     (Actual, D ("2026-08-20"), JPY, 50.0, "Future JPY");
+     (Actual_Ledger, D ("2026-08-20"), JPY, 50.0, "Future JPY");
+
+   Actual.Value := Actual_Ledger;
 
    declare
       External : constant Reconciliation.External_Balance_Observation :=
@@ -115,7 +120,7 @@ begin
            (Reconciliation.Ledger_Balance (Result), JPY) = 100.0
            and then HRA.Money.Lookup_Balance
              (Reconciliation.Ledger_Balance (Result), USD) = 20.0,
-         "Canonical side is observed through the same inclusive day");
+         "Canonical Actual side is observed through the same inclusive day");
       Assert
         (Reconciliation.Matches (Result)
            and then HRA.Money.Is_Zero_Balance
@@ -135,7 +140,7 @@ begin
            (Reconciliation.Difference (Result), JPY) = 5.0
            and then HRA.Money.Lookup_Balance
              (Reconciliation.Difference (Result), USD) = 0.0,
-         "Positive difference means external balance exceeds canonical ledger");
+         "Positive difference means external balance exceeds canonical Actual");
       Assert
         (not Reconciliation.Matches (Result),
          "Any non-zero Commodity coordinate is a reconciliation difference");
@@ -166,16 +171,16 @@ begin
 
    declare
       Full_After : constant HRA.Money.Balance :=
-        HRA.Ledger.Compute_Account_Balance (Actual, Bank);
+        HRA.Ledger.Compute_Account_Balance (Actual.Value, Bank);
       Through_After : constant HRA.Money.Balance :=
         HRA.Ledger.Compute_Account_Balance_Through
-          (Actual, Bank, D ("2026-08-10"));
+          (Actual.Value, Bank, D ("2026-08-10"));
    begin
       Assert
         (HRA.Money.Lookup_Balance (Full_After, JPY) = 150.0
            and then HRA.Money.Lookup_Balance (Full_After, USD) = 20.0
            and then HRA.Money.Lookup_Balance (Through_After, JPY) = 100.0,
-         "External reconciliation does not mutate canonical Actual Ledger");
+         "External reconciliation does not mutate typed canonical Actual");
    end;
 
    Put_Line
