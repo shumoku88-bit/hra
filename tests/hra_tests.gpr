@@ -33,7 +33,9 @@ project HRA_Tests is
       "test_household_temporal_cycle_context.adb",
       "test_account_reconciliation.adb",
       "test_household_check_observation.adb",
-      "test_issues_admission.adb");
+      "test_issues_admission.adb",
+      "test_issue_observation.adb",
+      "test_household_home_observation.adb");
 
    package Compiler is
       for Default_Switches ("Ada") use
@@ -73,5 +75,7 @@ project HRA_Tests is
       for Executable ("test_account_reconciliation.adb") use "test_account_reconciliation";
       for Executable ("test_household_check_observation.adb") use "test_household_check_observation";
       for Executable ("test_issues_admission.adb") use "test_issues_admission";
+      for Executable ("test_issue_observation.adb") use "test_issue_observation";
+      for Executable ("test_household_home_observation.adb") use "test_household_home_observation";
    end Builder;
 end HRA_Tests;
