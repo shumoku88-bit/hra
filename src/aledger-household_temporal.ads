@@ -2,10 +2,11 @@ with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
 with ALedger.Dates;
 with ALedger.Household;
 with ALedger.Household_Envelope_Change;
+with ALedger.Household_Envelope_Explanation;
 
 --  Pure temporal use-case composition over one already-admitted Household.
 --  This package selects temporal coordinates and delegates all Envelope
---  observation and Change arithmetic to their named owners.
+--  observation, explanation, and Change arithmetic to their named owners.
 package ALedger.Household_Temporal is
 
    type Observe_Status is
@@ -13,8 +14,8 @@ package ALedger.Household_Temporal is
       Current_Observation_Unavailable,
       Baseline_Unavailable,
       Earlier_Observation_Unavailable,
-      Current_Snapshot_Unavailable,
-      Earlier_Snapshot_Unavailable,
+      Current_Explanation_Unavailable,
+      Earlier_Explanation_Unavailable,
       Change_Rejected);
 
    type Observe_Diagnostic (Status : Observe_Status := Success) is record
@@ -26,9 +27,10 @@ package ALedger.Household_Temporal is
             Observation_Error : Unbounded_String;
          when Baseline_Unavailable =>
             Baseline : ALedger.Household_Envelope_Change.Baseline_Diagnostic;
-         when Current_Snapshot_Unavailable |
-              Earlier_Snapshot_Unavailable =>
-            Snapshot : ALedger.Household_Envelope_Change.Snapshot_Diagnostic;
+         when Current_Explanation_Unavailable |
+              Earlier_Explanation_Unavailable =>
+            Explanation :
+              ALedger.Household_Envelope_Explanation.Explain_Diagnostic;
          when Change_Rejected =>
             Change : ALedger.Household_Envelope_Change.Change_Diagnostic;
       end case;

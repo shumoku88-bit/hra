@@ -6,12 +6,14 @@ with ALedger.Dates;
 with ALedger.Envelope;
 with ALedger.Household;
 with ALedger.Household_Envelope_Change;
+with ALedger.Household_Envelope_Explanation;
 with ALedger.Household_Temporal;
 with ALedger.Money;
 
 procedure Test_Household_Temporal is
    use type ALedger.Dates.Date;
    use type ALedger.Household_Envelope_Change.Baseline_Status;
+   use type ALedger.Household_Envelope_Explanation.Explain_Status;
    use type ALedger.Household_Temporal.Observe_Status;
    use type ALedger.Money.Quantity;
 
@@ -66,12 +68,12 @@ procedure Test_Household_Temporal is
               ("[DIAG] baseline = " &
                ALedger.Household_Envelope_Change.Baseline_Status'Image
                  (Diag.Baseline.Status));
-         when ALedger.Household_Temporal.Current_Snapshot_Unavailable |
-              ALedger.Household_Temporal.Earlier_Snapshot_Unavailable =>
+         when ALedger.Household_Temporal.Current_Explanation_Unavailable |
+              ALedger.Household_Temporal.Earlier_Explanation_Unavailable =>
             Put_Line
-              ("[DIAG] snapshot = " &
-               ALedger.Household_Envelope_Change.Snapshot_Status'Image
-                 (Diag.Snapshot.Status));
+              ("[DIAG] explanation = " &
+               ALedger.Household_Envelope_Explanation.Explain_Status'Image
+                 (Diag.Explanation.Status));
          when ALedger.Household_Temporal.Change_Rejected =>
             Put_Line
               ("[DIAG] change = " &
@@ -203,6 +205,45 @@ begin
    Assert
      (ALedger.Household.Load_Canonical_Household (Tmp_Dir, State, Err),
       "Setup: admit complete synthetic Household");
+
+   declare
+      Why : ALedger.Household_Envelope_Explanation.Explanation_Observation;
+      Why_Diag : ALedger.Household_Envelope_Explanation.Explain_Diagnostic;
+      Succeeded : constant Boolean :=
+        ALedger.Household_Envelope_Explanation.Explain
+          (D ("2026-08-15"), State, Why, Why_Diag);
+   begin
+      Assert
+        (Succeeded
+           and then Why_Diag.Status =
+             ALedger.Household_Envelope_Explanation.Success,
+         "Explain current Envelope directly from admitted Household state");
+      if Succeeded then
+         Assert
+           (Why.Observed_Through = D ("2026-08-15")
+              and then Natural (Why.Lines.Length) = 1,
+            "Household explanation retains observation day and current membership");
+         if Natural (Why.Lines.Length) = 1 then
+            declare
+               Line : constant
+                 ALedger.Household_Envelope_Explanation.Explanation_Line :=
+                   Why.Lines.Element (1);
+            begin
+               Assert
+                 (ALedger.Envelope.Image (Line.Env_Id) = "coffee",
+                  "Household explanation follows current Envelope order");
+               Assert
+                 (ALedger.Money.Lookup_Balance
+                    (Line.Why.Evidence.Consumption_Charges, JPY) = 500.0,
+                  "Household explanation retains gross Consumption evidence");
+               Assert
+                 (ALedger.Money.Lookup_Balance
+                    (Line.Why.Observed_Position.Remaining, JPY) = -500.0,
+                  "Household explanation closes over proof-backed Remaining");
+            end;
+         end if;
+      end if;
+   end;
 
    declare
       Succeeded : constant Boolean :=

@@ -1,15 +1,13 @@
 with Ada.Containers.Vectors;
-with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
-with ALedger.Budget_Config;
 with ALedger.Cycle_Observation;
 with ALedger.Dates;
 with ALedger.Envelope;
-with ALedger.Envelope_Position;
+with ALedger.Household_Envelope_Explanation;
 with ALedger.Money; use ALedger.Money;
 
---  Same-cycle temporal relation between already admitted Envelope observations.
---  This package owns temporal comparison questions, not source reading or proof
---  arithmetic. Envelope_Position remains the owner of Remaining and Headroom.
+--  Same-cycle temporal relation between already admitted Envelope explanations.
+--  This package owns temporal comparison questions, not source reading,
+--  explanation capture, or proof arithmetic.
 package ALedger.Household_Envelope_Change is
 
    --  Selecting the earlier observation is a temporal question distinct from
@@ -97,38 +95,6 @@ package ALedger.Household_Envelope_Change is
    function Resolved_Day
      (Baseline : Resolved_Change_Baseline) return ALedger.Dates.Date;
 
-   type Explanation_Snapshot is private;
-
-   type Snapshot_Status is
-     (Success,
-      Observation_Outside_Window,
-      Unknown_Current_Envelope,
-      Missing_Envelope_Explanation);
-
-   type Snapshot_Diagnostic is record
-      Status           : Snapshot_Status := Success;
-      Envelope_Id_Text : Unbounded_String;
-   end record;
-
-   --  Capture one ordered typed explanation coordinate. Envelope membership and
-   --  order come from current admitted policy; stable identity comes from the
-   --  registry. Observed_Through must belong to Window.
-   function Capture
-     (Policy           : ALedger.Budget_Config.Budget_Policy;
-      Registry         : ALedger.Envelope.Envelope_Registry;
-      Window           : ALedger.Cycle_Observation.Cycle_Window;
-      Observed_Through : ALedger.Dates.Date;
-      Positions        : ALedger.Envelope_Position.Observation;
-      Result           : out Explanation_Snapshot;
-      Diag             : out Snapshot_Diagnostic) return Boolean;
-
-   function Observed_Through
-     (Snapshot : Explanation_Snapshot) return ALedger.Dates.Date;
-
-   function Window_Of
-     (Snapshot : Explanation_Snapshot)
-      return ALedger.Cycle_Observation.Cycle_Window;
-
    type Change_Line is record
       Env_Id                 : ALedger.Envelope.Envelope_Id;
       Entitlement            : Balance;
@@ -165,12 +131,12 @@ package ALedger.Household_Envelope_Change is
       Mismatch_Index : Natural := 0;
    end record;
 
-   --  Compare two typed explanation snapshots. Every Balance coordinate is
+   --  Compare two first-class typed explanations. Every Balance coordinate is
    --  Later - Earlier. A different cycle, reversed time, or different current
    --  Envelope order changes the question and therefore fails closed.
    function Observe_Change
-     (Earlier : Explanation_Snapshot;
-      Later   : Explanation_Snapshot;
+     (Earlier : ALedger.Household_Envelope_Explanation.Explanation_Observation;
+      Later   : ALedger.Household_Envelope_Explanation.Explanation_Observation;
       Result  : out Change_Observation;
       Diag    : out Change_Diagnostic) return Boolean;
 
@@ -179,21 +145,6 @@ private
    type Resolved_Change_Baseline is record
       Request : Baseline_Request;
       Day     : ALedger.Dates.Date;
-   end record;
-
-   type Explanation_Line is record
-      Env_Id : ALedger.Envelope.Envelope_Id;
-      Why    : ALedger.Envelope_Position.Explanation;
-   end record;
-
-   package Explanation_Line_Vectors is new Ada.Containers.Vectors
-     (Index_Type   => Positive,
-      Element_Type => Explanation_Line);
-
-   type Explanation_Snapshot is record
-      Window           : ALedger.Cycle_Observation.Cycle_Window;
-      Observed_Through : ALedger.Dates.Date;
-      Lines            : Explanation_Line_Vectors.Vector;
    end record;
 
 end ALedger.Household_Envelope_Change;
