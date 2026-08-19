@@ -5,119 +5,166 @@ with HRA.Household_Home_Text;
 package body HRA.Household_Home_Command is
 
    use Ada.Strings.Unbounded;
-   use type HRA.Dates.Date;
 
-   function Resolve_Dates
-     (Through_Text : String;
-      Day_Text     : String;
-      Today        : HRA.Dates.Date) return Command_Resolution
-   is
-      Result : Command_Resolution :=
-        (Status  => Success,
-         Options => (Base_Directory   => Null_Unbounded_String,
-                     Observed_Through => Today,
-                     Through_Source   => Defaulted,
-                     Selected_Day     => Today,
-                     Day_Source       => Defaulted),
-         Message => Null_Unbounded_String);
-      Date_Val : HRA.Dates.Date;
-      Date_St  : HRA.Dates.Date_Status;
+   function Is_Option_Token (S : String) return Boolean is
    begin
-      if Through_Text'Length > 0 then
-         if not HRA.Dates.Parse (Through_Text, Date_Val, Date_St) then
-            Result.Status := Invalid_Through_Date;
-            Result.Message :=
-              To_Unbounded_String
-                ("invalid Gregorian date for --through: " & Through_Text);
-            return Result;
-         end if;
-         Result.Options.Observed_Through := Date_Val;
-         Result.Options.Through_Source   := Explicit;
-      else
-         Result.Options.Observed_Through := Today;
-         Result.Options.Through_Source   := Defaulted;
-      end if;
+      return S'Length >= 2 and then S (S'First .. S'First + 1) = "--";
+   end Is_Option_Token;
 
-      if Day_Text'Length > 0 then
-         if not HRA.Dates.Parse (Day_Text, Date_Val, Date_St) then
-            Result.Status := Invalid_Day_Date;
-            Result.Message :=
-              To_Unbounded_String
-                ("invalid Gregorian date for --day: " & Day_Text);
-            return Result;
-         end if;
-         Result.Options.Selected_Day := Date_Val;
-         Result.Options.Day_Source   := Explicit;
-      else
-         Result.Options.Selected_Day := Result.Options.Observed_Through;
-         Result.Options.Day_Source   := Defaulted;
-      end if;
-
-      return Result;
-   end Resolve_Dates;
-
-   function Parse_Arguments
-     (Args  : String_Array;
-      Today : HRA.Dates.Date) return Command_Resolution
-   is
-      Base_Dir     : Unbounded_String := Null_Unbounded_String;
-      Through_Str  : Unbounded_String := Null_Unbounded_String;
-      Day_Str      : Unbounded_String := Null_Unbounded_String;
-      I            : Positive := Args'First;
+   function Parse_Arguments (Args : String_Array) return Parse_Resolution is
+      Parsed  : Parsed_Home_Arguments;
+      I       : Positive := Args'First;
+      Date_St : HRA.Dates.Date_Status;
    begin
       while I <= Args'Last loop
          declare
             Arg : constant String := To_String (Args (I));
          begin
             if Arg = "--base" then
-               if I + 1 > Args'Last then
+               if Parsed.Has_Base then
+                  return
+                    (Status  => Duplicate_Option,
+                     Parsed  => Parsed,
+                     Message => To_Unbounded_String ("duplicate option: --base"));
+               end if;
+
+               if I + 1 > Args'Last
+                 or else Is_Option_Token (To_String (Args (I + 1)))
+               then
                   return
                     (Status  => Missing_Option_Value,
-                     Options => <>,
+                     Parsed  => Parsed,
                      Message => To_Unbounded_String ("missing value for option --base"));
                end if;
-               Base_Dir := Args (I + 1);
+
+               Parsed.Base_Directory := Args (I + 1);
+               Parsed.Has_Base       := True;
                I := I + 2;
+
             elsif Arg = "--through" then
-               if I + 1 > Args'Last then
+               if Parsed.Has_Through then
+                  return
+                    (Status  => Duplicate_Option,
+                     Parsed  => Parsed,
+                     Message => To_Unbounded_String ("duplicate option: --through"));
+               end if;
+
+               if I + 1 > Args'Last
+                 or else Is_Option_Token (To_String (Args (I + 1)))
+               then
                   return
                     (Status  => Missing_Option_Value,
-                     Options => <>,
+                     Parsed  => Parsed,
                      Message => To_Unbounded_String ("missing value for option --through"));
                end if;
-               Through_Str := Args (I + 1);
+
+               declare
+                  Val : constant String := To_String (Args (I + 1));
+               begin
+                  if not HRA.Dates.Parse (Val, Parsed.Through_Date, Date_St) then
+                     return
+                       (Status  => Invalid_Through_Date,
+                        Parsed  => Parsed,
+                        Message =>
+                          To_Unbounded_String
+                            ("invalid Gregorian date for --through: " & Val));
+                  end if;
+               end;
+
+               Parsed.Has_Through := True;
                I := I + 2;
+
             elsif Arg = "--day" then
-               if I + 1 > Args'Last then
+               if Parsed.Has_Day then
+                  return
+                    (Status  => Duplicate_Option,
+                     Parsed  => Parsed,
+                     Message => To_Unbounded_String ("duplicate option: --day"));
+               end if;
+
+               if I + 1 > Args'Last
+                 or else Is_Option_Token (To_String (Args (I + 1)))
+               then
                   return
                     (Status  => Missing_Option_Value,
-                     Options => <>,
+                     Parsed  => Parsed,
                      Message => To_Unbounded_String ("missing value for option --day"));
                end if;
-               Day_Str := Args (I + 1);
+
+               declare
+                  Val : constant String := To_String (Args (I + 1));
+               begin
+                  if not HRA.Dates.Parse (Val, Parsed.Day_Date, Date_St) then
+                     return
+                       (Status  => Invalid_Day_Date,
+                        Parsed  => Parsed,
+                        Message =>
+                          To_Unbounded_String
+                            ("invalid Gregorian date for --day: " & Val));
+                  end if;
+               end;
+
+               Parsed.Has_Day := True;
                I := I + 2;
+
             else
                return
                  (Status  => Unknown_Option,
-                  Options => <>,
+                  Parsed  => Parsed,
                   Message => To_Unbounded_String ("unknown option: " & Arg));
             end if;
          end;
       end loop;
 
-      declare
-         Res : Command_Resolution :=
-           Resolve_Dates
-             (Through_Text => To_String (Through_Str),
-              Day_Text     => To_String (Day_Str),
-              Today        => Today);
-      begin
-         if Res.Status = Success then
-            Res.Options.Base_Directory := Base_Dir;
-         end if;
-         return Res;
-      end;
+      return
+        (Status  => Success,
+         Parsed  => Parsed,
+         Message => Null_Unbounded_String);
    end Parse_Arguments;
+
+   function Needs_Clock (Parsed : Parsed_Home_Arguments) return Boolean is
+   begin
+      return not Parsed.Has_Through;
+   end Needs_Clock;
+
+   function Resolve_Home_Options
+     (Parsed : Parsed_Home_Arguments;
+      Today  : HRA.Dates.Date) return Home_Options
+   is
+      Opts : Home_Options;
+   begin
+      Opts.Base_Directory := Parsed.Base_Directory;
+
+      if Parsed.Has_Through then
+         Opts.Observed_Through := Parsed.Through_Date;
+         Opts.Through_Source   := Explicit;
+      else
+         Opts.Observed_Through := Today;
+         Opts.Through_Source   := Defaulted;
+      end if;
+
+      if Parsed.Has_Day then
+         Opts.Selected_Day := Parsed.Day_Date;
+         Opts.Day_Source   := Explicit;
+      else
+         Opts.Selected_Day := Opts.Observed_Through;
+         Opts.Day_Source   := Defaulted;
+      end if;
+
+      return Opts;
+   end Resolve_Home_Options;
+
+   function Resolve_Home_Options
+     (Parsed : Parsed_Home_Arguments) return Home_Options
+   is
+   begin
+      if not Parsed.Has_Through then
+         raise Program_Error with
+           "cannot resolve temporal defaults without Today when --through is omitted";
+      end if;
+
+      return Resolve_Home_Options (Parsed, Parsed.Through_Date);
+   end Resolve_Home_Options;
 
    function Execute_Home
      (State            : HRA.Household.Household_State;

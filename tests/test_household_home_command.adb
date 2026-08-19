@@ -179,112 +179,24 @@ begin
    Put_Line ("--- Testing HRA.Household_Home_Command & Application Surface ---");
 
    --  ========================================================================
-   --  1. Temporal Law: Pure Date Resolution
+   --  1. Stage A: Pure CLI Argument Parsing & Validation
    --  ========================================================================
    declare
-      Clock_Today : constant HRA.Dates.Date := D ("2026-08-19");
    begin
-      --  1a. Default through & day
-      declare
-         Res : constant Command_Resolution :=
-           Resolve_Dates ("", "", Clock_Today);
-      begin
-         Assert (Res.Status = Success, "Resolve_Dates default status is Success");
-         Assert (Res.Options.Observed_Through = Clock_Today,
-                 "Default Observed_Through is Clock Today");
-         Assert (Res.Options.Through_Source = Defaulted,
-                 "Defaulted Through source is Defaulted");
-         Assert (Res.Options.Selected_Day = Clock_Today,
-                 "Default Selected_Day equals Observed_Through (Today)");
-         Assert (Res.Options.Day_Source = Defaulted,
-                 "Defaulted Day source is Defaulted");
-      end;
-
-      --  1b. Explicit through only -> day defaults to explicit through
-      declare
-         Res : constant Command_Resolution :=
-           Resolve_Dates ("2026-08-15", "", Clock_Today);
-      begin
-         Assert (Res.Status = Success, "Resolve_Dates explicit through status is Success");
-         Assert (Res.Options.Observed_Through = D ("2026-08-15"),
-                 "Observed_Through is explicit 2026-08-15");
-         Assert (Res.Options.Through_Source = Explicit,
-                 "Through source is Explicit");
-         Assert (Res.Options.Selected_Day = D ("2026-08-15"),
-                 "Selected_Day defaults to explicit Observed_Through (2026-08-15)");
-         Assert (Res.Options.Day_Source = Defaulted,
-                 "Day source is Defaulted");
-      end;
-
-      --  1c. Explicit day only -> through defaults to Clock Today
-      declare
-         Res : constant Command_Resolution :=
-           Resolve_Dates ("", "2026-08-25", Clock_Today);
-      begin
-         Assert (Res.Status = Success, "Resolve_Dates explicit day status is Success");
-         Assert (Res.Options.Observed_Through = Clock_Today,
-                 "Observed_Through defaults to Clock Today");
-         Assert (Res.Options.Through_Source = Defaulted,
-                 "Through source is Defaulted");
-         Assert (Res.Options.Selected_Day = D ("2026-08-25"),
-                 "Selected_Day is explicit 2026-08-25");
-         Assert (Res.Options.Day_Source = Explicit,
-                 "Day source is Explicit");
-      end;
-
-      --  1d. Explicit both, including through /= day
-      declare
-         Res : constant Command_Resolution :=
-           Resolve_Dates ("2026-08-19", "2026-08-25", Clock_Today);
-      begin
-         Assert (Res.Status = Success, "Resolve_Dates explicit both status is Success");
-         Assert (Res.Options.Observed_Through = D ("2026-08-19"),
-                 "Observed_Through is explicit 2026-08-19");
-         Assert (Res.Options.Through_Source = Explicit,
-                 "Through source is Explicit");
-         Assert (Res.Options.Selected_Day = D ("2026-08-25"),
-                 "Selected_Day is explicit 2026-08-25");
-         Assert (Res.Options.Day_Source = Explicit,
-                 "Day source is Explicit");
-      end;
-
-      --  1e. Invalid Gregorian dates rejected
-      declare
-         Res_Bad_Through : constant Command_Resolution :=
-           Resolve_Dates ("2026-02-30", "", Clock_Today);
-         Res_Bad_Day : constant Command_Resolution :=
-           Resolve_Dates ("", "not-a-date", Clock_Today);
-      begin
-         Assert (Res_Bad_Through.Status = Invalid_Through_Date,
-                 "Resolve_Dates rejects 2026-02-30 as Invalid_Through_Date");
-         Assert (Length (Res_Bad_Through.Message) > 0,
-                 "Invalid through date produces diagnostic message");
-
-         Assert (Res_Bad_Day.Status = Invalid_Day_Date,
-                 "Resolve_Dates rejects non-date string as Invalid_Day_Date");
-         Assert (Length (Res_Bad_Day.Message) > 0,
-                 "Invalid day date produces diagnostic message");
-      end;
-   end;
-
-   --  ========================================================================
-   --  2. CLI Argument Parsing Laws
-   --  ========================================================================
-   declare
-      Clock_Today : constant HRA.Dates.Date := D ("2026-08-19");
-   begin
-      --  2a. Empty CLI args
+      --  1a. Empty CLI args (home command with all defaults)
       declare
          Args : String_Array (1 .. 0);
-         Res  : constant Command_Resolution := Parse_Arguments (Args, Clock_Today);
+         Res  : constant Parse_Resolution := Parse_Arguments (Args);
       begin
          Assert (Res.Status = Success, "Parse_Arguments on empty args succeeds");
-         Assert (Res.Options.Observed_Through = Clock_Today, "Observed_Through is Today");
-         Assert (Res.Options.Selected_Day = Clock_Today, "Selected_Day is Today");
-         Assert (Length (Res.Options.Base_Directory) = 0, "Base directory is empty by default");
+         Assert (not Res.Parsed.Has_Base, "Empty args has no explicit base");
+         Assert (not Res.Parsed.Has_Through, "Empty args has no explicit through");
+         Assert (not Res.Parsed.Has_Day, "Empty args has no explicit day");
+         Assert (Length (Res.Parsed.Base_Directory) = 0, "Base directory empty by default");
+         Assert (Needs_Clock (Res.Parsed), "Empty args requires clock read");
       end;
 
-      --  2b. Order A: --base then --through then --day
+      --  1b. Order A: --base then --through then --day
       declare
          Args : constant String_Array :=
            [1 => To_Unbounded_String ("--base"),
@@ -293,18 +205,22 @@ begin
             4 => To_Unbounded_String ("2026-08-19"),
             5 => To_Unbounded_String ("--day"),
             6 => To_Unbounded_String ("2026-08-25")];
-         Res  : constant Command_Resolution := Parse_Arguments (Args, Clock_Today);
+         Res  : constant Parse_Resolution := Parse_Arguments (Args);
       begin
          Assert (Res.Status = Success, "Parse_Arguments order A succeeds");
-         Assert (To_String (Res.Options.Base_Directory) = "/canonical/root",
+         Assert (To_String (Res.Parsed.Base_Directory) = "/canonical/root",
                  "Base directory parsed: /canonical/root");
-         Assert (Res.Options.Observed_Through = D ("2026-08-19"),
-                 "Observed_Through is 2026-08-19");
-         Assert (Res.Options.Selected_Day = D ("2026-08-25"),
-                 "Selected_Day is 2026-08-25");
+         Assert (Res.Parsed.Has_Base, "Order A has explicit base");
+         Assert (Res.Parsed.Has_Through, "Order A has explicit through");
+         Assert (Res.Parsed.Through_Date = D ("2026-08-19"),
+                 "Through_Date is 2026-08-19");
+         Assert (Res.Parsed.Has_Day, "Order A has explicit day");
+         Assert (Res.Parsed.Day_Date = D ("2026-08-25"),
+                 "Day_Date is 2026-08-25");
+         Assert (not Needs_Clock (Res.Parsed), "Order A with explicit through does not need clock");
       end;
 
-      --  2c. Order B: --day then --base then --through (order independent)
+      --  1c. Order B: --day then --base then --through (order independent)
       declare
          Args : constant String_Array :=
            [1 => To_Unbounded_String ("--day"),
@@ -313,18 +229,19 @@ begin
             4 => To_Unbounded_String ("/canonical/root"),
             5 => To_Unbounded_String ("--through"),
             6 => To_Unbounded_String ("2026-08-19")];
-         Res  : constant Command_Resolution := Parse_Arguments (Args, Clock_Today);
+         Res  : constant Parse_Resolution := Parse_Arguments (Args);
       begin
          Assert (Res.Status = Success, "Parse_Arguments order B succeeds");
-         Assert (To_String (Res.Options.Base_Directory) = "/canonical/root",
+         Assert (To_String (Res.Parsed.Base_Directory) = "/canonical/root",
                  "Base directory parsed correctly in order B");
-         Assert (Res.Options.Observed_Through = D ("2026-08-19"),
-                 "Observed_Through is 2026-08-19 in order B");
-         Assert (Res.Options.Selected_Day = D ("2026-08-25"),
-                 "Selected_Day is 2026-08-25 in order B");
+         Assert (Res.Parsed.Through_Date = D ("2026-08-19"),
+                 "Through_Date is 2026-08-19 in order B");
+         Assert (Res.Parsed.Day_Date = D ("2026-08-25"),
+                 "Day_Date is 2026-08-25 in order B");
+         Assert (not Needs_Clock (Res.Parsed), "Order B does not need clock");
       end;
 
-      --  2d. Missing option values fail closed
+      --  1d. Missing option values at end of argv fail closed
       declare
          Args_No_Base_Val : constant String_Array :=
            [1 => To_Unbounded_String ("--base")];
@@ -332,30 +249,286 @@ begin
            [1 => To_Unbounded_String ("--through")];
          Args_No_Day_Val : constant String_Array :=
            [1 => To_Unbounded_String ("--day")];
-         Res1 : constant Command_Resolution :=
-           Parse_Arguments (Args_No_Base_Val, Clock_Today);
-         Res2 : constant Command_Resolution :=
-           Parse_Arguments (Args_No_Through_Val, Clock_Today);
-         Res3 : constant Command_Resolution :=
-           Parse_Arguments (Args_No_Day_Val, Clock_Today);
+         Res1 : constant Parse_Resolution := Parse_Arguments (Args_No_Base_Val);
+         Res2 : constant Parse_Resolution := Parse_Arguments (Args_No_Through_Val);
+         Res3 : constant Parse_Resolution := Parse_Arguments (Args_No_Day_Val);
       begin
          Assert (Res1.Status = Missing_Option_Value,
-                 "Parse_Arguments fails on missing --base value");
+                 "Parse_Arguments fails on missing --base value at end");
+         Assert (To_String (Res1.Message) = "missing value for option --base",
+                 "Missing --base diagnostic message");
          Assert (Res2.Status = Missing_Option_Value,
-                 "Parse_Arguments fails on missing --through value");
+                 "Parse_Arguments fails on missing --through value at end");
+         Assert (To_String (Res2.Message) = "missing value for option --through",
+                 "Missing --through diagnostic message");
          Assert (Res3.Status = Missing_Option_Value,
-                 "Parse_Arguments fails on missing --day value");
+                 "Parse_Arguments fails on missing --day value at end");
+         Assert (To_String (Res3.Message) = "missing value for option --day",
+                 "Missing --day diagnostic message");
       end;
 
-      --  2e. Unknown options fail closed
+      --  1e. Missing option values followed by another option token fail closed
+      declare
+         Args_Through_Followed_By_Day : constant String_Array :=
+           [1 => To_Unbounded_String ("--through"),
+            2 => To_Unbounded_String ("--day"),
+            3 => To_Unbounded_String ("2026-08-25")];
+         Args_Base_Followed_By_Through : constant String_Array :=
+           [1 => To_Unbounded_String ("--base"),
+            2 => To_Unbounded_String ("--through"),
+            3 => To_Unbounded_String ("2026-08-19")];
+         Args_Day_Followed_By_Base : constant String_Array :=
+           [1 => To_Unbounded_String ("--day"),
+            2 => To_Unbounded_String ("--base"),
+            3 => To_Unbounded_String ("/canonical/root")];
+         Res1 : constant Parse_Resolution := Parse_Arguments (Args_Through_Followed_By_Day);
+         Res2 : constant Parse_Resolution := Parse_Arguments (Args_Base_Followed_By_Through);
+         Res3 : constant Parse_Resolution := Parse_Arguments (Args_Day_Followed_By_Base);
+      begin
+         Assert (Res1.Status = Missing_Option_Value,
+                 "Parse_Arguments diagnoses --through followed by --day as Missing_Option_Value");
+         Assert (To_String (Res1.Message) = "missing value for option --through",
+                 "Missing --through followed by option message");
+         Assert (Res2.Status = Missing_Option_Value,
+                 "Parse_Arguments diagnoses --base followed by --through as Missing_Option_Value");
+         Assert (To_String (Res2.Message) = "missing value for option --base",
+                 "Missing --base followed by option message");
+         Assert (Res3.Status = Missing_Option_Value,
+                 "Parse_Arguments diagnoses --day followed by --base as Missing_Option_Value");
+         Assert (To_String (Res3.Message) = "missing value for option --day",
+                 "Missing --day followed by option message");
+      end;
+
+      --  1f. Duplicate options fail closed as ambiguous CLI input
+      declare
+         Args_Dup_Through : constant String_Array :=
+           [1 => To_Unbounded_String ("--through"),
+            2 => To_Unbounded_String ("2026-08-19"),
+            3 => To_Unbounded_String ("--through"),
+            4 => To_Unbounded_String ("2026-08-20")];
+         Args_Dup_Day : constant String_Array :=
+           [1 => To_Unbounded_String ("--day"),
+            2 => To_Unbounded_String ("2026-08-25"),
+            3 => To_Unbounded_String ("--day"),
+            4 => To_Unbounded_String ("2026-08-26")];
+         Args_Dup_Base : constant String_Array :=
+           [1 => To_Unbounded_String ("--base"),
+            2 => To_Unbounded_String ("/root1"),
+            3 => To_Unbounded_String ("--base"),
+            4 => To_Unbounded_String ("/root2")];
+         Res1 : constant Parse_Resolution := Parse_Arguments (Args_Dup_Through);
+         Res2 : constant Parse_Resolution := Parse_Arguments (Args_Dup_Day);
+         Res3 : constant Parse_Resolution := Parse_Arguments (Args_Dup_Base);
+      begin
+         Assert (Res1.Status = Duplicate_Option,
+                 "Duplicate --through rejected as Duplicate_Option");
+         Assert (To_String (Res1.Message) = "duplicate option: --through",
+                 "Duplicate --through diagnostic message");
+         Assert (Res2.Status = Duplicate_Option,
+                 "Duplicate --day rejected as Duplicate_Option");
+         Assert (To_String (Res2.Message) = "duplicate option: --day",
+                 "Duplicate --day diagnostic message");
+         Assert (Res3.Status = Duplicate_Option,
+                 "Duplicate --base rejected as Duplicate_Option");
+         Assert (To_String (Res3.Message) = "duplicate option: --base",
+                 "Duplicate --base diagnostic message");
+      end;
+
+      --  1g. Invalid Gregorian dates rejected during Stage A before Household load
+      declare
+         Args_Bad_Through : constant String_Array :=
+           [1 => To_Unbounded_String ("--through"),
+            2 => To_Unbounded_String ("2026-02-30")];
+         Args_Bad_Day : constant String_Array :=
+           [1 => To_Unbounded_String ("--day"),
+            2 => To_Unbounded_String ("not-a-date")];
+         Res1 : constant Parse_Resolution := Parse_Arguments (Args_Bad_Through);
+         Res2 : constant Parse_Resolution := Parse_Arguments (Args_Bad_Day);
+      begin
+         Assert (Res1.Status = Invalid_Through_Date,
+                 "Parse_Arguments rejects 2026-02-30 as Invalid_Through_Date");
+         Assert (Ada.Strings.Fixed.Index (To_String (Res1.Message), "2026-02-30") > 0,
+                 "Invalid through date diagnostic contains bad date string");
+         Assert (Res2.Status = Invalid_Day_Date,
+                 "Parse_Arguments rejects not-a-date as Invalid_Day_Date");
+         Assert (Ada.Strings.Fixed.Index (To_String (Res2.Message), "not-a-date") > 0,
+                 "Invalid day date diagnostic contains bad date string");
+      end;
+
+      --  1h. Unknown options fail closed
       declare
          Args_Unknown : constant String_Array :=
            [1 => To_Unbounded_String ("--unknown-option")];
-         Res : constant Command_Resolution :=
-           Parse_Arguments (Args_Unknown, Clock_Today);
+         Args_Positional : constant String_Array :=
+           [1 => To_Unbounded_String ("unexpected_arg")];
+         Res1 : constant Parse_Resolution := Parse_Arguments (Args_Unknown);
+         Res2 : constant Parse_Resolution := Parse_Arguments (Args_Positional);
       begin
-         Assert (Res.Status = Unknown_Option,
+         Assert (Res1.Status = Unknown_Option,
                  "Parse_Arguments fails on unknown option");
+         Assert (To_String (Res1.Message) = "unknown option: --unknown-option",
+                 "Unknown option diagnostic message");
+         Assert (Res2.Status = Unknown_Option,
+                 "Parse_Arguments fails on unexpected positional argument");
+         Assert (To_String (Res2.Message) = "unknown option: unexpected_arg",
+                 "Unexpected argument diagnostic message");
+      end;
+   end;
+
+   --  ========================================================================
+   --  2. Stage B: Temporal Defaults Resolution & Clock Inquiry Law
+   --  ========================================================================
+   declare
+      Injected_Today : constant HRA.Dates.Date := D ("2026-08-19");
+   begin
+      --  2a. Explicit through only: clock NOT needed (0 clock reads), day follows through
+      declare
+         Args : constant String_Array :=
+           [1 => To_Unbounded_String ("--through"),
+            2 => To_Unbounded_String ("2026-08-15")];
+         Parse_Res : constant Parse_Resolution := Parse_Arguments (Args);
+      begin
+         Assert (Parse_Res.Status = Success, "Stage A parse succeeds for explicit through");
+         Assert (not Needs_Clock (Parse_Res.Parsed),
+                 "Needs_Clock is False when --through is explicit (0 clock reads)");
+
+         --  Resolve WITHOUT passing Today (pure 1-arg overload)
+         declare
+            Opts : constant Home_Options := Resolve_Home_Options (Parse_Res.Parsed);
+         begin
+            Assert (Opts.Observed_Through = D ("2026-08-15"),
+                    "Observed_Through is explicit 2026-08-15 without reading clock");
+            Assert (Opts.Through_Source = Explicit,
+                    "Through source is Explicit");
+            Assert (Opts.Selected_Day = D ("2026-08-15"),
+                    "Selected_Day defaults to explicit Observed_Through (2026-08-15)");
+            Assert (Opts.Day_Source = Defaulted,
+                    "Day source is Defaulted");
+         end;
+      end;
+
+      --  2b. Explicit through + explicit day: clock NOT needed (0 clock reads)
+      declare
+         Args : constant String_Array :=
+           [1 => To_Unbounded_String ("--through"),
+            2 => To_Unbounded_String ("2026-08-19"),
+            3 => To_Unbounded_String ("--day"),
+            4 => To_Unbounded_String ("2026-08-25")];
+         Parse_Res : constant Parse_Resolution := Parse_Arguments (Args);
+      begin
+         Assert (Parse_Res.Status = Success, "Stage A parse succeeds for explicit both");
+         Assert (not Needs_Clock (Parse_Res.Parsed),
+                 "Needs_Clock is False when both explicit (0 clock reads)");
+
+         --  Resolve WITHOUT passing Today
+         declare
+            Opts : constant Home_Options := Resolve_Home_Options (Parse_Res.Parsed);
+         begin
+            Assert (Opts.Observed_Through = D ("2026-08-19"),
+                    "Observed_Through is explicit 2026-08-19");
+            Assert (Opts.Through_Source = Explicit,
+                    "Through source is Explicit");
+            Assert (Opts.Selected_Day = D ("2026-08-25"),
+                    "Selected_Day is explicit 2026-08-25");
+            Assert (Opts.Day_Source = Explicit,
+                    "Day source is Explicit");
+         end;
+      end;
+
+      --  2c. Omitted through + omitted day: clock NEEDED (1 clock read), day follows through
+      declare
+         Args : String_Array (1 .. 0);
+         Parse_Res : constant Parse_Resolution := Parse_Arguments (Args);
+      begin
+         Assert (Parse_Res.Status = Success, "Stage A parse succeeds for empty args");
+         Assert (Needs_Clock (Parse_Res.Parsed),
+                 "Needs_Clock is True when --through is omitted (1 clock read required)");
+
+         --  Resolve WITH injected Today
+         declare
+            Opts : constant Home_Options :=
+              Resolve_Home_Options (Parse_Res.Parsed, Injected_Today);
+         begin
+            Assert (Opts.Observed_Through = Injected_Today,
+                    "Observed_Through defaults to injected Today");
+            Assert (Opts.Through_Source = Defaulted,
+                    "Through source is Defaulted");
+            Assert (Opts.Selected_Day = Injected_Today,
+                    "Selected_Day defaults to defaulted Observed_Through (Today)");
+            Assert (Opts.Day_Source = Defaulted,
+                    "Day source is Defaulted");
+         end;
+      end;
+
+      --  2d. Explicit day only: clock NEEDED (1 clock read because through is defaulted)
+      declare
+         Args : constant String_Array :=
+           [1 => To_Unbounded_String ("--day"),
+            2 => To_Unbounded_String ("2026-08-25")];
+         Parse_Res : constant Parse_Resolution := Parse_Arguments (Args);
+      begin
+         Assert (Parse_Res.Status = Success, "Stage A parse succeeds for explicit day only");
+         Assert (Needs_Clock (Parse_Res.Parsed),
+                 "Needs_Clock is True when only --day is explicit (1 clock read required for through)");
+
+         --  Resolve WITH injected Today
+         declare
+            Opts : constant Home_Options :=
+              Resolve_Home_Options (Parse_Res.Parsed, Injected_Today);
+         begin
+            Assert (Opts.Observed_Through = Injected_Today,
+                    "Observed_Through defaults to injected Today");
+            Assert (Opts.Through_Source = Defaulted,
+                    "Through source is Defaulted");
+            Assert (Opts.Selected_Day = D ("2026-08-25"),
+                    "Selected_Day is explicit 2026-08-25");
+            Assert (Opts.Day_Source = Explicit,
+                    "Day source is Explicit");
+         end;
+      end;
+
+      --  2e. Explicit through with base directory: clock NOT needed
+      declare
+         Args : constant String_Array :=
+           [1 => To_Unbounded_String ("--base"),
+            2 => To_Unbounded_String ("/canonical/root"),
+            3 => To_Unbounded_String ("--through"),
+            4 => To_Unbounded_String ("2026-08-19")];
+         Parse_Res : constant Parse_Resolution := Parse_Arguments (Args);
+      begin
+         Assert (not Needs_Clock (Parse_Res.Parsed),
+                 "Needs_Clock is False with --base and --through");
+         declare
+            Opts : constant Home_Options := Resolve_Home_Options (Parse_Res.Parsed);
+         begin
+            Assert (To_String (Opts.Base_Directory) = "/canonical/root",
+                    "Base directory resolved: /canonical/root");
+            Assert (Opts.Observed_Through = D ("2026-08-19"),
+                    "Observed_Through is 2026-08-19");
+            Assert (Opts.Selected_Day = D ("2026-08-19"),
+                    "Selected_Day defaults to explicit through (2026-08-19)");
+         end;
+      end;
+
+      --  2f. Guardrail: calling 1-arg Resolve_Home_Options without explicit through fails closed
+      declare
+         Args : String_Array (1 .. 0);
+         Parse_Res : constant Parse_Resolution := Parse_Arguments (Args);
+         Raised    : Boolean := False;
+      begin
+         begin
+            declare
+               Unused_Opts : constant Home_Options :=
+                 Resolve_Home_Options (Parse_Res.Parsed);
+            begin
+               null;
+            end;
+         exception
+            when Program_Error =>
+               Raised := True;
+         end;
+         Assert (Raised,
+                 "Calling 1-arg Resolve_Home_Options without explicit through raises Program_Error");
       end;
    end;
 

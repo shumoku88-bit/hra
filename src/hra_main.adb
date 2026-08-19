@@ -103,19 +103,22 @@ begin
             end loop;
 
             declare
-               Today : constant HRA.Dates.Date := Local_Today;
-               Res   : constant Command_Resolution :=
-                 Parse_Arguments (Args, Today);
+               Parse_Res : constant Parse_Resolution :=
+                 Parse_Arguments (Args);
             begin
-               if Res.Status /= HRA.Household_Home_Command.Success then
-                  Put_Line ("Error: " & To_String (Res.Message));
+               if Parse_Res.Status /= HRA.Household_Home_Command.Success then
+                  Put_Line ("Error: " & To_String (Parse_Res.Message));
                   Set_Exit_Status (Failure);
                   return;
                end if;
 
                declare
+                  Options : constant Home_Options :=
+                    (if Needs_Clock (Parse_Res.Parsed)
+                     then Resolve_Home_Options (Parse_Res.Parsed, Local_Today)
+                     else Resolve_Home_Options (Parse_Res.Parsed));
                   Root_Dir : constant String :=
-                    Resolve_Household_Root (To_String (Res.Options.Base_Directory));
+                    Resolve_Household_Root (To_String (Options.Base_Directory));
                   State    : Household_State;
                   Err      : Unbounded_String;
                begin
@@ -130,8 +133,8 @@ begin
                   Put
                     (Execute_Home
                        (State,
-                        Res.Options.Observed_Through,
-                        Res.Options.Selected_Day));
+                        Options.Observed_Through,
+                        Options.Selected_Day));
                end;
             end;
          end;
