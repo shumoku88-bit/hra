@@ -9,7 +9,7 @@ project HRA is
 
    package Compiler is
       for Default_Switches ("Ada") use (
-         "-gnat2022",   -- Ada 2022 standard
+         "-gnat2012",   -- Ada 2012 compatibility experiment
          "-gnata",      -- Enable assertions and contract checking (Pre/Post/Type_Invariant)
          "-gnatwa",     -- Turn on all warnings
          "-gnatW8",     -- UTF-8 encoding support
