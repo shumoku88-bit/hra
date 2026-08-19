@@ -56,9 +56,9 @@ private
    end record;
 
    type Reconciliation is record
-      External : External_Balance_Observation;
-      Ledger   : HRA.Money.Balance;
-      Delta    : HRA.Money.Balance;
+      External         : External_Balance_Observation;
+      Ledger           : HRA.Money.Balance;
+      Difference_Value : HRA.Money.Balance;
    end record;
 
 end HRA.Account_Reconciliation;
