@@ -32,7 +32,7 @@ package body HRA.Account_Reconciliation is
    is
       Canonical : constant HRA.Money.Balance :=
         HRA.Ledger.Compute_Account_Balance_Through
-          (Actual.Value,
+          (HRA.Actual_Admission.Ledger_Of (Actual),
            External.Acc,
            External.Observed_On);
    begin
