@@ -6,6 +6,7 @@ project HRA_Proof is
       "hra-proof_core.ads",
       "hra-proof_core.adb",
       "hra-dates.ads",
+      "hra-dates.adb",
       "hra-household_home_interaction.ads",
       "hra-household_home_interaction.adb");
    for Object_Dir use "obj";
