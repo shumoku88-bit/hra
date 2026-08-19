@@ -1,4 +1,5 @@
 with "ada_toml";
+with "lib_adacurses";
 
 project HRA is
    for Languages use ("Ada");
