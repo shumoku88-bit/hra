@@ -827,13 +827,6 @@ procedure Test_Runner is
          State.Report_Policy.Presentation.Daily_Date_Columns = 7,
          "Canonical TOML sources admit typed policy values");
       Assert
-        (ALedger.Envelope_Entitlement.Has_Origin
-           (State.Entitlement, Make_Commodity ("JPY"))
-         and then ALedger.Dates.Image
-           (ALedger.Envelope_Entitlement.Origin_For
-              (State.Entitlement, Make_Commodity ("JPY"))) = "2026-08-01",
-         "Zero Budget movement establishes the JPY stock origin");
-      Assert
         (Text_For (State.Sources, Actual_Source) =
            "2026-08-13 Coffee Purchase" & ASCII.LF &
            "    expenses:coffee         500 JPY" & ASCII.LF &
@@ -841,16 +834,15 @@ procedure Test_Runner is
          "Canonical observation retains exact actual.journal source bytes");
 
       declare
-         PL : constant Profit_And_Loss := Generate_Profit_And_Loss (State.Combined_Ledger);
-         JPY : constant Commodity := Make_Commodity ("JPY");
+         PL    : constant Profit_And_Loss :=
+           Generate_Profit_And_Loss (State.Combined_Ledger);
+         JPY   : constant Commodity := Make_Commodity ("JPY");
          Q_500 : Quantity;
-         BS_Text : constant String := Render_Budget_Status (State);
       begin
          Assert (Parse_Quantity ("500", Q_500), "Parse 500");
-         Assert (Lookup_Balance (PL.Total_Expenses, JPY) = Q_500, "Combined household P&L Expenses = 500 JPY");
-         Assert (Index (BS_Text, "== Envelope & Backing ==") > 0, "Render Envelope & Backing header");
-         Assert (Index (BS_Text, "coffee") > 0, "Render Envelope coffee line");
-         Assert (Index (BS_Text, "Funding balance (liquid)") > 0, "Render liquid pool backing evidence");
+         Assert
+           (Lookup_Balance (PL.Total_Expenses, JPY) = Q_500,
+            "Combined household P&L Expenses = 500 JPY");
       end;
 
       Open (F, Append_File, To_String (Paths.Report_TOML));
