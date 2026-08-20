@@ -15,7 +15,7 @@
 ```
 
 - `build`はcurrent sourceをAlireでbuildする
-- `test`はbuild後にcanonical `test_runner`を実行する
+- `test`はGPRがbuildしたfocused `test_*` suitesをすべて実行する
 - `prove`はSPARK proof projectを実行する
 - `qualify`はbuild + test + proveのrepository-only qualification
 - `check`はcanonical Household sourceのadmission checkであり、repository qualificationとは別
