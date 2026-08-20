@@ -8,6 +8,7 @@ package body HRA.Entitlement_Journal is
 
    use type HRA.Dates.Date;
    use type HRA.Envelope.Envelope_Id;
+   use type HRA.Money.Commodity;
    use type HRA.Money.Quantity;
 
    package Date_Sets is new Ada.Containers.Ordered_Sets
@@ -129,9 +130,9 @@ package body HRA.Entitlement_Journal is
    end Parse_Endpoint;
 
    function Validate_History
-     (History : Entitlement_History;
+     (History  : Entitlement_History;
       Registry : HRA.Envelope.Envelope_Registry;
-      Diag    : out Admission_Diagnostic) return Boolean
+      Diag     : out Admission_Diagnostic) return Boolean
    is
       Dates : Date_Sets.Set;
    begin
@@ -139,17 +140,18 @@ package body HRA.Entitlement_Journal is
       --  than the transfer. Origin uniqueness was checked while parsing.
       for Movement of History.Movements loop
          declare
-            Comm_Key : constant String := Code (Movement.Amt.Comm);
+            Comm      : constant Commodity := Movement.Amt.Comm;
+            Comm_Code : constant String := Code (Comm);
          begin
-            if not History.Origins.Contains (Comm_Key) then
+            if not History.Origins.Contains (Comm) then
                Set_Diagnostic
                  (Diag, Missing_Origin, 0,
-                  "missing explicit stock origin for Commodity " & Comm_Key);
+                  "missing explicit stock origin for Commodity " & Comm_Code);
                return False;
-            elsif History.Origins.Element (Comm_Key) > Movement.Tx_Date then
+            elsif History.Origins.Element (Comm) > Movement.Tx_Date then
                Set_Diagnostic
                  (Diag, Origin_After_Transfer, 0,
-                  "stock origin is after transfer for Commodity " & Comm_Key);
+                  "stock origin is after transfer for Commodity " & Comm_Code);
                return False;
             end if;
          end;
@@ -169,9 +171,10 @@ package body HRA.Entitlement_Journal is
               (Origin_Cursor)
             loop
                declare
-                  Comm_Key : constant String :=
+                  Comm : constant Commodity :=
                     HRA.Envelope_Entitlement.Commodity_Date_Maps.Key
                       (Origin_Cursor);
+                  Comm_Code : constant String := Code (Comm);
                   Running  : Quantity := Zero_Quantity;
                   Date_Cursor : Date_Sets.Cursor := Dates.First;
                begin
@@ -183,7 +186,7 @@ package body HRA.Entitlement_Journal is
                      begin
                         for Movement of History.Movements loop
                            if Movement.Tx_Date = Day
-                             and then Code (Movement.Amt.Comm) = Comm_Key
+                             and then Movement.Amt.Comm = Comm
                            then
                               case Movement.Kind is
                                  when HRA.Envelope_Entitlement.Grant_From_Unallocated =>
@@ -209,7 +212,7 @@ package body HRA.Entitlement_Journal is
                            Set_Diagnostic
                              (Diag, Negative_Envelope_Stock, 0,
                               "Envelope stock became negative: " &
-                              HRA.Envelope.Image (Env) & " " & Comm_Key &
+                              HRA.Envelope.Image (Env) & " " & Comm_Code &
                               " on " & HRA.Dates.Image (Day));
                            return False;
                         end if;
@@ -296,13 +299,13 @@ package body HRA.Entitlement_Journal is
                              (Diag, Invalid_Commodity, Line_Number,
                               "invalid Commodity: " & Key);
                            return False;
-                        elsif Result.Origins.Contains (Key) then
+                        elsif Result.Origins.Contains (Comm) then
                            Set_Diagnostic
                              (Diag, Duplicate_Origin, Line_Number,
                               "duplicate stock origin for Commodity " & Key);
                            return False;
                         end if;
-                        Result.Origins.Insert (Key, Tx_Date);
+                        Result.Origins.Insert (Comm, Tx_Date);
                      end;
                   elsif To_String (T_Kind) = "transfer" then
                      Next_Token (Statement, Pos, T_Arrow, F_Arrow);
@@ -418,8 +421,8 @@ package body HRA.Entitlement_Journal is
    begin
       while HRA.Envelope_Entitlement.Commodity_Date_Maps.Has_Element (Cursor) loop
          declare
-            Comm : constant Commodity := Make_Commodity
-              (HRA.Envelope_Entitlement.Commodity_Date_Maps.Key (Cursor));
+            Comm : constant Commodity :=
+              HRA.Envelope_Entitlement.Commodity_Date_Maps.Key (Cursor);
             Day : constant HRA.Dates.Date :=
               HRA.Envelope_Entitlement.Commodity_Date_Maps.Element (Cursor);
          begin
