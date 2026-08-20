@@ -76,7 +76,7 @@ package body HRA.Envelope is
       Registry   : out Envelope_Registry;
       Diag       : out Config_Diagnostic) return Boolean
    is
-      Source_Name : constant String := "budget.toml";
+      Source_Name : constant String := "household.toml";
       R           : Envelope_Registry;
       Id          : Envelope_Id;
       Status      : Envelope_Id_Status;
