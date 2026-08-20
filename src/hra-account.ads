@@ -46,11 +46,25 @@ package HRA.Account is
    --  ========================================================================
    --  Account Declaration & Metadata
    --  ========================================================================
+   --  Ada variant data keeps the absent-default case genuinely absent instead
+   --  of carrying a Boolean flag beside an otherwise meaningless Commodity.
+   type Default_Commodity_Option (Has_Value : Boolean := False) is record
+      case Has_Value is
+         when True =>
+            Value : Commodity;
+         when False =>
+            null;
+      end case;
+   end record;
+
+   function No_Default_Commodity return Default_Commodity_Option;
+   function Make_Default_Commodity
+     (C : Commodity) return Default_Commodity_Option;
+
    type Account_Declaration is record
-      Acc                    : Account;
-      Acc_Type               : Account_Type;
-      Has_Default_Commodity  : Boolean := False;
-      Default_Commodity      : Commodity;
+      Acc               : Account;
+      Acc_Type          : Account_Type;
+      Default_Commodity : Default_Commodity_Option;
    end record;
 
    function Declare_Account
