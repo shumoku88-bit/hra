@@ -91,18 +91,18 @@ begin
    --  Gross activity cancels to zero, but the explanation must retain both
    --  sides instead of presenting the Envelope as if nothing happened.
    Consumption.Managed.Insert
-     ("food",
+     (Food,
       HRA.Envelope_Consumption.Make_Amounts
         (Charges => Singleton_Balance (Make_Amount (JPY, 300.0)),
          Refunds => Singleton_Balance (Make_Amount (JPY, 300.0))));
 
    Fulfillment.Managed.Insert
-     ("food",
+     (Food,
       (Applied  => Singleton_Balance (Make_Amount (JPY, 100.0)),
        Reversed => Singleton_Balance (Make_Amount (JPY, 100.0))));
 
    Commitment.Managed.Insert
-     ("food", Singleton_Balance (Make_Amount (JPY, 150.0)));
+     (Food, Singleton_Balance (Make_Amount (JPY, 150.0)));
 
    Assert
      (Observe
