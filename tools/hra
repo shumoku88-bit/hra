@@ -4,6 +4,13 @@ set -euo pipefail
 project_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$project_root"
 
+# Keep HRA's repository-local Alire index registration out of the user's
+# ordinary Alire settings. The generated settings live under the already
+# ignored repository alire/ area and are inherited by tools/prove.
+alire_settings_dir="$project_root/alire/settings"
+mkdir -p "$alire_settings_dir"
+export ALIRE_SETTINGS_DIR="$alire_settings_dir"
+
 usage() {
   cat <<'EOF'
 Usage: tools/hra COMMAND [ARGS...]
@@ -18,6 +25,8 @@ Repository commands:
 Application commands:
   home [--base ROOT] [--through DATE] [--day DATE]
                         Render the Household Home overview
+  tui [--base ROOT] [--through DATE] [--day DATE]
+                        Open the interactive Household Home terminal view
   check [--base ROOT]   Validate an admitted canonical Household
   report [--base ROOT]  Render the current report portfolio
   version               Show the hra version
@@ -35,39 +44,71 @@ need_alr() {
   fi
 }
 
-build_production() {
+ensure_local_index() {
   need_alr
+  local overlay_path="$project_root/support/alire-index"
+  local index_listing
+  local toolchain_listing
+
+  # Do not pipe `alr ...` into `grep -q` here. With `set -o pipefail`, grep can
+  # exit as soon as it finds a match and leave alr with SIGPIPE, turning a real
+  # match into a false failure. Capture the small listing first so repeated
+  # invocations remain idempotent in the repository-local persistent settings.
+  if ! index_listing="$(alr index 2>/dev/null)"; then
+    index_listing=""
+  fi
+
+  # ALIRE_SETTINGS_DIR starts pristine, so establish Alire's own community
+  # index before placing the HRA overlay ahead of it. Do not copy or hard-code
+  # the community branch here; let the installed Alire version select it.
+  if [[ "$index_listing" != *community* ]]; then
+    alr index --reset-community >&2
+    index_listing="$(alr index 2>/dev/null)"
+  fi
+
+  if [[ -d "$overlay_path" && "$index_listing" != *hra_overlay* ]]; then
+    alr index --add "$overlay_path" --name hra_overlay --before community >&2
+  fi
+
+  # Toolchain preference is also stored under ALIRE_SETTINGS_DIR. Select the
+  # standard native components explicitly in this isolated settings space so
+  # Alire can reuse already available matching toolchains without invoking its
+  # first-run interactive assistant. Do not pin concrete versions here.
+  if ! toolchain_listing="$(alr toolchain 2>/dev/null)"; then
+    toolchain_listing=""
+  fi
+  if [[ "$toolchain_listing" != *Default* ]]; then
+    alr toolchain --select gnat_native gprbuild >&2
+  fi
+}
+
+build_production() {
+  ensure_local_index
   # Keep application stdout reserved for application output (not build logs).
   alr build >&2
 }
 
 build_tests() {
-  need_alr
+  ensure_local_index
+  # Remove only old executables so a retired test cannot survive as a stale
+  # runnable binary. Keep objects for incremental compilation.
+  rm -rf "$project_root/tests/bin"
   alr exec -- gprbuild -P "$project_root/tests/hra_tests.gpr"
 }
 
 run_tests() {
-  "$project_root/tests/bin/test_runner" "$@"
-  "$project_root/tests/bin/test_actual_admission"
-  "$project_root/tests/bin/test_plan_completion_admission"
-  "$project_root/tests/bin/test_report_account_order"
-  "$project_root/tests/bin/test_household_report_observation"
-  "$project_root/tests/bin/test_envelope_commitment"
-  "$project_root/tests/bin/test_envelope_explanation"
-  "$project_root/tests/bin/test_envelope_change"
-  "$project_root/tests/bin/test_envelope_change_baseline"
-  "$project_root/tests/bin/test_household_temporal"
-  "$project_root/tests/bin/test_household_source_admission"
-  "$project_root/tests/bin/test_envelope_cycle_comparison"
-  "$project_root/tests/bin/test_household_temporal_cycle_context"
-  "$project_root/tests/bin/test_account_reconciliation"
-  "$project_root/tests/bin/test_household_check_observation"
-  "$project_root/tests/bin/test_issues_admission"
-  "$project_root/tests/bin/test_issue_observation"
-  "$project_root/tests/bin/test_household_home_observation"
-  "$project_root/tests/bin/test_household_home_presentation"
-  "$project_root/tests/bin/test_household_home_command"
-  "$project_root/tests/bin/test_household_home_interaction"
+  local found=0
+  local test_exe
+  for test_exe in "$project_root"/tests/bin/test_*; do
+    [[ -x "$test_exe" ]] || continue
+    found=1
+    "$test_exe"
+  done
+
+  if [[ "$found" -eq 0 ]]; then
+    echo "tools/hra: no built focused test executables found" >&2
+    exit 1
+  fi
 }
 
 command="${1:-help}"
@@ -80,12 +121,16 @@ case "$command" in
     usage
     ;;
   build)
-    need_alr
+    ensure_local_index
     exec alr build "$@"
     ;;
   test)
+    if [[ $# -ne 0 ]]; then
+      echo "tools/hra test: unexpected arguments" >&2
+      exit 2
+    fi
     build_tests
-    run_tests "$@"
+    run_tests
     ;;
   prove)
     if [[ $# -ne 0 ]]; then
@@ -115,7 +160,7 @@ case "$command" in
       "$project_root/tests/bin" \
       "$project_root/proof/obj"
     ;;
-  home|check|report|version)
+  home|tui|check|report|version)
     build_production
     exec "$project_root/bin/hra" "$command" "$@"
     ;;

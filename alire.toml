@@ -10,3 +10,6 @@ ada_toml = "~0.5.0"
 
 [[depends-on]]
 gnatprove = "~16.1.0"
+
+[[depends-on]]
+ncursesada = "~6.5.0"

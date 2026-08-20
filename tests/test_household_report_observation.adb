@@ -6,6 +6,7 @@ with HRA.Backing_Policy;
 with HRA.Budget_Config;
 with HRA.Config_Support;
 with HRA.Dates;
+with HRA.Entitlement_Journal;
 with HRA.Envelope;
 with HRA.Envelope_Report_Render;
 with HRA.Household;
@@ -66,7 +67,7 @@ procedure Test_Household_Report_Observation is
       end if;
    end Register;
 
-   Budget_TOML : constant String :=
+   Envelope_TOML : constant String :=
      "[[backing-pools]]" & ASCII.LF &
      "id = ""liquid""" & ASCII.LF &
      "asset-accounts = [""assets:cash""]" & ASCII.LF &
@@ -82,12 +83,6 @@ procedure Test_Household_Report_Observation is
      "income-account = ""income:salary""" & ASCII.LF &
      "[money]" & ASCII.LF &
      "primary-commodity = ""JPY""" & ASCII.LF &
-     "[budget]" & ASCII.LF &
-     "opening-accounts = [""budget:opening""]" & ASCII.LF &
-     "unassigned-accounts = [""budget:unassigned""]" & ASCII.LF &
-     "[[budget.envelopes]]" & ASCII.LF &
-     "id = ""food""" & ASCII.LF &
-     "allocation-account = ""budget:food""" & ASCII.LF &
      "[envelope-history]" & ASCII.LF &
      "identities = [""food""]" & ASCII.LF &
      "expense-routing = []" & ASCII.LF &
@@ -130,13 +125,11 @@ procedure Test_Household_Report_Observation is
      "    assets:cash             1000 JPY" & ASCII.LF &
      "    income:salary          -1000 JPY" & ASCII.LF;
 
-   Budget_Text : constant String :=
-     "2026-08-01 JPY entitlement" & ASCII.LF &
-     "    budget:unassigned       -100 JPY" & ASCII.LF &
-     "    budget:food              100 JPY" & ASCII.LF & ASCII.LF &
-     "2026-08-02 USD entitlement" & ASCII.LF &
-     "    budget:unassigned        -10 USD" & ASCII.LF &
-     "    budget:food               10 USD" & ASCII.LF;
+   Entitlement_Text : constant String :=
+     "2026-08-01 origin JPY" & ASCII.LF &
+     "2026-08-01 transfer unallocated -> food 100 JPY" & ASCII.LF &
+     "2026-08-02 origin USD" & ASCII.LF &
+     "2026-08-02 transfer unallocated -> food 10 USD" & ASCII.LF;
 
    State        : HRA.Household.Household_State :=
      HRA.Household.Empty_Household_State;
@@ -150,6 +143,7 @@ procedure Test_Household_Report_Observation is
    Policy_State : HRA.Backing_Policy.Policy_Status;
    Journal_Diag : HRA.Journal.Parse_Diagnostic;
    Evidence_Diag : HRA.Journal_Evidence.Evidence_Diagnostic;
+   Entitlement_Diag : HRA.Entitlement_Journal.Admission_Diagnostic;
    Ids          : HRA.Config_Support.String_Vectors.Vector;
    JPY          : constant HRA.Money.Commodity := HRA.Money.Make_Commodity ("JPY");
    USD          : constant HRA.Money.Commodity := HRA.Money.Make_Commodity ("USD");
@@ -160,14 +154,11 @@ begin
    Register (State.Registry, "assets:cash", HRA.Account.Asset);
    Register (State.Registry, "income:salary", HRA.Account.Income);
    Register (State.Registry, "expenses:food", HRA.Account.Expense);
-   Register (State.Registry, "budget:opening", HRA.Account.Budget);
-   Register (State.Registry, "budget:unassigned", HRA.Account.Budget);
-   Register (State.Registry, "budget:food", HRA.Account.Budget);
 
    Assert
      (HRA.Budget_Config.Parse_Budget_Policy
-        (Budget_TOML, State.Budget_Policy, Config_Diag),
-      "setup admits Budget policy");
+        (Envelope_TOML, State.Budget_Policy, Config_Diag),
+      "setup admits current Envelope policy");
    Ids.Append ("food");
    Assert
      (HRA.Envelope.Admit_Registry
@@ -176,10 +167,9 @@ begin
    Assert
      (HRA.Household_Config.Parse_Household_Configuration
         (Household_TOML,
-         State.Budget_Policy,
          State.Household_Policy,
          Config_Diag),
-      "setup admits Household policy");
+      "setup admits Household policy without Budget coordinates");
    Assert
      (HRA.Report_Config.Parse_Report_Configuration
         (Report_TOML, State.Report_Policy, Config_Diag),
@@ -215,13 +205,15 @@ begin
          Evidence_Diag),
       "setup retains Plan evidence");
    Assert
-     (HRA.Journal.Parse_Journal_Text
-        (Budget_Text, "budget.journal", State.Budget_Ledger, Journal_Diag),
-      "setup parses multi-Commodity Budget");
+     (HRA.Entitlement_Journal.Admit
+        (Entitlement_Text,
+         State.Envelope_Registry,
+         State.Entitlement_History,
+         Entitlement_Diag),
+      "setup admits multi-Commodity native Entitlement history");
 
    State.Actual_Ledger.Registry := State.Registry;
    State.Plan_Ledger.Registry := State.Registry;
-   State.Budget_Ledger.Registry := State.Registry;
 
    HRA.Issues.Append
      (State.Issues,
@@ -344,7 +336,6 @@ begin
       and then Index (To_String (Error_Msg), "Planned Payments") > 0,
       "projection failure rejects the complete book instead of partial success");
 
-   --  The planned payment renderer demonstrates the same typed-only boundary.
    Assert
      (HRA.Planned_Payments_Render.Render (Observation.Planned_Payments)'Length > 0,
       "section renderer consumes only its semantic observation");

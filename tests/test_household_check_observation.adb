@@ -1,7 +1,10 @@
 with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
 with Ada.Text_IO;           use Ada.Text_IO;
 with HRA.Account;
+with HRA.Config_Support;
 with HRA.Dates;
+with HRA.Entitlement_Journal;
+with HRA.Envelope;
 with HRA.Household;
 with HRA.Household_Check_Observation;
 with HRA.Issues;
@@ -122,7 +125,6 @@ procedure Test_Household_Check_Observation is
 begin
    Put_Line ("--- Testing focused Household check observation ---");
 
-   --  1. Empty admitted-shaped State produces all zero counts
    Assert
      (Empty_Obs.Actual_Transactions = 0,
       "Empty state observes 0 Actual transactions");
@@ -130,8 +132,8 @@ begin
      (Empty_Obs.Plan_Transactions = 0,
       "Empty state observes 0 Plan transactions");
    Assert
-     (Empty_Obs.Budget_Transactions = 0,
-      "Empty state observes 0 Budget transactions");
+     (Empty_Obs.Entitlement_Movements = 0,
+      "Empty state observes 0 Entitlement movements");
    Assert
      (Empty_Obs.Registered_Accounts = 0,
       "Empty state observes 0 Registered accounts");
@@ -139,11 +141,9 @@ begin
      (Empty_Obs.Open_Issues = 0,
       "Empty state observes 0 Open issues");
 
-   --  2. Setup populated state with synthetic facts
    Register (Populated_State.Registry, "assets:cash", HRA.Account.Asset);
    Register (Populated_State.Registry, "expenses:food", HRA.Account.Expense);
    Register (Populated_State.Registry, "income:salary", HRA.Account.Income);
-   Register (Populated_State.Registry, "budget:food", HRA.Account.Budget);
 
    Populated_State.Actual_Ledger.Transactions.Append
      (Make_Dummy_Tx ("2026-08-01", "Actual Tx 1", "assets:cash", "expenses:food"));
@@ -157,8 +157,28 @@ begin
    Populated_State.Plan_Ledger.Transactions.Append
      (Make_Dummy_Tx ("2026-08-12", "Plan Tx 3", "assets:cash", "expenses:food"));
 
-   Populated_State.Budget_Ledger.Transactions.Append
-     (Make_Dummy_Tx ("2026-08-01", "Budget Tx 1", "budget:food", "budget:food"));
+   declare
+      IDs      : HRA.Config_Support.String_Vectors.Vector;
+      Reg_Diag : HRA.Config_Support.Config_Diagnostic;
+      Ent_Diag : HRA.Entitlement_Journal.Admission_Diagnostic;
+   begin
+      IDs.Append ("food");
+      if not HRA.Envelope.Admit_Registry
+        (IDs, Populated_State.Envelope_Registry, Reg_Diag)
+      then
+         raise Program_Error with "synthetic Envelope registry failed";
+      end if;
+      if not HRA.Entitlement_Journal.Admit
+        ("2026-08-01 origin JPY" & ASCII.LF &
+         "2026-08-01 transfer unallocated -> food 100 JPY" & ASCII.LF &
+         "2026-08-02 transfer food -> unallocated 25 JPY" & ASCII.LF,
+         Populated_State.Envelope_Registry,
+         Populated_State.Entitlement_History,
+         Ent_Diag)
+      then
+         raise Program_Error with "synthetic Entitlement history failed";
+      end if;
+   end;
 
    Add_Issue (Populated_State.Issues, "ISSUE-1", HRA.Issues.Open, "First open issue");
    Add_Issue (Populated_State.Issues, "ISSUE-2", HRA.Issues.Resolved, "Resolved issue");
@@ -167,7 +187,6 @@ begin
 
    Populated_Obs := HRA.Household_Check_Observation.Observe (Populated_State);
 
-   --  3. Verify transaction and account counts
    Assert
      (Populated_Obs.Actual_Transactions = 2,
       "Projects exact Actual transaction count");
@@ -175,13 +194,12 @@ begin
      (Populated_Obs.Plan_Transactions = 3,
       "Projects exact Plan transaction count");
    Assert
-     (Populated_Obs.Budget_Transactions = 1,
-      "Projects exact Budget transaction count");
+     (Populated_Obs.Entitlement_Movements = 2,
+      "Projects exact native Entitlement movement count");
    Assert
-     (Populated_Obs.Registered_Accounts = 4,
-      "Projects exact Registered accounts count");
+     (Populated_Obs.Registered_Accounts = 3,
+      "Projects exact Registered accounts count without Envelope-as-Account");
 
-   --  4. Verify open vs resolved issues
    Assert
      (Populated_Obs.Open_Issues = 2,
       "Projects only open issues count, excluding resolved issues");

@@ -80,13 +80,7 @@ procedure Test_Household_Home_Presentation is
          "account expenses:tax" & ASCII.LF &
          "  ; type: Expense" & ASCII.LF &
          "account income:salary" & ASCII.LF &
-         "  ; type: Income" & ASCII.LF &
-         "account budget:food" & ASCII.LF &
-         "  ; type: Budget" & ASCII.LF &
-         "account budget:unassigned" & ASCII.LF &
-         "  ; type: Budget" & ASCII.LF &
-         "account budget:opening" & ASCII.LF &
-         "  ; type: Budget" & ASCII.LF);
+         "  ; type: Income" & ASCII.LF);
 
       Obs.Texts (Actual_Source) := To_Unbounded_String
         ((if Include_Actual_Salary_Anchors then
@@ -134,15 +128,11 @@ procedure Test_Household_Home_Presentation is
           else
             ""));
 
-      Obs.Texts (Budget_Journal_Source) := To_Unbounded_String
-        ("2026-07-25 Opening" & ASCII.LF &
-         "    budget:opening            0 JPY" & ASCII.LF &
-         "    budget:unassigned         0 JPY" & ASCII.LF & ASCII.LF &
-         "2026-08-01 Food Allocation" & ASCII.LF &
-         "    budget:unassigned    -50000 JPY" & ASCII.LF &
-         "    budget:food           50000 JPY" & ASCII.LF);
+      Obs.Texts (Entitlement_Source) := To_Unbounded_String
+        ("2026-07-25 origin JPY ; Opening" & ASCII.LF &
+         "2026-08-01 transfer unallocated -> food 50000 JPY ; Food Allocation" & ASCII.LF);
 
-      Obs.Texts (Budget_Config_Source) := To_Unbounded_String
+      Obs.Texts (Envelope_Config_Source) := To_Unbounded_String
         ("[[backing-pools]]" & ASCII.LF &
          "id = ""liquid""" & ASCII.LF &
          "asset-accounts = [""assets:bank"", ""assets:cash""]" & ASCII.LF & ASCII.LF &
@@ -158,12 +148,6 @@ procedure Test_Household_Home_Presentation is
          "income-account = ""income:salary""" & ASCII.LF &
          "[money]" & ASCII.LF &
          "primary-commodity = ""JPY""" & ASCII.LF &
-         "[budget]" & ASCII.LF &
-         "opening-accounts = [""budget:opening""]" & ASCII.LF &
-         "unassigned-accounts = [""budget:unassigned""]" & ASCII.LF &
-         "[[budget.envelopes]]" & ASCII.LF &
-         "id = ""food""" & ASCII.LF &
-         "allocation-account = ""budget:food""" & ASCII.LF &
          "[envelope-history]" & ASCII.LF &
          "identities = [""food""]" & ASCII.LF &
          "[[envelope-history.expense-routing]]" & ASCII.LF &
@@ -226,9 +210,6 @@ procedure Test_Household_Home_Presentation is
 begin
    Put_Line ("--- Testing Household Home Presentation & Text Rendering ---");
 
-   --  ========================================================================
-   --  Setup standard admitted state
-   --  ========================================================================
    declare
       Sources : constant HRA.Canonical_Source.Source_Observation :=
         Make_Synthetic_Sources;
@@ -238,9 +219,6 @@ begin
          "Admit synthetic Household state");
    end;
 
-   --  ========================================================================
-   --  1. Attention Marker Resolution in Household_Home_Text
-   --  ========================================================================
    declare
       use HRA.Household_Home_Presentation;
       use HRA.Household_Home_Text;
@@ -248,44 +226,26 @@ begin
         (Cycle_End => '|', Plan_Due => '$', Issue_Due => '!', Multiple => '+');
       Att : Attention_Summary;
    begin
-      --  All absent
       Att := (Plan_Scheduled => Absent, Issue_Due => Absent, Cycle_End => Absent);
       Assert (Resolve_Marker (Att, Markers) = ' ', "All absent resolves to space");
-
-      --  Plan only
       Att := (Plan_Scheduled => Present, Issue_Due => Absent, Cycle_End => Absent);
       Assert (Resolve_Marker (Att, Markers) = '$', "Plan only resolves to '$'");
-
-      --  Issue only
       Att := (Plan_Scheduled => Absent, Issue_Due => Present, Cycle_End => Absent);
       Assert (Resolve_Marker (Att, Markers) = '!', "Issue only resolves to '!'");
-
-      --  Cycle only
       Att := (Plan_Scheduled => Absent, Issue_Due => Absent, Cycle_End => Present);
       Assert (Resolve_Marker (Att, Markers) = '|', "Cycle only resolves to '|'");
-
-      --  Combinations of 2 (Multiple)
       Att := (Plan_Scheduled => Present, Issue_Due => Present, Cycle_End => Absent);
       Assert (Resolve_Marker (Att, Markers) = '+', "Plan + Issue resolves to '+'");
-
       Att := (Plan_Scheduled => Present, Issue_Due => Absent, Cycle_End => Present);
       Assert (Resolve_Marker (Att, Markers) = '+', "Plan + Cycle resolves to '+'");
-
       Att := (Plan_Scheduled => Absent, Issue_Due => Present, Cycle_End => Present);
       Assert (Resolve_Marker (Att, Markers) = '+', "Issue + Cycle resolves to '+'");
-
-      --  Combination of 3
       Att := (Plan_Scheduled => Present, Issue_Due => Present, Cycle_End => Present);
       Assert (Resolve_Marker (Att, Markers) = '+', "All 3 present resolves to '+'");
-
-      --  Unavailable with Present
       Att := (Plan_Scheduled => Present, Issue_Due => Unavailable, Cycle_End => Absent);
       Assert (Resolve_Marker (Att, Markers) = '$', "Plan present with Issue unavailable resolves to '$'");
-
       Att := (Plan_Scheduled => Absent, Issue_Due => Unavailable, Cycle_End => Unavailable);
       Assert (Resolve_Marker (Att, Markers) = ' ', "Only unavailables resolve to space");
-
-      --  Custom marker glyphs
       Markers := (Cycle_End => 'C', Plan_Due => 'P', Issue_Due => 'I', Multiple => 'M');
       Att := (Plan_Scheduled => Present, Issue_Due => Absent, Cycle_End => Absent);
       Assert (Resolve_Marker (Att, Markers) = 'P', "Custom Plan marker");
@@ -297,9 +257,6 @@ begin
       Assert (Resolve_Marker (Att, Markers) = 'M', "Custom Multiple marker");
    end;
 
-   --  ========================================================================
-   --  2. Format_Cell Width Law Tests (All combinations exact length = 5)
-   --  ========================================================================
    declare
       use HRA.Household_Home_Presentation;
       use HRA.Household_Home_Text;
@@ -307,7 +264,6 @@ begin
       Default_Markers : constant HRA.Report_Config.Calendar_Markers :=
         (Cycle_End => '|', Plan_Due => '$', Issue_Due => '!', Multiple => '+');
    begin
-      --  1-digit, unselected, all attention states
       Cell :=
         (Kind                => Dated_Cell,
          Date_Value          => D ("2026-08-05"),
@@ -320,28 +276,22 @@ begin
               "Format_Cell 1-digit unselected no-marker length = 5");
       Assert (Format_Cell (Cell, Default_Markers) = "   5 ",
               "Format_Cell 1-digit unselected no-marker is '   5 '");
-
       Cell.Attention.Plan_Scheduled := Present;
       Assert (Format_Cell (Cell, Default_Markers)'Length = 5,
               "Format_Cell 1-digit unselected with marker length = 5");
       Assert (Format_Cell (Cell, Default_Markers) = "  5$ ",
               "Format_Cell 1-digit unselected with marker is '  5$ '");
-
-      --  1-digit, selected
       Cell.Is_Selected := True;
       Cell.Attention.Plan_Scheduled := Absent;
       Assert (Format_Cell (Cell, Default_Markers)'Length = 5,
               "Format_Cell 1-digit selected no-marker length = 5");
       Assert (Format_Cell (Cell, Default_Markers) = "[ 5] ",
               "Format_Cell 1-digit selected no-marker is '[ 5] '");
-
       Cell.Attention.Issue_Due := Present;
       Assert (Format_Cell (Cell, Default_Markers)'Length = 5,
               "Format_Cell 1-digit selected with marker length = 5");
       Assert (Format_Cell (Cell, Default_Markers) = "[ 5!]",
               "Format_Cell 1-digit selected with marker is '[ 5!]'");
-
-      --  2-digit, unselected
       Cell :=
         (Kind                => Dated_Cell,
          Date_Value          => D ("2026-08-19"),
@@ -354,28 +304,22 @@ begin
               "Format_Cell 2-digit unselected no-marker length = 5");
       Assert (Format_Cell (Cell, Default_Markers) = "  19 ",
               "Format_Cell 2-digit unselected no-marker is '  19 '");
-
       Cell.Attention.Plan_Scheduled := Present;
       Assert (Format_Cell (Cell, Default_Markers)'Length = 5,
               "Format_Cell 2-digit unselected with marker length = 5");
       Assert (Format_Cell (Cell, Default_Markers) = " 19$ ",
               "Format_Cell 2-digit unselected with marker is ' 19$ '");
-
-      --  2-digit, selected
       Cell.Is_Selected := True;
       Cell.Attention.Plan_Scheduled := Absent;
       Assert (Format_Cell (Cell, Default_Markers)'Length = 5,
               "Format_Cell 2-digit selected no-marker length = 5");
       Assert (Format_Cell (Cell, Default_Markers) = "[19] ",
               "Format_Cell 2-digit selected no-marker is '[19] '");
-
       Cell.Attention.Cycle_End := Present;
       Assert (Format_Cell (Cell, Default_Markers)'Length = 5,
               "Format_Cell 2-digit selected with marker length = 5");
       Assert (Format_Cell (Cell, Default_Markers) = "[19|]",
               "Format_Cell 2-digit selected with marker is '[19|]'");
-
-      --  Out-of-range padding cell is exactly 5 spaces
       declare
          Pad_Cell : constant Calendar_Cell := (Kind => Out_Of_Range_Padding);
       begin
@@ -386,28 +330,21 @@ begin
       end;
    end;
 
-   --  ========================================================================
-   --  3. Calendar Grid Generation & In-Domain Padding Tests
-   --  ========================================================================
    declare
       use HRA.Household_Home_Observation;
       use HRA.Household_Home_Presentation;
       use HRA.Household_Home_Text;
-
       Obs  : constant Home_Observation :=
         Observe
           (Observed_Through => D ("2026-08-19"),
            Selected_Day     => D ("2026-08-19"),
            State            => State);
-
       Pres : constant Home_Presentation := Present (Obs);
       Grid : constant Calendar_Grid := Pres.Calendar;
    begin
       Assert (Grid.Year = 2026, "Calendar year is 2026");
       Assert (Grid.Month = 8, "Calendar month is 8 (August)");
       Assert (Natural (Grid.Weeks.Length) = 6, "August 2026 spans 6 calendar weeks");
-
-      --  Week 1 check (starts Monday 2026-07-27)
       declare
          W1 : constant Calendar_Week := Grid.Weeks.Element (1);
       begin
@@ -426,8 +363,6 @@ begin
          Assert (W1 (HRA.Dates.Sunday).Date_Value = D ("2026-08-02"),
                  "Week 1 Sunday is 2026-08-02");
       end;
-
-      --  Week 4 check (contains selected day 2026-08-19 Wednesday)
       declare
          W4 : constant Calendar_Week := Grid.Weeks.Element (4);
       begin
@@ -448,8 +383,6 @@ begin
          Assert (W4 (HRA.Dates.Thursday).Is_Future,
                  "2026-08-20 is future");
       end;
-
-      --  Week 5 check (contains 2026-08-25 Tuesday with Plan + Issue attention => '+', and 2026-08-30 Sunday with Cycle_End => '|')
       declare
          W5 : constant Calendar_Week := Grid.Weeks.Element (5);
       begin
@@ -461,7 +394,6 @@ begin
                  "2026-08-25 has Issue_Due = Present");
          Assert (Resolve_Marker (W5 (HRA.Dates.Tuesday).Attention) = '+',
                  "2026-08-25 resolves to '+' marker");
-
          Assert (W5 (HRA.Dates.Sunday).Date_Value = D ("2026-08-30"),
                  "Week 5 Sunday is 2026-08-30");
          Assert (W5 (HRA.Dates.Sunday).Attention.Cycle_End = Present,
@@ -469,8 +401,6 @@ begin
          Assert (Resolve_Marker (W5 (HRA.Dates.Sunday).Attention) = '|',
                  "2026-08-30 resolves to '|' marker");
       end;
-
-      --  Week 6 check (contains 2026-08-31 Monday with Plan => '$', and next month padding)
       declare
          W6 : constant Calendar_Week := Grid.Weeks.Element (6);
       begin
@@ -491,8 +421,6 @@ begin
          Assert (W6 (HRA.Dates.Sunday).Date_Value = D ("2026-09-06"),
                  "Week 6 Sunday is 2026-09-06 (next month padding retains real date)");
       end;
-
-      --  Render grid line length check
       declare
          Grid_Text : constant String := Render_Calendar_Grid (Grid);
       begin
@@ -500,14 +428,10 @@ begin
       end;
    end;
 
-   --  ========================================================================
-   --  4. Upper Gregorian Out-of-Range Calendar Padding Law Tests (9999-12)
-   --  ========================================================================
    declare
       use HRA.Household_Home_Observation;
       use HRA.Household_Home_Presentation;
       use HRA.Household_Home_Text;
-
       Obs_Max : constant Home_Observation :=
         Observe
           (Observed_Through => D ("9999-12-01"),
@@ -520,32 +444,22 @@ begin
    begin
       Assert (Grid_Max.Year = 9999 and then Grid_Max.Month = 12,
               "9999-12 calendar generated without exception");
-
-      --  9999-12-31 is Friday (Day_Of_Week_Of = Friday)
       Assert (HRA.Dates.Day_Of_Week_Of (D ("9999-12-31")) = HRA.Dates.Friday,
               "9999-12-31 is Friday");
-
-      --  Friday is a valid Dated_Cell
       Assert (Last_Wk (HRA.Dates.Friday).Kind = Dated_Cell,
               "9999-12 last week Friday is Dated_Cell");
       Assert (Last_Wk (HRA.Dates.Friday).Date_Value = D ("9999-12-31"),
               "9999-12 last week Friday Date_Value = 9999-12-31");
       Assert (Last_Wk (HRA.Dates.Friday).Is_Selected,
               "9999-12-31 is selected");
-
-      --  Saturday and Sunday are explicit Out_Of_Range_Padding without fake dates
       Assert (Last_Wk (HRA.Dates.Saturday).Kind = Out_Of_Range_Padding,
               "9999-12 last week Saturday is Out_Of_Range_Padding");
       Assert (Last_Wk (HRA.Dates.Sunday).Kind = Out_Of_Range_Padding,
               "9999-12 last week Sunday is Out_Of_Range_Padding");
-
-      --  Format_Cell on Out_Of_Range_Padding is exactly 5 spaces
       Assert (Format_Cell (Last_Wk (HRA.Dates.Saturday)) = "     ",
               "9999-12 Saturday padding formats to exactly 5 spaces");
       Assert (Format_Cell (Last_Wk (HRA.Dates.Sunday)) = "     ",
               "9999-12 Sunday padding formats to exactly 5 spaces");
-
-      --  Gregorian origin (0001-01) check
       declare
          Obs_Min : constant Home_Observation :=
            Observe
@@ -565,22 +479,16 @@ begin
       end;
    end;
 
-   --  ========================================================================
-   --  5. Structured Multi-Posting Actual & Plan: Pure Structured View Models
-   --  ========================================================================
    declare
       use HRA.Household_Home_Observation;
       use HRA.Household_Home_Presentation;
-
       Obs_Today : constant Home_Observation :=
         Observe
           (Observed_Through => D ("2026-08-19"),
            Selected_Day     => D ("2026-08-19"),
            State            => State);
-
       Pres_Today : constant Home_Presentation := Present (Obs_Today);
    begin
-      --  Actual Presentation has structured postings
       Assert (Pres_Today.Actual.Status = Available, "Actual is Available");
       Assert (Natural (Pres_Today.Actual.Items.Length) = 1, "1 Actual transaction on 2026-08-19");
       declare
@@ -605,8 +513,6 @@ begin
          Assert (Item.Postings.Element (3).Amount.Val = -2200.0,
                  "Third posting amount is -2200");
       end;
-
-      --  Future Day: Plan has structured postings and typed Scheduled_Date
       declare
          Obs_Future : constant Home_Observation :=
            Observe
@@ -644,22 +550,16 @@ begin
       end;
    end;
 
-   --  ========================================================================
-   --  6. Structured Selected Day Domain Presentations (Issue & Cycle)
-   --  ========================================================================
    declare
       use HRA.Household_Home_Observation;
       use HRA.Household_Home_Presentation;
-
       Obs  : constant Home_Observation :=
         Observe
           (Observed_Through => D ("2026-08-19"),
            Selected_Day     => D ("2026-08-19"),
            State            => State);
-
       Pres : constant Home_Presentation := Present (Obs);
    begin
-      --  Cycle Presentation: Typed periods and enum focus role
       Assert (Pres.Cycle.Status = Available,
               "Cycle presentation is Available");
       Assert (Pres.Cycle.Focus_Role = Current_Cycle,
@@ -668,8 +568,6 @@ begin
               "Previous window starts on 2026-07-25");
       Assert (HRA.Dates.First (Pres.Cycle.Current_Window) = D ("2026-08-01"),
               "Current window starts on 2026-08-01");
-
-      --  Future Focus Day (2026-08-25 > 2026-08-19)
       declare
          Obs_Fut : constant Home_Observation :=
            Observe
@@ -683,10 +581,8 @@ begin
                  "Actual is Unavailable on future focus day");
          Assert ((case Pres_Fut.Actual.Reason is when Observation_Horizon_Exceeded => True),
                  "Actual unavailable reason is Observation_Horizon_Exceeded");
-
          Assert (Pres_Fut.Issue.Status = Available, "Issue is Available");
          Assert (Natural (Pres_Fut.Issue.Items.Length) = 2, "2 due issues on 2026-08-25");
-
          declare
             I1 : constant Issue_Item := Pres_Fut.Issue.Items.Element (1);
             I2 : constant Issue_Item := Pres_Fut.Issue.Items.Element (2);
@@ -705,7 +601,6 @@ begin
                     "First issue category matches");
             Assert (To_String (I1.Details) = "city tax",
                     "First issue details match");
-
             Assert (HRA.Issues.Text (I2.Issue_Id) = "ISSUE-2",
                     "Second issue ID is typed ISSUE-2");
             Assert (I2.Status_As_Of = HRA.Issue_Observation.Open,
@@ -716,8 +611,6 @@ begin
                     "Second issue amount is typed 3000 JPY");
          end;
       end;
-
-      --  As of 2026-08-25: ISSUE-2 was resolved on 2026-08-22 (no longer open), but ISSUE-4 (recorded 2026-08-22) is now visible and open
       declare
          Obs_Later : constant Home_Observation :=
            Observe
@@ -744,39 +637,28 @@ begin
       end;
    end;
 
-   --  ========================================================================
-   --  7. Cycle Focus Roles: Enum Mapping Verification
-   --  ========================================================================
    declare
       use HRA.Household_Home_Observation;
       use HRA.Household_Home_Presentation;
       use HRA.Household_Home_Text;
-
-      --  Focus on current cycle human end: 2026-08-30
       Obs_Curr_End : constant Home_Observation :=
         Observe
           (Observed_Through => D ("2026-08-19"),
            Selected_Day     => D ("2026-08-30"),
            State            => State);
       Pres_Curr_End : constant Home_Presentation := Present (Obs_Curr_End);
-
-      --  Focus on previous cycle human end: 2026-07-31
       Obs_Prev_End : constant Home_Observation :=
         Observe
           (Observed_Through => D ("2026-08-19"),
            Selected_Day     => D ("2026-07-31"),
            State            => State);
       Pres_Prev_End : constant Home_Presentation := Present (Obs_Prev_End);
-
-      --  Focus on previous cycle: 2026-07-28
       Obs_Prev : constant Home_Observation :=
         Observe
           (Observed_Through => D ("2026-08-19"),
            Selected_Day     => D ("2026-07-28"),
            State            => State);
       Pres_Prev : constant Home_Presentation := Present (Obs_Prev);
-
-      --  Focus on outside cycle windows: 2026-07-10
       Obs_Outside : constant Home_Observation :=
         Observe
           (Observed_Through => D ("2026-08-19"),
@@ -792,17 +674,12 @@ begin
               "Focus on 2026-07-28 is enum Previous_Cycle");
       Assert (Pres_Outside.Cycle.Focus_Role = Outside_Known_Cycles,
               "Focus on 2026-07-10 is enum Outside_Known_Cycles");
-
-      --  Verify text rendering contains formatted role labels
       Assert (Render_Home (Pres_Curr_End)'Length > 0, "Render Current_Cycle_End");
       Assert (Render_Home (Pres_Prev_End)'Length > 0, "Render Previous_Cycle_End");
       Assert (Render_Home (Pres_Prev)'Length > 0, "Render Previous_Cycle");
       Assert (Render_Home (Pres_Outside)'Length > 0, "Render Outside_Known_Cycles");
    end;
 
-   --  ========================================================================
-   --  8. Typed Month Boundaries (First_Of_Month / Last_Of_Month)
-   --  ========================================================================
    declare
       D_2026_08_19 : constant HRA.Dates.Date := D ("2026-08-19");
       D_2024_02_15 : constant HRA.Dates.Date := D ("2024-02-15");
@@ -818,14 +695,10 @@ begin
               "Last_Of_Month (2026-02-10) = 2026-02-28 (Common February)");
    end;
 
-   --  ========================================================================
-   --  9. Complete Home Text Rendering Output Checks
-   --  ========================================================================
    declare
       use HRA.Household_Home_Observation;
       use HRA.Household_Home_Presentation;
       use HRA.Household_Home_Text;
-
       Obs_Today : constant Home_Observation :=
         Observe
           (Observed_Through => D ("2026-08-19"),
@@ -833,7 +706,6 @@ begin
            State            => State);
       Pres_Today : constant Home_Presentation := Present (Obs_Today);
       Text_Today : constant String := Render_Home (Pres_Today);
-
       Obs_Future : constant Home_Observation :=
         Observe
           (Observed_Through => D ("2026-08-19"),
@@ -846,15 +718,10 @@ begin
       Assert (Text_Future'Length > 0, "Render_Home for future produces non-empty output");
    end;
 
-   --  ========================================================================
-   --  10. Typed Unavailable Diagnostics Projections
-   --  ========================================================================
-   --  10a. Undetermined Issue Closure
    declare
       use HRA.Household_Home_Observation;
       use HRA.Household_Home_Presentation;
       use HRA.Household_Home_Text;
-
       Sources_Undet : constant HRA.Canonical_Source.Source_Observation :=
         Make_Synthetic_Sources (Include_Undetermined_Issue => True);
       State_Undet   : HRA.Household.Household_State;
@@ -877,12 +744,10 @@ begin
       end;
    end;
 
-   --  10b. Broken Plan Dependency affecting Plan & Cycle
    declare
       use HRA.Household_Home_Observation;
       use HRA.Household_Home_Presentation;
       use HRA.Household_Home_Text;
-
       Broken_State : HRA.Household.Household_State := State;
    begin
       Broken_State.Plan_Evidence.Transactions.Clear;
@@ -896,7 +761,6 @@ begin
          Assert (Pres_Broken.Plan.Diagnostic.Status =
                    HRA.Plan_Observation.Plan_Source_Evidence_Error,
                  "Plan diagnostic retains exact Plan_Source_Evidence_Error");
-
          Assert (Pres_Broken.Cycle.Status = Unavailable,
                  "Cycle presentation is Unavailable when Plan dependency fails");
          Assert (Pres_Broken.Cycle.Failure.Reason = Plan_Dependency_Unavailable,
@@ -904,18 +768,15 @@ begin
          Assert (Pres_Broken.Cycle.Failure.Plan_Error.Status =
                    HRA.Plan_Observation.Plan_Source_Evidence_Error,
                  "Cycle failure diagnostic retains exact upstream error");
-
          Assert (Render_Home (Pres_Broken)'Length > 0,
                  "Render_Home with broken plan/cycle produces diagnostic text");
       end;
    end;
 
-   --  10c. Missing Cycle Anchor
    declare
       use HRA.Household_Home_Observation;
       use HRA.Household_Home_Presentation;
       use HRA.Household_Home_Text;
-
       Sources_No_Anchor : constant HRA.Canonical_Source.Source_Observation :=
         Make_Synthetic_Sources (Include_Future_Plan_Anchor => False);
       State_No_Anchor   : HRA.Household.Household_State;
@@ -936,24 +797,18 @@ begin
          Assert (Pres_No_Anchor.Cycle.Failure.Cycle_Error =
                    HRA.Cycle_Observation.Missing_Future_Plan_Anchor,
                  "Cycle error is Missing_Future_Plan_Anchor");
-
          Assert (Render_Home (Pres_No_Anchor)'Length > 0,
                  "Render_Home with cycle resolution failure produces diagnostic text");
       end;
    end;
 
-   --  ========================================================================
-   --  11. GUI-like Structured Inspection Without Text Parsing
-   --  ========================================================================
    declare
       use HRA.Household_Home_Observation;
       use HRA.Household_Home_Presentation;
-
       Obs : constant Home_Observation :=
         Observe (D ("2026-08-19"), D ("2026-08-19"), State);
       Pres : constant Home_Presentation := Present (Obs);
    begin
-      --  11a. Inspect Actual structured view model
       if Pres.Actual.Status = Available then
          for Item of Pres.Actual.Items loop
             Assert (Item.Date = D ("2026-08-19"), "GUI reads typed Date without string parsing");
@@ -965,23 +820,16 @@ begin
             end loop;
          end loop;
       end if;
-
-      --  11b. Inspect Cycle structured view model
       if Pres.Cycle.Status = Available then
          Assert (Pres.Cycle.Focus_Role = Current_Cycle,
                  "GUI evaluates Cycle_Focus_Role enum directly");
          Assert (HRA.Dates.First (Pres.Cycle.Current_Window) <= Pres.Selected_Day,
                  "GUI tests period bounds with typed dates");
       end if;
-
-      --  11c. Inspect Attention Summary
       Assert (Pres.Attention.Plan_Scheduled = Absent,
               "GUI checks Plan_Scheduled Attention_State enum directly");
    end;
 
-   --  ========================================================================
-   --  Summary
-   --  ========================================================================
    Put_Line ("--------------------------------------------------");
    Put_Line ("Summary: Passed = " & Natural'Image (Passed_Count) &
              ", Failed = " & Natural'Image (Failed_Count));

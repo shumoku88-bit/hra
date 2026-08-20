@@ -70,13 +70,7 @@ procedure Test_Household_Home_Observation is
          "account expenses:food" & ASCII.LF &
          "  ; type: Expense" & ASCII.LF &
          "account income:salary" & ASCII.LF &
-         "  ; type: Income" & ASCII.LF &
-         "account budget:food" & ASCII.LF &
-         "  ; type: Budget" & ASCII.LF &
-         "account budget:unassigned" & ASCII.LF &
-         "  ; type: Budget" & ASCII.LF &
-         "account budget:opening" & ASCII.LF &
-         "  ; type: Budget" & ASCII.LF);
+         "  ; type: Income" & ASCII.LF);
 
       Obs.Texts (Actual_Source) := To_Unbounded_String
         ((if Include_Actual_Salary_Anchors then
@@ -111,15 +105,11 @@ procedure Test_Household_Home_Observation is
           else
             ""));
 
-      Obs.Texts (Budget_Journal_Source) := To_Unbounded_String
-        ("2026-07-25 Opening" & ASCII.LF &
-         "    budget:opening            0 JPY" & ASCII.LF &
-         "    budget:unassigned         0 JPY" & ASCII.LF & ASCII.LF &
-         "2026-08-01 Food Allocation" & ASCII.LF &
-         "    budget:unassigned    -50000 JPY" & ASCII.LF &
-         "    budget:food           50000 JPY" & ASCII.LF);
+      Obs.Texts (Entitlement_Source) := To_Unbounded_String
+        ("2026-07-25 origin JPY ; Opening" & ASCII.LF &
+         "2026-08-01 transfer unallocated -> food 50000 JPY ; Food Allocation" & ASCII.LF);
 
-      Obs.Texts (Budget_Config_Source) := To_Unbounded_String
+      Obs.Texts (Envelope_Config_Source) := To_Unbounded_String
         ("[[backing-pools]]" & ASCII.LF &
          "id = ""liquid""" & ASCII.LF &
          "asset-accounts = [""assets:bank"", ""assets:cash""]" & ASCII.LF & ASCII.LF &
@@ -135,12 +125,6 @@ procedure Test_Household_Home_Observation is
          "income-account = ""income:salary""" & ASCII.LF &
          "[money]" & ASCII.LF &
          "primary-commodity = ""JPY""" & ASCII.LF &
-         "[budget]" & ASCII.LF &
-         "opening-accounts = [""budget:opening""]" & ASCII.LF &
-         "unassigned-accounts = [""budget:unassigned""]" & ASCII.LF &
-         "[[budget.envelopes]]" & ASCII.LF &
-         "id = ""food""" & ASCII.LF &
-         "allocation-account = ""budget:food""" & ASCII.LF &
          "[envelope-history]" & ASCII.LF &
          "identities = [""food""]" & ASCII.LF &
          "[[envelope-history.expense-routing]]" & ASCII.LF &
@@ -352,7 +336,6 @@ begin
            (Selected_Attention (Obs).Plan_Scheduled = Unavailable,
             "Plan_Scheduled attention is Unavailable when Plan fails");
 
-         --  Cycle provenance: Plan dependency unavailable (NOT Missing_Future_Plan_Anchor!)
          Assert (not Is_Available (Cycle (Obs)), "Cycle is UNAVAILABLE when Plan dependency fails");
          Assert
            (Cycle (Obs).Failure.Reason = Plan_Dependency_Unavailable,
@@ -367,11 +350,6 @@ begin
    --  D. Issue Laws
    --  ========================================================================
 
-   --  D1. Recorded_On after Observed_Through => not visible
-   --  D2. resolved now, Closed_On after Observed_Through => open as-of
-   --  D3. Closed_On <= Observed_Through => closed as-of
-   --  D4. Due_On Selected_Day + open-as-of => due attention present
-   --  D5. No_Due_Date / Due_Undetermined => due attention absent, no fake date
    declare
       Obs : constant Home_Observation :=
         Observe (D ("2026-08-19"), D ("2026-08-25"), State);
@@ -386,7 +364,6 @@ begin
       Assert (Selected_Attention (Obs).Issue_Due = Present, "Issue_Due attention is Present on 2026-08-25");
    end;
 
-   --  D6. Closed_Undetermined => uncertainty retained, makes Selected_Day due Unavailable
    declare
       Undet_Sources : constant HRA.Canonical_Source.Source_Observation :=
         Make_Synthetic_Sources (Include_Undetermined_Issue => True);
@@ -410,7 +387,6 @@ begin
            (Selected_Attention (Obs).Issue_Due = Unavailable,
             "Issue_Due attention is Unavailable on 2026-08-25 due to undetermined closure");
       end;
-      --  On a different day without undetermined issue, Issue is Available
       declare
          Obs : constant Home_Observation :=
            Observe (D ("2026-08-19"), D ("2026-08-26"), Undet_State);
@@ -423,9 +399,6 @@ begin
    --  ========================================================================
    --  E. Cycle Laws & Coverage
    --  ========================================================================
-
-   --  Previous Window: [2026-07-25, 2026-08-01) -> Human end: 2026-07-31
-   --  Current Window:  [2026-08-01, 2026-08-31) -> Human end: 2026-08-30
    declare
       Obs : constant Home_Observation :=
         Observe (D ("2026-08-19"), D ("2026-08-19"), State);
@@ -439,26 +412,19 @@ begin
         (HRA.Cycle_Observation.Start_Date (Cycle (Obs).Observation.Current_Window) = D ("2026-08-01")
          and then HRA.Cycle_Observation.End_Exclusive (Cycle (Obs).Observation.Current_Window) = D ("2026-08-31"),
          "Cycle retains Current_Window evidence [2026-08-01, 2026-08-31)");
-
-      --  E1. Human ends
       Assert (Day_Attention (Obs, D ("2026-07-31")).Cycle_End = Present, "Previous cycle human end (2026-07-31) is Present");
       Assert (Day_Attention (Obs, D ("2026-08-30")).Cycle_End = Present, "Current cycle human end (2026-08-30) is Present");
-
-      --  E2. Known coverage non-ends
       Assert (Day_Attention (Obs, D ("2026-07-25")).Cycle_End = Absent, "Previous window start (2026-07-25) non-end is Absent");
       Assert (Day_Attention (Obs, D ("2026-07-28")).Cycle_End = Absent, "Previous window internal (2026-07-28) non-end is Absent");
       Assert (Day_Attention (Obs, D ("2026-08-01")).Cycle_End = Absent, "Boundary day B (2026-08-01, current window start) is Absent");
       Assert (Day_Attention (Obs, D ("2026-08-10")).Cycle_End = Absent, "Current window internal (2026-08-10) non-end is Absent");
       Assert (Day_Attention (Obs, D ("2026-08-25")).Cycle_End = Absent, "Current window internal (2026-08-25) non-end is Absent");
-
-      --  E3. Outside coverage
       Assert (Day_Attention (Obs, D ("2026-07-24")).Cycle_End = Unavailable, "Day before previous start (2026-07-24) is Unavailable");
       Assert (Day_Attention (Obs, D ("2026-07-01")).Cycle_End = Unavailable, "Unobserved past day (2026-07-01) is Unavailable");
       Assert (Day_Attention (Obs, D ("2026-08-31")).Cycle_End = Unavailable, "Current window limit C (2026-08-31) is Unavailable");
       Assert (Day_Attention (Obs, D ("2026-09-05")).Cycle_End = Unavailable, "Day after current limit (2026-09-05) is Unavailable");
    end;
 
-   --  E4. Selected_Day attention reflects human ends and outside coverage
    declare
       Obs_Prev_End : constant Home_Observation :=
         Observe (D ("2026-08-19"), D ("2026-07-31"), State);
@@ -475,7 +441,6 @@ begin
       Assert (Selected_Attention (Obs_Out_Fut).Cycle_End = Unavailable, "Selected_Attention on out-of-coverage future 2026-08-31 is Unavailable");
    end;
 
-   --  E5. Genuine missing future plan anchor (when Plan succeeds but has no income anchor)
    declare
       No_Anchor_Sources : constant HRA.Canonical_Source.Source_Observation :=
         Make_Synthetic_Sources (Include_Future_Plan_Anchor => False);
@@ -501,7 +466,6 @@ begin
       end;
    end;
 
-   --  E6. Cycle resolution unavailable due to insufficient actual anchors
    declare
       No_Anchors_Sources : constant HRA.Canonical_Source.Source_Observation :=
         Make_Synthetic_Sources (Include_Actual_Salary_Anchors => False);
@@ -530,8 +494,6 @@ begin
    --  ========================================================================
    --  F. Independence Laws
    --  ========================================================================
-
-   --  F1. Plan unavailable does not destroy Actual or Issue
    declare
       Broken_Plan_State : HRA.Household.Household_State := State;
    begin
@@ -547,7 +509,6 @@ begin
       end;
    end;
 
-   --  F2. Cycle unavailable does not destroy Actual, Plan, or Issue
    declare
       Broken_Cycle_State : HRA.Household.Household_State := State;
    begin
@@ -564,7 +525,6 @@ begin
       end;
    end;
 
-   --  F3. Attention overlap: multiple dimensions are Present independently
    declare
       Obs : constant Home_Observation :=
         Observe (D ("2026-08-19"), D ("2026-08-25"), State);
@@ -574,16 +534,12 @@ begin
       Assert (Selected_Attention (Obs).Cycle_End = Absent, "Cycle_End is Absent on 2026-08-25");
    end;
 
-   --  F4. Selected day outside cycle coverage maintains independent Actual / Plan / Issue
    declare
       Obs_Past : constant Home_Observation :=
         Observe (D ("2026-08-19"), D ("2026-07-20"), State);
       Obs_Fut  : constant Home_Observation :=
         Observe (D ("2026-08-19"), D ("2026-08-31"), State);
    begin
-      --  Past day before previous cycle start:
-      --  Actual is Available (within horizon), Plan is Available, Issue is Available, Cycle is Available,
-      --  but Selected_Attention.Cycle_End is Unavailable.
       Assert (Actual (Obs_Past).Status = Available, "Past day Actual remains Available");
       Assert (Plan (Obs_Past).Status = Available, "Past day Plan remains Available");
       Assert (Issue (Obs_Past).Status = Available, "Past day Issue remains Available");
@@ -592,9 +548,6 @@ begin
       Assert (Selected_Attention (Obs_Past).Plan_Scheduled = Absent, "Selected_Attention.Plan_Scheduled is independently Absent");
       Assert (Selected_Attention (Obs_Past).Issue_Due = Absent, "Selected_Attention.Issue_Due is independently Absent");
 
-      --  Future day at current cycle limit:
-      --  Actual is Unavailable (exceeds horizon), Plan is Available (has planned salary), Issue is Available,
-      --  Cycle is Available, but Selected_Attention.Cycle_End is Unavailable.
       Assert (Actual (Obs_Fut).Status = Unavailable, "Future day Actual is Unavailable due to horizon");
       Assert (Plan (Obs_Fut).Status = Available, "Future day Plan remains Available");
       Assert (Open_Plan_Count (Plan (Obs_Fut)) = 1, "Future day Plan observes 1 open plan on 2026-08-31");
@@ -630,63 +583,46 @@ begin
       Att_Post_Fut : constant Attention_Observation :=
         Day_Attention (Obs, D ("2026-09-05"));
    begin
-      --  Before previous start
       Assert
         (Att_Pre_Past.Plan_Scheduled = Absent
          and then Att_Pre_Past.Issue_Due = Absent
          and then Att_Pre_Past.Cycle_End = Unavailable,
          "Day_Attention for 2026-07-24 (before previous start) has Cycle_End = Unavailable");
-
-      --  Previous window non-end
       Assert
         (Att_Prev_Beg.Plan_Scheduled = Absent
          and then Att_Prev_Beg.Issue_Due = Absent
          and then Att_Prev_Beg.Cycle_End = Absent,
          "Day_Attention for 2026-07-25 (previous window start) has Cycle_End = Absent");
-
-      --  Previous cycle human end
       Assert
         (Att_Prev_End.Plan_Scheduled = Absent
          and then Att_Prev_End.Issue_Due = Absent
          and then Att_Prev_End.Cycle_End = Present,
          "Day_Attention for 2026-07-31 (previous human end) has Cycle_End = Present");
-
-      --  Boundary day B (exclusive limit of previous, inclusive start of current)
       Assert
         (Att_Boundary.Plan_Scheduled = Absent
          and then Att_Boundary.Issue_Due = Absent
          and then Att_Boundary.Cycle_End = Absent,
          "Day_Attention for 2026-08-01 (boundary B) has Cycle_End = Absent");
-
-      --  Current window non-end
       Assert
         (Att_10.Plan_Scheduled = Absent
          and then Att_10.Issue_Due = Absent
          and then Att_10.Cycle_End = Absent,
          "Day_Attention for 2026-08-10 (current window non-end) has Cycle_End = Absent");
-
-      --  Current window non-end with plan and issue
       Assert
         (Att_25.Plan_Scheduled = Present
          and then Att_25.Issue_Due = Present
          and then Att_25.Cycle_End = Absent,
          "Day_Attention for 2026-08-25 has Plan_Scheduled=Present, Issue_Due=Present, Cycle_End=Absent");
-
-      --  Current cycle human end
       Assert
         (Att_Curr_End.Plan_Scheduled = Absent
          and then Att_Curr_End.Issue_Due = Absent
          and then Att_Curr_End.Cycle_End = Present,
          "Day_Attention for 2026-08-30 (current human end) has Cycle_End = Present");
-
-      --  Current cycle exclusive limit (outside coverage) with plan scheduled
       Assert
         (Att_Curr_Lim.Plan_Scheduled = Present
          and then Att_Curr_Lim.Issue_Due = Absent
          and then Att_Curr_Lim.Cycle_End = Unavailable,
          "Day_Attention for 2026-08-31 has Plan_Scheduled=Present, Cycle_End=Unavailable");
-
-      --  After current limit
       Assert
         (Att_Post_Fut.Plan_Scheduled = Absent
          and then Att_Post_Fut.Issue_Due = Absent

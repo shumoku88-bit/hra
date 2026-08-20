@@ -10,6 +10,7 @@ with HRA.Journal_Evidence;
 with HRA.Actual_Admission;
 with HRA.Plan;
 with HRA.Envelope;
+with HRA.Entitlement_Journal;
 with HRA.Envelope_Routing;
 with HRA.Fulfillment_Routing;
 with HRA.Backing_Policy;
@@ -43,7 +44,7 @@ package HRA.Household is
       Plan_Ledger         : Ledger.Ledger;
       Plan_Evidence       : HRA.Journal_Evidence.Journal_Evidence;
       Plan_Ids            : HRA.Plan.Plan_Id_Universe;
-      Budget_Ledger       : Ledger.Ledger;
+      Entitlement_History : HRA.Entitlement_Journal.Entitlement_History;
       Combined_Ledger     : Ledger.Ledger;
       Issues              : Issues_Inventory;
       Envelope_Registry   : HRA.Envelope.Envelope_Registry;

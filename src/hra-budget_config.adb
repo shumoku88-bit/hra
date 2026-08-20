@@ -6,7 +6,7 @@ package body HRA.Budget_Config is
 
    use type TOML.Any_Value_Kind;
 
-   Source_Name : constant String := "budget.toml";
+   Source_Name : constant String := "envelope.toml";
 
    function Image (I : Positive) return String is
      (Trim (Positive'Image (I), Ada.Strings.Both));

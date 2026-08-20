@@ -10,8 +10,8 @@ package body HRA.Canonical_Source is
          when Accounts_Source         => return "accounts.journal";
          when Actual_Source           => return "actual.journal";
          when Plan_Source             => return "plan.journal";
-         when Budget_Journal_Source   => return "budget.journal";
-         when Budget_Config_Source    => return "budget.toml";
+         when Entitlement_Source      => return "entitlement.journal";
+         when Envelope_Config_Source  => return "envelope.toml";
          when Household_Config_Source => return "household.toml";
          when Report_Config_Source    => return "report.toml";
          when Issues_Source           => return "issues.tsv";
@@ -23,14 +23,14 @@ package body HRA.Canonical_Source is
         (To_Unbounded_String (Compose (Root_Dir, Basename (Source))));
    begin
       return
-        (Accounts_Journal => Source_Path (Accounts_Source),
-         Actual_Journal   => Source_Path (Actual_Source),
-         Plan_Journal     => Source_Path (Plan_Source),
-         Budget_Journal   => Source_Path (Budget_Journal_Source),
-         Budget_TOML      => Source_Path (Budget_Config_Source),
-         Household_TOML   => Source_Path (Household_Config_Source),
-         Report_TOML      => Source_Path (Report_Config_Source),
-         Issues_TSV       => Source_Path (Issues_Source));
+        (Accounts_Journal    => Source_Path (Accounts_Source),
+         Actual_Journal      => Source_Path (Actual_Source),
+         Plan_Journal        => Source_Path (Plan_Source),
+         Entitlement_Journal => Source_Path (Entitlement_Source),
+         Envelope_TOML       => Source_Path (Envelope_Config_Source),
+         Household_TOML      => Source_Path (Household_Config_Source),
+         Report_TOML         => Source_Path (Report_Config_Source),
+         Issues_TSV          => Source_Path (Issues_Source));
    end Resolve_Source_Paths;
 
    function Path_For
@@ -42,8 +42,8 @@ package body HRA.Canonical_Source is
          when Accounts_Source         => return To_String (Paths.Accounts_Journal);
          when Actual_Source           => return To_String (Paths.Actual_Journal);
          when Plan_Source             => return To_String (Paths.Plan_Journal);
-         when Budget_Journal_Source   => return To_String (Paths.Budget_Journal);
-         when Budget_Config_Source    => return To_String (Paths.Budget_TOML);
+         when Entitlement_Source      => return To_String (Paths.Entitlement_Journal);
+         when Envelope_Config_Source  => return To_String (Paths.Envelope_TOML);
          when Household_Config_Source => return To_String (Paths.Household_TOML);
          when Report_Config_Source    => return To_String (Paths.Report_TOML);
          when Issues_Source           => return To_String (Paths.Issues_TSV);

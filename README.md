@@ -18,8 +18,8 @@ HRA専用の正データは作りません。user-owned private repositoryのroo
 accounts.journal
 actual.journal
 plan.journal
-budget.journal
-budget.toml
+entitlement.journal
+envelope.toml
 household.toml
 report.toml
 issues.tsv
@@ -72,12 +72,7 @@ cd /path/to/hra
 ./tools/hra qualify
 ```
 
-成功時は最後に次のように表示されます。
-
-```text
-Summary: Passed = ..., Failed = 0
-RESULT: SUCCESS
-```
+成功時は各focused testとproofが成功して終了します。
 
 ## Quick start
 
@@ -124,12 +119,12 @@ export HKERNEL_LEDGER_DATA_DIR=/path/to/private-household-root
 
 ```text
 SUCCESS: Fixed 8-source topology and currently supported admissions verified for ...
-  Configuration       : typed budget, household, and report policy admitted
-  Actual Transactions : ...
-  Plan Transactions   : ...
-  Budget Transactions : ...
-  Registered Accounts : ...
-  Open Issues         : ...
+  Configuration         : typed envelope, household, and report policy admitted
+  Actual Transactions   : ...
+  Plan Transactions     : ...
+  Entitlement Movements : ...
+  Registered Accounts   : ...
+  Open Issues           : ...
 ```
 
 source本文や金額は`check`出力へ表示しません。
@@ -145,7 +140,7 @@ source本文や金額は`check`出力へ表示しません。
 1. Profit & Loss
 2. Balance Sheet
 3. open Household Issues
-4. Budget / backing status
+4. Envelope / backing status
 
 冒頭とsectionの概形:
 
@@ -198,12 +193,12 @@ private source、生成Report、local pathを公開repositoryやCI logへ出力�
 - `proof/hra_proof.gpr`, `tools/hra prove`: strict proof target
 - `src/hra-output.*`: UTF-8を二重encodeしないnative terminal output
 - `src/hra-canonical_source.*`: 固定8-source pathとexact-byte observation
-- `src/hra-*_config.*`: Budget、Household、Report TOMLの型付きadmission
+- `src/hra-*_config.*`: Envelope、Household、Report TOMLの型付きadmission
 - `src/hra-household.*`: complete observationからのHousehold composition
 - `src/hra-journal.*`: Journal admission
 - `src/hra-money.*`, `hra-account.*`, `hra-ledger.*`: accounting kernel
-- `src/hra-plan.*`, `hra-budget.*`, `hra-report.*`: domain projection
-- `tests/test_runner.adb`: synthetic test suite
+- `src/hra-plan.*`, `hra-entitlement_journal.*`, `hra-envelope_*`, `hra-report.*`: domain projection
+- `tests/test_*.adb`: focused synthetic test suites
 
 ## License
 

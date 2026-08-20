@@ -83,13 +83,7 @@ begin
       "account expenses:coffee" & ASCII.LF &
       "  ; type: Expense" & ASCII.LF &
       "account income:salary" & ASCII.LF &
-      "  ; type: Income" & ASCII.LF &
-      "account budget:coffee" & ASCII.LF &
-      "  ; type: Budget" & ASCII.LF &
-      "account budget:unassigned" & ASCII.LF &
-      "  ; type: Budget" & ASCII.LF &
-      "account budget:opening" & ASCII.LF &
-      "  ; type: Budget" & ASCII.LF);
+      "  ; type: Income" & ASCII.LF);
 
    Observation.Texts (Actual_Source) := To_Unbounded_String
      ("2026-06-20 Pre-cycle Coffee" & ASCII.LF &
@@ -107,18 +101,12 @@ begin
 
    Observation.Texts (Plan_Source) := Null_Unbounded_String;
 
-   Observation.Texts (Budget_Journal_Source) := To_Unbounded_String
-     ("2026-06-15 Envelope stock epoch" & ASCII.LF &
-      "    budget:opening             0 JPY" & ASCII.LF &
-      "    budget:unassigned          0 JPY" & ASCII.LF & ASCII.LF &
-      "2026-07-01 July Coffee grant" & ASCII.LF &
-      "    budget:unassigned        -50 JPY" & ASCII.LF &
-      "    budget:coffee             50 JPY" & ASCII.LF & ASCII.LF &
-      "2026-08-01 August Coffee grant" & ASCII.LF &
-      "    budget:unassigned       -100 JPY" & ASCII.LF &
-      "    budget:coffee            100 JPY" & ASCII.LF);
+   Observation.Texts (Entitlement_Source) := To_Unbounded_String
+     ("2026-06-15 origin JPY ; Envelope stock epoch" & ASCII.LF &
+      "2026-07-01 transfer unallocated -> coffee 50 JPY" & ASCII.LF &
+      "2026-08-01 transfer unallocated -> coffee 100 JPY" & ASCII.LF);
 
-   Observation.Texts (Budget_Config_Source) := To_Unbounded_String
+   Observation.Texts (Envelope_Config_Source) := To_Unbounded_String
      ("[[backing-pools]]" & ASCII.LF &
       "id = ""liquid""" & ASCII.LF &
       "asset-accounts = [""assets:wallet""]" & ASCII.LF &
@@ -134,12 +122,6 @@ begin
       "income-account = ""income:salary""" & ASCII.LF &
       "[money]" & ASCII.LF &
       "primary-commodity = ""JPY""" & ASCII.LF &
-      "[budget]" & ASCII.LF &
-      "opening-accounts = [""budget:opening""]" & ASCII.LF &
-      "unassigned-accounts = [""budget:unassigned""]" & ASCII.LF &
-      "[[budget.envelopes]]" & ASCII.LF &
-      "id = ""coffee""" & ASCII.LF &
-      "allocation-account = ""budget:coffee""" & ASCII.LF &
       "[envelope-history]" & ASCII.LF &
       "identities = [""coffee""]" & ASCII.LF &
       "[[envelope-history.expense-routing]]" & ASCII.LF &

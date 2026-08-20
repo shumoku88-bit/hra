@@ -6,11 +6,11 @@ with HRA.Household;
 package HRA.Household_Check_Observation is
 
    type Observation is record
-      Actual_Transactions : Natural;
-      Plan_Transactions   : Natural;
-      Budget_Transactions : Natural;
-      Registered_Accounts : Natural;
-      Open_Issues         : Natural;
+      Actual_Transactions  : Natural;
+      Plan_Transactions    : Natural;
+      Entitlement_Movements : Natural;
+      Registered_Accounts  : Natural;
+      Open_Issues          : Natural;
    end record;
 
    function Observe

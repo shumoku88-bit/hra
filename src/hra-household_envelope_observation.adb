@@ -1,5 +1,5 @@
 with HRA.Account;
-with HRA.Budget_Source_Adapter;
+with HRA.Entitlement_Journal;
 
 package body HRA.Household_Envelope_Observation is
 
@@ -56,7 +56,9 @@ package body HRA.Household_Envelope_Observation is
       Result.Open_Plans := Open_Plans;
       Result.Completed_Plans := Completed_Plans;
       Result.Current_Cycle := Window;
-      Result.Entitlement := HRA.Envelope_Entitlement.Empty_Observation;
+      Result.Entitlement :=
+        HRA.Entitlement_Journal.Observe
+          (State.Entitlement_History, Observed_Through);
       Result.Consumption := HRA.Envelope_Consumption.Empty_Consumption;
       Result.Fulfillment :=
         HRA.Envelope_Fulfillment.Empty_Fulfillment (Observed_Through);
@@ -64,28 +66,6 @@ package body HRA.Household_Envelope_Observation is
         (Observed_Through, HRA.Cycle_Observation.End_Exclusive (Window));
       Result.Envelope_Positions :=
         HRA.Envelope_Position.Empty_Observation;
-
-      declare
-         Adapter_Diag : HRA.Budget_Source_Adapter.Adapter_Diagnostic;
-      begin
-         if not HRA.Budget_Source_Adapter.Observe_Entitlements
-           (State.Budget_Ledger.Transactions,
-            State.Household_Policy,
-            State.Envelope_Registry,
-            Observed_Through,
-            Result.Entitlement,
-            Adapter_Diag)
-         then
-            Error_Msg := To_Unbounded_String
-              ("Budget source adapter failed: " &
-               HRA.Budget_Source_Adapter.Adapter_Status'Image
-                 (Adapter_Diag.Status) &
-               (if Length (Adapter_Diag.Message) > 0
-                then ": " & To_String (Adapter_Diag.Message)
-                else ""));
-            return False;
-         end if;
-      end;
 
       Result.Consumption :=
         HRA.Envelope_Consumption.Observe_Stock_Consumption
