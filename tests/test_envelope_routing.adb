@@ -7,6 +7,9 @@ with HRA.Envelope;
 with HRA.Envelope_Routing;
 
 procedure Test_Envelope_Routing is
+   use type HRA.Envelope_Routing.History_Status;
+   use type HRA.Envelope_Routing.Route_Kind;
+
    Passed_Count : Natural := 0;
    Failed_Count : Natural := 0;
 
