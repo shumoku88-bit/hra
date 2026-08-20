@@ -8,12 +8,11 @@ with HRA.Envelope;       use HRA.Envelope;
 --
 --  Per-Envelope Entitlement Observation.
 --
---  Source: budget.journal movements (2-posting transfers).
---  Native: an Envelope's Entitlement is the sum of all grants received
---          minus all transfers out minus all returns to Unallocated.
+--  Source: admitted native entitlement.journal history.
+--  An Envelope's Entitlement is the sum of grants received minus transfers
+--  out and returns to Unallocated.
 --
---  Stock origin is the earliest admitted budget.journal movement day for each
---  Commodity, including a zero movement that establishes a clean epoch.
+--  Stock origin is the explicit admitted origin date for each Commodity.
 --  ========================================================================
 
 package HRA.Envelope_Entitlement is
