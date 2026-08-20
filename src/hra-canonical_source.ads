@@ -3,26 +3,27 @@ with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
 package HRA.Canonical_Source is
 
    --  The canonical Household topology is fixed and shared with h-kernel.
-   --  Basenames are resolved only by this package.
+   --  Basenames are resolved only by this package. Retired Budget source
+   --  basenames have no compatibility alias here.
    type Source_Name is
      (Accounts_Source,
       Actual_Source,
       Plan_Source,
-      Budget_Journal_Source,
-      Budget_Config_Source,
+      Entitlement_Source,
+      Envelope_Config_Source,
       Household_Config_Source,
       Report_Config_Source,
       Issues_Source);
 
    type Source_Paths is record
-      Accounts_Journal : Unbounded_String;
-      Actual_Journal   : Unbounded_String;
-      Plan_Journal     : Unbounded_String;
-      Budget_Journal   : Unbounded_String;
-      Budget_TOML      : Unbounded_String;
-      Household_TOML   : Unbounded_String;
-      Report_TOML      : Unbounded_String;
-      Issues_TSV       : Unbounded_String;
+      Accounts_Journal    : Unbounded_String;
+      Actual_Journal      : Unbounded_String;
+      Plan_Journal        : Unbounded_String;
+      Entitlement_Journal : Unbounded_String;
+      Envelope_TOML       : Unbounded_String;
+      Household_TOML      : Unbounded_String;
+      Report_TOML         : Unbounded_String;
+      Issues_TSV          : Unbounded_String;
    end record;
 
    type Source_Text_Array is array (Source_Name) of Unbounded_String;
@@ -46,8 +47,8 @@ package HRA.Canonical_Source is
      (Observation : Source_Observation;
       Source      : Source_Name) return String;
 
-   --  Observe all eight roots as exact bytes.  Missing or unreadable sources
-   --  fail the complete observation; no fallback topology is attempted.
+   --  Observe all eight roots as exact bytes. Missing or unreadable sources
+   --  fail the complete observation; no retired fallback topology is attempted.
    function Observe_Canonical_Sources
      (Root_Dir    : String;
       Observation : out Source_Observation;
