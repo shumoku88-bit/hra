@@ -21,21 +21,54 @@ package HRA.Actual_Admission is
    function Text (ID : Actual_Id) return String;
    function "=" (Left, Right : Actual_Id) return Boolean;
 
-   --  Durable identity/provenance collections and their admitted aggregate stay
-   --  opaque. Callers may observe the normalized Ledger, but cannot manufacture
-   --  an Actual_Observation by inserting an arbitrary Plan/Budget Ledger.
-   type Identified_Actual_Collection is tagged private;
-   type Reversal_Collection is tagged private;
+   type Actual_Id_Option (Present : Boolean := False) is record
+      case Present is
+         when True =>
+            Value : Actual_Id;
+         when False =>
+            null;
+      end case;
+   end record;
+
+   --  One root-source Actual fact. Transaction, optional durable identity, and
+   --  parser-owned provenance stay aligned as one admitted value. Ordinary
+   --  identity-free Actual remains a first-class entry.
+   type Actual_Transaction_Entry is record
+      Tx       : HRA.Ledger.Transaction;
+      Identity : Actual_Id_Option;
+      Source   : HRA.Journal_Evidence.Transaction_Source;
+   end record;
+
+   type Reversal_Relation is record
+      Reversal_ID : Actual_Id;
+      Target_ID   : Actual_Id;
+   end record;
+
+   --  The admitted aggregate stays opaque. Callers cannot manufacture an
+   --  Actual observation by pairing an arbitrary Ledger with unrelated source
+   --  evidence or identity text.
    type Actual_Observation is private;
 
    function Empty_Observation return Actual_Observation;
 
-   --  Read-only value projection of the Ledger retained by admitted Actual.
    function Ledger_Of
      (Observation : Actual_Observation) return HRA.Ledger.Ledger;
 
+   function Transaction_Count
+     (Observation : Actual_Observation) return Natural;
+
+   function Transaction_At
+     (Observation : Actual_Observation;
+      Index       : Positive) return Actual_Transaction_Entry
+     with Pre => Index <= Transaction_Count (Observation);
+
    function Identified_Count (Observation : Actual_Observation) return Natural;
    function Reversal_Count (Observation : Actual_Observation) return Natural;
+
+   function Reversal_At
+     (Observation : Actual_Observation;
+      Index       : Positive) return Reversal_Relation
+     with Pre => Index <= Reversal_Count (Observation);
 
    type Admission_Status is
      (Success,
@@ -71,44 +104,40 @@ private
       ID_Text : Unbounded_String;
    end record;
 
-   type Identified_Actual is record
-      ID     : Actual_Id;
-      Tx     : HRA.Ledger.Transaction;
-      Source : HRA.Journal_Evidence.Transaction_Source;
-   end record;
-
-   package Identified_Actual_Vectors is new Ada.Containers.Indefinite_Vectors
-     (Index_Type   => Positive,
-      Element_Type => Identified_Actual);
-
-   type Identified_Actual_Collection is
-     new Identified_Actual_Vectors.Vector with null record;
-
-   type Reversal_Declaration is record
-      Reversal_ID : Actual_Id;
-      Target_ID   : Actual_Id;
-   end record;
+   package Actual_Transaction_Entry_Vectors is new
+     Ada.Containers.Indefinite_Vectors
+       (Index_Type   => Positive,
+        Element_Type => Actual_Transaction_Entry);
 
    package Reversal_Vectors is new Ada.Containers.Indefinite_Vectors
      (Index_Type   => Positive,
-      Element_Type => Reversal_Declaration);
-
-   type Reversal_Collection is new Reversal_Vectors.Vector with null record;
+      Element_Type => Reversal_Relation);
 
    type Actual_Observation is record
-      Value      : HRA.Ledger.Ledger;
-      Identified : Identified_Actual_Collection;
-      Reversals  : Reversal_Collection;
+      Value     : HRA.Ledger.Ledger;
+      In_Order  : Actual_Transaction_Entry_Vectors.Vector;
+      Reversals : Reversal_Vectors.Vector;
    end record;
 
    function Ledger_Of
      (Observation : Actual_Observation) return HRA.Ledger.Ledger is
      (Observation.Value);
 
-   function Identified_Count (Observation : Actual_Observation) return Natural is
-     (Natural (Observation.Identified.Length));
+   function Transaction_Count
+     (Observation : Actual_Observation) return Natural is
+     (Natural (Observation.In_Order.Length));
+
+   function Transaction_At
+     (Observation : Actual_Observation;
+      Index       : Positive) return Actual_Transaction_Entry is
+     (Observation.In_Order.Element (Index));
 
    function Reversal_Count (Observation : Actual_Observation) return Natural is
      (Natural (Observation.Reversals.Length));
+
+   function Reversal_At
+     (Observation : Actual_Observation;
+      Index       : Positive) return Reversal_Relation is
+     (Observation.Reversals.Element (Index));
 
 end HRA.Actual_Admission;

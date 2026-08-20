@@ -22,7 +22,6 @@ package body HRA.Household_Report_Observation is
       Error_Msg        : out Unbounded_String) return Boolean
    is
       Report_Status : HRA.Report_Plan.Resolve_Status;
-      Recent_Status : HRA.Recent_Journal.Observe_Status;
       Payment_Diag  : HRA.Planned_Payments.Admission_Diagnostic;
       Envelope_Obs : HRA.Household_Envelope_Observation.Observation;
       Funding      : HRA.Backing_Policy.Funding_Commitment_Observation;
@@ -217,19 +216,10 @@ package body HRA.Household_Report_Observation is
       Output.Profit_And_Loss.Value := HRA.Report.Generate_Profit_And_Loss_Period
         (State.Actual_Ledger, Output.Profit_And_Loss.Period);
 
-      if not HRA.Recent_Journal.Observe
-        (State.Actual_Ledger,
-         State.Actual_Evidence,
+      Output.Recent_Journal := HRA.Recent_Journal.Observe
+        (State.Actual_Identity,
          Output.Query_Plan.Recent_Transactions_Through,
-         Output.Query_Plan.Recent_Transactions_Count,
-         Output.Recent_Journal,
-         Recent_Status)
-      then
-         Error_Msg := To_Unbounded_String
-           ("Recent Journal observation failed: " &
-            HRA.Recent_Journal.Observe_Status'Image (Recent_Status));
-         return False;
-      end if;
+         Output.Query_Plan.Recent_Transactions_Count);
 
       if not HRA.Planned_Payments.Project
         (Envelope_Obs.Open_Plans,

@@ -1,7 +1,8 @@
 with Ada.Strings;           use Ada.Strings;
 with Ada.Strings.Fixed;     use Ada.Strings.Fixed;
 with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
-with HRA.Account;       use HRA.Account;
+with HRA.Account;          use HRA.Account;
+with HRA.Actual_Admission;
 with HRA.Dates;
 with HRA.Money;         use HRA.Money;
 
@@ -31,6 +32,12 @@ package body HRA.Recent_Journal_Render is
            (Buf,
             HRA.Dates.Image (Item.Value.Date) & " " &
             To_String (Item.Value.Code_Or_Payee) & ASCII.LF);
+         if Item.Identity.Present then
+            Append
+              (Buf,
+               "    ; event-id: " &
+               HRA.Actual_Admission.Text (Item.Identity.Value) & ASCII.LF);
+         end if;
          for Posting of Item.Value.Postings loop
             Append
               (Buf,
