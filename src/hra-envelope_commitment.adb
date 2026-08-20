@@ -20,7 +20,7 @@ package body HRA.Envelope_Commitment is
 
    procedure Add_Envelope
      (Map : in out Envelope_Balance_Maps.Map;
-      Key : String;
+      Key : HRA.Envelope.Envelope_Id;
       Amt : HRA.Money.Amount)
    is
       Next : HRA.Money.Balance := HRA.Money.Singleton_Balance (Amt);
@@ -168,7 +168,7 @@ package body HRA.Envelope_Commitment is
                                        when HRA.Envelope_Routing.Managed_By_Envelope =>
                                           Add_Envelope
                                             (Output.Managed,
-                                             HRA.Envelope.Image (Route.Target),
+                                             Route.Target,
                                              Posting.Amt);
                                        when HRA.Envelope_Routing.Not_Envelope_Managed =>
                                           Add_Account
@@ -195,7 +195,7 @@ package body HRA.Envelope_Commitment is
                                     when HRA.Fulfillment_Routing.Fulfills_Envelope =>
                                        Add_Envelope
                                          (Output.Managed,
-                                          HRA.Envelope.Image (Route.Target),
+                                          Route.Target,
                                           Posting.Amt);
                                     when HRA.Fulfillment_Routing.Not_Fulfillment_Target =>
                                        null;
@@ -218,10 +218,9 @@ package body HRA.Envelope_Commitment is
      (Obs : Commitment_Observation;
       Env : HRA.Envelope.Envelope_Id) return HRA.Money.Balance
    is
-      Key : constant String := HRA.Envelope.Image (Env);
    begin
-      if Obs.Managed.Contains (Key) then
-         return Obs.Managed.Element (Key);
+      if Obs.Managed.Contains (Env) then
+         return Obs.Managed.Element (Env);
       else
          return HRA.Money.Empty_Balance;
       end if;
