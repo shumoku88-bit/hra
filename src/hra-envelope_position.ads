@@ -48,14 +48,16 @@ package HRA.Envelope_Position is
    end record;
 
    package Position_Maps is new Ada.Containers.Indefinite_Ordered_Maps
-     (Key_Type     => String,
+     (Key_Type     => HRA.Envelope.Envelope_Id,
       Element_Type => Position,
+      "<"          => HRA.Envelope."<",
       "="          => "=");
 
    package Arithmetic_Evidence_Maps is new
      Ada.Containers.Indefinite_Ordered_Maps
-       (Key_Type     => String,
+       (Key_Type     => HRA.Envelope.Envelope_Id,
         Element_Type => Arithmetic_Evidence,
+        "<"          => HRA.Envelope."<",
         "="          => "=");
 
    type Observation is record
