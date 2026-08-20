@@ -50,7 +50,7 @@ package body HRA.Envelope_Consumption is
 
    function Add_To_Envelope_Map
      (Map     : Envelope_Amounts_Maps.Map;
-      Key     : String;
+      Key     : Envelope.Envelope_Id;
       Amounts : Consumption_Amounts) return Envelope_Amounts_Maps.Map
    is
       Result : Envelope_Amounts_Maps.Map := Map;
@@ -214,7 +214,7 @@ package body HRA.Envelope_Consumption is
                                     Result.Managed :=
                                       Add_To_Envelope_Map
                                         (Result.Managed,
-                                         Envelope.Image (Route.Target),
+                                         Route.Target,
                                          Amounts);
                                  when Envelope_Routing.Not_Envelope_Managed =>
                                     Result.Unmanaged :=
@@ -292,10 +292,9 @@ package body HRA.Envelope_Consumption is
      (Obs : Envelope_Consumption;
       Env : Envelope.Envelope_Id) return Consumption_Amounts
    is
-      Key : constant String := Envelope.Image (Env);
    begin
-      if Obs.Managed.Contains (Key) then
-         return Obs.Managed.Element (Key);
+      if Obs.Managed.Contains (Env) then
+         return Obs.Managed.Element (Env);
       else
          return Empty_Amounts;
       end if;
@@ -323,13 +322,9 @@ package body HRA.Envelope_Consumption is
       Cursor : Envelope_Amounts_Maps.Cursor := Obs.Managed.First;
    begin
       while Envelope_Amounts_Maps.Has_Element (Cursor) loop
-         declare
-            Name   : constant String := Envelope_Amounts_Maps.Key (Cursor);
-            Env_Id : constant Envelope.Envelope_Id :=
-              Envelope.Make_Envelope_Id (Name);
-         begin
-            Process (Env_Id, Envelope_Amounts_Maps.Element (Cursor));
-         end;
+         Process
+           (Envelope_Amounts_Maps.Key (Cursor),
+            Envelope_Amounts_Maps.Element (Cursor));
          Envelope_Amounts_Maps.Next (Cursor);
       end loop;
    end For_Each_Managed;
