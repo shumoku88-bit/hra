@@ -297,7 +297,7 @@ package body HRA.Envelope_Position is
    end Add_Current_Position;
 
    function Observe_Base
-     (Policy      : HRA.Budget_Config.Budget_Policy;
+     (Policy      : HRA.Envelope_Config.Envelope_Policy;
       Registry    : HRA.Envelope.Envelope_Registry;
       Entitlement : HRA.Envelope_Entitlement.Entitlement_Observation;
       Consumption : HRA.Envelope_Consumption.Envelope_Consumption;
@@ -350,7 +350,7 @@ package body HRA.Envelope_Position is
    end Observe_Base;
 
    function Observe
-     (Policy      : HRA.Budget_Config.Budget_Policy;
+     (Policy      : HRA.Envelope_Config.Envelope_Policy;
       Registry    : HRA.Envelope.Envelope_Registry;
       Entitlement : HRA.Envelope_Entitlement.Entitlement_Observation;
       Consumption : HRA.Envelope_Consumption.Envelope_Consumption;

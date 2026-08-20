@@ -7,7 +7,7 @@ with HRA.Envelope;       use HRA.Envelope;
 with HRA.Envelope_Position;
 with HRA.Plan_Observation;
 with HRA.Cycle_Observation;
-with HRA.Budget_Config;
+with HRA.Envelope_Config;
 with HRA.Ledger;
 with HRA.Config_Support;
 
@@ -44,7 +44,7 @@ package HRA.Backing_Policy is
       Unknown_Pool_Reference);
 
    function Admit_Backing_Policy
-     (Config   : Budget_Config.Budget_Policy;
+     (Config   : HRA.Envelope_Config.Envelope_Policy;
       Registry : Envelope.Envelope_Registry;
       Policy   : out Backing_Policy;
       Status   : out Policy_Status) return Boolean;

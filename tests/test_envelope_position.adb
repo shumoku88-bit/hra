@@ -1,7 +1,7 @@
 with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
 with Ada.Text_IO; use Ada.Text_IO;
 with HRA.Backing_Policy;
-with HRA.Budget_Config;
+with HRA.Envelope_Config;
 with HRA.Config_Support;
 with HRA.Dates;
 with HRA.Envelope; use HRA.Envelope;
@@ -40,8 +40,10 @@ procedure Test_Envelope_Position is
       return Result;
    end D;
 
-   function Policy_For (Envelope_Text : String) return HRA.Budget_Config.Budget_Policy is
-      Result : HRA.Budget_Config.Budget_Policy;
+   function Policy_For
+     (Envelope_Text : String) return HRA.Envelope_Config.Envelope_Policy
+   is
+      Result : HRA.Envelope_Config.Envelope_Policy;
       Diag   : HRA.Config_Support.Config_Diagnostic;
       Text   : constant String :=
         "[[backing-pools]]" & ASCII.LF &
@@ -49,13 +51,13 @@ procedure Test_Envelope_Position is
         "asset-accounts = [""assets:cash""]" & ASCII.LF &
         Envelope_Text;
    begin
-      if not HRA.Budget_Config.Parse_Budget_Policy (Text, Result, Diag) then
+      if not HRA.Envelope_Config.Parse_Envelope_Policy (Text, Result, Diag) then
          raise Program_Error with "invalid synthetic envelope policy";
       end if;
       return Result;
    end Policy_For;
 
-   Food_Policy : constant HRA.Budget_Config.Budget_Policy :=
+   Food_Policy : constant HRA.Envelope_Config.Envelope_Policy :=
      Policy_For
        ("[[envelopes]]" & ASCII.LF &
         "id = ""food""" & ASCII.LF &
@@ -63,7 +65,7 @@ procedure Test_Envelope_Position is
         "pacing = ""daily""" & ASCII.LF &
         "backing-pool = ""liquid""" & ASCII.LF);
 
-   Food_Daily_Policy : constant HRA.Budget_Config.Budget_Policy :=
+   Food_Daily_Policy : constant HRA.Envelope_Config.Envelope_Policy :=
      Policy_For
        ("[[envelopes]]" & ASCII.LF &
         "id = ""food""" & ASCII.LF &
@@ -372,7 +374,7 @@ begin
    -- Current policy must not introduce an Envelope that is absent from the
    -- stable identity registry.
    declare
-      Unknown_Policy : constant HRA.Budget_Config.Budget_Policy :=
+      Unknown_Policy : constant HRA.Envelope_Config.Envelope_Policy :=
         Policy_For
           ("[[envelopes]]" & ASCII.LF &
            "id = ""unknown""" & ASCII.LF &

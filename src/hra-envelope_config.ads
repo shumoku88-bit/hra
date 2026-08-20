@@ -2,7 +2,7 @@ with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
 with Ada.Containers.Indefinite_Vectors;
 with HRA.Config_Support; use HRA.Config_Support;
 
-package HRA.Budget_Config is
+package HRA.Envelope_Config is
 
    type Pacing_Kind is (Daily, Flex);
 
@@ -23,14 +23,14 @@ package HRA.Budget_Config is
    package Envelope_Definition_Vectors is new Ada.Containers.Indefinite_Vectors
      (Index_Type => Positive, Element_Type => Envelope_Definition);
 
-   type Budget_Policy is record
+   type Envelope_Policy is record
       Backing_Pools : Backing_Pool_Vectors.Vector;
       Envelopes     : Envelope_Definition_Vectors.Vector;
    end record;
 
-   function Parse_Budget_Policy
+   function Parse_Envelope_Policy
      (Text   : String;
-      Policy : out Budget_Policy;
+      Policy : out Envelope_Policy;
       Diag   : out Config_Diagnostic) return Boolean;
 
-end HRA.Budget_Config;
+end HRA.Envelope_Config;

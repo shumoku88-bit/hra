@@ -2,7 +2,7 @@ with Ada.Strings.Fixed; use Ada.Strings.Fixed;
 with TOML;
 with HRA.Account;
 
-package body HRA.Budget_Config is
+package body HRA.Envelope_Config is
 
    use type TOML.Any_Value_Kind;
 
@@ -49,13 +49,13 @@ package body HRA.Budget_Config is
       return HRA.Account.Create_Account (Name, Acc, Status);
    end Valid_Account;
 
-   function Parse_Budget_Policy
+   function Parse_Envelope_Policy
      (Text   : String;
-      Policy : out Budget_Policy;
+      Policy : out Envelope_Policy;
       Diag   : out Config_Diagnostic) return Boolean
    is
       Root, Pools, Envelopes : TOML.TOML_Value;
-      Result : Budget_Policy;
+      Result : Envelope_Policy;
       Pool_IDs, Asset_Accounts, Envelope_IDs, Envelope_Labels :
         String_Vectors.Vector;
    begin
@@ -231,6 +231,6 @@ package body HRA.Budget_Config is
 
       Policy := Result;
       return True;
-   end Parse_Budget_Policy;
+   end Parse_Envelope_Policy;
 
-end HRA.Budget_Config;
+end HRA.Envelope_Config;

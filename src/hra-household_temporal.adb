@@ -70,7 +70,7 @@ package body HRA.Household_Temporal is
       end if;
 
       if not HRA.Household_Envelope_Explanation.Capture
-        (State.Budget_Policy,
+        (State.Envelope_Policy,
          State.Envelope_Registry,
          Earlier.Current_Cycle,
          Earlier.Observed_Through,
@@ -85,7 +85,7 @@ package body HRA.Household_Temporal is
       end if;
 
       if not HRA.Household_Envelope_Explanation.Capture
-        (State.Budget_Policy,
+        (State.Envelope_Policy,
          State.Envelope_Registry,
          Current.Current_Cycle,
          Current.Observed_Through,

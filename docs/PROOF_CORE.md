@@ -1,7 +1,7 @@
 # SPARK proof core contract
 
 ステータス: active foundation  
-更新日: 2026-08-16  
+更新日: 2026-08-20  
 Owner: Actual、Envelope、Plan commitment、Backingに共通する証明可能な金額計算境界
 
 ## 1. 目的
@@ -155,7 +155,7 @@ negative Envelopeが別Envelopeのpositive claimを相殺してrequired funding�
 - dated report observation axis:
   ```text
   Observed_Through
-    -> dated Entitlement (Budget_Source_Adapter.Observe_Entitlements through Observed_Through)
+    -> dated Entitlement (Entitlement_Journal.Observe through Observed_Through)
     -> dated stock Consumption (Envelope_Consumption.Observe_Stock_Consumption)
     -> dated stock Fulfillment (Envelope_Fulfillment.Observe_Stock)
     -> Plan Commitment (Envelope_Commitment.Observe)
@@ -163,7 +163,7 @@ negative Envelopeが別Envelopeのpositive claimを相殺してrequired funding�
     -> dated Funding (Backing_Policy.Observe_Funding_Commitment)
     -> Backing (Backing_Policy.Observe_Backing)
   ```
-  `State.Entitlement` への fallback を禁止し、すべての金額観測は `Observed_Through` を基準とする dated pipeline を通る。
+  `State.Entitlement_History` はadmitted historyであり、金額観測はそこから `Observed_Through` を基準に投影する。undated current-state Entitlementへのfallbackを作らない。
 - `HRA.Backing_Policy` は `Envelope_Position.Observation` から Position を必須取得し、missing position 時は fail-loud（`Program_Error`）で異常停止し、Gross/Available Required を過小計算したまま成功することを禁止。
 - production Backing proof connection: Phase D（未接続）
 
@@ -172,7 +172,7 @@ negative Envelopeが別Envelopeのpositive claimを相殺してrequired funding�
 - production `Backing_Policy`へのproof result接続（Phase D）
 - 複数 Envelope 間にまたがる global proof ID orchestration / bijection / cross-envelope proof ID assignment（Phase D/E）
 - multi-Commodity cross-envelope proof orchestration
-- Budget movementからEntitlementへのfoldそのもの
+- `entitlement.journal` のorigin / transfer admissionとEntitlement foldそのもの
 - stock origin / Observed_Through selection
 - Expense routingとConsumption classification
 - Fulfillment routingとcompletion-root stock membership
@@ -206,7 +206,7 @@ negative Envelopeが別Envelopeのpositive claimを相殺してrequired funding�
 - `HRA.Envelope_Position` が production Remaining / Headroom observation owner
 - scalar arithmetic authority は `HRA.Proof_Core.Evaluate_Envelope`
 - `HRA.Proof_Money_Bridge` が唯一の Money ↔ quanta conversion boundary
-- current Envelope membership authority は typed `Budget_Policy.Envelopes`
+- current Envelope membership authority は typed `Envelope_Policy.Envelopes`
 - stable identity universe は `Envelope_Registry` が所有し、retired identity は current observation に混入しない
 - 4入力（Entitlement、Net Consumption、Net Fulfillment、Plan Commitment）の各 Entries から独立に Commodity union を構成（合算相殺による座標消失の防止）
 - 各 Commodity 座標ごとに `Proof_Money_Bridge` 経由で `Proof_Core.Evaluate_Envelope` を呼び出し、結果を `Balance` へ合成
@@ -260,7 +260,7 @@ proof、runtime test、canonical rehearsal、cross-engine parityは互いの代�
 
 ## 8. Change rule
 
-Actual、Plan、Budget、Envelope、Backingの金額式またはproof-facing boundsを変更するときは、同じchangeで次を更新する。
+Actual、Plan、Entitlement、Envelope、Backingの金額式またはproof-facing boundsを変更するときは、同じchangeで次を更新する。
 
 - `HRA.Proof_Core` contract/body
 - `./tools/hra prove`成功

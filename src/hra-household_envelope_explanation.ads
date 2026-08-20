@@ -1,6 +1,6 @@
 with Ada.Containers.Vectors;
 with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
-with HRA.Budget_Config;
+with HRA.Envelope_Config;
 with HRA.Cycle_Observation;
 with HRA.Dates;
 with HRA.Envelope;
@@ -49,11 +49,11 @@ package HRA.Household_Envelope_Explanation is
    end record;
 
    --  Capture one ordered explanation from an already-observed Position set.
-   --  Current membership and order come from Budget_Policy, stable identity
+   --  Current membership and order come from Envelope_Policy, stable identity
    --  comes from Envelope_Registry, and arithmetic evidence comes only from
    --  the supplied Position observation.
    function Capture
-     (Policy           : HRA.Budget_Config.Budget_Policy;
+     (Policy           : HRA.Envelope_Config.Envelope_Policy;
       Registry         : HRA.Envelope.Envelope_Registry;
       Window           : HRA.Cycle_Observation.Cycle_Window;
       Observed_Through : HRA.Dates.Date;

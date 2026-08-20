@@ -7,7 +7,7 @@ with HRA.Household_Envelope_Observation;
 package body HRA.Household_Envelope_Explanation is
 
    function Capture
-     (Policy           : HRA.Budget_Config.Budget_Policy;
+     (Policy           : HRA.Envelope_Config.Envelope_Policy;
       Registry         : HRA.Envelope.Envelope_Registry;
       Window           : HRA.Cycle_Observation.Cycle_Window;
       Observed_Through : HRA.Dates.Date;
@@ -80,7 +80,7 @@ package body HRA.Household_Envelope_Explanation is
       end if;
 
       return Capture
-        (State.Budget_Policy,
+        (State.Envelope_Policy,
          State.Envelope_Registry,
          Observation.Current_Cycle,
          Observation.Observed_Through,

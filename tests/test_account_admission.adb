@@ -121,6 +121,20 @@ begin
    end;
 
    declare
+      Retired_Budget_Type : constant String :=
+        "account legacy:budget" & ASCII.LF &
+        "  ; type: Budget" & ASCII.LF;
+      L   : Ledger;
+      Err : Unbounded_String;
+   begin
+      Assert
+        (not Parse_Journal_Text (Retired_Budget_Type, L, Err)
+           and then Index
+             (To_String (Err), "Unsupported account type or role: budget") > 0,
+         "retired Budget Account type is rejected");
+   end;
+
+   declare
       Duplicate : constant String :=
         "account assets:cash" & ASCII.LF &
         "  ; type: Asset" & ASCII.LF &

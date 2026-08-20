@@ -3,7 +3,7 @@ with HRA.Account;        use HRA.Account;
 with HRA.Ledger;         use HRA.Ledger;
 with HRA.Issues;         use HRA.Issues;
 with HRA.Canonical_Source;
-with HRA.Budget_Config;
+with HRA.Envelope_Config;
 with HRA.Household_Config;
 with HRA.Report_Config;
 with HRA.Journal_Evidence;
@@ -34,7 +34,7 @@ package HRA.Household is
       Root_Path           : Unbounded_String;
       Paths               : Source_Paths;
       Sources             : HRA.Canonical_Source.Source_Observation;
-      Budget_Policy       : HRA.Budget_Config.Budget_Policy;
+      Envelope_Policy     : HRA.Envelope_Config.Envelope_Policy;
       Household_Policy    : HRA.Household_Config.Household_Configuration;
       Report_Policy       : HRA.Report_Config.Report_Configuration;
       Registry            : Account_Registry;

@@ -44,7 +44,7 @@ package body HRA.Household_Report_Observation is
 
          --  Current membership and order are admitted policy. Resolve stable
          --  identity once here; a renderer must never reconstruct it from text.
-         for Definition of State.Budget_Policy.Envelopes loop
+         for Definition of State.Envelope_Policy.Envelopes loop
             declare
                Id_Text : constant String := To_String (Definition.ID);
                Env_Id  : HRA.Envelope.Envelope_Id;

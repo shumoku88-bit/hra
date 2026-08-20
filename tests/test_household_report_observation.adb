@@ -3,7 +3,7 @@ with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
 with Ada.Text_IO;           use Ada.Text_IO;
 with HRA.Account;
 with HRA.Backing_Policy;
-with HRA.Budget_Config;
+with HRA.Envelope_Config;
 with HRA.Config_Support;
 with HRA.Dates;
 with HRA.Entitlement_Journal;
@@ -156,8 +156,8 @@ begin
    Register (State.Registry, "expenses:food", HRA.Account.Expense);
 
    Assert
-     (HRA.Budget_Config.Parse_Budget_Policy
-        (Envelope_TOML, State.Budget_Policy, Config_Diag),
+     (HRA.Envelope_Config.Parse_Envelope_Policy
+        (Envelope_TOML, State.Envelope_Policy, Config_Diag),
       "setup admits current Envelope policy");
    Ids.Append ("food");
    Assert
@@ -176,7 +176,7 @@ begin
       "setup admits Report policy");
    Assert
      (HRA.Backing_Policy.Admit_Backing_Policy
-        (State.Budget_Policy,
+        (State.Envelope_Policy,
          State.Envelope_Registry,
          State.Backing_Policy_Spec,
          Policy_State),

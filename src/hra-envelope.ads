@@ -9,8 +9,8 @@ package HRA.Envelope is
    --
    --  An Envelope_Id identifies a stable household spending purpose such as
    --  "食費" or "タバコ".  It is NOT an Account: the string "食費" as an
-   --  Envelope identity has no relation to the Account name "expenses:食費"
-   --  or the Budget allocation Account "budget:食費".
+   --  Envelope identity has no relation to an accounting Account such as
+   --  "expenses:食費".
    --
    --  Construction is controlled.  Use Create_Envelope_Id for validated
    --  admission or Admit_Registry to build the canonical identity universe.

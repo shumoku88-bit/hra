@@ -180,7 +180,7 @@ package body HRA.Household_Envelope_Cycle_Comparison is
       end if;
 
       if not HRA.Household_Envelope_Explanation.Capture
-        (State.Budget_Policy,
+        (State.Envelope_Policy,
          State.Envelope_Registry,
          Current_Window,
          Current_Through,
@@ -197,7 +197,7 @@ package body HRA.Household_Envelope_Cycle_Comparison is
       end if;
 
       if not HRA.Household_Envelope_Explanation.Capture
-        (State.Budget_Policy,
+        (State.Envelope_Policy,
          State.Envelope_Registry,
          Baseline_Window,
          Baseline_Through,
