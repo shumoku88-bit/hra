@@ -8,19 +8,22 @@ with HRA.Plan;
 --  One admitted Plan Journal authority.
 --
 --  Journal syntax owns transactions and parser-produced source coordinates.
---  This package adds Plan identity and lifecycle meaning exactly once, while
+--  This package adds Plan identity and lifecycle evidence exactly once, while
 --  retaining the whole Transaction and its physical provenance together.
 package HRA.Plan_Admission is
 
-   type Retirement_Kind is (Active, Canceled, Superseded);
+   --  These constructors describe source-admitted retirement evidence, not an
+   --  as-of lifecycle state. A future Cancellation or Supersession remains
+   --  visible evidence even when a temporal observer still sees the Plan open.
+   type Retirement_Kind is (No_Retirement, Cancellation, Supersession);
 
-   type Plan_Retirement (Kind : Retirement_Kind := Active) is record
+   type Plan_Retirement (Kind : Retirement_Kind := No_Retirement) is record
       case Kind is
-         when Active =>
+         when No_Retirement =>
             null;
-         when Canceled =>
+         when Cancellation =>
             Canceled_On : HRA.Dates.Date;
-         when Superseded =>
+         when Supersession =>
             Superseded_On : HRA.Dates.Date;
             Successor     : HRA.Plan.Plan_Id;
       end case;
@@ -36,26 +39,26 @@ package HRA.Plan_Admission is
    --  The admitted aggregate is opaque. Clients observe source-order entries or
    --  read projections, but cannot pair unrelated Ledger/provenance/lifecycle
    --  values and call the result an admitted Plan Journal.
-   type Plan_Observation is private;
+   type Plan_Journal is private;
 
-   function Empty_Observation return Plan_Observation;
+   function Empty_Journal return Plan_Journal;
 
    function Ledger_Of
-     (Observation : Plan_Observation) return HRA.Ledger.Ledger;
+     (Journal : Plan_Journal) return HRA.Ledger.Ledger;
 
    function Evidence_Of
-     (Observation : Plan_Observation)
+     (Journal : Plan_Journal)
       return HRA.Journal_Evidence.Journal_Evidence;
 
    function Plan_Ids_Of
-     (Observation : Plan_Observation) return HRA.Plan.Plan_Id_Universe;
+     (Journal : Plan_Journal) return HRA.Plan.Plan_Id_Universe;
 
-   function Transaction_Count (Observation : Plan_Observation) return Natural;
+   function Transaction_Count (Journal : Plan_Journal) return Natural;
 
    function Transaction_At
-     (Observation : Plan_Observation;
-      Index       : Positive) return Plan_Transaction_Entry
-     with Pre => Index <= Transaction_Count (Observation);
+     (Journal : Plan_Journal;
+      Index   : Positive) return Plan_Transaction_Entry
+     with Pre => Index <= Transaction_Count (Journal);
 
    type Admission_Status is
      (Success,
@@ -80,7 +83,7 @@ package HRA.Plan_Admission is
    function Admit
      (Plan_Ledger   : HRA.Ledger.Ledger;
       Plan_Evidence : HRA.Journal_Evidence.Journal_Evidence;
-      Result        : out Plan_Observation;
+      Result        : out Plan_Journal;
       Diag          : out Admission_Diagnostic) return Boolean;
 
 private
@@ -90,26 +93,26 @@ private
        (Index_Type   => Positive,
         Element_Type => Plan_Transaction_Entry);
 
-   type Plan_Observation is record
+   type Plan_Journal is record
       Value    : HRA.Ledger.Ledger;
       In_Order : Plan_Transaction_Entry_Vectors.Vector;
       Ids      : HRA.Plan.Plan_Id_Universe;
    end record;
 
    function Ledger_Of
-     (Observation : Plan_Observation) return HRA.Ledger.Ledger is
-     (Observation.Value);
+     (Journal : Plan_Journal) return HRA.Ledger.Ledger is
+     (Journal.Value);
 
    function Plan_Ids_Of
-     (Observation : Plan_Observation) return HRA.Plan.Plan_Id_Universe is
-     (Observation.Ids);
+     (Journal : Plan_Journal) return HRA.Plan.Plan_Id_Universe is
+     (Journal.Ids);
 
-   function Transaction_Count (Observation : Plan_Observation) return Natural is
-     (Natural (Observation.In_Order.Length));
+   function Transaction_Count (Journal : Plan_Journal) return Natural is
+     (Natural (Journal.In_Order.Length));
 
    function Transaction_At
-     (Observation : Plan_Observation;
-      Index       : Positive) return Plan_Transaction_Entry is
-     (Observation.In_Order.Element (Index));
+     (Journal : Plan_Journal;
+      Index   : Positive) return Plan_Transaction_Entry is
+     (Journal.In_Order.Element (Index));
 
 end HRA.Plan_Admission;
