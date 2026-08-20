@@ -71,7 +71,7 @@ package body HRA.Backing_Policy is
    end Backing_Condition_For;
 
    function Admit_Backing_Policy
-     (Config   : Budget_Config.Budget_Policy;
+     (Config   : HRA.Envelope_Config.Envelope_Policy;
       Registry : Envelope.Envelope_Registry;
       Policy   : out Backing_Policy;
       Status   : out Policy_Status) return Boolean
