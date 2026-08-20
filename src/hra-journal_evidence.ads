@@ -1,12 +1,12 @@
 with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
 with Ada.Containers.Indefinite_Vectors;
+with HRA.Ledger;
 
 --  Physical source evidence owned by Journal parsing.
 --
---  This package intentionally contains data types only. It does not rescan or
---  reinterpret Journal text. HRA.Journal.Document produces these coordinates
---  from the same source-structure observation that owns include directives,
---  and HRA.Journal_Loader pairs them with admitted semantic Transactions.
+--  The data model lives here so domain consumers can retain source coordinates.
+--  Extract is only a projection/validation boundary: it delegates all lexical
+--  recognition to HRA.Journal.Document and owns no Journal grammar of its own.
 package HRA.Journal_Evidence is
 
    type Metadata_Entry is record
@@ -34,5 +34,23 @@ package HRA.Journal_Evidence is
    type Journal_Evidence is record
       Transactions : Transaction_Source_Vectors.Vector;
    end record;
+
+   type Evidence_Diagnostic is record
+      Line_Number : Natural := 0;
+      Message     : Unbounded_String;
+   end record;
+
+   function Extract
+     (Input    : String;
+      L        : HRA.Ledger.Ledger;
+      Evidence : out Journal_Evidence;
+      Diag     : out Evidence_Diagnostic) return Boolean;
+
+   function Extract
+     (Input       : String;
+      Source_Path : String;
+      L           : HRA.Ledger.Ledger;
+      Evidence    : out Journal_Evidence;
+      Diag        : out Evidence_Diagnostic) return Boolean;
 
 end HRA.Journal_Evidence;
