@@ -111,7 +111,7 @@ package body HRA.Household is
          H : HRA.Household_Config.Household_Configuration
            renames Result.Household_Policy;
       begin
-         for Pool of Result.Budget_Policy.Backing_Pools loop
+         for Pool of Result.Envelope_Policy.Backing_Pools loop
             for Name of Pool.Asset_Accounts loop
                if not Validate_Account
                  (Name, Asset, "envelope.toml backing pool")
@@ -151,7 +151,7 @@ package body HRA.Household is
       function Validate_Envelope_References return Boolean is
          Env_Id : HRA.Envelope.Envelope_Id;
       begin
-         for Env_Def of Result.Budget_Policy.Envelopes loop
+         for Env_Def of Result.Envelope_Policy.Envelopes loop
             if not HRA.Envelope.Lookup
               (Result.Envelope_Registry, To_String (Env_Def.ID), Env_Id)
             then
@@ -177,9 +177,9 @@ package body HRA.Household is
          Result.Registry := Accounts.Value.Registry;
       end;
 
-      if not HRA.Budget_Config.Parse_Budget_Policy
+      if not HRA.Envelope_Config.Parse_Envelope_Policy
         (Text_For (Observation, Envelope_Config_Source),
-         Result.Budget_Policy, Config_Diag)
+         Result.Envelope_Policy, Config_Diag)
       then
          Error_Msg := To_Unbounded_String
            (HRA.Config_Support.Format_Diagnostic (Config_Diag));
@@ -518,7 +518,7 @@ package body HRA.Household is
          P_Status : HRA.Backing_Policy.Policy_Status;
       begin
          if not HRA.Backing_Policy.Admit_Backing_Policy
-           (Result.Budget_Policy,
+           (Result.Envelope_Policy,
             Result.Envelope_Registry,
             Result.Backing_Policy_Spec,
             P_Status)
