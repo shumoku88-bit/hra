@@ -9,11 +9,19 @@ package HRA.Ledger is
    --  ========================================================================
    --  Posting: Single Account Posting with Amount and Optional Memo
    --  ========================================================================
+   type Optional_Memo (Present : Boolean := False) is record
+      case Present is
+         when True =>
+            Text : Unbounded_String;
+         when False =>
+            null;
+      end case;
+   end record;
+
    type Posting is record
-      Acc      : Account.Account;
-      Amt      : Amount;
-      Has_Memo : Boolean := False;
-      Memo     : Unbounded_String;
+      Acc  : Account.Account;
+      Amt  : Amount;
+      Memo : Optional_Memo;
    end record;
 
    function Make_Posting
