@@ -72,16 +72,22 @@ package body HRA.Account is
       return Left.Name_Text < Right.Name_Text;
    end "<";
 
+   function No_Default_Commodity return Default_Commodity_Option is
+     ((Has_Value => False));
+
+   function Make_Default_Commodity
+     (C : Commodity) return Default_Commodity_Option is
+     ((Has_Value => True, Value => C));
+
    function Declare_Account
      (Acc      : Account;
       Acc_Type : Account_Type) return Account_Declaration
    is
-      Dummy_Comm : Commodity;
    begin
-      return (Acc                   => Acc,
-              Acc_Type              => Acc_Type,
-              Has_Default_Commodity => False,
-              Default_Commodity     => Dummy_Comm);
+      return
+        (Acc               => Acc,
+         Acc_Type          => Acc_Type,
+         Default_Commodity => No_Default_Commodity);
    end Declare_Account;
 
    function Declare_Account_With_Default_Commodity
@@ -90,10 +96,10 @@ package body HRA.Account is
       Default_C : Commodity) return Account_Declaration
    is
    begin
-      return (Acc                   => Acc,
-              Acc_Type              => Acc_Type,
-              Has_Default_Commodity => True,
-              Default_Commodity     => Default_C);
+      return
+        (Acc               => Acc,
+         Acc_Type          => Acc_Type,
+         Default_Commodity => Make_Default_Commodity (Default_C));
    end Declare_Account_With_Default_Commodity;
 
    function Empty_Registry return Account_Registry is
