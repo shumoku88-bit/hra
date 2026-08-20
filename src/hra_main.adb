@@ -196,17 +196,17 @@ begin
                        ("SUCCESS: Fixed 8-source topology and currently supported " &
                         "admissions verified for " & Root_Dir);
                      Put_Line
-                       ("  Configuration       : typed budget, household, and report policy admitted");
+                       ("  Configuration        : typed envelope, household, and report policy admitted");
                      Put_Line
-                       ("  Actual Transactions : " & Natural'Image (Check_Obs.Actual_Transactions));
+                       ("  Actual Transactions  : " & Natural'Image (Check_Obs.Actual_Transactions));
                      Put_Line
-                       ("  Plan Transactions   : " & Natural'Image (Check_Obs.Plan_Transactions));
+                       ("  Plan Transactions    : " & Natural'Image (Check_Obs.Plan_Transactions));
                      Put_Line
-                       ("  Budget Transactions : " & Natural'Image (Check_Obs.Budget_Transactions));
+                       ("  Entitlement Movements: " & Natural'Image (Check_Obs.Entitlement_Movements));
                      Put_Line
-                       ("  Registered Accounts : " & Natural'Image (Check_Obs.Registered_Accounts));
+                       ("  Registered Accounts  : " & Natural'Image (Check_Obs.Registered_Accounts));
                      Put_Line
-                       ("  Open Issues         : " & Natural'Image (Check_Obs.Open_Issues));
+                       ("  Open Issues          : " & Natural'Image (Check_Obs.Open_Issues));
                   end;
                elsif Cmd = "report" then
                   declare
