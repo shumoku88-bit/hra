@@ -108,15 +108,7 @@ begin
       "account expenses:coffee" & ASCII.LF &
       "  ; type: Expense" & ASCII.LF &
       "account income:salary" & ASCII.LF &
-      "  ; type: Income" & ASCII.LF &
-      "account budget:coffee" & ASCII.LF &
-      "  ; type: Budget" & ASCII.LF &
-      "account budget:unassigned" & ASCII.LF &
-      "  ; type: Budget" & ASCII.LF &
-      "account budget:opening" & ASCII.LF &
-      "  ; type: Budget" & ASCII.LF &
-      "account budget:rogue" & ASCII.LF &
-      "  ; type: Budget" & ASCII.LF);
+      "  ; type: Income" & ASCII.LF);
 
    Write_File
      (To_String (Paths.Actual_Journal),
@@ -138,13 +130,11 @@ begin
       "    income:salary        -10000 JPY" & ASCII.LF);
 
    Write_File
-     (To_String (Paths.Budget_Journal),
-      "2026-08-01 Clean Envelope epoch" & ASCII.LF &
-      "    budget:opening          0 JPY" & ASCII.LF &
-      "    budget:unassigned       0 JPY" & ASCII.LF);
+     (To_String (Paths.Entitlement_Journal),
+      "2026-08-01 origin JPY ; Clean Envelope epoch" & ASCII.LF);
 
    Write_File
-     (To_String (Paths.Budget_TOML),
+     (To_String (Paths.Envelope_TOML),
       "[[backing-pools]]" & ASCII.LF &
       "id = ""liquid""" & ASCII.LF &
       "asset-accounts = [""assets:wallet""]" & ASCII.LF &
@@ -161,12 +151,6 @@ begin
       "income-account = ""income:salary""" & ASCII.LF &
       "[money]" & ASCII.LF &
       "primary-commodity = ""JPY""" & ASCII.LF &
-      "[budget]" & ASCII.LF &
-      "opening-accounts = [""budget:opening""]" & ASCII.LF &
-      "unassigned-accounts = [""budget:unassigned""]" & ASCII.LF &
-      "[[budget.envelopes]]" & ASCII.LF &
-      "id = ""coffee""" & ASCII.LF &
-      "allocation-account = ""budget:coffee""" & ASCII.LF &
       "[envelope-history]" & ASCII.LF &
       "identities = [""coffee""]" & ASCII.LF &
       "[[envelope-history.expense-routing]]" & ASCII.LF &
@@ -335,17 +319,13 @@ begin
    end;
 
    Write_File
-     (To_String (Paths.Budget_Journal),
-      "2026-08-01 Clean Envelope epoch" & ASCII.LF &
-      "    budget:opening          0 JPY" & ASCII.LF &
-      "    budget:unassigned       0 JPY" & ASCII.LF & ASCII.LF &
-      "2026-08-02 Rogue Budget coordinate" & ASCII.LF &
-      "    budget:unassigned      -1 JPY" & ASCII.LF &
-      "    budget:rogue             1 JPY" & ASCII.LF);
+     (To_String (Paths.Entitlement_Journal),
+      "2026-08-01 origin JPY ; Clean Envelope epoch" & ASCII.LF &
+      "2026-08-02 transfer unallocated -> rogue 1 JPY" & ASCII.LF);
    Assert
      (not HRA.Household.Load_Canonical_Household (Tmp_Dir, State, Err)
-        and then Index (To_String (Err), "unrecognized") > 0,
-      "Canonical Household rejects declared but semantically unknown Budget coordinate");
+        and then Index (To_String (Err), "unknown Envelope endpoint") > 0,
+      "Canonical Household rejects unknown native Entitlement endpoint");
 
    Delete_Tree (Tmp_Dir);
 
