@@ -1,5 +1,5 @@
 with Ada.Text_IO; use Ada.Text_IO;
-with HRA.Budget_Config;
+with HRA.Envelope_Config;
 with HRA.Config_Support;
 with HRA.Dates;
 with HRA.Envelope; use HRA.Envelope;
@@ -88,8 +88,8 @@ procedure Test_Envelope_Change is
      "pacing = ""daily""" & ASCII.LF &
      "backing-pool = ""liquid""" & ASCII.LF;
 
-   Policy           : HRA.Budget_Config.Budget_Policy;
-   Reordered_Policy : HRA.Budget_Config.Budget_Policy;
+   Policy           : HRA.Envelope_Config.Envelope_Policy;
+   Reordered_Policy : HRA.Envelope_Config.Envelope_Policy;
    Config_Diag      : HRA.Config_Support.Config_Diagnostic;
    Ids              : HRA.Config_Support.String_Vectors.Vector;
    Registry         : Envelope_Registry;
@@ -139,11 +139,11 @@ begin
    Put_Line ("--- Testing typed Envelope Change ---");
 
    Assert
-     (HRA.Budget_Config.Parse_Budget_Policy
+     (HRA.Envelope_Config.Parse_Envelope_Policy
         (Policy_Text, Policy, Config_Diag),
       "Setup: parse food/daily policy");
    Assert
-     (HRA.Budget_Config.Parse_Budget_Policy
+     (HRA.Envelope_Config.Parse_Envelope_Policy
         (Reordered_Policy_Text, Reordered_Policy, Config_Diag),
       "Setup: parse reordered policy");
 
