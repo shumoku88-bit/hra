@@ -24,10 +24,9 @@ procedure Test_Household_Source_Admission is
    State       : HRA.Household.Household_State;
    Err         : Unbounded_String;
 
-   Original_Budget : constant String :=
-     "2026-08-01 Clean Envelope epoch" & ASCII.LF &
-     "    budget:opening          0 JPY" & ASCII.LF &
-     "    budget:unassigned       0 JPY" & ASCII.LF;
+   Original_Entitlement : constant String :=
+     "2026-08-01 origin JPY ; clean Envelope epoch" & ASCII.LF &
+     "2026-08-01 transfer unallocated -> coffee 1000 JPY" & ASCII.LF;
 
 begin
    Put_Line ("--- Testing source-observation Household admission ---");
@@ -43,15 +42,7 @@ begin
       "account expenses:coffee" & ASCII.LF &
       "  ; type: Expense" & ASCII.LF &
       "account income:salary" & ASCII.LF &
-      "  ; type: Income" & ASCII.LF &
-      "account budget:coffee" & ASCII.LF &
-      "  ; type: Budget" & ASCII.LF &
-      "account budget:unassigned" & ASCII.LF &
-      "  ; type: Budget" & ASCII.LF &
-      "account budget:opening" & ASCII.LF &
-      "  ; type: Budget" & ASCII.LF &
-      "account budget:rogue" & ASCII.LF &
-      "  ; type: Budget" & ASCII.LF);
+      "  ; type: Income" & ASCII.LF);
 
    Observation.Texts (Actual_Source) := To_Unbounded_String
      ("2026-08-13 Coffee Purchase" & ASCII.LF &
@@ -59,10 +50,10 @@ begin
       "    assets:wallet          -500 JPY" & ASCII.LF);
 
    Observation.Texts (Plan_Source) := Null_Unbounded_String;
-   Observation.Texts (Budget_Journal_Source) :=
-     To_Unbounded_String (Original_Budget);
+   Observation.Texts (Entitlement_Source) :=
+     To_Unbounded_String (Original_Entitlement);
 
-   Observation.Texts (Budget_Config_Source) := To_Unbounded_String
+   Observation.Texts (Envelope_Config_Source) := To_Unbounded_String
      ("[[backing-pools]]" & ASCII.LF &
       "id = ""liquid""" & ASCII.LF &
       "asset-accounts = [""assets:wallet""]" & ASCII.LF &
@@ -78,12 +69,6 @@ begin
       "income-account = ""income:salary""" & ASCII.LF &
       "[money]" & ASCII.LF &
       "primary-commodity = ""JPY""" & ASCII.LF &
-      "[budget]" & ASCII.LF &
-      "opening-accounts = [""budget:opening""]" & ASCII.LF &
-      "unassigned-accounts = [""budget:unassigned""]" & ASCII.LF &
-      "[[budget.envelopes]]" & ASCII.LF &
-      "id = ""coffee""" & ASCII.LF &
-      "allocation-account = ""budget:coffee""" & ASCII.LF &
       "[envelope-history]" & ASCII.LF &
       "identities = [""coffee""]" & ASCII.LF &
       "[[envelope-history.expense-routing]]" & ASCII.LF &
@@ -130,19 +115,17 @@ begin
       "Admitted Household retains exact supplied source bytes");
 
    Candidate := Observation;
-   Candidate.Texts (Budget_Journal_Source) := To_Unbounded_String
-     (Original_Budget & ASCII.LF &
-      "2026-08-02 Rogue Budget coordinate" & ASCII.LF &
-      "    budget:unassigned      -1 JPY" & ASCII.LF &
-      "    budget:rogue             1 JPY" & ASCII.LF);
+   Candidate.Texts (Entitlement_Source) := To_Unbounded_String
+     (Original_Entitlement &
+      "2026-08-02 transfer coffee -> rogue 1 JPY" & ASCII.LF);
 
    Assert
      (not HRA.Household.Admit_Canonical_Household
         (Candidate, State, Err)
-        and then Index (To_String (Err), "unrecognized") > 0,
-      "Candidate source set fails the same cross-source Budget admission law");
+      and then Index (To_String (Err), "unknown Envelope endpoint") > 0,
+      "Candidate source set fails the same native Entitlement admission law");
    Assert
-     (Text_For (Observation, Budget_Journal_Source) = Original_Budget,
+     (Text_For (Observation, Entitlement_Source) = Original_Entitlement,
       "Candidate replacement does not mutate the original source observation");
    Assert
      (HRA.Household.Admit_Canonical_Household
