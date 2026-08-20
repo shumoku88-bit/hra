@@ -177,8 +177,6 @@ begin
       Delete_Tree (Tmp_Dir);
    end;
 
-   --  A declaration in Actual is parser-local evidence only. It cannot expand
-   --  the canonical Account universe owned by accounts.journal.
    declare
       Tmp_Dir : constant String := "/tmp/hra_account_authority";
       Paths   : constant Source_Paths := Resolve_Source_Paths (Tmp_Dir);
@@ -197,13 +195,7 @@ begin
          "account expenses:coffee" & ASCII.LF &
          "  ; type: Expense" & ASCII.LF &
          "account income:salary" & ASCII.LF &
-         "  ; type: Income" & ASCII.LF &
-         "account budget:coffee" & ASCII.LF &
-         "  ; type: Budget" & ASCII.LF &
-         "account budget:unassigned" & ASCII.LF &
-         "  ; type: Budget" & ASCII.LF &
-         "account budget:opening" & ASCII.LF &
-         "  ; type: Budget" & ASCII.LF);
+         "  ; type: Income" & ASCII.LF);
 
       Write_File
         (To_String (Paths.Actual_Journal),
@@ -214,10 +206,12 @@ begin
          "    assets:wallet             -500 JPY" & ASCII.LF);
 
       Write_File (To_String (Paths.Plan_Journal), "");
-      Write_File (To_String (Paths.Budget_Journal), "");
+      Write_File
+        (To_String (Paths.Entitlement_Journal),
+         "2026-08-01 origin JPY ; test epoch" & ASCII.LF);
 
       Write_File
-        (To_String (Paths.Budget_TOML),
+        (To_String (Paths.Envelope_TOML),
          "[[backing-pools]]" & ASCII.LF &
          "id = " & Quote & "liquid" & Quote & ASCII.LF &
          "asset-accounts = [" & Quote & "assets:wallet" & Quote & "]" & ASCII.LF &
@@ -234,12 +228,6 @@ begin
          "income-account = " & Quote & "income:salary" & Quote & ASCII.LF &
          "[money]" & ASCII.LF &
          "primary-commodity = " & Quote & "JPY" & Quote & ASCII.LF &
-         "[budget]" & ASCII.LF &
-         "opening-accounts = [" & Quote & "budget:opening" & Quote & "]" & ASCII.LF &
-         "unassigned-accounts = [" & Quote & "budget:unassigned" & Quote & "]" & ASCII.LF &
-         "[[budget.envelopes]]" & ASCII.LF &
-         "id = " & Quote & "coffee" & Quote & ASCII.LF &
-         "allocation-account = " & Quote & "budget:coffee" & Quote & ASCII.LF &
          "[envelope-history]" & ASCII.LF &
          "identities = [" & Quote & "coffee" & Quote & "]" & ASCII.LF &
          "expense-routing = []" & ASCII.LF);
