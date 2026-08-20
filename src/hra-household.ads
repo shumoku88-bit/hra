@@ -39,11 +39,11 @@ package HRA.Household is
       Report_Policy       : HRA.Report_Config.Report_Configuration;
       Registry            : Account_Registry;
 
-      --  Actual_Identity is the admitted Actual authority. The Ledger and
-      --  Journal_Evidence fields immediately above/below the consumer boundary
-      --  are retained only as derived compatibility projections while existing
-      --  observations migrate to consume Actual_Identity directly. Household
-      --  admission must never preserve an independently parsed peer copy.
+      --  Actual_Identity is the admitted Actual authority. Actual_Ledger and
+      --  Actual_Evidence are materialized read projections built from that
+      --  admitted value once at Household admission, so hot observation/TUI
+      --  paths do not rebuild vectors on every navigation step. They are not
+      --  independent semantic authorities and must never retain loader peers.
       Actual_Ledger       : Ledger.Ledger;
       Actual_Evidence     : HRA.Journal_Evidence.Journal_Evidence;
       Actual_Identity     : HRA.Actual_Admission.Actual_Observation;
