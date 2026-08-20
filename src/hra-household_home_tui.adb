@@ -1,6 +1,7 @@
 with HRA.Household_Home_Command;
 with HRA.Household_Home_Interaction;
 with HRA.Household_Home_TUI_Input;
+with HRA.Terminal_UTF8;
 with Terminal_Interface.Curses;
 
 package body HRA.Household_Home_TUI is
@@ -39,21 +40,11 @@ package body HRA.Household_Home_TUI is
             end loop;
 
             if Line_End > Position and then Writable_Columns > 0 then
-               declare
-                  Available_Length : constant Natural := Line_End - Position;
-                  Draw_Length      : constant Natural :=
-                    (if Available_Length < Writable_Columns
-                     then Available_Length
-                     else Writable_Columns);
-               begin
-                  if Draw_Length > 0 then
-                     Curses.Add
-                       (Line   => Curses.Line_Position (Row),
-                        Column => Curses.Column_Position (0),
-                        Str    => Text
-                          (Position .. Position + Draw_Length - 1));
-                  end if;
-               end;
+               HRA.Terminal_UTF8.Add_Line
+                 (Line        => Row,
+                  Column      => 0,
+                  Max_Columns => Writable_Columns,
+                  Text        => Text (Position .. Line_End - 1));
             end if;
 
             Row := Row + 1;
@@ -74,6 +65,7 @@ package body HRA.Household_Home_TUI is
       Running        : Boolean := True;
       Screen_Started : Boolean := False;
    begin
+      HRA.Terminal_UTF8.Initialize;
       Curses.Init_Screen;
       Screen_Started := True;
       Curses.Set_Cbreak_Mode (True);
