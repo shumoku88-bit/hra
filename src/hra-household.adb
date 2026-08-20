@@ -285,8 +285,13 @@ package body HRA.Household is
          end if;
       end;
 
+      --  Successful Household state retains one Actual authority. The legacy
+      --  Ledger/Evidence fields are projections of the admitted entries, not
+      --  independent peers from the Journal loader.
       Result.Actual_Ledger :=
         HRA.Actual_Admission.Ledger_Of (Result.Actual_Identity);
+      Result.Actual_Evidence :=
+        HRA.Actual_Admission.Evidence_Of (Result.Actual_Identity);
       if not Merge_Transactions (Result.Actual_Ledger) then
          return False;
       end if;
