@@ -166,6 +166,9 @@ package body HRA.Envelope_Position is
          Commodity_Code   => Null_Unbounded_String,
          Role             => Entitlement_Value);
 
+      --  Build the coordinate union from each input independently. Never add
+      --  the inputs first: cancellation must not erase a Commodity coordinate
+      --  before proof evaluation.
       Include_Balance (Coordinates, Entitlement);
       Include_Balance (Coordinates, Net_Consumption);
       Include_Balance (Coordinates, Net_Fulfillment);
