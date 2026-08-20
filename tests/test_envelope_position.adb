@@ -138,16 +138,16 @@ begin
           Amt     => Make_Amount (JPY, 1000.0),
           Target  => Food));
       Consumption.Managed.Insert
-        ("food",
+        (Food,
          HRA.Envelope_Consumption.Make_Amounts
            (Charges => Singleton_Balance (Make_Amount (JPY, 300.0)),
             Refunds => Empty_Balance));
       Fulfillment.Managed.Insert
-        ("food",
+        (Food,
          (Applied  => Singleton_Balance (Make_Amount (JPY, 100.0)),
           Reversed => Empty_Balance));
       Commitment.Managed.Insert
-        ("food", Singleton_Balance (Make_Amount (JPY, 200.0)));
+        (Food, Singleton_Balance (Make_Amount (JPY, 200.0)));
 
       Assert
         (Observe
@@ -185,16 +185,16 @@ begin
           Amt     => Make_Amount (JPY, 100.0),
           Target  => Food));
       Consumption.Managed.Insert
-        ("food",
+        (Food,
          HRA.Envelope_Consumption.Make_Amounts
            (Charges => Singleton_Balance (Make_Amount (JPY, 300.0)),
             Refunds => Empty_Balance));
       Fulfillment.Managed.Insert
-        ("food",
+        (Food,
          (Applied  => Singleton_Balance (Make_Amount (JPY, 100.0)),
           Reversed => Empty_Balance));
       Commitment.Managed.Insert
-        ("food", Singleton_Balance (Make_Amount (JPY, 200.0)));
+        (Food, Singleton_Balance (Make_Amount (JPY, 200.0)));
 
       Assert
         (Observe
@@ -230,16 +230,16 @@ begin
           Amt     => Make_Amount (JPY, 1000.0),
           Target  => Food));
       Consumption.Managed.Insert
-        ("food",
+        (Food,
          HRA.Envelope_Consumption.Make_Amounts
            (Charges => Singleton_Balance (Make_Amount (JPY, 100.0)),
             Refunds => Singleton_Balance (Make_Amount (JPY, 300.0))));
       Fulfillment.Managed.Insert
-        ("food",
+        (Food,
          (Applied  => Singleton_Balance (Make_Amount (JPY, 50.0)),
           Reversed => Singleton_Balance (Make_Amount (JPY, 100.0))));
       Commitment.Managed.Insert
-        ("food", Singleton_Balance (Make_Amount (JPY, 100.0)));
+        (Food, Singleton_Balance (Make_Amount (JPY, 100.0)));
 
       Assert
         (Observe
@@ -276,12 +276,12 @@ begin
           Amt     => Make_Amount (JPY, 500.0),
           Target  => Food));
       Consumption.Managed.Insert
-        ("food",
+        (Food,
          HRA.Envelope_Consumption.Make_Amounts
            (Charges => Singleton_Balance (Make_Amount (JPY, 500.0)),
             Refunds => Empty_Balance));
       Commitment.Managed.Insert
-        ("food", Singleton_Balance (Make_Amount (USD, 100.0)));
+        (Food, Singleton_Balance (Make_Amount (USD, 100.0)));
 
       Assert
         (Observe
@@ -315,7 +315,7 @@ begin
       Diag         : Observe_Diagnostic;
    begin
       Commitment.Managed.Insert
-        ("food", Singleton_Balance (Make_Amount (JPY, -100.0)));
+        (Food, Singleton_Balance (Make_Amount (JPY, -100.0)));
       Assert
         (not Observe
            (Food_Policy, Registry, Entitlement, Consumption, Fulfillment,
@@ -421,7 +421,7 @@ begin
           Amt     => Make_Amount (JPY, 1000.0),
           Target  => Food));
       Consumption.Managed.Insert
-        ("food",
+        (Food,
          HRA.Envelope_Consumption.Make_Amounts
            (Charges => Singleton_Balance (Make_Amount (JPY, 300.0)),
             Refunds => Empty_Balance));
@@ -453,7 +453,7 @@ begin
          and then Backing_Stat = HRA.Backing_Policy.Success,
          "backing policy setup succeeds");
       Partial.Positions.Insert
-        ("food",
+        (Food,
          (Env_Id    => Food,
           Remaining => Singleton_Balance (Make_Amount (JPY, 500.0)),
           Headroom  => Singleton_Balance (Make_Amount (JPY, 500.0))));

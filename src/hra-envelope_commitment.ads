@@ -12,9 +12,11 @@ with HRA.Cycle_Observation;
 package HRA.Envelope_Commitment is
 
    package Envelope_Balance_Maps is new Ada.Containers.Indefinite_Ordered_Maps
-     (Key_Type     => String,
-      Element_Type => Balance);
+     (Key_Type     => HRA.Envelope.Envelope_Id,
+      Element_Type => Balance,
+      "<"          => HRA.Envelope."<");
 
+   --  Unmanaged/unrouted coordinates remain source-facing Account names.
    package Account_Balance_Maps is new Ada.Containers.Indefinite_Ordered_Maps
      (Key_Type     => String,
       Element_Type => Balance);

@@ -168,25 +168,25 @@ begin
        Target  => Food));
 
    Earlier_Consumption.Managed.Insert
-     ("food",
+     (Food,
       HRA.Envelope_Consumption.Make_Amounts
         (Charges => Singleton_Balance (Make_Amount (JPY, 100.0)),
          Refunds => Empty_Balance));
    Later_Consumption.Managed.Insert
-     ("food",
+     (Food,
       HRA.Envelope_Consumption.Make_Amounts
         (Charges => Singleton_Balance (Make_Amount (JPY, 150.0)),
          Refunds => Singleton_Balance (Make_Amount (JPY, 20.0))));
 
    Later_Fulfillment.Managed.Insert
-     ("food",
+     (Food,
       (Applied  => Singleton_Balance (Make_Amount (JPY, 30.0)),
        Reversed => Singleton_Balance (Make_Amount (JPY, 10.0))));
 
    Earlier_Commitment.Managed.Insert
-     ("food", Singleton_Balance (Make_Amount (JPY, 200.0)));
+     (Food, Singleton_Balance (Make_Amount (JPY, 200.0)));
    Later_Commitment.Managed.Insert
-     ("food", Singleton_Balance (Make_Amount (JPY, 150.0)));
+     (Food, Singleton_Balance (Make_Amount (JPY, 150.0)));
 
    Assert
      (HRA.Envelope_Position.Observe

@@ -24,8 +24,9 @@ package HRA.Envelope_Fulfillment is
    function Net_Fulfillment (Amounts : Fulfillment_Amounts) return Balance;
 
    package Envelope_Amounts_Maps is new Ada.Containers.Indefinite_Ordered_Maps
-     (Key_Type     => String,
-      Element_Type => Fulfillment_Amounts);
+     (Key_Type     => HRA.Envelope.Envelope_Id,
+      Element_Type => Fulfillment_Amounts,
+      "<"          => HRA.Envelope."<");
 
    type Fulfillment_Evidence is record
       Plan_ID              : HRA.Plan.Plan_Id;

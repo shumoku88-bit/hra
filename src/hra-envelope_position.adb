@@ -233,30 +233,19 @@ package body HRA.Envelope_Position is
 
    function Add_Current_Position
      (Output          : in out Observation;
-      Registry        : HRA.Envelope.Envelope_Registry;
-      Env_Text        : String;
+      Env             : HRA.Envelope.Envelope_Id;
       Entitlement     : Balance;
       Consumption     : HRA.Envelope_Consumption.Consumption_Amounts;
       Fulfillment     : HRA.Envelope_Fulfillment.Fulfillment_Amounts;
       Plan_Commitment : Balance;
       Diag            : out Observe_Diagnostic) return Boolean
    is
-      Env : HRA.Envelope.Envelope_Id;
-      Pos : Position;
+      Env_Text : constant String := HRA.Envelope.Image (Env);
+      Pos      : Position;
       Evidence : Arithmetic_Evidence;
    begin
-      if not HRA.Envelope.Lookup (Registry, Env_Text, Env) then
-         Set_Diagnostic
-           (Diag,
-            Unknown_Current_Envelope,
-            Env_Text,
-            "",
-            Entitlement_Value);
-         return False;
-      end if;
-
-      if Output.Positions.Contains (Env_Text)
-        or else Output.Evidence.Contains (Env_Text)
+      if Output.Positions.Contains (Env)
+        or else Output.Evidence.Contains (Env)
       then
          Set_Diagnostic
            (Diag,
@@ -291,8 +280,8 @@ package body HRA.Envelope_Position is
          return False;
       end if;
 
-      Output.Positions.Insert (Env_Text, Pos);
-      Output.Evidence.Insert (Env_Text, Evidence);
+      Output.Positions.Insert (Env, Pos);
+      Output.Evidence.Insert (Env, Evidence);
       return True;
    end Add_Current_Position;
 
@@ -324,8 +313,7 @@ package body HRA.Envelope_Position is
 
             if not Add_Current_Position
               (Output,
-               Registry,
-               Env_Text,
+               Env,
                HRA.Envelope_Entitlement.Entitlement_For
                  (Entitlement, Env),
                HRA.Envelope_Consumption.Consumption_For
@@ -379,8 +367,7 @@ package body HRA.Envelope_Position is
 
             if not Add_Current_Position
               (Output,
-               Registry,
-               Env_Text,
+               Env,
                HRA.Envelope_Entitlement.Entitlement_For
                  (Entitlement, Env),
                HRA.Envelope_Consumption.Consumption_For
@@ -410,7 +397,7 @@ package body HRA.Envelope_Position is
       Env : HRA.Envelope.Envelope_Id) return Boolean
    is
    begin
-      return Obs.Positions.Contains (HRA.Envelope.Image (Env));
+      return Obs.Positions.Contains (Env);
    end Has_Position;
 
    function Position_For
@@ -418,27 +405,25 @@ package body HRA.Envelope_Position is
       Env : HRA.Envelope.Envelope_Id) return Position
    is
    begin
-      return Obs.Positions.Element (HRA.Envelope.Image (Env));
+      return Obs.Positions.Element (Env);
    end Position_For;
 
    function Has_Explanation
      (Obs : Observation;
       Env : HRA.Envelope.Envelope_Id) return Boolean
    is
-      Key : constant String := HRA.Envelope.Image (Env);
    begin
-      return Obs.Positions.Contains (Key) and then Obs.Evidence.Contains (Key);
+      return Obs.Positions.Contains (Env) and then Obs.Evidence.Contains (Env);
    end Has_Explanation;
 
    function Explain
      (Obs : Observation;
       Env : HRA.Envelope.Envelope_Id) return Explanation
    is
-      Key : constant String := HRA.Envelope.Image (Env);
    begin
       return
-        (Evidence          => Obs.Evidence.Element (Key),
-         Observed_Position => Obs.Positions.Element (Key));
+        (Evidence          => Obs.Evidence.Element (Env),
+         Observed_Position => Obs.Positions.Element (Env));
    end Explain;
 
 end HRA.Envelope_Position;
