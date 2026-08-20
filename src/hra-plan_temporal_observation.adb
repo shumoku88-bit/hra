@@ -12,16 +12,16 @@ package body HRA.Plan_Temporal_Observation is
       Result : Observation;
 
       function Retired_As_Of
-        (Entry : HRA.Plan_Admission.Plan_Transaction_Entry) return Boolean
+        (Plan_Item : HRA.Plan_Admission.Plan_Transaction_Entry) return Boolean
       is
       begin
-         case Entry.Retirement.Kind is
+         case Plan_Item.Retirement.Kind is
             when HRA.Plan_Admission.No_Retirement =>
                return False;
             when HRA.Plan_Admission.Cancellation =>
-               return Entry.Retirement.Canceled_On <= Observed_Through;
+               return Plan_Item.Retirement.Canceled_On <= Observed_Through;
             when HRA.Plan_Admission.Supersession =>
-               return Entry.Retirement.Superseded_On <= Observed_Through;
+               return Plan_Item.Retirement.Superseded_On <= Observed_Through;
          end case;
       end Retired_As_Of;
 
