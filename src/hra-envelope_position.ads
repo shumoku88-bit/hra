@@ -1,6 +1,6 @@
 with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
 with Ada.Containers.Indefinite_Ordered_Maps;
-with HRA.Budget_Config;
+with HRA.Envelope_Config;
 with HRA.Envelope;
 with HRA.Envelope_Entitlement;
 with HRA.Envelope_Consumption;
@@ -10,7 +10,7 @@ with HRA.Money; use HRA.Money;
 
 --  Current Envelope position observation.
 --
---  The current Envelope set comes from typed budget policy. Stable historical
+--  The current Envelope set comes from typed Envelope policy. Stable historical
 --  identity remains owned by Envelope_Registry and is never inferred from the
 --  current policy. Arithmetic authority is HRA.Proof_Core, reached only
 --  through HRA.Proof_Money_Bridge.
@@ -24,9 +24,6 @@ package HRA.Envelope_Position is
 
    function "=" (Left, Right : Position) return Boolean;
 
-   --  Typed evidence used to explain one proof-backed Position. Gross activity
-   --  remains beside the net values passed to the proof core so cancellation
-   --  cannot erase the fact that opposite movements occurred.
    type Arithmetic_Evidence is record
       Entitlement          : Balance;
       Consumption_Charges  : Balance;
@@ -40,8 +37,6 @@ package HRA.Envelope_Position is
 
    function "=" (Left, Right : Arithmetic_Evidence) return Boolean;
 
-   --  Explanation combines the exact typed evidence retained by the observer
-   --  with the proof-backed result derived from that same observation.
    type Explanation is record
       Evidence          : Arithmetic_Evidence;
       Observed_Position : Position;
@@ -89,22 +84,16 @@ package HRA.Envelope_Position is
       Role             : Value_Role := Entitlement_Value;
    end record;
 
-   --  Base Household view: Remaining uses Entitlement and stock Consumption;
-   --  Fulfillment and Plan Commitment are zero because no application
-   --  observation day has been supplied.
    function Observe_Base
-     (Policy      : HRA.Budget_Config.Budget_Policy;
+     (Policy      : HRA.Envelope_Config.Envelope_Policy;
       Registry    : HRA.Envelope.Envelope_Registry;
       Entitlement : HRA.Envelope_Entitlement.Entitlement_Observation;
       Consumption : HRA.Envelope_Consumption.Envelope_Consumption;
       Result      : out Observation;
       Diag        : out Observe_Diagnostic) return Boolean;
 
-   --  Observation-specific view. All four inputs are already admitted for the
-   --  same Household observation horizon. The observer only coordinates
-   --  Commodity-wise exact proof evaluation; it does not classify source facts.
    function Observe
-     (Policy      : HRA.Budget_Config.Budget_Policy;
+     (Policy      : HRA.Envelope_Config.Envelope_Policy;
       Registry    : HRA.Envelope.Envelope_Registry;
       Entitlement : HRA.Envelope_Entitlement.Entitlement_Observation;
       Consumption : HRA.Envelope_Consumption.Envelope_Consumption;
@@ -126,9 +115,6 @@ package HRA.Envelope_Position is
      (Obs : Observation;
       Env : HRA.Envelope.Envelope_Id) return Boolean;
 
-   --  Pure projection only: no source read, no arithmetic recomputation, and no
-   --  new authority. The explanation is the evidence and result retained by the
-   --  same successful position observation.
    function Explain
      (Obs : Observation;
       Env : HRA.Envelope.Envelope_Id) return Explanation
