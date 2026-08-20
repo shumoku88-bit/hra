@@ -470,8 +470,6 @@ package body HRA.Journal is
                                           Current_Acc_Decl.Acc_Type := Liability;
                                        elsif Val = "equity" then
                                           Current_Acc_Decl.Acc_Type := Equity;
-                                       elsif Val = "budget" then
-                                          Current_Acc_Decl.Acc_Type := Budget;
                                        elsif Val = "asset" then
                                           Current_Acc_Decl.Acc_Type := Asset;
                                        else
