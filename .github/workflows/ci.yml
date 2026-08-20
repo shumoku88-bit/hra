@@ -26,4 +26,17 @@ jobs:
         uses: alire-project/setup-alire@v6
 
       - name: Build, test, and prove
-        run: ./tools/hra qualify
+        shell: bash
+        run: |
+          log="$(mktemp)"
+          if ./tools/hra qualify >"$log" 2>&1; then
+            tail -n 120 "$log"
+          else
+            echo "::group::Qualification diagnostics"
+            grep -E '(^|[[:space:]])(error:|ERROR:|FAIL|FAILED|failed|Compilation failed|gnatprove)' "$log" | tail -n 200 || true
+            echo "::endgroup::"
+            echo "::group::Qualification tail"
+            tail -n 160 "$log"
+            echo "::endgroup::"
+            exit 1
+          fi
