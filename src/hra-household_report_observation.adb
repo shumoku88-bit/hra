@@ -174,6 +174,9 @@ package body HRA.Household_Report_Observation is
       end Build_Envelope_Report;
 
    begin
+      --  Compose into a local value. Result is published only after every
+      --  section succeeds, so unavailable can never masquerade as a partial
+      --  successful report book.
       if not HRA.Household_Envelope_Observation.Observe
         (Observed_Through, State, Envelope_Obs, Error_Msg)
       then
@@ -182,6 +185,8 @@ package body HRA.Household_Report_Observation is
 
       Output.Observed_Through := Envelope_Obs.Observed_Through;
       Output.Section_Order := Current_Section_Order;
+      --  Report policy is resolved exactly once. Every bounded section below
+      --  consumes a coordinate from this one resolved plan.
       if not HRA.Report_Plan.Resolve_With_Current_Cycle
         (Observed_Through,
          State.Actual_Ledger,
