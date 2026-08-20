@@ -80,8 +80,11 @@ package body HRA.Money is
    function Format_With_Commas (Integer_Part : String) return String is
       Result      : Unbounded_String := Null_Unbounded_String;
       Digit_Count : Natural := 0;
-      Is_Neg      : constant Boolean := (Integer_Part'Length > 0 and then Integer_Part (Integer_Part'First) = '-');
-      Start_Idx   : constant Natural := (if Is_Neg then Integer_Part'First + 1 else Integer_Part'First);
+      Is_Neg      : constant Boolean :=
+        (Integer_Part'Length > 0
+         and then Integer_Part (Integer_Part'First) = '-');
+      Start_Idx   : constant Natural :=
+        (if Is_Neg then Integer_Part'First + 1 else Integer_Part'First);
    begin
       if Start_Idx > Integer_Part'Last then
          return Integer_Part;
@@ -109,7 +112,8 @@ package body HRA.Money is
    begin
       if Dot_Idx > 0 then
          declare
-            Int_Part : constant String := Trimmed (Trimmed'First .. Dot_Idx - 1);
+            Int_Part : constant String :=
+              Trimmed (Trimmed'First .. Dot_Idx - 1);
             Last_NZ  : Natural := Trimmed'Last;
          begin
             while Last_NZ > Dot_Idx and then Trimmed (Last_NZ) = '0' loop
@@ -119,7 +123,8 @@ package body HRA.Money is
             if Trimmed (Last_NZ) = '.' then
                return Format_With_Commas (Int_Part);
             else
-               return Format_With_Commas (Int_Part) & Trimmed (Dot_Idx .. Last_NZ);
+               return Format_With_Commas (Int_Part) &
+                 Trimmed (Dot_Idx .. Last_NZ);
             end if;
          end;
       else
@@ -160,7 +165,7 @@ package body HRA.Money is
       B : Balance;
    begin
       if not Is_Zero (A.Val) then
-         B.Map.Insert (Code (A.Comm), A.Val);
+         B.Map.Insert (A.Comm, A.Val);
       end if;
       return B;
    end Singleton_Balance;
@@ -171,23 +176,21 @@ package body HRA.Money is
    begin
       while Commodity_Maps.Has_Element (Cursor) loop
          declare
-            C_Code : constant String := Commodity_Maps.Key (Cursor);
-            C_Val  : constant Quantity := Commodity_Maps.Element (Cursor);
+            C     : constant Commodity := Commodity_Maps.Key (Cursor);
+            C_Val : constant Quantity := Commodity_Maps.Element (Cursor);
          begin
-            if Result.Map.Contains (C_Code) then
+            if Result.Map.Contains (C) then
                declare
-                  New_Val : constant Quantity := Result.Map.Element (C_Code) + C_Val;
+                  New_Val : constant Quantity := Result.Map.Element (C) + C_Val;
                begin
                   if Is_Zero (New_Val) then
-                     Result.Map.Delete (C_Code);
+                     Result.Map.Delete (C);
                   else
-                     Result.Map.Replace (C_Code, New_Val);
+                     Result.Map.Replace (C, New_Val);
                   end if;
                end;
-            else
-               if not Is_Zero (C_Val) then
-                  Result.Map.Insert (C_Code, C_Val);
-               end if;
+            elsif not Is_Zero (C_Val) then
+               Result.Map.Insert (C, C_Val);
             end if;
          end;
          Commodity_Maps.Next (Cursor);
@@ -214,10 +217,9 @@ package body HRA.Money is
    end Subtract_Balance;
 
    function Lookup_Balance (B : Balance; C : Commodity) return Quantity is
-      C_Code : constant String := Code (C);
    begin
-      if B.Map.Contains (C_Code) then
-         return B.Map.Element (C_Code);
+      if B.Map.Contains (C) then
+         return B.Map.Element (C);
       else
          return Zero_Quantity;
       end if;
@@ -229,13 +231,13 @@ package body HRA.Money is
    end Is_Zero_Balance;
 
    function Entries (B : Balance) return Balance_Entry_Array is
-      Arr : Balance_Entry_Array (1 .. Natural (B.Map.Length));
-      Idx : Positive := 1;
+      Arr    : Balance_Entry_Array (1 .. Natural (B.Map.Length));
+      Idx    : Positive := 1;
       Cursor : Commodity_Maps.Cursor := B.Map.First;
    begin
       while Commodity_Maps.Has_Element (Cursor) loop
          Arr (Idx) :=
-           (Comm => Make_Commodity (Commodity_Maps.Key (Cursor)),
+           (Comm => Commodity_Maps.Key (Cursor),
             Val  => Commodity_Maps.Element (Cursor));
          Idx := Idx + 1;
          Commodity_Maps.Next (Cursor);

@@ -1,5 +1,5 @@
 with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
-with Ada.Containers.Indefinite_Ordered_Maps;
+with Ada.Containers.Ordered_Maps;
 
 package HRA.Money is
 
@@ -84,9 +84,12 @@ private
       Code_Text : Unbounded_String;
    end record;
 
-   package Commodity_Maps is new Ada.Containers.Indefinite_Ordered_Maps
-     (Key_Type     => String,
-      Element_Type  => Quantity);
+   --  Balance keeps the admitted Commodity identity itself as the map key.
+   --  Rendering text is never used as an intermediate identity coordinate.
+   package Commodity_Maps is new Ada.Containers.Ordered_Maps
+     (Key_Type     => Commodity,
+      Element_Type => Quantity,
+      "<"          => "<");
 
    type Balance is record
       Map : Commodity_Maps.Map;
