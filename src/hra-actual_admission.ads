@@ -54,6 +54,13 @@ package HRA.Actual_Admission is
    function Ledger_Of
      (Observation : Actual_Observation) return HRA.Ledger.Ledger;
 
+   --  Provenance is projected only from the source-aligned entries retained by
+   --  the admitted observation. Callers never need a second source scan or an
+   --  independently stored Journal_Evidence authority after admission.
+   function Evidence_Of
+     (Observation : Actual_Observation)
+      return HRA.Journal_Evidence.Journal_Evidence;
+
    function Transaction_Count
      (Observation : Actual_Observation) return Natural;
 
