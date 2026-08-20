@@ -1,8 +1,11 @@
 with Ada.Containers.Vectors;
 with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
+with HRA.Journal_Evidence;
 
 --  Parsed source-level structure owned by Journal syntax.
 --  This child package does not perform filesystem I/O or graph traversal.
+--  Includes and transaction source coordinates come from one lexical pass, so
+--  provenance cannot drift into a second independent source scanner.
 package HRA.Journal.Document is
 
    type Include_Directive is record
@@ -15,7 +18,8 @@ package HRA.Journal.Document is
       Element_Type => Include_Directive);
 
    type Parsed_Document is record
-      Includes : Include_Directive_Vectors.Vector;
+      Includes     : Include_Directive_Vectors.Vector;
+      Transactions : HRA.Journal_Evidence.Transaction_Source_Vectors.Vector;
    end record;
 
    function Parse

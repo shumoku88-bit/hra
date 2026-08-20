@@ -2,6 +2,11 @@ with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
 with Ada.Containers.Indefinite_Vectors;
 with HRA.Ledger;
 
+--  Physical source evidence owned by Journal parsing.
+--
+--  The data model lives here so domain consumers can retain source coordinates.
+--  Extract is only a projection/validation boundary: it delegates all lexical
+--  recognition to HRA.Journal.Document and owns no Journal grammar of its own.
 package HRA.Journal_Evidence is
 
    type Metadata_Entry is record
@@ -35,18 +40,12 @@ package HRA.Journal_Evidence is
       Message     : Unbounded_String;
    end record;
 
-   --  Extract transaction-owned metadata from the exact same source bytes that
-   --  produced L. This projection does not parse postings or amounts again.
-   --  It verifies transaction count and header alignment against the admitted
-   --  Ledger so metadata cannot silently drift onto a different transaction.
    function Extract
      (Input    : String;
       L        : HRA.Ledger.Ledger;
       Evidence : out Journal_Evidence;
       Diag     : out Evidence_Diagnostic) return Boolean;
 
-   --  Source-aware form used by Journal graph admission. Every transaction
-   --  retains the physical document path and line that owned its metadata.
    function Extract
      (Input       : String;
       Source_Path : String;

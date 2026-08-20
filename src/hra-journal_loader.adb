@@ -14,6 +14,7 @@ with HRA.Dates;
 package body HRA.Journal_Loader is
 
    package HFN renames Ada.Directories.Hierarchical_File_Names;
+   use type HRA.Ledger.Transaction;
 
    package String_Vectors is new Ada.Containers.Indefinite_Vectors
      (Index_Type   => Positive,
@@ -173,11 +174,12 @@ package body HRA.Journal_Loader is
       Observation : out Journal_Observation;
       Error_Msg   : out Unbounded_String) return Boolean
    is
-      Trace          : String_Vectors.Vector;
-      Loaded_Paths   : String_Vectors.Vector;
-      Loaded_Traces  : String_Vectors.Vector;
-      Expanded       : Unbounded_String := Null_Unbounded_String;
-      Graph_Evidence : HRA.Journal_Evidence.Journal_Evidence;
+      Trace              : String_Vectors.Vector;
+      Loaded_Paths       : String_Vectors.Vector;
+      Loaded_Traces      : String_Vectors.Vector;
+      Expanded           : Unbounded_String := Null_Unbounded_String;
+      Graph_Evidence     : HRA.Journal_Evidence.Journal_Evidence;
+      Graph_Transactions : HRA.Ledger.Transaction_Vectors.Vector;
 
       function Expand_Document
         (Path : String;
@@ -191,8 +193,6 @@ package body HRA.Journal_Loader is
          Existing       : Natural;
          Local_Document : HRA.Journal.Document.Parsed_Document;
          Check_Ledger   : HRA.Ledger.Ledger;
-         Local_Evidence : HRA.Journal_Evidence.Journal_Evidence;
-         Evidence_Diag  : Evidence_Diagnostic;
          Diag           : Parse_Diagnostic;
          Line_Start     : Natural := Text'First;
          Line_Number    : Natural := 0;
@@ -230,8 +230,9 @@ package body HRA.Journal_Loader is
          Loaded_Paths.Append (To_String (Canonical_Path));
          Loaded_Traces.Append (Trace_Image (Trace));
 
-         --  Journal syntax owns include recognition and validation. The loader
-         --  consumes only typed source coordinates and performs graph I/O.
+         --  Journal syntax owns both include recognition and transaction source
+         --  coordinates. The loader consumes only that typed structure and
+         --  performs graph I/O and semantic/source alignment.
          if not HRA.Journal.Document.Parse
            (Text, To_String (Canonical_Path), Local_Document, Diag)
          then
@@ -240,9 +241,10 @@ package body HRA.Journal_Loader is
             return False;
          end if;
 
-         --  Parse each physical document from its exact bytes before graph
-         --  substitution. This retains the local semantic value paired with
-         --  source evidence from the same physical document.
+         --  Parse each physical document from the exact same bytes before graph
+         --  substitution. The lexical Journal document and semantic Ledger must
+         --  identify the same local transaction sequence before any evidence is
+         --  allowed into the resolved graph.
          if not Parse_Journal_Text
            (Text, To_String (Canonical_Path), Check_Ledger, Diag)
          then
@@ -251,19 +253,36 @@ package body HRA.Journal_Loader is
             return False;
          end if;
 
-         if not HRA.Journal_Evidence.Extract
-           (Text,
-            To_String (Canonical_Path),
-            Check_Ledger,
-            Local_Evidence,
-            Evidence_Diag)
+         if Natural (Local_Document.Transactions.Length) /=
+           Natural (Check_Ledger.Transactions.Length)
          then
             Error_Msg := To_Unbounded_String
-              (To_String (Canonical_Path) & ": source evidence error: " &
-               To_String (Evidence_Diag.Message));
+              (To_String (Canonical_Path) &
+               ": Journal source coordinate count does not match local Ledger");
             Trace.Delete_Last;
             return False;
          end if;
+
+         for I in 1 .. Natural (Check_Ledger.Transactions.Length) loop
+            declare
+               Source : constant Transaction_Source :=
+                 Local_Document.Transactions.Element (I);
+               Tx : constant HRA.Ledger.Transaction :=
+                 Check_Ledger.Transactions.Element (I);
+            begin
+               if To_String (Source.Date_Text) /= HRA.Dates.Image (Tx.Date)
+                 or else To_String (Source.Description) /=
+                   To_String (Tx.Code_Or_Payee)
+               then
+                  Error_Msg := To_Unbounded_String
+                    ("Journal source coordinates do not align at " &
+                     To_String (Source.Source_Path) & ":" &
+                     Line_Image (Source.Header_Line));
+                  Trace.Delete_Last;
+                  return False;
+               end if;
+            end;
+         end loop;
 
          while Line_Start <= Text'Last loop
             Line_Number := Line_Number + 1;
@@ -276,12 +295,14 @@ package body HRA.Journal_Loader is
                   Line_End := Line_End + 1;
                end loop;
 
-               if Evidence_Index <= Natural (Local_Evidence.Transactions.Length)
-                 and then Local_Evidence.Transactions.Element
+               if Evidence_Index <= Natural (Local_Document.Transactions.Length)
+                 and then Local_Document.Transactions.Element
                    (Evidence_Index).Header_Line = Line_Number
                then
                   Graph_Evidence.Transactions.Append
-                    (Local_Evidence.Transactions.Element (Evidence_Index));
+                    (Local_Document.Transactions.Element (Evidence_Index));
+                  Graph_Transactions.Append
+                    (Check_Ledger.Transactions.Element (Evidence_Index));
                   Evidence_Index := Evidence_Index + 1;
                end if;
 
@@ -338,7 +359,7 @@ package body HRA.Journal_Loader is
             end;
          end loop;
 
-         if Evidence_Index <= Natural (Local_Evidence.Transactions.Length) then
+         if Evidence_Index <= Natural (Local_Document.Transactions.Length) then
             Error_Msg := To_Unbounded_String
               (To_String (Canonical_Path) &
                ": transaction evidence was not placed into resolved graph");
@@ -374,7 +395,9 @@ package body HRA.Journal_Loader is
       end if;
 
       if Natural (Graph_Evidence.Transactions.Length) /=
-         Natural (Observation.Value.Transactions.Length)
+           Natural (Observation.Value.Transactions.Length)
+        or else Natural (Graph_Transactions.Length) /=
+           Natural (Observation.Value.Transactions.Length)
       then
          Error_Msg := To_Unbounded_String
            ("resolved Journal transaction evidence count does not match Ledger");
@@ -385,14 +408,14 @@ package body HRA.Journal_Loader is
          declare
             Source : constant Transaction_Source :=
               Graph_Evidence.Transactions.Element (I);
-            Tx : constant HRA.Ledger.Transaction :=
+            Expected : constant HRA.Ledger.Transaction :=
+              Graph_Transactions.Element (I);
+            Actual : constant HRA.Ledger.Transaction :=
               Observation.Value.Transactions.Element (I);
          begin
-            if To_String (Source.Date_Text) /= HRA.Dates.Image (Tx.Date)
-              or else To_String (Source.Description) /= To_String (Tx.Code_Or_Payee)
-            then
+            if Expected /= Actual then
                Error_Msg := To_Unbounded_String
-                 ("resolved Journal evidence does not align at " &
+                 ("resolved Journal semantic value does not align at " &
                   To_String (Source.Source_Path) & ":" &
                   Line_Image (Source.Header_Line));
                return False;
