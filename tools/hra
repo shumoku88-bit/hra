@@ -76,32 +76,25 @@ build_production() {
 
 build_tests() {
   ensure_local_index
+  # Remove only old executables so a retired test cannot survive as a stale
+  # runnable binary. Keep objects for incremental compilation.
+  rm -rf "$project_root/tests/bin"
   alr exec -- gprbuild -P "$project_root/tests/hra_tests.gpr"
 }
 
 run_tests() {
-  "$project_root/tests/bin/test_runner" "$@"
-  "$project_root/tests/bin/test_actual_admission"
-  "$project_root/tests/bin/test_plan_completion_admission"
-  "$project_root/tests/bin/test_report_account_order"
-  "$project_root/tests/bin/test_household_report_observation"
-  "$project_root/tests/bin/test_envelope_commitment"
-  "$project_root/tests/bin/test_envelope_explanation"
-  "$project_root/tests/bin/test_envelope_change"
-  "$project_root/tests/bin/test_envelope_change_baseline"
-  "$project_root/tests/bin/test_household_temporal"
-  "$project_root/tests/bin/test_household_source_admission"
-  "$project_root/tests/bin/test_envelope_cycle_comparison"
-  "$project_root/tests/bin/test_household_temporal_cycle_context"
-  "$project_root/tests/bin/test_account_reconciliation"
-  "$project_root/tests/bin/test_household_check_observation"
-  "$project_root/tests/bin/test_issues_admission"
-  "$project_root/tests/bin/test_issue_observation"
-  "$project_root/tests/bin/test_household_home_observation"
-  "$project_root/tests/bin/test_household_home_presentation"
-  "$project_root/tests/bin/test_household_home_command"
-  "$project_root/tests/bin/test_household_home_interaction"
-  "$project_root/tests/bin/test_household_home_tui_input"
+  local found=0
+  local test_exe
+  for test_exe in "$project_root"/tests/bin/test_*; do
+    [[ -x "$test_exe" ]] || continue
+    found=1
+    "$test_exe"
+  done
+
+  if [[ "$found" -eq 0 ]]; then
+    echo "tools/hra: no built focused test executables found" >&2
+    exit 1
+  fi
 }
 
 command="${1:-help}"
@@ -118,8 +111,12 @@ case "$command" in
     exec alr build "$@"
     ;;
   test)
+    if [[ $# -ne 0 ]]; then
+      echo "tools/hra test: unexpected arguments" >&2
+      exit 2
+    fi
     build_tests
-    run_tests "$@"
+    run_tests
     ;;
   prove)
     if [[ $# -ne 0 ]]; then
