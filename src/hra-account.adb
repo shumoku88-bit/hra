@@ -10,7 +10,6 @@ package body HRA.Account is
          when Equity    => return "Equity";
          when Income    => return "Income";
          when Expense   => return "Expense";
-         when Budget    => return "Budget";
       end case;
    end Account_Type_Image;
 
