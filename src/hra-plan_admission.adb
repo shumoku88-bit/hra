@@ -4,23 +4,23 @@ package body HRA.Plan_Admission is
 
    use type HRA.Plan.Plan_Id;
 
-   function Empty_Observation return Plan_Observation is
-      Result : Plan_Observation;
+   function Empty_Journal return Plan_Journal is
+      Result : Plan_Journal;
    begin
       Result.Value := HRA.Ledger.Empty_Ledger;
       Result.In_Order.Clear;
       Result.Ids := HRA.Plan.Empty_Plan_Id_Universe;
       return Result;
-   end Empty_Observation;
+   end Empty_Journal;
 
    function Evidence_Of
-     (Observation : Plan_Observation)
+     (Journal : Plan_Journal)
       return HRA.Journal_Evidence.Journal_Evidence
    is
       Result : HRA.Journal_Evidence.Journal_Evidence;
    begin
       Result.Transactions.Clear;
-      for Item of Observation.In_Order loop
+      for Item of Journal.In_Order loop
          Result.Transactions.Append (Item.Source);
       end loop;
       return Result;
@@ -92,10 +92,10 @@ package body HRA.Plan_Admission is
    function Admit
      (Plan_Ledger   : HRA.Ledger.Ledger;
       Plan_Evidence : HRA.Journal_Evidence.Journal_Evidence;
-      Result        : out Plan_Observation;
+      Result        : out Plan_Journal;
       Diag          : out Admission_Diagnostic) return Boolean
    is
-      Output : Plan_Observation := Empty_Observation;
+      Output : Plan_Journal := Empty_Journal;
 
       procedure Fail
         (Status  : Admission_Status;
@@ -138,7 +138,7 @@ package body HRA.Plan_Admission is
                   Item : constant Plan_Transaction_Entry :=
                     Output.In_Order.Element (Index);
                begin
-                  if Item.Retirement.Kind /= Superseded then
+                  if Item.Retirement.Kind /= Supersession then
                      return False;
                   end if;
                   Current := Item.Retirement.Successor;
@@ -175,7 +175,7 @@ package body HRA.Plan_Admission is
             Plan_Meta, Cancel_Meta, Sup_On_Meta, Sup_By_Meta : Metadata_Entry;
             PID        : HRA.Plan.Plan_Id;
             PID_Status : HRA.Plan.Plan_Id_Status;
-            Kind       : Retirement_Kind := Active;
+            Kind       : Retirement_Kind := No_Retirement;
             Retired_On : HRA.Dates.Date := Tx.Date;
             Successor  : HRA.Plan.Plan_Id;
          begin
@@ -254,7 +254,7 @@ package body HRA.Plan_Admission is
                         "invalid cancelled-on date");
                      return False;
                   end if;
-                  Kind := Canceled;
+                  Kind := Cancellation;
                end;
             elsif Sup_On_Count = 1 then
                declare
@@ -287,36 +287,36 @@ package body HRA.Plan_Admission is
                         "Plan cannot supersede itself");
                      return False;
                   end if;
-                  Kind := Superseded;
+                  Kind := Supersession;
                end;
             end if;
 
             HRA.Plan.Include (Output.Ids, PID);
             case Kind is
-               when Active =>
+               when No_Retirement =>
                   Output.In_Order.Append
                     (Plan_Transaction_Entry'
                        (ID         => PID,
                         Tx         => Tx,
                         Source     => Source,
-                        Retirement => (Kind => Active)));
-               when Canceled =>
+                        Retirement => (Kind => No_Retirement)));
+               when Cancellation =>
                   Output.In_Order.Append
                     (Plan_Transaction_Entry'
                        (ID         => PID,
                         Tx         => Tx,
                         Source     => Source,
                         Retirement =>
-                          (Kind        => Canceled,
+                          (Kind        => Cancellation,
                            Canceled_On => Retired_On)));
-               when Superseded =>
+               when Supersession =>
                   Output.In_Order.Append
                     (Plan_Transaction_Entry'
                        (ID         => PID,
                         Tx         => Tx,
                         Source     => Source,
                         Retirement =>
-                          (Kind          => Superseded,
+                          (Kind          => Supersession,
                            Superseded_On => Retired_On,
                            Successor     => Successor)));
             end case;
@@ -324,7 +324,7 @@ package body HRA.Plan_Admission is
       end loop;
 
       for Item of Output.In_Order loop
-         if Item.Retirement.Kind = Superseded
+         if Item.Retirement.Kind = Supersession
            and then Find_Plan_Index (Item.Retirement.Successor) = 0
          then
             Fail
@@ -338,7 +338,7 @@ package body HRA.Plan_Admission is
       end loop;
 
       for I in 1 .. Natural (Output.In_Order.Length) loop
-         if Output.In_Order.Element (I).Retirement.Kind = Superseded
+         if Output.In_Order.Element (I).Retirement.Kind = Supersession
            and then Supersession_Cycle_From (I)
          then
             Fail
