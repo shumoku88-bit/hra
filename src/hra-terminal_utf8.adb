@@ -5,6 +5,8 @@ package body HRA.Terminal_UTF8 is
 
    package C renames Interfaces.C;
    package C_Strings renames Interfaces.C.Strings;
+   use type C.int;
+   use type C_Strings.chars_ptr;
 
    function C_Initialize return C.int
      with Import,
