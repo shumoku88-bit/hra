@@ -44,7 +44,7 @@ package body HRA.Household_Report_Observation is
 
          --  Current membership and order are admitted policy. Resolve stable
          --  identity once here; a renderer must never reconstruct it from text.
-         for Definition of State.Budget_Policy.Envelopes loop
+         for Definition of State.Envelope_Policy.Envelopes loop
             declare
                Id_Text : constant String := To_String (Definition.ID);
                Env_Id  : HRA.Envelope.Envelope_Id;
@@ -174,9 +174,6 @@ package body HRA.Household_Report_Observation is
       end Build_Envelope_Report;
 
    begin
-      --  Compose into a local value. Result is published only after every
-      --  section succeeds, so unavailable can never masquerade as a partial
-      --  successful report book.
       if not HRA.Household_Envelope_Observation.Observe
         (Observed_Through, State, Envelope_Obs, Error_Msg)
       then
@@ -185,8 +182,6 @@ package body HRA.Household_Report_Observation is
 
       Output.Observed_Through := Envelope_Obs.Observed_Through;
       Output.Section_Order := Current_Section_Order;
-      --  Report policy is resolved exactly once. Every bounded section below
-      --  consumes a coordinate from this one resolved plan.
       if not HRA.Report_Plan.Resolve_With_Current_Cycle
         (Observed_Through,
          State.Actual_Ledger,
