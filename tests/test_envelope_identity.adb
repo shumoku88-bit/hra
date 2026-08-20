@@ -111,6 +111,17 @@ begin
       Registry : HRA.Envelope.Envelope_Registry;
       Diag     : HRA.Config_Support.Config_Diagnostic;
    begin
+      Assert
+        (not HRA.Envelope.Admit_Registry (Names, Registry, Diag),
+         "empty stable Envelope registry fails closed");
+
+      Names.Append ("valid");
+      Names.Append ("");
+      Assert
+        (not HRA.Envelope.Admit_Registry (Names, Registry, Diag),
+         "registry containing an invalid identity fails closed");
+
+      Names.Clear;
       Names.Append ("food");
       Names.Append ("food");
       Assert
