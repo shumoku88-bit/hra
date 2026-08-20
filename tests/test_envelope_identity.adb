@@ -4,6 +4,8 @@ with HRA.Config_Support;
 with HRA.Envelope;
 
 procedure Test_Envelope_Identity is
+   use type HRA.Envelope.Envelope_Id_Status;
+
    Passed_Count : Natural := 0;
    Failed_Count : Natural := 0;
 
