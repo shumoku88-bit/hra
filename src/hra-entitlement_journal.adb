@@ -360,25 +360,28 @@ package body HRA.Entitlement_Journal is
                           and then To_Ep.Kind = Spendable
                         then
                            Result.Movements.Append
-                             ((Kind    => HRA.Envelope_Entitlement.Grant_From_Unallocated,
-                               Tx_Date => Tx_Date,
-                               Amt     => Amt,
-                               Target  => To_Ep.Envelope_Id));
+                             (HRA.Envelope_Entitlement.Entitlement_Movement'
+                                (Kind    => HRA.Envelope_Entitlement.Grant_From_Unallocated,
+                                 Tx_Date => Tx_Date,
+                                 Amt     => Amt,
+                                 Target  => To_Ep.Envelope_Id));
                         elsif From_Ep.Kind = Spendable
                           and then To_Ep.Kind = Unallocated
                         then
                            Result.Movements.Append
-                             ((Kind    => HRA.Envelope_Entitlement.Return_To_Unallocated,
-                               Tx_Date => Tx_Date,
-                               Amt     => Amt,
-                               Source  => From_Ep.Envelope_Id));
+                             (HRA.Envelope_Entitlement.Entitlement_Movement'
+                                (Kind    => HRA.Envelope_Entitlement.Return_To_Unallocated,
+                                 Tx_Date => Tx_Date,
+                                 Amt     => Amt,
+                                 Source  => From_Ep.Envelope_Id));
                         else
                            Result.Movements.Append
-                             ((Kind          => HRA.Envelope_Entitlement.Transfer_Between_Envelopes,
-                               Tx_Date       => Tx_Date,
-                               Amt           => Amt,
-                               From_Envelope => From_Ep.Envelope_Id,
-                               To_Envelope   => To_Ep.Envelope_Id));
+                             (HRA.Envelope_Entitlement.Entitlement_Movement'
+                                (Kind          => HRA.Envelope_Entitlement.Transfer_Between_Envelopes,
+                                 Tx_Date       => Tx_Date,
+                                 Amt           => Amt,
+                                 From_Envelope => From_Ep.Envelope_Id,
+                                 To_Envelope   => To_Ep.Envelope_Id));
                         end if;
                      end;
                   else
