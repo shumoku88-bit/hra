@@ -177,9 +177,9 @@ package body HRA.Entitlement_Journal is
                begin
                   while Date_Sets.Has_Element (Date_Cursor) loop
                      declare
-                        Day   : constant HRA.Dates.Date :=
+                        Day : constant HRA.Dates.Date :=
                           Date_Sets.Element (Date_Cursor);
-                        Delta : Quantity := Zero_Quantity;
+                        Day_Change : Quantity := Zero_Quantity;
                      begin
                         for Movement of History.Movements loop
                            if Movement.Tx_Date = Day
@@ -188,23 +188,23 @@ package body HRA.Entitlement_Journal is
                               case Movement.Kind is
                                  when HRA.Envelope_Entitlement.Grant_From_Unallocated =>
                                     if Movement.Target = Env then
-                                       Delta := Delta + Movement.Amt.Val;
+                                       Day_Change := Day_Change + Movement.Amt.Val;
                                     end if;
                                  when HRA.Envelope_Entitlement.Transfer_Between_Envelopes =>
                                     if Movement.From_Envelope = Env then
-                                       Delta := Delta - Movement.Amt.Val;
+                                       Day_Change := Day_Change - Movement.Amt.Val;
                                     end if;
                                     if Movement.To_Envelope = Env then
-                                       Delta := Delta + Movement.Amt.Val;
+                                       Day_Change := Day_Change + Movement.Amt.Val;
                                     end if;
                                  when HRA.Envelope_Entitlement.Return_To_Unallocated =>
                                     if Movement.Source = Env then
-                                       Delta := Delta - Movement.Amt.Val;
+                                       Day_Change := Day_Change - Movement.Amt.Val;
                                     end if;
                               end case;
                            end if;
                         end loop;
-                        Running := Running + Delta;
+                        Running := Running + Day_Change;
                         if Running < Zero_Quantity then
                            Set_Diagnostic
                              (Diag, Negative_Envelope_Stock, 0,
