@@ -1,5 +1,4 @@
 with HRA.Account;
-with HRA.Actual_Admission;
 with HRA.Entitlement_Journal;
 
 package body HRA.Household_Envelope_Observation is
@@ -21,7 +20,7 @@ package body HRA.Household_Envelope_Observation is
         (State.Plan_Ledger,
          State.Plan_Evidence,
          State.Actual_Ledger,
-         HRA.Actual_Admission.Evidence_Of (State.Actual_Identity),
+         State.Actual_Evidence,
          Observed_Through,
          Open_Plans,
          Completed_Plans,
