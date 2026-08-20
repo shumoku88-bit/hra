@@ -1,5 +1,5 @@
 with Ada.Text_IO; use Ada.Text_IO;
-with HRA.Budget_Config;
+with HRA.Envelope_Config;
 with HRA.Config_Support;
 with HRA.Dates;
 with HRA.Envelope; use HRA.Envelope;
@@ -37,7 +37,7 @@ procedure Test_Envelope_Explanation is
 
    JPY : constant Commodity := Make_Commodity ("JPY");
 
-   Budget_TOML : constant String :=
+   Envelope_TOML : constant String :=
      "[[backing-pools]]" & ASCII.LF &
      "id = ""liquid""" & ASCII.LF &
      "asset-accounts = [""assets:cash""]" & ASCII.LF &
@@ -47,7 +47,7 @@ procedure Test_Envelope_Explanation is
      "pacing = ""daily""" & ASCII.LF &
      "backing-pool = ""liquid""" & ASCII.LF;
 
-   Policy      : HRA.Budget_Config.Budget_Policy;
+   Policy      : HRA.Envelope_Config.Envelope_Policy;
    Config_Diag : HRA.Config_Support.Config_Diagnostic;
    Ids         : HRA.Config_Support.String_Vectors.Vector;
    Registry    : Envelope_Registry;
@@ -71,8 +71,8 @@ begin
    Put_Line ("--- Testing Envelope arithmetic explanation ---");
 
    Assert
-     (HRA.Budget_Config.Parse_Budget_Policy
-        (Budget_TOML, Policy, Config_Diag),
+     (HRA.Envelope_Config.Parse_Envelope_Policy
+        (Envelope_TOML, Policy, Config_Diag),
       "Setup: parse current Envelope policy");
 
    Ids.Append ("food");
