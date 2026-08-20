@@ -55,6 +55,19 @@ package body HRA.Actual_Admission is
       return Result;
    end Empty_Observation;
 
+   function Evidence_Of
+     (Observation : Actual_Observation)
+      return HRA.Journal_Evidence.Journal_Evidence
+   is
+      Result : HRA.Journal_Evidence.Journal_Evidence;
+   begin
+      Result.Transactions.Clear;
+      for Item of Observation.In_Order loop
+         Result.Transactions.Append (Item.Source);
+      end loop;
+      return Result;
+   end Evidence_Of;
+
    function Identified_Count
      (Observation : Actual_Observation) return Natural
    is
