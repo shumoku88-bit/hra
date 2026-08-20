@@ -32,56 +32,24 @@ package body HRA.Household_Config is
       return HRA.Account.Create_Account (Name, Acc, Status);
    end Valid_Account;
 
-   function Read_Accounts
-     (Value : TOML.TOML_Value;
-      Path  : String;
-      Items : out String_Vectors.Vector;
-      Diag  : out Config_Diagnostic) return Boolean
-   is
-   begin
-      if not Read_String_Array (Value, Source_Name, Path, Items, Diag) then
-         return False;
-      end if;
-      for Item of Items loop
-         if not Valid_Account (Item) then
-            Set_Error
-              (Diag, Source_Name, Path, "invalid Account identity", Value);
-            return False;
-         end if;
-      end loop;
-      return True;
-   end Read_Accounts;
-
    function Parse_Household_Configuration
-     (Text          : String;
-      Budget_Policy : HRA.Budget_Config.Budget_Policy;
-      Config        : out Household_Configuration;
-      Diag          : out Config_Diagnostic) return Boolean
+     (Text   : String;
+      Config : out Household_Configuration;
+      Diag   : out Config_Diagnostic) return Boolean
    is
-      Root, Cycle, Budget, Money, Daily_Target, History_Section :
-        TOML.TOML_Value;
-      Mode_Value, Income_Value, Opening_Value, Unassigned_Value,
-        Envelopes_Value : TOML.TOML_Value;
-      Commodity_Value, Assets_Value : TOML.TOML_Value;
+      Root, Cycle, Money, Daily_Target, History_Section : TOML.TOML_Value;
+      Mode_Value, Income_Value, Commodity_Value, Assets_Value : TOML.TOML_Value;
       Has_Money, Has_Daily_Target : Boolean;
       Result : Household_Configuration;
-      Known_Envelopes, Seen_Envelopes, Allocations,
-        Daily_IDs, Daily_Accounts : String_Vectors.Vector;
+      Daily_IDs, Daily_Accounts : String_Vectors.Vector;
    begin
-      for Envelope of Budget_Policy.Envelopes loop
-         Known_Envelopes.Append (To_String (Envelope.ID));
-      end loop;
-
       if not Parse_Root (Text, Source_Name, Root, Diag)
         or else not Check_Keys
-          (Root, "cycle|money|budget|daily-target|envelope-history",
+          (Root, "cycle|money|daily-target|envelope-history",
            Source_Name, "", Diag)
         or else not Require
           (Root, "cycle", TOML.TOML_Table,
            Source_Name, "", Cycle, Diag)
-        or else not Require
-          (Root, "budget", TOML.TOML_Table,
-           Source_Name, "", Budget, Diag)
         or else not Optional
           (Root, "money", TOML.TOML_Table,
            Source_Name, "", Money, Has_Money, Diag)
@@ -140,117 +108,6 @@ package body HRA.Household_Config is
          end;
          Result.Has_Primary_Commodity := True;
       end if;
-
-      if not Check_Keys
-        (Budget, "opening-accounts|unassigned-accounts|envelopes",
-         Source_Name, "budget", Diag)
-        or else not Require
-          (Budget, "opening-accounts", TOML.TOML_Array,
-           Source_Name, "budget", Opening_Value, Diag)
-        or else not Read_Accounts
-          (Opening_Value, "budget.opening-accounts",
-           Result.Opening_Accounts, Diag)
-        or else not Require
-          (Budget, "unassigned-accounts", TOML.TOML_Array,
-           Source_Name, "budget", Unassigned_Value, Diag)
-        or else not Read_Accounts
-          (Unassigned_Value, "budget.unassigned-accounts",
-           Result.Unassigned_Accounts, Diag)
-        or else not Require
-          (Budget, "envelopes", TOML.TOML_Array,
-           Source_Name, "budget", Envelopes_Value, Diag)
-      then
-         return False;
-      end if;
-
-      if Result.Opening_Accounts.Is_Empty then
-         Set_Error
-           (Diag, Source_Name, "budget.opening-accounts",
-            "expected at least one opening Budget account", Opening_Value);
-         return False;
-      elsif Result.Unassigned_Accounts.Is_Empty then
-         Set_Error
-           (Diag, Source_Name, "budget.unassigned-accounts",
-            "expected at least one unassigned Budget account", Unassigned_Value);
-         return False;
-      end if;
-
-      for Name of Result.Opening_Accounts loop
-         if Contains (Result.Unassigned_Accounts, Name) then
-            Set_Error
-              (Diag, Source_Name, "budget",
-               "Budget Account cannot be both opening and unassigned");
-            return False;
-         end if;
-      end loop;
-
-      for I in 1 .. Envelopes_Value.Length loop
-         declare
-            Item, ID_Value, Allocation_Value : TOML.TOML_Value;
-            Path : constant String :=
-              "budget.envelopes[" & Image (I) & "]";
-         begin
-            Item := Envelopes_Value.Item (I);
-            if Item.Kind /= TOML.TOML_Table then
-               Set_Error (Diag, Source_Name, Path, "expected table", Item);
-               return False;
-            elsif not Check_Keys
-              (Item, "id|allocation-account", Source_Name, Path, Diag)
-              or else not Require
-                (Item, "id", TOML.TOML_String,
-                 Source_Name, Path, ID_Value, Diag)
-              or else not Require
-                (Item, "allocation-account", TOML.TOML_String,
-                 Source_Name, Path, Allocation_Value, Diag)
-            then
-               return False;
-            end if;
-
-            if ID_Value.As_String'Length = 0 then
-               Set_Error
-                 (Diag, Source_Name, Path & ".id",
-                  "expected non-empty Envelope identity", ID_Value);
-               return False;
-            elsif Contains (Seen_Envelopes, ID_Value.As_String) then
-               Set_Error
-                 (Diag, Source_Name, Path & ".id",
-                  "duplicate envelope coordinates", ID_Value);
-               return False;
-            elsif not Valid_Account (Allocation_Value.As_String) then
-               Set_Error
-                 (Diag, Source_Name, Path & ".allocation-account",
-                  "invalid Account identity", Allocation_Value);
-               return False;
-            elsif Contains (Allocations, Allocation_Value.As_String)
-              or else Contains
-                (Result.Opening_Accounts, Allocation_Value.As_String)
-              or else Contains
-                (Result.Unassigned_Accounts, Allocation_Value.As_String)
-            then
-               Set_Error
-                 (Diag, Source_Name, Path & ".allocation-account",
-                  "allocation Account is duplicated, opening, or unassigned",
-                  Allocation_Value);
-               return False;
-            end if;
-
-            Seen_Envelopes.Append (ID_Value.As_String);
-            Allocations.Append (Allocation_Value.As_String);
-            Result.Envelopes.Append
-              (Envelope_Coordinates'
-                 (ID                 => ID_Value.As_Unbounded_String,
-                  Allocation_Account => Allocation_Value.As_Unbounded_String));
-         end;
-      end loop;
-
-      for Current_ID of Known_Envelopes loop
-         if not Contains (Seen_Envelopes, Current_ID) then
-            Set_Error
-              (Diag, Source_Name, "budget.envelopes",
-               "every current budget.toml envelope requires household coordinates");
-            return False;
-         end if;
-      end loop;
 
       if Has_Daily_Target then
          if not Check_Keys
