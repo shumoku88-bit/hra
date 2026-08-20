@@ -1,5 +1,6 @@
 with HRA.Account;
 with HRA.Issues;
+with HRA.Entitlement_Journal;
 
 package body HRA.Household_Check_Observation is
 
@@ -9,15 +10,15 @@ package body HRA.Household_Check_Observation is
    is
    begin
       return Observation'
-        (Actual_Transactions =>
+        (Actual_Transactions   =>
            Natural (State.Actual_Ledger.Transactions.Length),
-         Plan_Transactions   =>
+         Plan_Transactions     =>
            Natural (State.Plan_Ledger.Transactions.Length),
-         Budget_Transactions =>
-           Natural (State.Budget_Ledger.Transactions.Length),
-         Registered_Accounts =>
+         Entitlement_Movements =>
+           HRA.Entitlement_Journal.Movement_Count (State.Entitlement_History),
+         Registered_Accounts   =>
            HRA.Account.Declarations (State.Registry)'Length,
-         Open_Issues         =>
+         Open_Issues           =>
            HRA.Issues.Count (HRA.Issues.Open_Issues (State.Issues)));
    end Observe;
 
