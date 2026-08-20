@@ -47,15 +47,26 @@ need_alr() {
 ensure_local_index() {
   need_alr
   local overlay_path="$project_root/support/alire-index"
+  local index_listing
+  local toolchain_listing
+
+  # Do not pipe `alr ...` into `grep -q` here. With `set -o pipefail`, grep can
+  # exit as soon as it finds a match and leave alr with SIGPIPE, turning a real
+  # match into a false failure. Capture the small listing first so repeated
+  # invocations remain idempotent in the repository-local persistent settings.
+  if ! index_listing="$(alr index 2>/dev/null)"; then
+    index_listing=""
+  fi
 
   # ALIRE_SETTINGS_DIR starts pristine, so establish Alire's own community
   # index before placing the HRA overlay ahead of it. Do not copy or hard-code
   # the community branch here; let the installed Alire version select it.
-  if ! alr index 2>/dev/null | grep -q "community"; then
+  if [[ "$index_listing" != *community* ]]; then
     alr index --reset-community >&2
+    index_listing="$(alr index 2>/dev/null)"
   fi
 
-  if [[ -d "$overlay_path" ]] && ! alr index 2>/dev/null | grep -q "hra_overlay"; then
+  if [[ -d "$overlay_path" && "$index_listing" != *hra_overlay* ]]; then
     alr index --add "$overlay_path" --name hra_overlay --before community >&2
   fi
 
@@ -63,7 +74,10 @@ ensure_local_index() {
   # standard native components explicitly in this isolated settings space so
   # Alire can reuse already available matching toolchains without invoking its
   # first-run interactive assistant. Do not pin concrete versions here.
-  if ! alr toolchain 2>/dev/null | grep -q "Default"; then
+  if ! toolchain_listing="$(alr toolchain 2>/dev/null)"; then
+    toolchain_listing=""
+  fi
+  if [[ "$toolchain_listing" != *Default* ]]; then
     alr toolchain --select gnat_native gprbuild >&2
   fi
 }
