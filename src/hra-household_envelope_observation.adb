@@ -118,7 +118,7 @@ package body HRA.Household_Envelope_Observation is
          Pos_Diag : HRA.Envelope_Position.Observe_Diagnostic;
       begin
          if not HRA.Envelope_Position.Observe
-           (State.Budget_Policy,
+           (State.Envelope_Policy,
             State.Envelope_Registry,
             Result.Entitlement,
             Result.Consumption,
