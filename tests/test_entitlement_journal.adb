@@ -1,6 +1,7 @@
 with Ada.Command_Line;
 with Ada.Text_IO; use Ada.Text_IO;
-with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
+with HRA.Config_Support;
+with HRA.Dates;
 with HRA.Envelope;
 with HRA.Entitlement_Journal;
 with HRA.Envelope_Entitlement;
@@ -21,6 +22,16 @@ procedure Test_Entitlement_Journal is
          Failed := True;
       end if;
    end Check;
+
+   function D (Text : String) return HRA.Dates.Date is
+      Value  : HRA.Dates.Date;
+      Status : HRA.Dates.Date_Status;
+   begin
+      if not HRA.Dates.Parse (Text, Value, Status) then
+         raise Program_Error with "invalid test date: " & Text;
+      end if;
+      return Value;
+   end D;
 
    IDs : HRA.Config_Support.String_Vectors.Vector;
    Registry : Envelope_Registry;
@@ -49,9 +60,9 @@ begin
 
    declare
       At_Origin : constant HRA.Envelope_Entitlement.Entitlement_Observation :=
-        Observe (History, HRA.Dates.Make_Date (2026, 8, 17));
+        Observe (History, D ("2026-08-17"));
       After_Return : constant HRA.Envelope_Entitlement.Entitlement_Observation :=
-        Observe (History, HRA.Dates.Make_Date (2026, 8, 18));
+        Observe (History, D ("2026-08-18"));
    begin
       Check
         (Lookup_Balance
