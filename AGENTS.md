@@ -40,12 +40,14 @@ canonical rootは次の8 sourceだけで構成する。
 accounts.journal
 actual.journal
 plan.journal
-budget.journal
-budget.toml
+entitlement.journal
+envelope.toml
 household.toml
 report.toml
 issues.tsv
 ```
+
+source topology / meaningへ触れる作業では、HRA内の文書や過去実装をauthorityにしない。actual `h-kernel` contractとshared Household rootのcurrent inventoryを先に照合し、矛盾するHRA文書はstaleとしてHRA側を更新する。互換alias、fallback、private data側の穴埋めで差を隠さない。
 
 - basenameは`HRA.Canonical_Source`だけが解決する
 - legacy source、fallback、redirect、engine別copy、dual authorityを追加しない
