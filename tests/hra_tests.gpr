@@ -6,10 +6,11 @@ project HRA_Tests is
    for Object_Dir use "obj";
    for Exec_Dir use "bin";
    for Main use
-     ("test_runner.adb",
-      "test_actual_admission.adb",
+     ("test_actual_admission.adb",
       "test_plan_completion_admission.adb",
       "test_envelope_entitlement_standalone.adb",
+      "test_entitlement_journal.adb",
+      "test_entitlement_observation_horizon.adb",
       "test_report_plan.adb",
       "test_report_account_order.adb",
       "test_household_report_observation.adb",
@@ -39,7 +40,8 @@ project HRA_Tests is
       "test_household_home_presentation.adb",
       "test_household_home_command.adb",
       "test_household_home_interaction.adb",
-      "test_household_home_tui_input.adb");
+      "test_household_home_tui_input.adb",
+      "test_writer.adb");
 
    package Compiler is
       for Default_Switches ("Ada") use
@@ -51,10 +53,11 @@ project HRA_Tests is
    end Binder;
 
    package Builder is
-      for Executable ("test_runner.adb") use "test_runner";
       for Executable ("test_actual_admission.adb") use "test_actual_admission";
       for Executable ("test_plan_completion_admission.adb") use "test_plan_completion_admission";
       for Executable ("test_envelope_entitlement_standalone.adb") use "test_entitlement";
+      for Executable ("test_entitlement_journal.adb") use "test_entitlement_journal";
+      for Executable ("test_entitlement_observation_horizon.adb") use "test_entitlement_observation_horizon";
       for Executable ("test_report_plan.adb") use "test_report_plan";
       for Executable ("test_report_account_order.adb") use "test_report_account_order";
       for Executable ("test_household_report_observation.adb") use "test_household_report_observation";
@@ -85,5 +88,6 @@ project HRA_Tests is
       for Executable ("test_household_home_command.adb") use "test_household_home_command";
       for Executable ("test_household_home_interaction.adb") use "test_household_home_interaction";
       for Executable ("test_household_home_tui_input.adb") use "test_household_home_tui_input";
+      for Executable ("test_writer.adb") use "test_writer";
    end Builder;
 end HRA_Tests;
