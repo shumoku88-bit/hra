@@ -8,6 +8,7 @@ project HRA_Tests is
    for Main use
      ("test_actual_admission.adb",
       "test_plan_admission.adb",
+      "test_plan_completion_relation.adb",
       "test_plan_completion_admission.adb",
       "test_envelope_entitlement_standalone.adb",
       "test_entitlement_journal.adb",
@@ -60,6 +61,7 @@ project HRA_Tests is
    package Builder is
       for Executable ("test_actual_admission.adb") use "test_actual_admission";
       for Executable ("test_plan_admission.adb") use "test_plan_admission";
+      for Executable ("test_plan_completion_relation.adb") use "test_plan_completion_relation";
       for Executable ("test_plan_completion_admission.adb") use "test_plan_completion_admission";
       for Executable ("test_envelope_entitlement_standalone.adb") use "test_entitlement";
       for Executable ("test_entitlement_journal.adb") use "test_entitlement_journal";
