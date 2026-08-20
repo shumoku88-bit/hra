@@ -52,10 +52,6 @@ package body HRA.Household_Temporal is
          return False;
       end if;
 
-      --  Resolve_Baseline has already proved the earlier coordinate belongs to
-      --  Current.Current_Cycle. Re-observing through the generic current-cycle
-      --  resolver would throw away that typed temporal evidence and infer it
-      --  again from source anchors.
       if not HRA.Household_Envelope_Observation.Observe_In_Window
         (HRA.Household_Envelope_Change.Resolved_Day (Resolved),
          Current.Current_Cycle,
@@ -70,7 +66,7 @@ package body HRA.Household_Temporal is
       end if;
 
       if not HRA.Household_Envelope_Explanation.Capture
-        (State.Budget_Policy,
+        (State.Envelope_Policy,
          State.Envelope_Registry,
          Earlier.Current_Cycle,
          Earlier.Observed_Through,
@@ -85,7 +81,7 @@ package body HRA.Household_Temporal is
       end if;
 
       if not HRA.Household_Envelope_Explanation.Capture
-        (State.Budget_Policy,
+        (State.Envelope_Policy,
          State.Envelope_Registry,
          Current.Current_Cycle,
          Current.Observed_Through,
@@ -129,9 +125,6 @@ package body HRA.Household_Temporal is
         HRA.Account.Make_Account
           (To_String (State.Household_Policy.Cycle_Income_Account));
    begin
-      --  The current observation already owns role-neutral Plan observation, so
-      --  reuse its admitted Open Plans when selecting the temporal cycle pair.
-      --  Cycle_Observation remains the sole anchor resolver.
       if not HRA.Household_Envelope_Observation.Observe
         (Observed_Through, State, Current, Observation_Error)
       then
