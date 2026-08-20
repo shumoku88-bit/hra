@@ -27,7 +27,7 @@ procedure Test_Plan_Admission is
 
    function Admit_Source
      (Source : String;
-      Result : out HRA.Plan_Admission.Plan_Observation;
+      Result : out HRA.Plan_Admission.Plan_Journal;
       Diag   : out HRA.Plan_Admission.Admission_Diagnostic) return Boolean
    is
       L             : HRA.Ledger.Ledger;
@@ -101,36 +101,36 @@ procedure Test_Plan_Admission is
      "    assets:cash       -20 JPY" & ASCII.LF &
      "    expenses:food      20 JPY" & ASCII.LF;
 
-   Observation : HRA.Plan_Admission.Plan_Observation;
-   Diag        : HRA.Plan_Admission.Admission_Diagnostic;
+   Journal : HRA.Plan_Admission.Plan_Journal;
+   Diag    : HRA.Plan_Admission.Admission_Diagnostic;
 
 begin
    Put_Line ("--- Testing HRA.Plan_Admission ---");
 
    Assert
-     (Admit_Source (Valid_Source, Observation, Diag),
-      "Plan Journal admits identity lifecycle and provenance together");
+     (Admit_Source (Valid_Source, Journal, Diag),
+      "Plan Journal admits identity lifecycle evidence and provenance together");
    Assert
-     (HRA.Plan_Admission.Transaction_Count (Observation) = 2,
+     (HRA.Plan_Admission.Transaction_Count (Journal) = 2,
       "Plan admission retains source-order whole transactions");
 
    declare
       First : constant HRA.Plan_Admission.Plan_Transaction_Entry :=
-        HRA.Plan_Admission.Transaction_At (Observation, 1);
+        HRA.Plan_Admission.Transaction_At (Journal, 1);
       Second : constant HRA.Plan_Admission.Plan_Transaction_Entry :=
-        HRA.Plan_Admission.Transaction_At (Observation, 2);
+        HRA.Plan_Admission.Transaction_At (Journal, 2);
       Evidence : constant HRA.Journal_Evidence.Journal_Evidence :=
-        HRA.Plan_Admission.Evidence_Of (Observation);
+        HRA.Plan_Admission.Evidence_Of (Journal);
       Ids : constant HRA.Plan.Plan_Id_Universe :=
-        HRA.Plan_Admission.Plan_Ids_Of (Observation);
+        HRA.Plan_Admission.Plan_Ids_Of (Journal);
    begin
       Assert
         (HRA.Plan.Text (First.ID) = "plan-old"
-           and then First.Retirement.Kind = HRA.Plan_Admission.Superseded
+           and then First.Retirement.Kind = HRA.Plan_Admission.Supersession
            and then HRA.Plan.Text (First.Retirement.Successor) = "plan-new"
            and then HRA.Plan.Text (Second.ID) = "plan-new"
-           and then Second.Retirement.Kind = HRA.Plan_Admission.Active,
-         "Plan lifecycle is structural rather than Boolean plus dummy values");
+           and then Second.Retirement.Kind = HRA.Plan_Admission.No_Retirement,
+         "Retirement evidence is structural rather than Boolean plus dummy values");
       Assert
         (First.Source.Header_Line = 1
            and then Natural (Evidence.Transactions.Length) = 2,
@@ -142,23 +142,23 @@ begin
    end;
 
    Assert
-     (Admit_Source (Canceled_Source, Observation, Diag)
+     (Admit_Source (Canceled_Source, Journal, Diag)
         and then HRA.Plan_Admission.Transaction_At
-          (Observation, 1).Retirement.Kind = HRA.Plan_Admission.Canceled,
-      "Cancellation has its own variant shape");
+          (Journal, 1).Retirement.Kind = HRA.Plan_Admission.Cancellation,
+      "Cancellation evidence has its own variant shape");
 
    Assert
-     (not Admit_Source (Unknown_Successor_Source, Observation, Diag)
+     (not Admit_Source (Unknown_Successor_Source, Journal, Diag)
         and then Diag.Status = HRA.Plan_Admission.Unknown_Supersession_Target,
       "Unknown Plan successor fails closed");
 
    Assert
-     (not Admit_Source (Cycle_Source, Observation, Diag)
+     (not Admit_Source (Cycle_Source, Journal, Diag)
         and then Diag.Status = HRA.Plan_Admission.Supersession_Cycle,
       "Plan supersession cycle fails closed");
 
    Assert
-     (not Admit_Source (Duplicate_Id_Source, Observation, Diag)
+     (not Admit_Source (Duplicate_Id_Source, Journal, Diag)
         and then Diag.Status = HRA.Plan_Admission.Duplicate_Plan_Id,
       "Duplicate Plan identity fails closed");
 
