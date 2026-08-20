@@ -2,7 +2,7 @@ with Ada.Text_IO; use Ada.Text_IO;
 with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
 with HRA.Account;
 with HRA.Backing_Policy;
-with HRA.Budget_Config;
+with HRA.Envelope_Config;
 with HRA.Config_Support;
 with HRA.Cycle_Observation;
 with HRA.Dates;
@@ -105,7 +105,7 @@ procedure Test_Envelope_Commitment is
      "    expenses:food        999 JPY" & ASCII.LF &
      "    assets:cash         -999 JPY" & ASCII.LF;
 
-   Budget_TOML : constant String :=
+   Envelope_TOML : constant String :=
      "[[backing-pools]]" & ASCII.LF &
      "id = ""liquid""" & ASCII.LF &
      "asset-accounts = [""assets:cash""]" & ASCII.LF &
@@ -234,7 +234,7 @@ begin
       "Next-cycle Plan is excluded at the end-exclusive boundary");
 
    declare
-      Policy_Config : HRA.Budget_Config.Budget_Policy;
+      Policy_Config : HRA.Envelope_Config.Envelope_Policy;
       Config_Diag   : HRA.Config_Support.Config_Diagnostic;
       Policy        : HRA.Backing_Policy.Backing_Policy;
       Policy_Status : HRA.Backing_Policy.Policy_Status;
@@ -250,8 +250,8 @@ begin
       Position      : HRA.Backing_Policy.Backing_Pool_Position;
    begin
       Assert
-        (HRA.Budget_Config.Parse_Budget_Policy
-           (Budget_TOML, Policy_Config, Config_Diag),
+        (HRA.Envelope_Config.Parse_Envelope_Policy
+           (Envelope_TOML, Policy_Config, Config_Diag),
          "Setup: parse backing policy for commitment headroom");
       Assert
         (HRA.Backing_Policy.Admit_Backing_Policy
