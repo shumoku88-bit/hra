@@ -1,4 +1,4 @@
-with Ada.Containers.Indefinite_Ordered_Maps;
+with Ada.Containers.Ordered_Maps;
 with HRA.Dates;
 with HRA.Money;          use HRA.Money;
 with HRA.Envelope;       use HRA.Envelope;
@@ -42,13 +42,17 @@ package HRA.Envelope_Entitlement is
 
    function "=" (Left, Right : Entitlement_Movement) return Boolean;
 
-   package Envelope_Balance_Maps is new Ada.Containers.Indefinite_Ordered_Maps
-     (Key_Type     => String,
-      Element_Type => Balance);
+   --  Semantic observations retain admitted identities as map keys. Text is a
+   --  source/rendering boundary, never an intermediate identity coordinate.
+   package Envelope_Balance_Maps is new Ada.Containers.Ordered_Maps
+     (Key_Type     => Envelope.Envelope_Id,
+      Element_Type => Balance,
+      "<"          => Envelope."<");
 
-   package Commodity_Date_Maps is new Ada.Containers.Indefinite_Ordered_Maps
-     (Key_Type     => String,
-      Element_Type => HRA.Dates.Date);
+   package Commodity_Date_Maps is new Ada.Containers.Ordered_Maps
+     (Key_Type     => Commodity,
+      Element_Type => HRA.Dates.Date,
+      "<"          => HRA.Money."<");
 
    type Entitlement_Observation is record
       Per_Envelope : Envelope_Balance_Maps.Map;
