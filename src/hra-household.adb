@@ -1,7 +1,7 @@
 with HRA.Journal_Loader;
 with HRA.Canonical_Source; use HRA.Canonical_Source;
 with HRA.Config_Support;
-with HRA.Budget_Source_Adapter;
+with HRA.Entitlement_Journal;
 with HRA.Plan_Observation;
 
 package body HRA.Household is
@@ -16,7 +16,7 @@ package body HRA.Household is
       State.Plan_Ledger         := Empty_Ledger;
       State.Plan_Evidence.Transactions.Clear;
       State.Plan_Ids            := HRA.Plan.Empty_Plan_Id_Universe;
-      State.Budget_Ledger       := Empty_Ledger;
+      State.Entitlement_History := HRA.Entitlement_Journal.Empty_History;
       State.Combined_Ledger     := Empty_Ledger;
       State.Envelope_Registry   := HRA.Envelope.Empty_Registry;
       State.Routing_History     := HRA.Envelope_Routing.Empty_History;
@@ -114,7 +114,7 @@ package body HRA.Household is
          for Pool of Result.Budget_Policy.Backing_Pools loop
             for Name of Pool.Asset_Accounts loop
                if not Validate_Account
-                 (Name, Asset, "budget.toml backing pool")
+                 (Name, Asset, "envelope.toml backing pool")
                then
                   return False;
                end if;
@@ -126,32 +126,6 @@ package body HRA.Household is
          then
             return False;
          end if;
-
-         for Name of H.Opening_Accounts loop
-            if not Validate_Account
-              (Name, Budget, "household.toml opening account")
-            then
-               return False;
-            end if;
-         end loop;
-
-         for Name of H.Unassigned_Accounts loop
-            if not Validate_Account
-              (Name, Budget, "household.toml unassigned account")
-            then
-               return False;
-            end if;
-         end loop;
-
-         for Env_Coord of H.Envelopes loop
-            if not Validate_Account
-              (To_String (Env_Coord.Allocation_Account),
-               Budget,
-               "household.toml allocation account")
-            then
-               return False;
-            end if;
-         end loop;
 
          for Routing_Entry of H.Envelope_History.Expense_Routing loop
             if not Validate_Account
@@ -175,8 +149,6 @@ package body HRA.Household is
       end Validate_Config_Accounts;
 
       function Validate_Envelope_References return Boolean is
-         H : HRA.Household_Config.Household_Configuration
-           renames Result.Household_Policy;
          Env_Id : HRA.Envelope.Envelope_Id;
       begin
          for Env_Def of Result.Budget_Policy.Envelopes loop
@@ -184,19 +156,8 @@ package body HRA.Household is
               (Result.Envelope_Registry, To_String (Env_Def.ID), Env_Id)
             then
                Error_Msg := To_Unbounded_String
-                 ("budget.toml: current Envelope missing from " &
+                 ("envelope.toml: current Envelope missing from " &
                   "envelope-history.identities: " & To_String (Env_Def.ID));
-               return False;
-            end if;
-         end loop;
-
-         for Env_Coord of H.Envelopes loop
-            if not HRA.Envelope.Lookup
-              (Result.Envelope_Registry, To_String (Env_Coord.ID), Env_Id)
-            then
-               Error_Msg := To_Unbounded_String
-                 ("household.toml: allocation Envelope missing from " &
-                  "envelope-history.identities: " & To_String (Env_Coord.ID));
                return False;
             end if;
          end loop;
@@ -217,7 +178,7 @@ package body HRA.Household is
       end;
 
       if not HRA.Budget_Config.Parse_Budget_Policy
-        (Text_For (Observation, Budget_Config_Source),
+        (Text_For (Observation, Envelope_Config_Source),
          Result.Budget_Policy, Config_Diag)
       then
          Error_Msg := To_Unbounded_String
@@ -227,7 +188,7 @@ package body HRA.Household is
 
       if not HRA.Household_Config.Parse_Household_Configuration
         (Text_For (Observation, Household_Config_Source),
-         Result.Budget_Policy, Result.Household_Policy, Config_Diag)
+         Result.Household_Policy, Config_Diag)
       then
          Error_Msg := To_Unbounded_String
            (HRA.Config_Support.Format_Diagnostic (Config_Diag));
@@ -247,6 +208,45 @@ package body HRA.Household is
          return False;
       end if;
 
+      --  Historical Envelope identity is admitted before native Entitlement,
+      --  because entitlement.journal endpoints must resolve against it.
+      if not HRA.Envelope.Admit_Registry
+        (Result.Household_Policy.Envelope_History.Identities,
+         Result.Envelope_Registry,
+         Config_Diag)
+      then
+         Error_Msg := To_Unbounded_String
+           (HRA.Config_Support.Format_Diagnostic (Config_Diag));
+         return False;
+      end if;
+
+      if not Validate_Envelope_References then
+         return False;
+      end if;
+
+      declare
+         Ent_Diag : HRA.Entitlement_Journal.Admission_Diagnostic;
+      begin
+         if not HRA.Entitlement_Journal.Admit
+           (Text_For (Observation, Entitlement_Source),
+            Result.Envelope_Registry,
+            Result.Entitlement_History,
+            Ent_Diag)
+         then
+            Error_Msg := To_Unbounded_String
+              ("entitlement.journal:" &
+               (if Ent_Diag.Line_Number > 0
+                then Natural'Image (Ent_Diag.Line_Number) & ":"
+                else "") &
+               " failed Entitlement admission: " &
+               HRA.Entitlement_Journal.Admission_Status'Image (Ent_Diag.Status) &
+               (if Length (Ent_Diag.Message) > 0
+                then ": " & To_String (Ent_Diag.Message)
+                else ""));
+            return False;
+         end if;
+      end;
+
       declare
          Actual : HRA.Journal_Loader.Journal_Observation;
       begin
@@ -260,9 +260,6 @@ package body HRA.Household is
          return False;
       end if;
 
-      --  Registry is part of the Ledger observation admitted as canonical
-      --  Actual. Attach it before admission so the opaque Actual value never
-      --  requires post-admission mutation.
       Result.Actual_Ledger.Registry := Result.Registry;
 
       declare
@@ -288,10 +285,6 @@ package body HRA.Household is
          end if;
       end;
 
-      --  From this point forward, production consumers see only identity and
-      --  reversal coordinates admitted from retained Journal source evidence.
-      --  The Journal parser's description-derived compatibility fields cannot
-      --  become a second authority path.
       Result.Actual_Ledger :=
         HRA.Actual_Admission.Ledger_Of (Result.Actual_Identity);
       if not Merge_Transactions (Result.Actual_Ledger) then
@@ -333,9 +326,6 @@ package body HRA.Household is
          end if;
       end;
 
-      --  Completion is a cross-source admission law, not a report-time guess.
-      --  Every Actual plan-id must resolve to one admitted Plan and a Plan may
-      --  be completed by at most one Actual transaction.
       declare
          Completion_Diag : HRA.Plan_Observation.Admission_Diagnostic;
       begin
@@ -358,21 +348,6 @@ package body HRA.Household is
             return False;
          end if;
       end;
-
-      declare
-         Budget : HRA.Journal_Loader.Journal_Observation;
-      begin
-         if not Load_Named_Journal (Budget_Journal_Source, Budget) then
-            return False;
-         end if;
-         Result.Budget_Ledger := Budget.Value;
-      end;
-      if not Validate_Ledger_Accounts (Result.Budget_Ledger, "budget.journal") then
-         return False;
-      end if;
-      if not Merge_Transactions (Result.Budget_Ledger) then
-         return False;
-      end if;
 
       declare
          Issues_Diag : HRA.Issues.Admission_Diagnostic;
@@ -400,23 +375,6 @@ package body HRA.Household is
       Result.Combined_Ledger.Registry := Result.Registry;
       Result.Actual_Ledger.Registry   := Result.Registry;
       Result.Plan_Ledger.Registry     := Result.Registry;
-      Result.Budget_Ledger.Registry   := Result.Registry;
-
-      --  Envelope identity is historical source data. Never infer the stable
-      --  registry from current budget.toml membership.
-      if not HRA.Envelope.Admit_Registry
-        (Result.Household_Policy.Envelope_History.Identities,
-         Result.Envelope_Registry,
-         Config_Diag)
-      then
-         Error_Msg := To_Unbounded_String
-           (HRA.Config_Support.Format_Diagnostic (Config_Diag));
-         return False;
-      end if;
-
-      if not Validate_Envelope_References then
-         return False;
-      end if;
 
       --  Historical Expense meaning comes only from explicit routing history.
       declare
@@ -556,26 +514,6 @@ package body HRA.Household is
          end;
       end if;
 
-      --  Budget source shape and endpoint meaning are admission laws. Validate
-      --  the complete source here, but do not retain a time-dependent
-      --  Entitlement observation in Household_State.
-      declare
-         Movements : HRA.Budget_Source_Adapter.Movement_Vectors.Vector;
-         Ad_Diag   : HRA.Budget_Source_Adapter.Adapter_Diagnostic;
-      begin
-         if not HRA.Budget_Source_Adapter.Adapt_Budget_Journal
-           (Result.Budget_Ledger.Transactions,
-            Result.Household_Policy,
-            Result.Envelope_Registry,
-            Movements,
-            Ad_Diag)
-         then
-            Error_Msg := To_Unbounded_String
-              ("budget.journal: " & To_String (Ad_Diag.Message));
-            return False;
-         end if;
-      end;
-
       declare
          P_Status : HRA.Backing_Policy.Policy_Status;
       begin
@@ -586,7 +524,7 @@ package body HRA.Household is
             P_Status)
          then
             Error_Msg := To_Unbounded_String
-              ("budget.toml: failed to admit backing policy");
+              ("envelope.toml: failed to admit backing policy");
             return False;
          end if;
       end;
