@@ -25,28 +25,31 @@ canonical rootのruntime authorityは次の8 sourceだけである。
 | `accounts.journal` | Account identity、AccountType、optional default Commodity |
 | `actual.journal` | Actual Transaction、posting、identity、completion/reversal relation |
 | `plan.journal` | Plan identity、schedule、recurrence、lifecycle relation |
-| `budget.journal` | ordered Budget movement、provenance、CommodityごとのEnvelope stock origin |
-| `budget.toml` | current Envelope membership/presentationとBacking topology |
-| `household.toml` | cycle、opening/unassigned Budget accounts、stable allocation coordinates、Daily Target、explicit Envelope routing history |
+| `entitlement.journal` | explicit stock originとnative Envelope Entitlement transfer |
+| `envelope.toml` | current Envelope membership/presentationとBacking topology |
+| `household.toml` | cycle、money、Daily Target、stable Envelope identity、explicit routing history |
 | `report.toml` | Report query defaultとpresentation policy |
 | `issues.tsv` | household notebook。会計factを暗黙生成しない |
 
-basenameは`HRA.Canonical_Source`だけが解決する。別configでsource filenameを変更しない。追加directory、legacy TSV、manifest、generated Reportをcanonical inputへ戻さない。
+basenameは`HRA.Canonical_Source`だけが解決する。別configでsource filenameを変更しない。追加directory、legacy source、manifest、generated Reportをcanonical inputへ戻さない。
 
-## Clean Envelope source contract
+`issue-relations.tsv`は明示的なrelation sidecarであり、ordinary `Household_State`の9番目のroot sourceではない。
+
+## Native Envelope source contract
 
 current policyとhistorical meaningを同じauthorityへ潰さない。
 
-- `budget.toml` は現在存在するEnvelopeとBackingだけを所有する。Expense routingやallocation Accountを所有しない。
-- `household.toml [budget]` は `opening-accounts`、`unassigned-accounts`、`id + allocation-account` を明示する。
-- current Envelopeには必ずallocation coordinateが必要だが、退役Envelopeのcoordinateはhistorical `budget.journal`を解釈するため残してよい。
-- `[envelope-history].identities` がstable Envelope identity universeを所有する。current `budget.toml`からidentity historyを合成しない。
-- `[envelope-history].expense-routing` がExpenseのhistorical meaningを所有する。current configからinitial routeを逆算しない。
-- Budget endpointはexplicitなOpening / Unassigned / Envelope allocationだけで分類する。固定名fallback、spent/execution endpoint、Account policy fallbackを持たない。
-- `budget.journal`の各Commodityで最古のadmitted movement日をstock originとする。0 movementもclean epochを明示できる。
-- ConsumptionとFulfillmentのstock observationはorigin以後だけを累積する。reversalは自身の日ではなくroot Actualのmembershipを継承する。
+- `envelope.toml` は現在存在するEnvelope、presentation、Backingだけを所有する。
+- `[envelope-history].identities` がstable Envelope identity universeを所有する。current `envelope.toml`からidentity historyを合成しない。
+- `[envelope-history].expense-routing` と optional fulfillment routing がhistorical meaningを所有する。current configから過去を逆算しない。
+- `entitlement.journal` はAccounting Journalではない。Account名やAccountRegistryを経由しない。
+- Entitlement endpointは `unallocated` またはstable Envelope identityだけである。
+- `origin` はCommodityごとのstock epochを明示する。transferに使うCommodityには、そのtransfer日以前のexplicit originが一つ必要である。
+- transferは異なるendpoint間の正のexact Quantityだけを受理する。
+- unknown Envelope、duplicate/missing origin、origin-before-transfer law違反、同日effectsを合算した後のnegative spendable stockはfail closedにする。
+- ConsumptionとFulfillmentのstock observationはexplicit origin以後だけを累積する。
 
-retired compatibility source shapeはunknown keyとしてfail closedにする。reader parityのためにhidden aliasやduplicate authorityを残さない。
+retired `budget.journal`、`budget.toml`、Budget allocation Account、opening Budget Account、unassigned Budget Accountはcanonical aliasでもfallbackでもない。reader parityのためにhidden compatibility pathやduplicate authorityを残さない。
 
 ## Observation and admission
 
@@ -64,17 +67,18 @@ complete observationは8 sourceのどれかが欠落・読取不能なら失敗�
 
 ## Current hra coverage
 
-2026-08-16時点:
-
 | Source | Exact observation | Typed semantic admission |
 |---|---:|---:|
-| Accounts/Actual/Plan/Budget journals | yes | typed graph/evidence admission。Account authorityとPlan/Actual relationを保持 |
-| `issues.tsv` | yes | partial。lifecycle/typed identity parityは今後 |
-| `budget.toml` | yes | current Envelope + Backingを型付きadmit |
-| `household.toml` | yes | clean Budget coordinates + explicit Envelope historyを型付きadmit |
+| `accounts.journal` | yes | Account Registry admission |
+| `actual.journal` | yes | typed graph/evidence + durable identity admission |
+| `plan.journal` | yes | typed graph/evidence + stable Plan identity/completion admission |
+| `entitlement.journal` | yes | native origin/transfer admission against stable Envelope registry |
+| `envelope.toml` | yes | current Envelope + Backing policy |
+| `household.toml` | yes | cycle/money/Daily Target + explicit Envelope history |
 | `report.toml` | yes | typed query/presentation policy |
+| `issues.tsv` | yes | typed temporal Issue admission; lifecycle parity remains incomplete |
 
-Envelope production observationはexplicit history、Budget-derived Entitlement origin、stock Consumption/Fulfillment、Remaining/Backingへ接続する。Report portfolio、Issue domain、writer authority、SPARK production cutoverは引き続き別の完成条件である。
+Report portfolio、Issue lifecycle、writer authority、complete Journal source graph、SPARK production cutoverは引き続き別の完成条件である。
 
 ## Fail-closed completion gate
 
