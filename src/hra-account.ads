@@ -13,8 +13,7 @@ package HRA.Account is
       Liability,
       Equity,
       Income,
-      Expense,
-      Budget);
+      Expense);
 
    function Account_Type_Image (Category : Account_Type) return String;
 
