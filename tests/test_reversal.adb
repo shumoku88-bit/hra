@@ -6,6 +6,8 @@ with HRA.Ledger;
 with HRA.Money;
 
 procedure Test_Reversal is
+   use type HRA.Ledger.Transaction_Error;
+
    Passed_Count : Natural := 0;
    Failed_Count : Natural := 0;
 
