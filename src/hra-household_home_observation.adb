@@ -1,6 +1,5 @@
 with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
 with HRA.Account;
-with HRA.Actual_Admission;
 
 package body HRA.Household_Home_Observation is
 
@@ -161,8 +160,7 @@ package body HRA.Household_Home_Observation is
         (Plan_Ledger     => State.Plan_Ledger,
          Plan_Evidence   => State.Plan_Evidence,
          Actual_Ledger   => State.Actual_Ledger,
-         Actual_Evidence =>
-           HRA.Actual_Admission.Evidence_Of (State.Actual_Identity),
+         Actual_Evidence => State.Actual_Evidence,
          As_Of_Date      => Observed_Through,
          Result          => Result.All_Open_Plans,
          Diag            => Plan_Diag);
