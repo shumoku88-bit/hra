@@ -68,13 +68,7 @@ procedure Test_Household_Home_Command is
          "account expenses:tax" & ASCII.LF &
          "  ; type: Expense" & ASCII.LF &
          "account income:salary" & ASCII.LF &
-         "  ; type: Income" & ASCII.LF &
-         "account budget:food" & ASCII.LF &
-         "  ; type: Budget" & ASCII.LF &
-         "account budget:unassigned" & ASCII.LF &
-         "  ; type: Budget" & ASCII.LF &
-         "account budget:opening" & ASCII.LF &
-         "  ; type: Budget" & ASCII.LF);
+         "  ; type: Income" & ASCII.LF);
 
       Obs.Texts (Actual_Source) := To_Unbounded_String
         ("2026-07-25 July Salary" & ASCII.LF &
@@ -105,15 +99,11 @@ procedure Test_Household_Home_Command is
          "    assets:bank          300000 JPY" & ASCII.LF &
          "    income:salary       -300000 JPY" & ASCII.LF);
 
-      Obs.Texts (Budget_Journal_Source) := To_Unbounded_String
-        ("2026-07-25 Opening" & ASCII.LF &
-         "    budget:opening            0 JPY" & ASCII.LF &
-         "    budget:unassigned         0 JPY" & ASCII.LF & ASCII.LF &
-         "2026-08-01 Food Allocation" & ASCII.LF &
-         "    budget:unassigned    -50000 JPY" & ASCII.LF &
-         "    budget:food           50000 JPY" & ASCII.LF);
+      Obs.Texts (Entitlement_Source) := To_Unbounded_String
+        ("2026-07-25 origin JPY ; Opening" & ASCII.LF &
+         "2026-08-01 transfer unallocated -> food 50000 JPY ; Food Allocation" & ASCII.LF);
 
-      Obs.Texts (Budget_Config_Source) := To_Unbounded_String
+      Obs.Texts (Envelope_Config_Source) := To_Unbounded_String
         ("[[backing-pools]]" & ASCII.LF &
          "id = ""liquid""" & ASCII.LF &
          "asset-accounts = [""assets:bank"", ""assets:cash""]" & ASCII.LF & ASCII.LF &
@@ -129,12 +119,6 @@ procedure Test_Household_Home_Command is
          "income-account = ""income:salary""" & ASCII.LF &
          "[money]" & ASCII.LF &
          "primary-commodity = ""JPY""" & ASCII.LF &
-         "[budget]" & ASCII.LF &
-         "opening-accounts = [""budget:opening""]" & ASCII.LF &
-         "unassigned-accounts = [""budget:unassigned""]" & ASCII.LF &
-         "[[budget.envelopes]]" & ASCII.LF &
-         "id = ""food""" & ASCII.LF &
-         "allocation-account = ""budget:food""" & ASCII.LF &
          "[envelope-history]" & ASCII.LF &
          "identities = [""food""]" & ASCII.LF &
          "[[envelope-history.expense-routing]]" & ASCII.LF &
@@ -177,7 +161,6 @@ procedure Test_Household_Home_Command is
 
 begin
    Put_Line ("--- Testing HRA.Household_Home_Command & Application Surface ---");
-
    --  ========================================================================
    --  1. Stage A: Pure CLI Argument Parsing & Validation
    --  ========================================================================
@@ -607,7 +590,7 @@ begin
    end;
 
    --  ========================================================================
-   --  4. Compatibility: Check and Report Behavior Unchanged
+   --  4. Check and Report Behavior
    --  ========================================================================
    declare
       Sources_Report : HRA.Canonical_Source.Source_Observation :=
@@ -635,8 +618,8 @@ begin
       begin
          Assert (Check_Obs.Actual_Transactions = 5, "Check Actual_Transactions = 5");
          Assert (Check_Obs.Plan_Transactions = 2, "Check Plan_Transactions = 2");
-         Assert (Check_Obs.Budget_Transactions = 2, "Check Budget_Transactions = 2");
-         Assert (Check_Obs.Registered_Accounts = 8, "Check Registered_Accounts = 8");
+         Assert (Check_Obs.Entitlement_Movements = 1, "Check Entitlement_Movements = 1");
+         Assert (Check_Obs.Registered_Accounts = 5, "Check Registered_Accounts = 5");
          Assert (Check_Obs.Open_Issues = 1, "Check Open_Issues = 1");
       end;
 
