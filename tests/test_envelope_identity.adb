@@ -22,6 +22,9 @@ procedure Test_Envelope_Identity is
 
    Id     : HRA.Envelope.Envelope_Id;
    Status : HRA.Envelope.Envelope_Id_Status;
+   Food_UTF8 : constant String :=
+     Character'Val (16#E9#) & Character'Val (16#A3#) & Character'Val (16#9F#) &
+     Character'Val (16#E8#) & Character'Val (16#B2#) & Character'Val (16#BB#);
 
 begin
    Put_Line ("--- Testing focused Envelope identity laws ---");
@@ -31,6 +34,11 @@ begin
         and then Status = HRA.Envelope.Success
         and then HRA.Envelope.Image (Id) = "food",
       "valid Envelope identity round-trips exactly");
+   Assert
+     (HRA.Envelope.Create_Envelope_Id (Food_UTF8, Id, Status)
+        and then Status = HRA.Envelope.Success
+        and then HRA.Envelope.Image (Id) = Food_UTF8,
+      "UTF-8 Envelope identity bytes round-trip exactly");
    Assert
      (not HRA.Envelope.Create_Envelope_Id ("", Id, Status)
         and then Status = HRA.Envelope.Empty_Identity,
