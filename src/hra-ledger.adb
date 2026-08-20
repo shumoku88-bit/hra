@@ -9,10 +9,10 @@ package body HRA.Ledger is
       Amt : Amount) return Posting
    is
    begin
-      return (Acc      => Acc,
-              Amt      => Amt,
-              Has_Memo => False,
-              Memo     => Null_Unbounded_String);
+      return
+        (Acc  => Acc,
+         Amt  => Amt,
+         Memo => (Present => False));
    end Make_Posting;
 
    function Make_Posting_With_Memo
@@ -21,10 +21,12 @@ package body HRA.Ledger is
       Memo : String) return Posting
    is
    begin
-      return (Acc      => Acc,
-              Amt      => Amt,
-              Has_Memo => True,
-              Memo     => To_Unbounded_String (Memo));
+      return
+        (Acc  => Acc,
+         Amt  => Amt,
+         Memo =>
+           (Present => True,
+            Text    => To_Unbounded_String (Memo)));
    end Make_Posting_With_Memo;
 
    function Calculate_Balance (Tx : Transaction) return Balance is
@@ -87,8 +89,12 @@ package body HRA.Ledger is
    is
       Rev_Postings : Posting_Vectors.Vector;
       Cursor       : Posting_Vectors.Cursor := Target_Tx.Postings.First;
-      Target_ID    : constant String := (if Length (Target_Tx.Event_ID) > 0 then To_String (Target_Tx.Event_ID) else To_String (Target_Tx.Code_Or_Payee));
-      Payee_Text   : constant String := "Reversal: " & Reversal_Reason & " [reverses: " & Target_ID & "]";
+      Target_ID    : constant String :=
+        (if Length (Target_Tx.Event_ID) > 0
+         then To_String (Target_Tx.Event_ID)
+         else To_String (Target_Tx.Code_Or_Payee));
+      Payee_Text   : constant String :=
+        "Reversal: " & Reversal_Reason & " [reverses: " & Target_ID & "]";
    begin
       while Posting_Vectors.Has_Element (Cursor) loop
          declare
@@ -101,7 +107,9 @@ package body HRA.Ledger is
          Posting_Vectors.Next (Cursor);
       end loop;
 
-      if not Create_Transaction (Reversal_Date, Payee_Text, Rev_Postings, Rev_Tx, Status) then
+      if not Create_Transaction
+        (Reversal_Date, Payee_Text, Rev_Postings, Rev_Tx, Status)
+      then
          return False;
       end if;
 
@@ -110,7 +118,9 @@ package body HRA.Ledger is
       return True;
    end Create_Reversal_Transaction;
 
-   function Is_Reversal_Of (Candidate_Rev, Target_Tx : Transaction) return Boolean is
+   function Is_Reversal_Of
+     (Candidate_Rev, Target_Tx : Transaction) return Boolean
+   is
       Expected_Target_ID : constant Unbounded_String :=
         (if Length (Target_Tx.Event_ID) > 0
          then Target_Tx.Event_ID
@@ -118,7 +128,8 @@ package body HRA.Ledger is
    begin
       if Length (Expected_Target_ID) = 0
         or else Candidate_Rev.Reverses_ID /= Expected_Target_ID
-        or else Natural (Candidate_Rev.Postings.Length) /= Natural (Target_Tx.Postings.Length)
+        or else Natural (Candidate_Rev.Postings.Length) /=
+          Natural (Target_Tx.Postings.Length)
         or else Target_Tx.Postings.Is_Empty
       then
          return False;
@@ -128,8 +139,9 @@ package body HRA.Ledger is
       --  but every account/commodity/quantity must have an exact inverse.
       declare
          type Match_Array is array (Positive range <>) of Boolean;
-         Matched : Match_Array (1 .. Natural (Candidate_Rev.Postings.Length)) :=
-           [others => False];
+         Matched : Match_Array
+           (1 .. Natural (Candidate_Rev.Postings.Length)) :=
+             [others => False];
       begin
          for Target_Posting of Target_Tx.Postings loop
             declare
@@ -137,7 +149,8 @@ package body HRA.Ledger is
             begin
                for I in 1 .. Natural (Candidate_Rev.Postings.Length) loop
                   declare
-                     Rev_Posting : constant Posting := Candidate_Rev.Postings.Element (I);
+                     Rev_Posting : constant Posting :=
+                       Candidate_Rev.Postings.Element (I);
                   begin
                      if not Matched (I)
                        and then Rev_Posting.Acc = Target_Posting.Acc
@@ -201,7 +214,8 @@ package body HRA.Ledger is
                   P : constant Posting := Posting_Vectors.Element (P_Cursor);
                begin
                   if P.Acc = Acc then
-                     Total := Add_Balance (Total, Singleton_Balance (P.Amt));
+                     Total := Add_Balance
+                       (Total, Singleton_Balance (P.Amt));
                   end if;
                end;
                Posting_Vectors.Next (P_Cursor);
@@ -257,7 +271,9 @@ package body HRA.Ledger is
       Tx_Cursor : Transaction_Vectors.Cursor := L.Transactions.First;
    begin
       while Transaction_Vectors.Has_Element (Tx_Cursor) loop
-         Total := Add_Balance (Total, Calculate_Balance (Transaction_Vectors.Element (Tx_Cursor)));
+         Total := Add_Balance
+           (Total,
+            Calculate_Balance (Transaction_Vectors.Element (Tx_Cursor)));
          Transaction_Vectors.Next (Tx_Cursor);
       end loop;
       return Total;
