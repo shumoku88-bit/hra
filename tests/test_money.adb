@@ -30,14 +30,19 @@ begin
    Assert
      (Create_Commodity ("USD", USD, C_Status) and then C_Status = Success,
       "valid USD Commodity is admitted");
-   Assert
-     (not Create_Commodity ("", JPY, C_Status)
-        and then C_Status = Empty_Commodity_Code,
-      "empty Commodity code is rejected");
-   Assert
-     (not Create_Commodity ("JP Y", JPY, C_Status)
-        and then C_Status = Commodity_Contains_Whitespace,
-      "Commodity whitespace is rejected");
+
+   declare
+      Rejected : Commodity;
+   begin
+      Assert
+        (not Create_Commodity ("", Rejected, C_Status)
+           and then C_Status = Empty_Commodity_Code,
+         "empty Commodity code is rejected");
+      Assert
+        (not Create_Commodity ("JP Y", Rejected, C_Status)
+           and then C_Status = Commodity_Contains_Whitespace,
+         "Commodity whitespace is rejected");
+   end;
 
    Assert (Parse_Quantity ("1000", Q1), "integer Quantity parses exactly");
    Assert (Parse_Quantity ("-500.50", Q2), "signed decimal Quantity parses exactly");
