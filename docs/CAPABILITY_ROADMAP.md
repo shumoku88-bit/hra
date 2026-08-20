@@ -97,6 +97,8 @@ generic scanner frameworkを作らず、Journal document admissionとして所�
 
 ### Actual completeness
 
+Current: `HRA.Actual_Admission`はsource順Transaction、optional typed `Actual_Id`、parser-owned provenanceを一つのentryとして保持し、typed reversal relationを公開する。Recent Journalはこのadmitted valueだけからidentity/provenanceを投影する。残るconsumer移行とproof接続を、下のlawを弱めず進める。
+
 - multi-Postingをfirst-classのまま保持する
 - Posting order、memo、metadata、source provenanceを保持する
 - durable `event-id`をtyped identityへadmitする

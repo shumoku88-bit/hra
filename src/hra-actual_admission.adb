@@ -50,10 +50,23 @@ package body HRA.Actual_Admission is
       Result : Actual_Observation;
    begin
       Result.Value := HRA.Ledger.Empty_Ledger;
-      Result.Identified.Clear;
+      Result.In_Order.Clear;
       Result.Reversals.Clear;
       return Result;
    end Empty_Observation;
+
+   function Identified_Count
+     (Observation : Actual_Observation) return Natural
+   is
+      Count : Natural := 0;
+   begin
+      for Item of Observation.In_Order loop
+         if Item.Identity.Present then
+            Count := Count + 1;
+         end if;
+      end loop;
+      return Count;
+   end Identified_Count;
 
    procedure Find_Metadata
      (Source      : Transaction_Source;
@@ -217,10 +230,17 @@ package body HRA.Actual_Admission is
 
       function Find_Identified_Index (ID : Actual_Id) return Natural is
       begin
-         for I in 1 .. Natural (Output.Identified.Length) loop
-            if Output.Identified.Element (I).ID = ID then
-               return I;
-            end if;
+         for I in 1 .. Natural (Output.In_Order.Length) loop
+            declare
+               Item : constant Actual_Transaction_Entry :=
+                 Output.In_Order.Element (I);
+            begin
+               if Item.Identity.Present
+                 and then Item.Identity.Value = ID
+               then
+                  return I;
+               end if;
+            end;
          end loop;
          return 0;
       end Find_Identified_Index;
@@ -287,6 +307,7 @@ package body HRA.Actual_Admission is
             PID        : HRA.Plan.Plan_Id;
             PID_Status : HRA.Plan.Plan_Id_Status;
             Has_Event, Has_Derived, Has_Target : Boolean := False;
+            Assigned_Identity : Actual_Id_Option := (Present => False);
          begin
             Normalized_Tx.Event_ID    := Null_Unbounded_String;
             Normalized_Tx.Reverses_ID := Null_Unbounded_String;
@@ -383,11 +404,9 @@ package body HRA.Actual_Admission is
 
                   Normalized_Tx.Event_ID :=
                     To_Unbounded_String (Text (Effective_ID));
-                  Output.Identified.Append
-                    (Identified_Actual'
-                       (ID     => Effective_ID,
-                        Tx     => Normalized_Tx,
-                        Source => Source));
+                  Assigned_Identity :=
+                    (Present => True,
+                     Value   => Effective_ID);
                end;
             end if;
 
@@ -400,12 +419,17 @@ package body HRA.Actual_Admission is
                end if;
 
                Output.Reversals.Append
-                 (Reversal_Declaration'
+                 (Reversal_Relation'
                     (Reversal_ID => Event_ID,
                      Target_ID   => Target_ID));
             end if;
 
             Output.Value.Transactions.Replace_Element (I, Normalized_Tx);
+            Output.In_Order.Append
+              (Actual_Transaction_Entry'
+                 (Tx       => Normalized_Tx,
+                  Identity => Assigned_Identity,
+                  Source   => Source));
          end;
       end loop;
 
@@ -425,8 +449,8 @@ package body HRA.Actual_Admission is
                      "reversal identity is not admitted");
                return False;
             elsif not Effects_Are_Inverse
-              (Output.Identified.Element (Reversal_Index).Tx,
-               Output.Identified.Element (Target_Index).Tx)
+              (Output.In_Order.Element (Reversal_Index).Tx,
+               Output.In_Order.Element (Target_Index).Tx)
             then
                Fail (Reversal_Posting_Mismatch, 0,
                      Text (Reversal.Reversal_ID),

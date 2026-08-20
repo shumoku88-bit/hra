@@ -121,9 +121,33 @@ begin
      (Admit_Source (Valid_Source, Observation, Diag),
       "Explicit reversal may target Plan-derived Actual identity");
    Assert
-     (HRA.Actual_Admission.Identified_Count (Observation) = 2 and then
-      HRA.Actual_Admission.Reversal_Count (Observation) = 1,
-      "Actual admission retains identified transactions and reversal edge");
+     (HRA.Actual_Admission.Transaction_Count (Observation) = 2
+        and then HRA.Actual_Admission.Identified_Count (Observation) = 2
+        and then HRA.Actual_Admission.Reversal_Count (Observation) = 1,
+      "Actual admission retains source-order transactions and reversal edge");
+
+   declare
+      First  : constant HRA.Actual_Admission.Actual_Transaction_Entry :=
+        HRA.Actual_Admission.Transaction_At (Observation, 1);
+      Second : constant HRA.Actual_Admission.Actual_Transaction_Entry :=
+        HRA.Actual_Admission.Transaction_At (Observation, 2);
+      Edge   : constant HRA.Actual_Admission.Reversal_Relation :=
+        HRA.Actual_Admission.Reversal_At (Observation, 1);
+   begin
+      Assert
+        (First.Identity.Present
+           and then HRA.Actual_Admission.Text (First.Identity.Value) =
+             "plan-completion-plan-a"
+           and then First.Source.Header_Line = 1
+           and then Second.Identity.Present
+           and then HRA.Actual_Admission.Text (Second.Identity.Value) = "rev-a",
+         "Transaction entries align typed identity with parser-owned provenance");
+      Assert
+        (HRA.Actual_Admission.Text (Edge.Reversal_ID) = "rev-a"
+           and then HRA.Actual_Admission.Text (Edge.Target_ID) =
+             "plan-completion-plan-a",
+         "Reversal relation remains typed at the Actual package boundary");
+   end;
 
    declare
       Admitted : constant HRA.Ledger.Ledger :=
@@ -138,6 +162,27 @@ begin
          To_String (Admitted.Transactions.Element (2).Reverses_ID) =
            "plan-completion-plan-a",
          "Admitted Ledger carries only normalized identity provenance");
+   end;
+
+   declare
+      L             : HRA.Ledger.Ledger;
+      Parse_Error   : Unbounded_String;
+      Evidence      : HRA.Journal_Evidence.Journal_Evidence;
+      Evidence_Diag : HRA.Journal_Evidence.Evidence_Diagnostic;
+   begin
+      if not HRA.Journal.Parse_Journal_Text (Valid_Source, L, Parse_Error)
+        or else not HRA.Journal_Evidence.Extract
+          (Valid_Source, L, Evidence, Evidence_Diag)
+      then
+         raise Program_Error with "failed to prepare drift evidence";
+      end if;
+
+      Evidence.Transactions.Delete_Last;
+      Assert
+        (not HRA.Actual_Admission.Admit
+           (L, Evidence, Observation, Diag)
+           and then Diag.Status = HRA.Actual_Admission.Source_Evidence_Error,
+         "Actual admission rejects Ledger/provenance count drift");
    end;
 
    Assert
