@@ -46,13 +46,12 @@ package body HRA.Envelope_Fulfillment is
       Env     : HRA.Envelope.Envelope_Id;
       Amounts : Fulfillment_Amounts)
    is
-      Key : constant String := HRA.Envelope.Image (Env);
    begin
-      if Obs.Managed.Contains (Key) then
+      if Obs.Managed.Contains (Env) then
          Obs.Managed.Replace
-           (Key, Add_Amounts (Obs.Managed.Element (Key), Amounts));
+           (Env, Add_Amounts (Obs.Managed.Element (Env), Amounts));
       else
-         Obs.Managed.Insert (Key, Amounts);
+         Obs.Managed.Insert (Env, Amounts);
       end if;
    end Add_Managed;
 
@@ -440,10 +439,9 @@ package body HRA.Envelope_Fulfillment is
      (Obs : Envelope_Fulfillment;
       Env : HRA.Envelope.Envelope_Id) return Fulfillment_Amounts
    is
-      Key : constant String := HRA.Envelope.Image (Env);
    begin
-      if Obs.Managed.Contains (Key) then
-         return Obs.Managed.Element (Key);
+      if Obs.Managed.Contains (Env) then
+         return Obs.Managed.Element (Env);
       else
          return Empty_Amounts;
       end if;
