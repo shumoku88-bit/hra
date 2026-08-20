@@ -1,5 +1,5 @@
 with Ada.Text_IO; use Ada.Text_IO;
-with HRA.Budget_Config;
+with HRA.Envelope_Config;
 with HRA.Config_Support;
 with HRA.Household_Config;
 
@@ -36,7 +36,7 @@ procedure Test_Clean_Household_Contract is
      "identities = [""food"", ""retired""]" & ASCII.LF &
      "expense-routing = []" & ASCII.LF;
 
-   Policy : HRA.Budget_Config.Budget_Policy;
+   Policy : HRA.Envelope_Config.Envelope_Policy;
    Config : HRA.Household_Config.Household_Configuration;
    Diag   : HRA.Config_Support.Config_Diagnostic;
 
@@ -44,7 +44,7 @@ begin
    Put_Line ("--- Testing current Household / Envelope source contract ---");
 
    Assert
-     (HRA.Budget_Config.Parse_Budget_Policy
+     (HRA.Envelope_Config.Parse_Envelope_Policy
         (Current_Envelope, Policy, Diag),
       "envelope.toml admits current Envelope and Backing coordinates");
 
@@ -60,10 +60,10 @@ begin
       Legacy_Envelope : constant String :=
         Current_Envelope &
         "expense-accounts = [""expenses:food""]" & ASCII.LF;
-      Rejected : HRA.Budget_Config.Budget_Policy;
+      Rejected : HRA.Envelope_Config.Envelope_Policy;
    begin
       Assert
-        (not HRA.Budget_Config.Parse_Budget_Policy
+        (not HRA.Envelope_Config.Parse_Envelope_Policy
            (Legacy_Envelope, Rejected, Diag),
          "retired Expense assignment authority is rejected by envelope.toml admission");
    end;
