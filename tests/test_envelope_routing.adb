@@ -127,17 +127,17 @@ begin
    end;
 
    declare
-      Entries : HRA.Envelope_Routing.Routing_Entry_Vectors.Vector;
-      History : HRA.Envelope_Routing.Routing_History;
-      Status  : HRA.Envelope_Routing.History_Status;
-      Entry   : constant HRA.Envelope_Routing.Routing_Entry :=
+      Entries     : HRA.Envelope_Routing.Routing_Entry_Vectors.Vector;
+      History     : HRA.Envelope_Routing.Routing_History;
+      Status      : HRA.Envelope_Routing.History_Status;
+      Route_Entry : constant HRA.Envelope_Routing.Routing_Entry :=
         (Effective => HRA.Envelope_Routing.Initial_Effective_Date,
          Expense   => Food_Expense,
          Route     => HRA.Envelope_Routing.Managed_Route (Food),
          Note      => Null_Unbounded_String);
    begin
-      Entries.Append (Entry);
-      Entries.Append (Entry);
+      Entries.Append (Route_Entry);
+      Entries.Append (Route_Entry);
       Assert
         (not HRA.Envelope_Routing.Admit (Entries, Registry, History, Status)
            and then Status = HRA.Envelope_Routing.Duplicate_Routing_Entry,
