@@ -1,4 +1,5 @@
 with Ada.Containers.Indefinite_Ordered_Maps;
+with Ada.Containers.Ordered_Maps;
 with HRA.Money;            use HRA.Money;
 with HRA.Dates;
 with HRA.Envelope;         use HRA.Envelope;
@@ -22,10 +23,13 @@ package HRA.Envelope_Consumption is
    function Net_Consumption (Amounts : Consumption_Amounts) return Balance;
    function "=" (Left, Right : Consumption_Amounts) return Boolean;
 
-   package Envelope_Amounts_Maps is new Ada.Containers.Indefinite_Ordered_Maps
-     (Key_Type     => String,
-      Element_Type => Consumption_Amounts);
+   package Envelope_Amounts_Maps is new Ada.Containers.Ordered_Maps
+     (Key_Type     => Envelope.Envelope_Id,
+      Element_Type => Consumption_Amounts,
+      "<"          => Envelope."<",
+      "="          => "=");
 
+   --  Unmanaged/unrouted coordinates remain source-facing Account names.
    package Account_Amounts_Maps is new Ada.Containers.Indefinite_Ordered_Maps
      (Key_Type     => String,
       Element_Type => Consumption_Amounts);
