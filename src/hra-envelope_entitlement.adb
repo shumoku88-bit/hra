@@ -1,5 +1,3 @@
-with Ada.Strings.Fixed;
-
 package body HRA.Envelope_Entitlement is
 
    use type HRA.Dates.Date;
@@ -14,7 +12,7 @@ package body HRA.Envelope_Entitlement is
 
    function Add_To_Map
      (Map : Envelope_Balance_Maps.Map;
-      Key : String;
+      Key : Envelope.Envelope_Id;
       Val : Balance) return Envelope_Balance_Maps.Map
    is
       Result : Envelope_Balance_Maps.Map := Map;
@@ -39,31 +37,20 @@ package body HRA.Envelope_Entitlement is
       case Movement.Kind is
          when Grant_From_Unallocated =>
             Result.Per_Envelope :=
-              Add_To_Map
-                (Result.Per_Envelope,
-                 Envelope.Image (Movement.Target),
-                 Pos);
+              Add_To_Map (Result.Per_Envelope, Movement.Target, Pos);
             Result.Unallocated := Subtract_Balance (Result.Unallocated, Pos);
 
          when Transfer_Between_Envelopes =>
-            declare
-               From_Key : constant String :=
-                 Envelope.Image (Movement.From_Envelope);
-               To_Key   : constant String :=
-                 Envelope.Image (Movement.To_Envelope);
-            begin
-               Result.Per_Envelope :=
-                 Add_To_Map (Result.Per_Envelope, From_Key, Neg);
-               Result.Per_Envelope :=
-                 Add_To_Map (Result.Per_Envelope, To_Key, Pos);
-            end;
+            Result.Per_Envelope :=
+              Add_To_Map
+                (Result.Per_Envelope, Movement.From_Envelope, Neg);
+            Result.Per_Envelope :=
+              Add_To_Map
+                (Result.Per_Envelope, Movement.To_Envelope, Pos);
 
          when Return_To_Unallocated =>
             Result.Per_Envelope :=
-              Add_To_Map
-                (Result.Per_Envelope,
-                 Envelope.Image (Movement.Source),
-                 Neg);
+              Add_To_Map (Result.Per_Envelope, Movement.Source, Neg);
             Result.Unallocated := Add_Balance (Result.Unallocated, Pos);
       end case;
 
@@ -76,12 +63,11 @@ package body HRA.Envelope_Entitlement is
       Tx_Date  : HRA.Dates.Date) return Entitlement_Observation
    is
       Result : Entitlement_Observation := Obs;
-      Key    : constant String := Code (Comm);
    begin
-      if not Result.Origins.Contains (Key) then
-         Result.Origins.Insert (Key, Tx_Date);
-      elsif Tx_Date < Result.Origins.Element (Key) then
-         Result.Origins.Replace (Key, Tx_Date);
+      if not Result.Origins.Contains (Comm) then
+         Result.Origins.Insert (Comm, Tx_Date);
+      elsif Tx_Date < Result.Origins.Element (Comm) then
+         Result.Origins.Replace (Comm, Tx_Date);
       end if;
       return Result;
    end Record_Origin;
@@ -91,7 +77,7 @@ package body HRA.Envelope_Entitlement is
       Comm : Commodity) return Boolean
    is
    begin
-      return Obs.Origins.Contains (Code (Comm));
+      return Obs.Origins.Contains (Comm);
    end Has_Origin;
 
    function Origin_For
@@ -99,18 +85,16 @@ package body HRA.Envelope_Entitlement is
       Comm : Commodity) return HRA.Dates.Date
    is
    begin
-      return Obs.Origins.Element (Code (Comm));
+      return Obs.Origins.Element (Comm);
    end Origin_For;
 
    function Entitlement_For
      (Obs : Entitlement_Observation;
       Env : Envelope.Envelope_Id) return Balance
    is
-      Key : constant String :=
-        Ada.Strings.Fixed.Trim (Envelope.Image (Env), Ada.Strings.Both);
    begin
-      if Obs.Per_Envelope.Contains (Key) then
-         return Obs.Per_Envelope.Element (Key);
+      if Obs.Per_Envelope.Contains (Env) then
+         return Obs.Per_Envelope.Element (Env);
       else
          return Empty_Balance;
       end if;
@@ -132,13 +116,9 @@ package body HRA.Envelope_Entitlement is
       Cursor : Envelope_Balance_Maps.Cursor := Obs.Per_Envelope.First;
    begin
       while Envelope_Balance_Maps.Has_Element (Cursor) loop
-         declare
-            Name : constant String := Envelope_Balance_Maps.Key (Cursor);
-            Id   : constant Envelope.Envelope_Id :=
-              Envelope.Make_Envelope_Id (Name);
-         begin
-            Process (Id, Envelope_Balance_Maps.Element (Cursor));
-         end;
+         Process
+           (Envelope_Balance_Maps.Key (Cursor),
+            Envelope_Balance_Maps.Element (Cursor));
          Envelope_Balance_Maps.Next (Cursor);
       end loop;
    end For_Each_Envelope;
