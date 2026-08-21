@@ -71,11 +71,11 @@ begin
      (Is_Navigation (Integer (Curses.KEY_DOWN), Next_Week),
       "KEY_DOWN maps to Next_Week");
    Assert
-     (Is_Navigation (Character'Pos ('g'), Focus_Observed_Through),
-      "g maps to Focus_Observed_Through");
+     (Is_Navigation (Character'Pos ('g'), Focus_Known_Through),
+      "g maps to Focus_Known_Through");
    Assert
-     (Is_Navigation (Character'Pos ('G'), Focus_Observed_Through),
-      "G maps to Focus_Observed_Through");
+     (Is_Navigation (Character'Pos ('G'), Focus_Known_Through),
+      "G maps to Focus_Known_Through");
 
    Assert
      (Decode_Key (Character'Pos ('q')).Kind = Quit,
@@ -111,12 +111,12 @@ begin
                  and then Image (Result.Coordinates.Selected_Day) = "2026-08-11",
                "decoded Next_Day is applied by Home interaction");
             Assert
-              (Result.Coordinates.Observed_Through = Horizon,
-               "decoded navigation preserves Observed_Through");
+              (Result.Coordinates.Known_Through = Horizon,
+               "decoded navigation preserves Known_Through");
          end;
       else
          Assert (False, "l must produce a navigation intent");
-         Assert (False, "l navigation must preserve Observed_Through");
+         Assert (False, "l navigation must preserve Known_Through");
       end if;
    end;
 
