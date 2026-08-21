@@ -126,17 +126,15 @@ begin
          declare
             Assets : constant HRA.Daily_Target_Scope.Account_Vectors.Vector :=
               HRA.Daily_Target_Scope.Eligible_Assets (Scope);
-            Obligations : constant HRA.Daily_Target_Scope.Obligation_Vectors.Vector :=
-              HRA.Daily_Target_Scope.Obligations (Scope);
             O : constant HRA.Daily_Target_Scope.Obligation :=
-              Obligations.Element (1);
+              HRA.Daily_Target_Scope.Obligation_At (Scope, 1);
          begin
             Assert
               (HRA.Daily_Target_Scope.Is_Configured (Scope)
                  and then Natural (Assets.Length) = 1,
                "scope retains long-lived eligible Asset policy");
             Assert
-              (Natural (Obligations.Length) = 1
+              (HRA.Daily_Target_Scope.Obligation_Count (Scope) = 1
                  and then HRA.Plan.Text (O.Plan_ID) = "rent",
                "unselected multi-post Plan remains legal and outside Daily Target");
             Assert
