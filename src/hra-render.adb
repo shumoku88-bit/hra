@@ -5,6 +5,7 @@ with HRA.Account;           use HRA.Account;
 with HRA.Dates;
 with HRA.Issues;
 with HRA.Money;             use HRA.Money;
+with HRA.Report_Flow;
 
 package body HRA.Render is
 
@@ -176,6 +177,105 @@ package body HRA.Render is
          Render_Multi_Balance (Value.Value.Net_Income) & ASCII.LF);
       return To_String (Buf);
    end Render_Profit_And_Loss;
+
+   function Render_Daily_Flow
+     (Value : HRA.Report_Flow.Daily_Flow_Observation) return String
+   is
+      Buf : Unbounded_String;
+   begin
+      Append (Buf, "== Daily Flow (Account x Day) ==" & ASCII.LF);
+      Append
+        (Buf,
+         "Period: " & HRA.Dates.Image (HRA.Dates.First (Value.Period)) &
+         ".." & HRA.Dates.Image (HRA.Dates.Last (Value.Period)) &
+         ASCII.LF & ASCII.LF);
+      Append (Buf, "Date | Income | Expenses | Net" & ASCII.LF);
+      Append (Buf, "------------------------------" & ASCII.LF);
+      for Line of Value.Lines loop
+         Append
+           (Buf,
+            HRA.Dates.Image (Line.Day) & " | " &
+            Render_Multi_Balance (Line.Income) & " | " &
+            Render_Multi_Balance (Line.Expenses) & " | " &
+            Render_Multi_Balance (HRA.Report_Flow.Net (Line)) & ASCII.LF);
+      end loop;
+      Append
+        (Buf,
+         "Total | " & Render_Multi_Balance (HRA.Report_Flow.Total_Income (Value)) &
+         " | " & Render_Multi_Balance (HRA.Report_Flow.Total_Expenses (Value)) &
+         " | " & Render_Multi_Balance (HRA.Report_Flow.Total_Net (Value)) &
+         ASCII.LF);
+
+      if not Value.Expense_Rows.Is_Empty then
+         Append (Buf, ASCII.LF & "Expense accounts by day" & ASCII.LF);
+         for Row of Value.Expense_Rows loop
+            Append (Buf, Name (Row.Acc) & ASCII.LF);
+            for Cell of Row.Cells loop
+               Append
+                 (Buf,
+                  "  " & HRA.Dates.Image (Cell.Day) & " | " &
+                  Render_Multi_Balance (Cell.Value) & ASCII.LF);
+            end loop;
+         end loop;
+      end if;
+
+      return To_String (Buf);
+   end Render_Daily_Flow;
+
+   function Render_Monthly_Accounts
+     (Value : HRA.Report_Flow.Monthly_Accounts_Observation) return String
+   is
+      Buf : Unbounded_String;
+
+      procedure Render_Rows
+        (Label : String;
+         Rows  : HRA.Report_Flow.Monthly_Account_Row_Vectors.Vector)
+      is
+      begin
+         Append (Buf, ASCII.LF & Label & ASCII.LF);
+         for Row of Rows loop
+            Append (Buf, Name (Row.Acc));
+            for Month of Value.Months loop
+               Append
+                 (Buf,
+                  " | " & HRA.Report_Flow.Image (Month) & "=" &
+                  Render_Multi_Balance
+                    (HRA.Report_Flow.Balance_For (Row, Month)));
+            end loop;
+            Append
+              (Buf,
+               " | Period total=" &
+               Render_Multi_Balance (HRA.Report_Flow.Row_Total (Row)) &
+               ASCII.LF);
+         end loop;
+      end Render_Rows;
+   begin
+      Append (Buf, "== Monthly Accounts (Account x Month) ==" & ASCII.LF);
+      Append
+        (Buf,
+         "Period: " & HRA.Dates.Image (HRA.Dates.First (Value.Period)) &
+         ".." & HRA.Dates.Image (HRA.Dates.Last (Value.Period)) &
+         " | Displayed months: " &
+         Trim (Natural'Image (Natural (Value.Months.Length)), Both) &
+         ASCII.LF & ASCII.LF);
+      Append (Buf, "Month | Income | Expenses | Net" & ASCII.LF);
+      Append (Buf, "-------------------------------" & ASCII.LF);
+      for Month of Value.Months loop
+         Append
+           (Buf,
+            HRA.Report_Flow.Image (Month) & " | " &
+            Render_Multi_Balance (HRA.Report_Flow.Income_For (Value, Month)) &
+            " | " &
+            Render_Multi_Balance (HRA.Report_Flow.Expenses_For (Value, Month)) &
+            " | " &
+            Render_Multi_Balance (HRA.Report_Flow.Net_For (Value, Month)) &
+            ASCII.LF);
+      end loop;
+
+      Render_Rows ("Income accounts", Value.Income_Rows);
+      Render_Rows ("Expense accounts", Value.Expense_Rows);
+      return To_String (Buf);
+   end Render_Monthly_Accounts;
 
    function Render_Household_Issues
      (Value : HRA.Household_Report_Observation.Issues_Report_Observation)
