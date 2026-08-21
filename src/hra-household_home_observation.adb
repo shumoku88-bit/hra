@@ -29,6 +29,10 @@ package body HRA.Household_Home_Observation is
    function Cycle (Horizon : Home_Horizon_Observation) return Cycle_Home_Observation is
      (Horizon.Cycle);
 
+   function Daily_Target
+     (Horizon : Home_Horizon_Observation) return HRA.Household_Daily_Target_View.View is
+     (Horizon.Daily_Target);
+
    function Selected_Day (Day_Obs : Home_Day_Observation) return HRA.Dates.Date is
      (Day_Obs.Selected_Day);
 
@@ -67,6 +71,10 @@ package body HRA.Household_Home_Observation is
 
    function Cycle (Obs : Home_Observation) return Cycle_Home_Observation is
      (Obs.Horizon.Cycle);
+
+   function Daily_Target
+     (Obs : Home_Observation) return HRA.Household_Daily_Target_View.View is
+     (Obs.Horizon.Daily_Target);
 
    function Selected_Attention (Obs : Home_Observation) return Attention_Observation is
      (Obs.Day.Attention);
@@ -137,6 +145,7 @@ package body HRA.Household_Home_Observation is
       Income_Acc : HRA.Account.Account;
       Cycle_Obs  : HRA.Cycle_Observation.Observation;
       Cycle_Stat : HRA.Cycle_Observation.Resolve_Status;
+      Cycle_Opt  : HRA.Household_Daily_Target_View.Cycle_Window_Option;
    begin
       Result.Known_Through := Known_Through;
       Result.All_Open_Plans := Plan_Obs.Open_Plans;
@@ -159,11 +168,25 @@ package body HRA.Household_Home_Observation is
          Result.Cycle :=
            (Status      => Available,
             Observation => Cycle_Obs);
+         Cycle_Opt :=
+           (Status => HRA.Household_Daily_Target_View.Available,
+            Window => Cycle_Obs.Current_Window);
       else
          Result.Cycle :=
            (Status => Unavailable,
             Error  => Cycle_Stat);
+         Cycle_Opt :=
+           (Status => HRA.Household_Daily_Target_View.Unavailable,
+            Error  => Cycle_Stat);
       end if;
+
+      Result.Daily_Target :=
+        HRA.Household_Daily_Target_View.Project_From_Cycle
+          (Scope_State   => State.Daily_Target,
+           Plans         => Plan_Obs,
+           Ledger        => State.Actual_Ledger,
+           Cycle_Window  => Cycle_Opt,
+           Known_Through => Known_Through);
 
       return Result;
    end See_Horizon;

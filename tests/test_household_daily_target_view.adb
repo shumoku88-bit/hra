@@ -21,6 +21,8 @@ with HRA.Plan_Completion;
 with HRA.Plan_Temporal_Observation;
 
 procedure Test_Household_Daily_Target_View is
+   use type HRA.Cycle_Accounts_Observation.Observe_Status;
+   use type HRA.Cycle_Observation.Resolve_Status;
    use type HRA.Daily_Target_Observation.Observe_Status;
    use type HRA.Daily_Target_Scope.Admission_Status;
    use type HRA.Dates.Date;
@@ -126,6 +128,8 @@ begin
    Register (Registry, "assets:bank", HRA.Account.Asset);
    Register (Registry, "income:salary", HRA.Account.Income);
    Register (Registry, "expenses:utilities", HRA.Account.Expense);
+
+   --  === 1. Existing Project (Scope_State, Plans, Account_State) laws ===
 
    --  Law 1: Scope_Unavailable projects directly to Scope_Unavailable
    View := HRA.Household_Daily_Target_View.Project
@@ -252,6 +256,107 @@ begin
       and then View.Observation_Diagnostic.Status =
         HRA.Daily_Target_Observation.Observation_Date_Mismatch,
       "Temporal mismatch produces Observation_Unavailable with exact diagnostic");
+
+   --  === 2. Project_From_Cycle short-circuiting laws ===
+
+   --  Law 5: Project_From_Cycle with Scope_Unavailable short-circuits before Cycle check
+   declare
+      Unavail_Cycle_Opt : constant
+        HRA.Household_Daily_Target_View.Cycle_Window_Option :=
+          (Status => HRA.Household_Daily_Target_View.Unavailable,
+           Error  => HRA.Cycle_Observation.Missing_Future_Plan_Anchor);
+   begin
+      View := HRA.Household_Daily_Target_View.Project_From_Cycle
+        (Scope_State   => Unavail_Scope,
+         Plans         => Empty_Plans,
+         Ledger        => Actual_Ledger,
+         Cycle_Window  => Unavail_Cycle_Opt,
+         Known_Through => D ("2026-08-10"));
+      Assert
+        (View.Status = HRA.Household_Daily_Target_View.Scope_Unavailable
+         and then View.Scope_Diagnostic.Status =
+           HRA.Daily_Target_Scope.Unsupported_Selected_Plan_Shape,
+         "Project_From_Cycle with Scope_Unavailable short-circuits without checking Cycle");
+   end;
+
+   --  Law 6: Project_From_Cycle with Unconfigured short-circuits before Cycle check
+   declare
+      Unavail_Cycle_Opt : constant
+        HRA.Household_Daily_Target_View.Cycle_Window_Option :=
+          (Status => HRA.Household_Daily_Target_View.Unavailable,
+           Error  => HRA.Cycle_Observation.Missing_Future_Plan_Anchor);
+   begin
+      View := HRA.Household_Daily_Target_View.Project_From_Cycle
+        (Scope_State   => Unconfig_Scope,
+         Plans         => Empty_Plans,
+         Ledger        => Actual_Ledger,
+         Cycle_Window  => Unavail_Cycle_Opt,
+         Known_Through => D ("2026-08-10"));
+      Assert
+        (View.Status = HRA.Household_Daily_Target_View.Unconfigured,
+         "Project_From_Cycle with Unconfigured short-circuits without checking Cycle");
+   end;
+
+   --  Law 7: Configured scope + Cycle Unavailable -> Cycle_Unavailable retaining error
+   declare
+      Unavail_Cycle_Opt : constant
+        HRA.Household_Daily_Target_View.Cycle_Window_Option :=
+          (Status => HRA.Household_Daily_Target_View.Unavailable,
+           Error  => HRA.Cycle_Observation.Missing_Future_Plan_Anchor);
+   begin
+      View := HRA.Household_Daily_Target_View.Project_From_Cycle
+        (Scope_State   => Configured_Scope_State,
+         Plans         => Active_Plans,
+         Ledger        => Actual_Ledger,
+         Cycle_Window  => Unavail_Cycle_Opt,
+         Known_Through => D ("2026-08-10"));
+      Assert
+        (View.Status = HRA.Household_Daily_Target_View.Cycle_Unavailable
+         and then View.Cycle_Error =
+           HRA.Cycle_Observation.Missing_Future_Plan_Anchor,
+         "Configured scope + Cycle Unavailable returns Cycle_Unavailable retaining Resolve_Status");
+   end;
+
+   --  Law 8: Configured scope + Cycle Available + Cycle Accounts failure -> Cycle_Accounts_Unavailable
+   declare
+      Avail_Cycle_Opt : constant
+        HRA.Household_Daily_Target_View.Cycle_Window_Option :=
+          (Status => HRA.Household_Daily_Target_View.Available,
+           Window => Cycle_Win);
+   begin
+      --  Observation date outside cycle (2026-09-10 > 2026-09-01 limit)
+      View := HRA.Household_Daily_Target_View.Project_From_Cycle
+        (Scope_State   => Configured_Scope_State,
+         Plans         => Active_Plans,
+         Ledger        => Actual_Ledger,
+         Cycle_Window  => Avail_Cycle_Opt,
+         Known_Through => D ("2026-09-10"));
+      Assert
+        (View.Status = HRA.Household_Daily_Target_View.Cycle_Accounts_Unavailable
+         and then View.Cycle_Accounts_Diagnostic.Status =
+           HRA.Cycle_Accounts_Observation.Observation_Outside_Cycle,
+         "Cycle Accounts failure returns Cycle_Accounts_Unavailable retaining diagnostic");
+   end;
+
+   --  Law 9: Configured scope + Cycle Available + Cycle Accounts success -> delegates to Project (Available)
+   declare
+      Avail_Cycle_Opt : constant
+        HRA.Household_Daily_Target_View.Cycle_Window_Option :=
+          (Status => HRA.Household_Daily_Target_View.Available,
+           Window => Cycle_Win);
+   begin
+      View := HRA.Household_Daily_Target_View.Project_From_Cycle
+        (Scope_State   => Configured_Scope_State,
+         Plans         => Active_Plans,
+         Ledger        => Actual_Ledger,
+         Cycle_Window  => Avail_Cycle_Opt,
+         Known_Through => D ("2026-08-10"));
+      Assert
+        (View.Status = HRA.Household_Daily_Target_View.Available
+         and then HRA.Daily_Target_Observation.Observed_Through (View.Observation) =
+           D ("2026-08-10"),
+         "Project_From_Cycle successfully delegates to Project yielding Available View");
+   end;
 
    Put_Line
      (Natural'Image (Passed_Count) & " passed, " &

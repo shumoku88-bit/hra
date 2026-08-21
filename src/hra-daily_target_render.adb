@@ -1,4 +1,6 @@
 with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
+with HRA.Cycle_Accounts_Observation;
+with HRA.Cycle_Observation;
 with HRA.Daily_Target_Observation;
 with HRA.Daily_Target_Rate;
 with HRA.Daily_Target_Scope;
@@ -95,6 +97,42 @@ package body HRA.Daily_Target_Render is
       end case;
    end Gentle_Observation_Message;
 
+   function Gentle_Cycle_Message
+     (Status : HRA.Cycle_Observation.Resolve_Status) return String
+   is
+   begin
+      case Status is
+         when HRA.Cycle_Observation.Success =>
+            return "";
+         when HRA.Cycle_Observation.Invalid_Observation_Date =>
+            return "observation date is invalid for cycle context";
+         when HRA.Cycle_Observation.Income_Account_Not_Declared =>
+            return "cycle income account is not declared";
+         when HRA.Cycle_Observation.Income_Account_Has_Wrong_Type =>
+            return "cycle income account has invalid account type";
+         when HRA.Cycle_Observation.Insufficient_Actual_Anchors =>
+            return "insufficient actual transactions to determine cycle boundaries";
+         when HRA.Cycle_Observation.Missing_Future_Plan_Anchor =>
+            return "missing future plan to determine cycle limit";
+         when HRA.Cycle_Observation.Invalid_Cycle_Window =>
+            return "cycle interval is invalid";
+      end case;
+   end Gentle_Cycle_Message;
+
+   function Gentle_Cycle_Accounts_Message
+     (Diag : HRA.Cycle_Accounts_Observation.Observe_Diagnostic) return String
+   is
+   begin
+      case Diag.Status is
+         when HRA.Cycle_Accounts_Observation.Success =>
+            return "";
+         when HRA.Cycle_Accounts_Observation.Observation_Outside_Cycle =>
+            return "account observation date is outside cycle window";
+         when HRA.Cycle_Accounts_Observation.Undeclared_Account =>
+            return "account is not declared in registry";
+      end case;
+   end Gentle_Cycle_Accounts_Message;
+
    function Render_Observation
      (Value : HRA.Daily_Target_Observation.Observation) return String
    is
@@ -172,6 +210,20 @@ package body HRA.Daily_Target_Render is
                    "------------" & ASCII.LF &
                    "  (unavailable: " &
                    Gentle_Observation_Message (Value.Observation_Diagnostic) & ")" &
+                   ASCII.LF;
+
+         when HRA.Household_Daily_Target_View.Cycle_Unavailable =>
+            return "Daily Target" & ASCII.LF &
+                   "------------" & ASCII.LF &
+                   "  (unavailable: " &
+                   Gentle_Cycle_Message (Value.Cycle_Error) & ")" &
+                   ASCII.LF;
+
+         when HRA.Household_Daily_Target_View.Cycle_Accounts_Unavailable =>
+            return "Daily Target" & ASCII.LF &
+                   "------------" & ASCII.LF &
+                   "  (unavailable: " &
+                   Gentle_Cycle_Accounts_Message (Value.Cycle_Accounts_Diagnostic) & ")" &
                    ASCII.LF;
       end case;
    end Render;

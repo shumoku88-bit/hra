@@ -1,6 +1,7 @@
 with HRA.Cycle_Observation;
 with HRA.Dates;
 with HRA.Household;
+with HRA.Household_Daily_Target_View;
 with HRA.Issue_Observation;
 with HRA.Ledger;
 with HRA.Plan_Temporal_Observation;
@@ -14,7 +15,7 @@ with HRA.Plan_Temporal_Observation;
 --
 --  Selected_Day > Known_Through means Actual is Unavailable.
 --  Future-dated admitted Actual transactions in State are never leaked.
---  Plan, Issue, and Cycle reflect what is known through Known_Through.
+--  Plan, Issue, Cycle, and Daily Target reflect what is known through Known_Through.
 --  Empty results (0 transactions/plans/issues) are distinct from Unavailable.
 --
 --  Home_Observation is opaque; presentation layers cannot manufacture
@@ -92,8 +93,8 @@ package HRA.Household_Home_Observation is
 
    type Home_Horizon_Observation is private;
 
-   --  See the horizon-stable Plan, Issue, Cycle, and calendar-attention
-   --  projections using only facts known through Known_Through.
+   --  See the horizon-stable Plan, Issue, Cycle, Daily Target, and
+   --  calendar-attention projections using only facts known through Known_Through.
    function See_Horizon
      (Known_Through : HRA.Dates.Date;
       State         : HRA.Household.Household_State) return Home_Horizon_Observation;
@@ -103,6 +104,9 @@ package HRA.Household_Home_Observation is
 
    function Cycle
      (Horizon : Home_Horizon_Observation) return Cycle_Home_Observation;
+
+   function Daily_Target
+     (Horizon : Home_Horizon_Observation) return HRA.Household_Daily_Target_View.View;
 
    function Day_Attention
      (Horizon : Home_Horizon_Observation;
@@ -140,6 +144,7 @@ package HRA.Household_Home_Observation is
    function Plan (Obs : Home_Observation) return Plan_Home_Observation;
    function Issue (Obs : Home_Observation) return Issue_Home_Observation;
    function Cycle (Obs : Home_Observation) return Cycle_Home_Observation;
+   function Daily_Target (Obs : Home_Observation) return HRA.Household_Daily_Target_View.View;
 
    function Selected_Attention (Obs : Home_Observation) return Attention_Observation;
 
@@ -150,10 +155,11 @@ package HRA.Household_Home_Observation is
 private
 
    type Home_Horizon_Observation is record
-      Known_Through : HRA.Dates.Date;
-      Cycle         : Cycle_Home_Observation;
+      Known_Through  : HRA.Dates.Date;
+      Cycle          : Cycle_Home_Observation;
       All_Open_Plans : HRA.Plan_Temporal_Observation.Open_Plan_Vectors.Vector;
       Issue_Context  : HRA.Issue_Observation.Observation;
+      Daily_Target   : HRA.Household_Daily_Target_View.View;
    end record;
 
    type Home_Day_Observation is record

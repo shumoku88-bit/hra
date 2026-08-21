@@ -3,14 +3,18 @@ with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
 with Ada.Text_IO;           use Ada.Text_IO;
 with HRA.Canonical_Source;  use HRA.Canonical_Source;
 with HRA.Cycle_Observation;
+with HRA.Daily_Target_Observation;
+with HRA.Daily_Target_Rate;
 with HRA.Dates;             use HRA.Dates;
 with HRA.Household;
+with HRA.Household_Daily_Target_View;
 with HRA.Household_Home_Observation; use HRA.Household_Home_Observation;
 with HRA.Plan;
 with HRA.Plan_Admission;
 
 procedure Test_Household_Home_Observation is
    use type HRA.Cycle_Observation.Resolve_Status;
+   use type HRA.Household_Daily_Target_View.View_Status;
 
    Passed_Count : Natural := 0;
    Failed_Count : Natural := 0;
@@ -425,6 +429,118 @@ begin
                  and then Open_Plan_Count (Plan (Obs_Direct)) = Open_Plan_Count (Plan (Obs_Future))
                  and then Due_Issue_Count (Issue (Obs_Direct)) = Due_Issue_Count (Issue (Obs_Future)),
                  "See_Home produces identical projections to Project_Day on See_Horizon");
+         Assert (Daily_Target (Horizon_Obs).Status =
+                   HRA.Household_Daily_Target_View.Unconfigured,
+                 "See_Horizon projects Unconfigured Daily Target when not in policy");
+         Assert (Daily_Target (Obs_Direct).Status =
+                   HRA.Household_Daily_Target_View.Unconfigured,
+                 "See_Home exposes identical Unconfigured Daily Target from Horizon");
+      end;
+   end;
+
+   --  ========================================================================
+   --  Daily Target Home Horizon observation tests (Configured + Cycle scenarios)
+   --  ========================================================================
+   declare
+      DT_Sources : HRA.Canonical_Source.Source_Observation :=
+        Make_Synthetic_Sources;
+      DT_State   : HRA.Household.Household_State;
+      DT_Err     : Unbounded_String;
+   begin
+      --  Configure [daily-target] with assets:bank and assets:cash
+      DT_Sources.Texts (Household_Config_Source) := To_Unbounded_String
+        ("[cycle]" & ASCII.LF &
+         "mode = ""income-anchor""" & ASCII.LF &
+         "income-account = ""income:salary""" & ASCII.LF &
+         "[money]" & ASCII.LF &
+         "primary-commodity = ""JPY""" & ASCII.LF &
+         "[daily-target]" & ASCII.LF &
+         "assets = [{ id = ""bank"", account = ""assets:bank"" }, { id = ""cash"", account = ""assets:cash"" }]" & ASCII.LF &
+         "[envelope-history]" & ASCII.LF &
+         "identities = [""food""]" & ASCII.LF &
+         "[[envelope-history.expense-routing]]" & ASCII.LF &
+         "effective-from = ""initial""" & ASCII.LF &
+         "expense-account = ""expenses:food""" & ASCII.LF &
+         "route = ""managed""" & ASCII.LF &
+         "target = ""food""" & ASCII.LF &
+         "note = ""home observation routing""" & ASCII.LF);
+
+      --  Tag planned utility bill with daily-target-id
+      DT_Sources.Texts (Plan_Source) := To_Unbounded_String
+        ("2026-08-25 Planned Utility Bill" & ASCII.LF &
+         "    ; plan-id: plan-util-aug" & ASCII.LF &
+         "    ; daily-target-id: sel-util" & ASCII.LF &
+         "    expenses:food          8000 JPY" & ASCII.LF &
+         "    assets:bank           -8000 JPY" & ASCII.LF & ASCII.LF &
+         "2026-08-31 September Salary" & ASCII.LF &
+         "    ; plan-id: plan-sep-salary" & ASCII.LF &
+         "    assets:bank          300000 JPY" & ASCII.LF &
+         "    income:salary       -300000 JPY" & ASCII.LF);
+
+      Assert
+        (HRA.Household.Admit_Canonical_Household (DT_Sources, DT_State, DT_Err),
+         "Admit Household state configured with Daily Target");
+
+      declare
+         Horizon_Obs : constant Home_Horizon_Observation :=
+           See_Horizon (D ("2026-08-19"), DT_State);
+         Obs_Direct  : constant Home_Observation :=
+           See_Home (D ("2026-08-19"), D ("2026-08-25"), DT_State);
+      begin
+         Assert
+           (Daily_Target (Horizon_Obs).Status =
+              HRA.Household_Daily_Target_View.Available,
+            "Horizon sees Available Daily Target when configured and Cycle is available");
+         Assert
+           (HRA.Daily_Target_Observation.Observed_Through
+              (Daily_Target (Horizon_Obs).Observation) = D ("2026-08-19"),
+            "Daily Target observation aligns with Known_Through");
+         Assert
+           (Daily_Target (Obs_Direct).Status =
+              HRA.Household_Daily_Target_View.Available,
+            "See_Home convenience exposes Available Daily Target");
+
+         --  Derived Rate check
+         declare
+            Rate : constant HRA.Daily_Target_Rate.Rate :=
+              HRA.Daily_Target_Rate.Derive
+                (Daily_Target (Horizon_Obs).Observation);
+         begin
+            Assert
+              (HRA.Daily_Target_Rate.Is_Configured (Rate)
+               and then HRA.Daily_Target_Rate.Remaining_Days (Rate) = 12,
+               "Daily Target Rate is derivable on demand from Horizon observation");
+         end;
+      end;
+
+      --  Configured Daily Target + Broken Cycle -> Cycle_Unavailable without inventing fake diagnostic
+      declare
+         DT_Broken_Sources : HRA.Canonical_Source.Source_Observation := DT_Sources;
+         DT_Broken_State   : HRA.Household.Household_State;
+      begin
+         DT_Broken_Sources.Texts (Plan_Source) := To_Unbounded_String
+           ("2026-08-25 Planned Utility Bill" & ASCII.LF &
+            "    ; plan-id: plan-util-aug" & ASCII.LF &
+            "    ; daily-target-id: sel-util" & ASCII.LF &
+            "    expenses:food          8000 JPY" & ASCII.LF &
+            "    assets:bank           -8000 JPY" & ASCII.LF);
+
+         Assert
+           (HRA.Household.Admit_Canonical_Household
+              (DT_Broken_Sources, DT_Broken_State, DT_Err),
+            "Admit configured Daily Target state without future cycle anchor");
+
+         declare
+            Horizon_Obs : constant Home_Horizon_Observation :=
+              See_Horizon (D ("2026-08-19"), DT_Broken_State);
+         begin
+            Assert
+              (Daily_Target (Horizon_Obs).Status =
+                 HRA.Household_Daily_Target_View.Cycle_Unavailable
+               and then Daily_Target (Horizon_Obs).Cycle_Error =
+                 HRA.Cycle_Observation.Missing_Future_Plan_Anchor,
+               "Horizon projects Cycle_Unavailable when Cycle anchor is missing");
+         end;
       end;
    end;
 
