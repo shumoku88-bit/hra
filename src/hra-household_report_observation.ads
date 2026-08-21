@@ -10,6 +10,7 @@ with HRA.Money; use HRA.Money;
 with HRA.Planned_Payments;
 with HRA.Recent_Journal;
 with HRA.Report;
+with HRA.Report_Flow;
 with HRA.Report_Plan;
 
 --  Complete semantic observation for the current Household report book.
@@ -23,6 +24,8 @@ package HRA.Household_Report_Observation is
       Account_Balances_Section,
       Balance_Sheet_Section,
       Profit_And_Loss_Section,
+      Daily_Flow_Section,
+      Monthly_Accounts_Section,
       Recent_Journal_Section,
       Planned_Payments_Section,
       Open_Issues_Section);
@@ -30,7 +33,7 @@ package HRA.Household_Report_Observation is
    type Report_Section_Order is
      array (Positive range <>) of Report_Section_Key;
 
-   subtype Current_Report_Section_Order is Report_Section_Order (1 .. 7);
+   subtype Current_Report_Section_Order is Report_Section_Order (1 .. 9);
 
    type Envelope_Report_Line is record
       Env_Id                 : HRA.Envelope.Envelope_Id;
@@ -148,6 +151,8 @@ package HRA.Household_Report_Observation is
       Account_Balances   : Account_Balances_Report_Observation;
       Balance_Sheet      : Balance_Sheet_Report_Observation;
       Profit_And_Loss    : Profit_And_Loss_Report_Observation;
+      Daily_Flow         : HRA.Report_Flow.Daily_Flow_Observation;
+      Monthly_Accounts   : HRA.Report_Flow.Monthly_Accounts_Observation;
       Recent_Journal     : HRA.Recent_Journal.Observation;
       Planned_Payments   : Planned_Payments_Report_Observation;
       Open_Issues        : Issues_Report_Observation;
