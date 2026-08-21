@@ -5,7 +5,7 @@ with HRA.Money;          use HRA.Money;
 with HRA.Dates;
 with HRA.Envelope;       use HRA.Envelope;
 with HRA.Envelope_Position;
-with HRA.Plan_Observation;
+with HRA.Plan_Temporal_Observation;
 with HRA.Cycle_Observation;
 with HRA.Envelope_Config;
 with HRA.Ledger;
@@ -64,7 +64,7 @@ package HRA.Backing_Policy is
 
    function Observe_Funding_Commitment
      (Policy     : Backing_Policy;
-      Open_Plans : HRA.Plan_Observation.Open_Plan_Vectors.Vector;
+      Open_Plans : HRA.Plan_Temporal_Observation.Open_Plan_Vectors.Vector;
       Window     : HRA.Cycle_Observation.Cycle_Window)
       return Funding_Commitment_Observation;
 
