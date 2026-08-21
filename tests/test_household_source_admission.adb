@@ -2,6 +2,7 @@ with Ada.Strings.Fixed; use Ada.Strings.Fixed;
 with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
 with Ada.Text_IO; use Ada.Text_IO;
 with HRA.Canonical_Source; use HRA.Canonical_Source;
+with HRA.Daily_Target_Scope;
 with HRA.Household;
 with HRA.Plan_Admission;
 with HRA.Plan_Completion;
@@ -123,9 +124,64 @@ begin
      (HRA.Plan_Completion.Count (State.Plan_Completions) = 1,
       "Household retains typed Plan-to-Actual completion relation");
    Assert
+     (State.Daily_Target.Status = HRA.Household.Daily_Target_Scope_Available
+      and then not HRA.Daily_Target_Scope.Is_Configured
+        (State.Daily_Target.Value),
+      "Absent Daily Target policy is retained as available unconfigured scope");
+   Assert
      (Text_For (State.Sources, Actual_Source) =
         Text_For (Observation, Actual_Source),
       "Admitted Household retains exact supplied source bytes");
+
+   --  A general three-post Plan remains valid even when an explicit Daily
+   --  Target selection cannot project it to the narrower one-source/one-target
+   --  shape. Household admission succeeds and retains only that section-level
+   --  projection failure as typed evidence.
+   Candidate := Observation;
+   Candidate.Texts (Accounts_Source) := To_Unbounded_String
+     ("account assets:wallet" & ASCII.LF &
+      "  ; type: Asset" & ASCII.LF &
+      "account expenses:coffee" & ASCII.LF &
+      "  ; type: Expense" & ASCII.LF &
+      "account expenses:snack" & ASCII.LF &
+      "  ; type: Expense" & ASCII.LF &
+      "account income:salary" & ASCII.LF &
+      "  ; type: Income" & ASCII.LF);
+   Candidate.Texts (Plan_Source) := To_Unbounded_String
+     ("2026-08-13 Planned Coffee" & ASCII.LF &
+      "    ; plan-id: plan-coffee" & ASCII.LF &
+      "    ; daily-target-id: coffee-target" & ASCII.LF &
+      "    expenses:coffee         400 JPY" & ASCII.LF &
+      "    expenses:snack          100 JPY" & ASCII.LF &
+      "    assets:wallet          -500 JPY" & ASCII.LF);
+   Candidate.Texts (Household_Config_Source) := To_Unbounded_String
+     ("[cycle]" & ASCII.LF &
+      "mode = ""income-anchor""" & ASCII.LF &
+      "income-account = ""income:salary""" & ASCII.LF &
+      "[money]" & ASCII.LF &
+      "primary-commodity = ""JPY""" & ASCII.LF &
+      "[daily-target]" & ASCII.LF &
+      "assets = [{ id = ""wallet-asset"", account = ""assets:wallet"" }]" & ASCII.LF &
+      "[envelope-history]" & ASCII.LF &
+      "identities = [""coffee""]" & ASCII.LF &
+      "[[envelope-history.expense-routing]]" & ASCII.LF &
+      "effective-from = ""initial""" & ASCII.LF &
+      "expense-account = ""expenses:coffee""" & ASCII.LF &
+      "route = ""managed""" & ASCII.LF &
+      "target = ""coffee""" & ASCII.LF &
+      "note = ""candidate admission routing""" & ASCII.LF);
+
+   Assert
+     (HRA.Household.Admit_Canonical_Household
+        (Candidate, State, Err),
+      "Narrow Daily Target failure does not reject a valid Household");
+   Assert
+     (HRA.Plan_Admission.Transaction_Count (State.Plan_Journal) = 1
+      and then State.Daily_Target.Status =
+        HRA.Household.Daily_Target_Scope_Unavailable
+      and then State.Daily_Target.Diagnostic.Status =
+        HRA.Daily_Target_Scope.Unsupported_Selected_Plan_Shape,
+      "Household retains valid Plan authority and exact Daily Target diagnostic");
 
    Candidate := Observation;
    Candidate.Texts (Entitlement_Source) := To_Unbounded_String
