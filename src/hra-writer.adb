@@ -6,6 +6,34 @@ with HRA.Journal;        use HRA.Journal;
 
 package body HRA.Writer is
 
+   function Make_Expected_Source (Text : String) return Expected_Source is
+     ((Text => To_Unbounded_String (Text)));
+
+   function Make_Expected_Source
+     (Text : Ada.Strings.Unbounded.Unbounded_String) return Expected_Source is
+     ((Text => Text));
+
+   function Make_Candidate_Source (Text : String) return Candidate_Source is
+     ((Text => To_Unbounded_String (Text)));
+
+   function Make_Candidate_Source
+     (Text : Ada.Strings.Unbounded.Unbounded_String) return Candidate_Source is
+     ((Text => Text));
+
+   function Source_Text (Value : Expected_Source) return String is
+     (To_String (Value.Text));
+
+   function Source_Text (Value : Candidate_Source) return String is
+     (To_String (Value.Text));
+
+   function Unbounded_Text
+     (Value : Expected_Source) return Ada.Strings.Unbounded.Unbounded_String is
+     (Value.Text);
+
+   function Unbounded_Text
+     (Value : Candidate_Source) return Ada.Strings.Unbounded.Unbounded_String is
+     (Value.Text);
+
    function Writer_Status_Image (Status : Writer_Status) return String is
    begin
       case Status is
@@ -53,17 +81,19 @@ package body HRA.Writer is
    end Write_File;
 
    function Atomic_Publish_Journal
-     (Target_Path       : String;
-      Expected_Old_Text : String;
-      New_Text          : String;
-      Status            : out Writer_Status;
-      Error_Msg         : out Unbounded_String) return Boolean
+     (Target_Path : String;
+      Expected    : Expected_Source;
+      Candidate   : Candidate_Source;
+      Status      : out Writer_Status;
+      Error_Msg   : out Unbounded_String) return Boolean
    is
       Current_On_Disk : Unbounded_String;
       Tmp_Path        : constant String := Target_Path & ".tmp";
       Bak_Path        : constant String := Target_Path & ".bak";
       Dummy_L         : Ledger.Ledger;
       Parse_Err       : Unbounded_String;
+      Expected_Text   : constant String := Source_Text (Expected);
+      Candidate_Text  : constant String := Source_Text (Candidate);
    begin
       --  1. Stale Check: read current bytes before doing any mutation.
       if Exists (Target_Path) then
@@ -73,7 +103,7 @@ package body HRA.Writer is
             return False;
          end if;
 
-         if To_String (Current_On_Disk) /= Expected_Old_Text then
+         if To_String (Current_On_Disk) /= Expected_Text then
             Status := Stale_Source_Rejected;
             Error_Msg := To_Unbounded_String ("Stale source rejected: file changed on disk by another process");
             return False;
@@ -82,21 +112,21 @@ package body HRA.Writer is
       end if;
 
       --  2. Pre-admission validation, still before any filesystem mutation.
-      if not Parse_Journal_Text (New_Text, Dummy_L, Parse_Err) then
+      if not Parse_Journal_Text (Candidate_Text, Dummy_L, Parse_Err) then
          Status := Pre_Admission_Failed;
          Error_Msg := To_Unbounded_String ("Pre-admission validation rejected candidate: " & To_String (Parse_Err));
          return False;
       end if;
 
       --  3. Keep a recovery copy until post-admission validation succeeds.
-      if Exists (Target_Path) and then not Write_File (Bak_Path, Expected_Old_Text) then
+      if Exists (Target_Path) and then not Write_File (Bak_Path, Expected_Text) then
          Status := Backup_Failed;
          Error_Msg := To_Unbounded_String ("Failed to create backup file: " & Bak_Path);
          return False;
       end if;
 
       --  4. Write Candidate to Sibling Temporary File
-      if not Write_File (Tmp_Path, New_Text) then
+      if not Write_File (Tmp_Path, Candidate_Text) then
          Status := File_Write_Failed;
          Error_Msg := To_Unbounded_String ("Failed to write candidate to temporary file: " & Tmp_Path);
          if Exists (Bak_Path) then
@@ -129,7 +159,7 @@ package body HRA.Writer is
       declare
          Parsed_L : Ledger.Ledger;
       begin
-         if not Parse_Journal_Text (New_Text, Parsed_L, Parse_Err) then
+         if not Parse_Journal_Text (Candidate_Text, Parsed_L, Parse_Err) then
             --  Post-admission failure: Restore from backup
             if Exists (Bak_Path) then
                if Exists (Target_Path) then
@@ -186,11 +216,11 @@ package body HRA.Writer is
       end if;
 
       return Atomic_Publish_Journal
-        (Target_Path       => Target_Path,
-         Expected_Old_Text => To_String (Old_Content),
-         New_Text          => To_String (New_Content),
-         Status            => Status,
-         Error_Msg         => Error_Msg);
+        (Target_Path => Target_Path,
+         Expected    => Make_Expected_Source (Old_Content),
+         Candidate   => Make_Candidate_Source (New_Content),
+         Status      => Status,
+         Error_Msg   => Error_Msg);
    end Append_Transaction_Safely;
 
 end HRA.Writer;
