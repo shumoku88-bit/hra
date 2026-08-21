@@ -1,6 +1,7 @@
 with Ada.Text_IO; use Ada.Text_IO;
 with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
 with HRA.Account;
+with HRA.Actual_Admission;
 with HRA.Backing_Policy;
 with HRA.Envelope_Config;
 with HRA.Config_Support;
@@ -15,10 +16,13 @@ with HRA.Envelope_Position;
 with HRA.Envelope_Routing;
 with HRA.Fulfillment_Routing;
 with HRA.Journal;
+with HRA.Journal_Evidence;
 with HRA.Ledger;
 with HRA.Money;
 with HRA.Plan;
-with HRA.Plan_Observation;
+with HRA.Plan_Admission;
+with HRA.Plan_Completion;
+with HRA.Plan_Temporal_Observation;
 
 procedure Test_Envelope_Fulfillment is
    use type HRA.Backing_Policy.Policy_Status;
@@ -119,24 +123,33 @@ procedure Test_Envelope_Fulfillment is
      "pacing = ""daily""" & ASCII.LF &
      "backing-pool = ""liquid""" & ASCII.LF;
 
-   Registry       : HRA.Account.Account_Registry := HRA.Account.Empty_Registry;
-   Plans          : HRA.Ledger.Ledger;
-   Actual         : HRA.Ledger.Ledger;
-   Parse_Error    : Unbounded_String;
-   Open_Plans     : HRA.Plan_Observation.Open_Plan_Vectors.Vector;
-   Completed      : HRA.Plan_Observation.Completed_Plan_Vectors.Vector;
-   Plan_Diag      : HRA.Plan_Observation.Admission_Diagnostic;
-   Known_Plans    : HRA.Plan.Plan_Id_Universe;
-   Env_Names      : HRA.Config_Support.String_Vectors.Vector;
-   Env_Registry   : HRA.Envelope.Envelope_Registry;
-   Env_Diag       : HRA.Config_Support.Config_Diagnostic;
-   Savings_Env    : HRA.Envelope.Envelope_Id;
-   Decisions      : HRA.Fulfillment_Routing.Decision_Vectors.Vector;
-   Routing        : HRA.Fulfillment_Routing.Fulfillment_Routing_History;
-   Routing_Status : HRA.Fulfillment_Routing.Admission_Status;
-   Fulfillment    : HRA.Envelope_Fulfillment.Envelope_Fulfillment;
-   Fulfill_Diag   : HRA.Envelope_Fulfillment.Observe_Diagnostic;
-   JPY            : constant HRA.Money.Commodity :=
+   Registry        : HRA.Account.Account_Registry := HRA.Account.Empty_Registry;
+   Plans           : HRA.Ledger.Ledger;
+   Actual          : HRA.Ledger.Ledger;
+   Parse_Error     : Unbounded_String;
+   Plan_Evidence   : HRA.Journal_Evidence.Journal_Evidence;
+   Actual_Evidence : HRA.Journal_Evidence.Journal_Evidence;
+   Evidence_Diag   : HRA.Journal_Evidence.Evidence_Diagnostic;
+   Plan_Journal    : HRA.Plan_Admission.Plan_Journal;
+   Plan_Diag       : HRA.Plan_Admission.Admission_Diagnostic;
+   Actual_Obs      : HRA.Actual_Admission.Actual_Observation;
+   Actual_Diag     : HRA.Actual_Admission.Admission_Diagnostic;
+   Completions     : HRA.Plan_Completion.Completion_Relations;
+   Completion_Diag : HRA.Plan_Completion.Admission_Diagnostic;
+   Plan_Obs        : HRA.Plan_Temporal_Observation.Observation;
+   Open_Plans      : HRA.Plan_Temporal_Observation.Open_Plan_Vectors.Vector;
+   Completed       : HRA.Plan_Temporal_Observation.Completed_Plan_Vectors.Vector;
+   Known_Plans     : HRA.Plan.Plan_Id_Universe;
+   Env_Names       : HRA.Config_Support.String_Vectors.Vector;
+   Env_Registry    : HRA.Envelope.Envelope_Registry;
+   Env_Diag        : HRA.Config_Support.Config_Diagnostic;
+   Savings_Env     : HRA.Envelope.Envelope_Id;
+   Decisions       : HRA.Fulfillment_Routing.Decision_Vectors.Vector;
+   Routing         : HRA.Fulfillment_Routing.Fulfillment_Routing_History;
+   Routing_Status  : HRA.Fulfillment_Routing.Admission_Status;
+   Fulfillment     : HRA.Envelope_Fulfillment.Envelope_Fulfillment;
+   Fulfill_Diag    : HRA.Envelope_Fulfillment.Observe_Diagnostic;
+   JPY             : constant HRA.Money.Commodity :=
      HRA.Money.Make_Commodity ("JPY");
 
 begin
@@ -152,21 +165,40 @@ begin
    Assert
      (HRA.Journal.Parse_Journal_Text (Actual_Source, Actual, Parse_Error),
       "Setup: parse explicit completion and reversal chain");
-
    Assert
-     (HRA.Plan_Observation.Observe_Plans
-        (Plans, Plan_Source, Actual, Actual_Source,
-         D ("2026-08-18"), Open_Plans, Completed, Plan_Diag),
-      "Observe open/completed Plan lifecycle once");
+     (HRA.Journal_Evidence.Extract
+        (Plan_Source, Plans, Plan_Evidence, Evidence_Diag),
+      "Setup: extract Plan source evidence");
+   Assert
+     (HRA.Plan_Admission.Admit
+        (Plans, Plan_Evidence, Plan_Journal, Plan_Diag),
+      "Setup: admit native Plan journal");
+   Assert
+     (HRA.Journal_Evidence.Extract
+        (Actual_Source, Actual, Actual_Evidence, Evidence_Diag),
+      "Setup: extract Actual source evidence");
+   Assert
+     (HRA.Actual_Admission.Admit
+        (Actual, Actual_Evidence, Actual_Obs, Actual_Diag),
+      "Setup: admit native Actual observation");
+   Assert
+     (HRA.Plan_Completion.Admit
+        (Plan_Journal, Actual_Obs, Completions, Completion_Diag),
+      "Setup: admit native Plan completion relation");
+
+   Plan_Obs := HRA.Plan_Temporal_Observation.Observe
+     (Plan_Journal, Completions, D ("2026-08-18"));
+   Open_Plans := Plan_Obs.Open_Plans;
+   Completed := Plan_Obs.Completed_Plans;
+   Known_Plans := HRA.Plan_Admission.Plan_Ids_Of (Plan_Journal);
+
    Assert
      (Natural (Open_Plans.Length) = 0
         and then Natural (Completed.Length) = 3,
       "Explicit Actual plan-id moves completed Plans out of open Commitment set");
-
    Assert
-     (HRA.Plan_Observation.Admit_Plan_Identities
-        (Plans, Plan_Source, Known_Plans, Plan_Diag),
-      "Admit stable Plan identity universe");
+     (HRA.Plan.Length (Known_Plans) = 3,
+      "stable Plan identity universe derives from admitted Plan journal");
 
    Env_Names.Append ("savings");
    Assert
@@ -324,7 +356,7 @@ begin
             D ("2026-08-18"),
             Commitment,
             Commit_Diag),
-         "Observe Commitment from the same role-neutral lifecycle result");
+         "Observe Commitment from the same admitted temporal lifecycle result");
       Assert
         (HRA.Money.Lookup_Balance
            (HRA.Envelope_Commitment.Commitment_For
