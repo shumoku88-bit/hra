@@ -6,8 +6,11 @@ package HRA.Writer is
    --  Typed Publication Coordinates
    --  ========================================================================
 
+   type Source_Presence is (Absent, Present);
+
    --  The complete source snapshot that the caller/operation observed before mutation.
-   --  Represents the observed publication premise used for optimistic stale checking.
+   --  Presence is part of the premise: an absent path and a present zero-byte file
+   --  are distinct observations even though both expose an empty text payload.
    type Expected_Source is private;
 
    --  The complete source proposed for publication after operation preparation.
@@ -17,6 +20,17 @@ package HRA.Writer is
    function Make_Expected_Source (Text : String) return Expected_Source;
    function Make_Expected_Source
      (Text : Ada.Strings.Unbounded.Unbounded_String) return Expected_Source;
+   function Make_Absent_Expected_Source return Expected_Source;
+
+   --  Observe the target publication premise from the filesystem without text
+   --  normalization. CRLF, LF, and trailing-newline presence are retained byte-for-byte.
+   function Observe_Source
+     (Target_Path : String;
+      Observed    : out Expected_Source;
+      Error_Msg   : out Unbounded_String) return Boolean
+     with Pre => Target_Path'Length > 0;
+
+   function Presence_Of (Value : Expected_Source) return Source_Presence;
 
    function Make_Candidate_Source (Text : String) return Candidate_Source;
    function Make_Candidate_Source
@@ -64,7 +78,8 @@ package HRA.Writer is
 private
 
    type Expected_Source is record
-      Text : Ada.Strings.Unbounded.Unbounded_String :=
+      State : Source_Presence := Absent;
+      Text  : Ada.Strings.Unbounded.Unbounded_String :=
         Ada.Strings.Unbounded.Null_Unbounded_String;
    end record;
 

@@ -1,5 +1,7 @@
 with Ada.Command_Line;
 with Ada.Directories; use Ada.Directories;
+with Ada.Streams; use Ada.Streams;
+with Ada.Streams.Stream_IO;
 with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
 with Ada.Text_IO; use Ada.Text_IO;
 with HRA.Writer; use HRA.Writer;
@@ -20,18 +22,65 @@ procedure Test_Writer is
       end if;
    end Assert;
 
-   function Read_All (Path : String) return String is
-      F      : File_Type;
-      Result : Unbounded_String;
+   procedure Write_Exact (Path : String; Text : String) is
+      package SIO renames Ada.Streams.Stream_IO;
+      File : SIO.File_Type;
    begin
-      Open (F, In_File, Path);
-      while not End_Of_File (F) loop
-         Append (Result, Get_Line (F));
-         Append (Result, ASCII.LF);
-      end loop;
-      Close (F);
-      return To_String (Result);
-   end Read_All;
+      SIO.Create (File, SIO.Out_File, Path);
+      if Text'Length > 0 then
+         declare
+            Bytes : Stream_Element_Array
+              (1 .. Stream_Element_Offset (Text'Length));
+         begin
+            for I in Text'Range loop
+               Bytes (Stream_Element_Offset (I - Text'First + 1)) :=
+                 Stream_Element (Character'Pos (Text (I)));
+            end loop;
+            SIO.Write (File, Bytes);
+         end;
+      end if;
+      SIO.Close (File);
+   end Write_Exact;
+
+   function Must_Observe (Path : String) return Expected_Source is
+      Result : Expected_Source;
+      Error  : Unbounded_String;
+   begin
+      if not Observe_Source (Path, Result, Error) then
+         raise Program_Error with
+           "failed to observe test source " & Path & ": " & To_String (Error);
+      end if;
+      return Result;
+   end Must_Observe;
+
+   function Exact_Text (Path : String) return String is
+      Observed : constant Expected_Source := Must_Observe (Path);
+   begin
+      if Presence_Of (Observed) = Absent then
+         raise Program_Error with "expected present test source: " & Path;
+      end if;
+      return Source_Text (Observed);
+   end Exact_Text;
+
+   procedure Remove_If_Present (Path : String) is
+   begin
+      if Exists (Path) then
+         if Kind (Path) = Directory then
+            Delete_Tree (Path);
+         else
+            Delete_File (Path);
+         end if;
+      end if;
+   end Remove_If_Present;
+
+   Base_Journal : constant String :=
+     "account assets:cash" & ASCII.LF &
+     "  ; type: Asset" & ASCII.LF &
+     "account expenses:food" & ASCII.LF &
+     "  ; type: Expense" & ASCII.LF & ASCII.LF &
+     "2026-08-10 Initial" & ASCII.LF &
+     "    expenses:food          100 JPY" & ASCII.LF &
+     "    assets:cash           -100 JPY" & ASCII.LF;
 
    Target_File : constant String := "/tmp/hra_test_writer.journal";
    Initial_Text : constant String :=
@@ -50,42 +99,43 @@ procedure Test_Writer is
      "2026-08-15 Unbalanced" & ASCII.LF &
      "    expenses:food         1000 JPY" & ASCII.LF &
      "    assets:cash           -500 JPY" & ASCII.LF;
-   Status  : Writer_Status;
-   Error   : Unbounded_String;
-   F       : File_Type;
+
+   Status : Writer_Status;
+   Error  : Unbounded_String;
 
 begin
    Put_Line ("--- Testing HRA.Writer & Typed Publication Coordinates ---");
 
-   --  ========================================================================
-   --  1. Typed Coordinate Construction & Accessor Invariants
-   --  ========================================================================
    declare
-      Exp_Str : constant Expected_Source := Make_Expected_Source ("initial expected text");
-      Exp_Unb : constant Expected_Source := Make_Expected_Source (To_Unbounded_String ("unbounded expected"));
-      Can_Str : constant Candidate_Source := Make_Candidate_Source ("candidate text");
-      Can_Unb : constant Candidate_Source := Make_Candidate_Source (To_Unbounded_String ("unbounded candidate"));
+      Exp_Str : constant Expected_Source :=
+        Make_Expected_Source ("initial expected text");
+      Exp_Unb : constant Expected_Source :=
+        Make_Expected_Source (To_Unbounded_String ("unbounded expected"));
+      Can_Str : constant Candidate_Source :=
+        Make_Candidate_Source ("candidate text");
+      Can_Unb : constant Candidate_Source :=
+        Make_Candidate_Source (To_Unbounded_String ("unbounded candidate"));
    begin
-      Assert (Source_Text (Exp_Str) = "initial expected text",
-              "Expected_Source from String preserves exact source text");
-      Assert (To_String (Unbounded_Text (Exp_Unb)) = "unbounded expected",
-              "Expected_Source from Unbounded_String preserves text");
-      Assert (Source_Text (Can_Str) = "candidate text",
-              "Candidate_Source from String preserves proposed source text");
-      Assert (To_String (Unbounded_Text (Can_Unb)) = "unbounded candidate",
-              "Candidate_Source from Unbounded_String preserves text");
+      Assert
+        (Presence_Of (Exp_Str) = Present
+         and then Source_Text (Exp_Str) = "initial expected text",
+         "Expected_Source from String is an explicit present premise");
+      Assert
+        (To_String (Unbounded_Text (Exp_Unb)) = "unbounded expected",
+         "Expected_Source from Unbounded_String preserves exact text");
+      Assert
+        (Source_Text (Can_Str) = "candidate text",
+         "Candidate_Source from String preserves proposed source text");
+      Assert
+        (To_String (Unbounded_Text (Can_Unb)) = "unbounded candidate",
+         "Candidate_Source from Unbounded_String preserves text");
+      Assert
+        (Presence_Of (Make_Absent_Expected_Source) = Absent,
+         "Absent publication premise is explicit");
    end;
 
-   --  ========================================================================
-   --  2. Safe Publication Protocol with Typed Coordinates
-   --  ========================================================================
-   if Exists (Target_File) then
-      Delete_File (Target_File);
-   end if;
-
-   Create (F, Out_File, Target_File);
-   Put (F, Initial_Text);
-   Close (F);
+   Remove_If_Present (Target_File);
+   Write_Exact (Target_File, Initial_Text);
 
    Assert
      (Append_Transaction_Safely
@@ -94,9 +144,10 @@ begin
       "append valid transaction through checked publication");
 
    declare
-      Published : constant String := Read_All (Target_File);
-      Expected_Snapshot : constant Expected_Source := Make_Expected_Source (Published);
-      Stale_Snapshot    : constant Expected_Source := Make_Expected_Source ("stale source bytes");
+      Expected_Snapshot : constant Expected_Source := Must_Observe (Target_File);
+      Published         : constant String := Source_Text (Expected_Snapshot);
+      Stale_Snapshot    : constant Expected_Source :=
+        Make_Expected_Source ("stale source bytes");
       Valid_Candidate   : constant Candidate_Source :=
         Make_Candidate_Source
           (Published & ASCII.LF &
@@ -109,7 +160,6 @@ begin
            "2026-08-16 Bad Leg" & ASCII.LF &
            "    expenses:food          400 JPY" & ASCII.LF);
    begin
-      --  Stale rejection with typed Expected_Source
       Assert
         (not Atomic_Publish_Journal
            (Target_Path => Target_File,
@@ -118,9 +168,8 @@ begin
             Status      => Status,
             Error_Msg   => Error)
          and then Status = Stale_Source_Rejected,
-         "reject stale publication expectation with typed Expected_Source");
+         "reject stale publication expectation");
 
-      --  Invalid candidate rejection with typed Candidate_Source
       Assert
         (not Atomic_Publish_Journal
            (Target_Path => Target_File,
@@ -134,10 +183,9 @@ begin
          "reject unbalanced candidate before publication becomes durable");
 
       Assert
-        (Read_All (Target_File) = Published,
-         "failed publication leaves canonical bytes unchanged");
+        (Exact_Text (Target_File) = Published,
+         "failed publication leaves exact source bytes unchanged");
 
-      --  Valid atomic publish with typed coordinates succeeds
       Assert
         (Atomic_Publish_Journal
            (Target_Path => Target_File,
@@ -146,13 +194,12 @@ begin
             Status      => Status,
             Error_Msg   => Error)
          and then Status = Success,
-         "atomic publish succeeds with matching Expected_Source and valid Candidate_Source");
+         "atomic publish succeeds from an observed source premise");
 
       Assert
-        (Read_All (Target_File) = Source_Text (Valid_Candidate),
-         "atomic publish replaces canonical bytes with candidate bytes exactly");
+        (Exact_Text (Target_File) = Source_Text (Valid_Candidate),
+         "atomic publish replaces source with candidate bytes exactly");
 
-      --  Append invalid transaction safely
       Assert
         (not Append_Transaction_Safely
            (Target_File, Invalid_Tx_Text, Status, Error)
@@ -162,21 +209,10 @@ begin
          "Append_Transaction_Safely rejects unbalanced candidate");
    end;
 
-   --  ========================================================================
-   --  3. Unique Candidate Sibling Staging
-   --  ========================================================================
    declare
       Target_3 : constant String := "/tmp/hra_test_staging.journal";
-      Init_3   : constant String :=
-        "account assets:cash" & ASCII.LF &
-        "  ; type: Asset" & ASCII.LF &
-        "account expenses:food" & ASCII.LF &
-        "  ; type: Expense" & ASCII.LF & ASCII.LF &
-        "2026-08-10 Initial" & ASCII.LF &
-        "    expenses:food          100 JPY" & ASCII.LF &
-        "    assets:cash           -100 JPY" & ASCII.LF;
       Cand_3   : constant String :=
-        Init_3 & ASCII.LF &
+        Base_Journal & ASCII.LF &
         "2026-08-11 Second" & ASCII.LF &
         "    expenses:food          200 JPY" & ASCII.LF &
         "    assets:cash           -200 JPY" & ASCII.LF;
@@ -189,202 +225,147 @@ begin
       begin
          Captured_Stage := To_Unbounded_String (Staged_Path);
          Seen_Directory := To_Unbounded_String (Containing_Directory (Staged_Path));
-         Seen_Exists    := Exists (Staged_Path);
+         Seen_Exists := Exists (Staged_Path);
          if Seen_Exists then
-            Seen_Content := To_Unbounded_String (Read_All (Staged_Path));
+            Seen_Content := To_Unbounded_String (Exact_Text (Staged_Path));
          end if;
       end Inspect_Staging;
    begin
-      if Exists (Target_3) then
-         Delete_File (Target_3);
-      end if;
-
-      Create (F, Out_File, Target_3);
-      Put (F, Init_3);
-      Close (F);
-
-      HRA.Writer.Test_Hooks.Set_After_Stage_Hook (Inspect_Staging'Address);
-      Assert
-        (Atomic_Publish_Journal
-           (Target_Path => Target_3,
-            Expected    => Make_Expected_Source (Init_3),
-            Candidate   => Make_Candidate_Source (Cand_3),
-            Status      => Status,
-            Error_Msg   => Error)
-         and then Status = Success,
-         "publish with staging hook succeeds");
-      HRA.Writer.Test_Hooks.Clear_After_Stage_Hook;
+      Remove_If_Present (Target_3);
+      Write_Exact (Target_3, Base_Journal);
+      declare
+         Expected_3 : constant Expected_Source := Must_Observe (Target_3);
+      begin
+         HRA.Writer.Test_Hooks.Set_After_Stage_Hook (Inspect_Staging'Address);
+         Assert
+           (Atomic_Publish_Journal
+              (Target_Path => Target_3,
+               Expected    => Expected_3,
+               Candidate   => Make_Candidate_Source (Cand_3),
+               Status      => Status,
+               Error_Msg   => Error)
+            and then Status = Success,
+            "publish with staging hook succeeds from observed premise");
+         HRA.Writer.Test_Hooks.Clear_After_Stage_Hook;
+      end;
 
       Assert
-        (To_String (Captured_Stage) /= Target_3 & ".tmp",
-         "staging path is not fixed static .tmp");
+        (Length (Captured_Stage) > 0
+         and then To_String (Captured_Stage) /= Target_3 & ".tmp",
+         "staging path is a unique sibling path");
       Assert
         (To_String (Seen_Directory) = Containing_Directory (Target_3),
          "staging path is sibling in the same containing directory");
-      Assert
-        (Seen_Exists,
-         "staging file physically existed during candidate staging");
+      Assert (Seen_Exists, "staging file existed during candidate staging");
       Assert
         (To_String (Seen_Content) = Cand_3,
-         "staging file contained candidate source text");
+         "staging file contained candidate source bytes exactly");
       Assert
-        (not Exists (To_String (Captured_Stage)),
-         "staging file is cleaned up after successful publication");
-
-      if Exists (Target_3) then
-         Delete_File (Target_3);
-      end if;
+        (Length (Captured_Stage) > 0
+         and then not Exists (To_String (Captured_Stage)),
+         "staging file is cleaned after successful publication");
+      Remove_If_Present (Target_3);
    end;
 
-   --  ========================================================================
-   --  4. Second Stale Fence: Concurrent Modification During Staging
-   --  ========================================================================
    declare
-      Target_4     : constant String := "/tmp/hra_test_second_stale.journal";
-      Init_4       : constant String :=
-        "account assets:cash" & ASCII.LF &
-        "  ; type: Asset" & ASCII.LF &
-        "account expenses:food" & ASCII.LF &
-        "  ; type: Expense" & ASCII.LF & ASCII.LF &
-        "2026-08-10 Initial" & ASCII.LF &
-        "    expenses:food          100 JPY" & ASCII.LF &
-        "    assets:cash           -100 JPY" & ASCII.LF;
-      Cand_4       : constant String :=
-        Init_4 & ASCII.LF &
+      Target_4 : constant String := "/tmp/hra_test_second_stale.journal";
+      Cand_4   : constant String :=
+        Base_Journal & ASCII.LF &
         "2026-08-11 Candidate Mutation" & ASCII.LF &
         "    expenses:food          200 JPY" & ASCII.LF &
         "    assets:cash           -200 JPY" & ASCII.LF;
       External_Mod : constant String :=
-        Init_4 & ASCII.LF &
+        Base_Journal & ASCII.LF &
         "2026-08-11 Process B Mutation" & ASCII.LF &
         "    expenses:food          500 JPY" & ASCII.LF &
         "    assets:cash           -500 JPY" & ASCII.LF;
-      Captured_Stage_4 : Unbounded_String := Null_Unbounded_String;
+      Captured_Stage : Unbounded_String := Null_Unbounded_String;
 
       procedure Simulate_Process_B (Staged_Path : String) is
-         Mod_File : File_Type;
       begin
-         Captured_Stage_4 := To_Unbounded_String (Staged_Path);
-         --  Process B modifies the target while Process A is between staging and publish
-         Create (Mod_File, Out_File, Target_4);
-         Put (Mod_File, External_Mod);
-         Close (Mod_File);
+         Captured_Stage := To_Unbounded_String (Staged_Path);
+         Write_Exact (Target_4, External_Mod);
       end Simulate_Process_B;
    begin
-      if Exists (Target_4) then
-         Delete_File (Target_4);
-      end if;
-
-      Create (F, Out_File, Target_4);
-      Put (F, Init_4);
-      Close (F);
-
-      --  Initial stale check passes with Init_4.
-      --  Candidate is staged.
-      --  Hook runs and modifies Target_4 with External_Mod.
-      --  Second stale fence must detect the change!
-      HRA.Writer.Test_Hooks.Set_After_Stage_Hook (Simulate_Process_B'Address);
-      Assert
-        (not Atomic_Publish_Journal
-           (Target_Path => Target_4,
-            Expected    => Make_Expected_Source (Init_4),
-            Candidate   => Make_Candidate_Source (Cand_4),
-            Status      => Status,
-            Error_Msg   => Error)
-         and then Status = Stale_Source_Rejected,
-         "second stale fence rejects publication when target was modified during staging");
-      HRA.Writer.Test_Hooks.Clear_After_Stage_Hook;
+      Remove_If_Present (Target_4);
+      Write_Exact (Target_4, Base_Journal);
+      declare
+         Expected_4 : constant Expected_Source := Must_Observe (Target_4);
+      begin
+         HRA.Writer.Test_Hooks.Set_After_Stage_Hook (Simulate_Process_B'Address);
+         Assert
+           (not Atomic_Publish_Journal
+              (Target_Path => Target_4,
+               Expected    => Expected_4,
+               Candidate   => Make_Candidate_Source (Cand_4),
+               Status      => Status,
+               Error_Msg   => Error)
+            and then Status = Stale_Source_Rejected,
+            "second stale fence rejects concurrent exact-source modification");
+         HRA.Writer.Test_Hooks.Clear_After_Stage_Hook;
+      end;
 
       Assert
-        (Read_All (Target_4) = External_Mod,
-         "second stale rejection leaves concurrently modified target intact");
-
+        (Exact_Text (Target_4) = External_Mod,
+         "second stale rejection leaves concurrent source intact");
       Assert
-        (not Exists (To_String (Captured_Stage_4)),
-         "candidate staging temporary file is cleaned up after second stale rejection");
-
-      if Exists (Target_4) then
-         Delete_File (Target_4);
-      end if;
+        (Length (Captured_Stage) > 0
+         and then not Exists (To_String (Captured_Stage)),
+         "staging file is cleaned after second stale rejection");
+      Remove_If_Present (Target_4);
    end;
 
-   --  ========================================================================
-   --  5. Second Stale Fence: Target Disappeared During Staging
-   --  ========================================================================
    declare
-      Target_5     : constant String := "/tmp/hra_test_disappeared.journal";
-      Init_5       : constant String :=
-        "account assets:cash" & ASCII.LF &
-        "  ; type: Asset" & ASCII.LF &
-        "account expenses:food" & ASCII.LF &
-        "  ; type: Expense" & ASCII.LF & ASCII.LF &
-        "2026-08-10 Initial" & ASCII.LF &
-        "    expenses:food          100 JPY" & ASCII.LF &
-        "    assets:cash           -100 JPY" & ASCII.LF;
-      Cand_5       : constant String :=
-        Init_5 & ASCII.LF &
+      Target_5 : constant String := "/tmp/hra_test_disappeared.journal";
+      Cand_5   : constant String :=
+        Base_Journal & ASCII.LF &
         "2026-08-11 Candidate Mutation" & ASCII.LF &
         "    expenses:food          200 JPY" & ASCII.LF &
         "    assets:cash           -200 JPY" & ASCII.LF;
-      Captured_Stage_5 : Unbounded_String := Null_Unbounded_String;
+      Captured_Stage : Unbounded_String := Null_Unbounded_String;
 
       procedure Simulate_Target_Deleted (Staged_Path : String) is
       begin
-         Captured_Stage_5 := To_Unbounded_String (Staged_Path);
-         if Exists (Target_5) then
-            Delete_File (Target_5);
-         end if;
+         Captured_Stage := To_Unbounded_String (Staged_Path);
+         Remove_If_Present (Target_5);
       end Simulate_Target_Deleted;
    begin
-      if Exists (Target_5) then
-         Delete_File (Target_5);
-      end if;
-
-      Create (F, Out_File, Target_5);
-      Put (F, Init_5);
-      Close (F);
-
-      HRA.Writer.Test_Hooks.Set_After_Stage_Hook (Simulate_Target_Deleted'Address);
-      Assert
-        (not Atomic_Publish_Journal
-           (Target_Path => Target_5,
-            Expected    => Make_Expected_Source (Init_5),
-            Candidate   => Make_Candidate_Source (Cand_5),
-            Status      => Status,
-            Error_Msg   => Error)
-         and then Status = Stale_Source_Rejected,
-         "second stale fence rejects publication when expected target disappeared during staging");
-      HRA.Writer.Test_Hooks.Clear_After_Stage_Hook;
+      Remove_If_Present (Target_5);
+      Write_Exact (Target_5, Base_Journal);
+      declare
+         Expected_5 : constant Expected_Source := Must_Observe (Target_5);
+      begin
+         HRA.Writer.Test_Hooks.Set_After_Stage_Hook (Simulate_Target_Deleted'Address);
+         Assert
+           (not Atomic_Publish_Journal
+              (Target_Path => Target_5,
+               Expected    => Expected_5,
+               Candidate   => Make_Candidate_Source (Cand_5),
+               Status      => Status,
+               Error_Msg   => Error)
+            and then Status = Stale_Source_Rejected,
+            "second stale fence rejects disappearance of observed source");
+         HRA.Writer.Test_Hooks.Clear_After_Stage_Hook;
+      end;
 
       Assert
         (not Exists (Target_5),
-         "disappeared target is not resurrected or created on stale rejection");
-
+         "disappeared target is not resurrected on stale rejection");
       Assert
-        (not Exists (To_String (Captured_Stage_5)),
-         "candidate staging temporary file is cleaned up after target deletion rejection");
+        (Length (Captured_Stage) > 0
+         and then not Exists (To_String (Captured_Stage)),
+         "staging file is cleaned after target disappearance");
    end;
 
-   --  ========================================================================
-   --  6. Concurrent Staging Sibling Collision Resistance
-   --  ========================================================================
    declare
-      Target_6     : constant String := "/tmp/hra_test_concurrent_staging.journal";
-      Init_6       : constant String :=
-        "account assets:cash" & ASCII.LF &
-        "  ; type: Asset" & ASCII.LF &
-        "account expenses:food" & ASCII.LF &
-        "  ; type: Expense" & ASCII.LF & ASCII.LF &
-        "2026-08-10 Initial" & ASCII.LF &
-        "    expenses:food          100 JPY" & ASCII.LF &
-        "    assets:cash           -100 JPY" & ASCII.LF;
-      Cand_6A      : constant String :=
-        Init_6 & ASCII.LF &
+      Target_6 : constant String := "/tmp/hra_test_concurrent_staging.journal";
+      Cand_6A  : constant String :=
+        Base_Journal & ASCII.LF &
         "2026-08-11 Branch A" & ASCII.LF &
         "    expenses:food          200 JPY" & ASCII.LF &
         "    assets:cash           -200 JPY" & ASCII.LF;
-      Cand_6B      : constant String :=
-        Init_6 & ASCII.LF &
+      Cand_6B  : constant String :=
+        Base_Journal & ASCII.LF &
         "2026-08-11 Branch B" & ASCII.LF &
         "    expenses:food          300 JPY" & ASCII.LF &
         "    assets:cash           -300 JPY" & ASCII.LF;
@@ -393,73 +374,68 @@ begin
       Nested_Success    : Boolean := False;
       Status_6B         : Writer_Status;
       Error_6B          : Unbounded_String;
+      Expected_6        : Expected_Source;
 
       procedure Capture_6B (Staged_Path_B : String) is
       begin
          Captured_Stage_6B := To_Unbounded_String (Staged_Path_B);
          Assert
            (To_String (Captured_Stage_6A) /= To_String (Captured_Stage_6B),
-            "concurrent publications allocate distinct unique staging paths");
+            "concurrent publications allocate distinct staging paths");
          Assert
-           (Exists (To_String (Captured_Stage_6A)) and then Exists (To_String (Captured_Stage_6B)),
-            "both staging files coexist without collision");
+           (Exists (To_String (Captured_Stage_6A))
+            and then Exists (To_String (Captured_Stage_6B)),
+            "both concurrent staging files coexist");
       end Capture_6B;
 
       procedure Simulate_Concurrent_Publish (Staged_Path_A : String) is
       begin
          Captured_Stage_6A := To_Unbounded_String (Staged_Path_A);
-         --  Concurrent writer publishes Cand_6B to Target_6 while 6A is staged
          HRA.Writer.Test_Hooks.Set_After_Stage_Hook (Capture_6B'Address);
          Nested_Success :=
            Atomic_Publish_Journal
              (Target_Path => Target_6,
-              Expected    => Make_Expected_Source (Init_6),
+              Expected    => Expected_6,
               Candidate   => Make_Candidate_Source (Cand_6B),
               Status      => Status_6B,
               Error_Msg   => Error_6B);
       end Simulate_Concurrent_Publish;
    begin
-      if Exists (Target_6) then
-         Delete_File (Target_6);
-      end if;
+      Remove_If_Present (Target_6);
+      Write_Exact (Target_6, Base_Journal);
+      Expected_6 := Must_Observe (Target_6);
 
-      Create (F, Out_File, Target_6);
-      Put (F, Init_6);
-      Close (F);
-
-      --  Outer publish (6A) stages, then during hook, 6B runs and publishes successfully.
-      --  When 6A resumes at second stale fence, Target_6 now contains 6B, so 6A is rejected.
-      HRA.Writer.Test_Hooks.Set_After_Stage_Hook (Simulate_Concurrent_Publish'Address);
+      HRA.Writer.Test_Hooks.Set_After_Stage_Hook
+        (Simulate_Concurrent_Publish'Address);
       Assert
         (not Atomic_Publish_Journal
            (Target_Path => Target_6,
-            Expected    => Make_Expected_Source (Init_6),
+            Expected    => Expected_6,
             Candidate   => Make_Candidate_Source (Cand_6A),
             Status      => Status,
             Error_Msg   => Error)
          and then Status = Stale_Source_Rejected,
-         "outer publish rejected by second stale fence after concurrent inner publication");
+         "outer publication is rejected after inner publication changes source");
       HRA.Writer.Test_Hooks.Clear_After_Stage_Hook;
 
       Assert
         (Nested_Success and then Status_6B = Success,
          "concurrent inner publication succeeded");
-
       Assert
-        (Read_All (Target_6) = Cand_6B,
-         "target retains bytes of successful inner publication without being overwritten by outer candidate");
-
+        (Exact_Text (Target_6) = Cand_6B,
+         "target retains successful inner publication bytes");
       Assert
-        (not Exists (To_String (Captured_Stage_6A)),
-         "outer staging file is cleaned up after second stale rejection");
+        (Length (Captured_Stage_6A) > 0
+         and then not Exists (To_String (Captured_Stage_6A)),
+         "outer staging file is cleaned after stale rejection");
       Assert
-        (not Exists (To_String (Captured_Stage_6B)),
-         "inner staging file is cleaned up after successful publication");
-
-      if Exists (Target_6) then
-         Delete_File (Target_6);
-      end if;
+        (Length (Captured_Stage_6B) > 0
+         and then not Exists (To_String (Captured_Stage_6B)),
+         "inner staging file is cleaned after successful publication");
+      Remove_If_Present (Target_6);
    end;
+
+   Remove_If_Present (Target_File);
 
    New_Line;
    Put_Line
