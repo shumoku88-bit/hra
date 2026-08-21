@@ -72,9 +72,9 @@ package body HRA.Household_Home_Text is
                   end if;
                else
                   if M /= ' ' then
-                     return " " & Day_Str & "  " & M;
+                     return " " & Day_Str & M & " ";
                   else
-                     return " " & Day_Str & "   ";
+                     return "  " & Day_Str & " ";
                   end if;
                end if;
             end;
@@ -195,6 +195,7 @@ package body HRA.Household_Home_Text is
          "--------------------------------------------------------------------------------" &
          ASCII.LF);
 
+      --  Actual Section
       Append (Buf, " Actual Transactions:" & ASCII.LF);
       case Pres.Actual.Status is
          when Available =>
@@ -224,6 +225,7 @@ package body HRA.Household_Home_Text is
       end case;
       Append (Buf, ASCII.LF);
 
+      --  Plan Section
       Append (Buf, " Planned Payments:" & ASCII.LF);
       if Pres.Plan.Items.Is_Empty then
          Append (Buf, "   (none scheduled)" & ASCII.LF);
@@ -247,6 +249,7 @@ package body HRA.Household_Home_Text is
       end if;
       Append (Buf, ASCII.LF);
 
+      --  Issue Section
       Append (Buf, " Due Issues:" & ASCII.LF);
       case Pres.Issue.Status is
          when Available =>
@@ -279,6 +282,7 @@ package body HRA.Household_Home_Text is
       end case;
       Append (Buf, ASCII.LF);
 
+      --  Cycle Section
       Append (Buf, " Cycle:" & ASCII.LF);
       case Pres.Cycle.Status is
          when Available =>
