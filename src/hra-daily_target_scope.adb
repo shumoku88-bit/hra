@@ -61,11 +61,11 @@ package body HRA.Daily_Target_Scope is
          Value       => Null_Unbounded_String,
          Line_Number => Source.Header_Line);
 
-      for Entry of Source.Metadata loop
-         if To_String (Entry.Key) = Key then
+      for Meta of Source.Metadata loop
+         if To_String (Meta.Key) = Key then
             Count := Count + 1;
             if Count = 1 then
-               Found := Entry;
+               Found := Meta;
             end if;
          end if;
       end loop;
