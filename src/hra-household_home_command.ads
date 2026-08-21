@@ -17,7 +17,8 @@ package HRA.Household_Home_Command is
 
    --  CLI keeps the compact --through vocabulary at the application edge.
    --  Execute_Home names the same resolved coordinate Known_Through when it
-   --  enters Household Home semantics.
+   --  enters Household Home semantics. That established name denotes the Home
+   --  as-of visibility horizon, not a canonical knowledge-time timestamp.
    type Home_Options is record
       Base_Directory   : Ada.Strings.Unbounded.Unbounded_String;
       Observed_Through : HRA.Dates.Date;
@@ -85,7 +86,8 @@ package HRA.Household_Home_Command is
      (Parsed : Parsed_Home_Arguments) return Home_Options;
 
    --  Pure execution pipeline on already-admitted Household_State. The resolved
-   --  CLI through-date becomes Known_Through at this semantic boundary.
+   --  CLI through-date becomes the Home visibility horizon at this semantic
+   --  boundary, while Selected_Day remains the independent focus coordinate.
    --  1. Household_Home_Observation.See_Home (Known_Through, Selected_Day, State)
    --  2. Household_Home_Presentation.Present (Obs)
    --  3. Household_Home_Text.Render_Home (Pres, State.Report_Policy.Presentation.Calendar)
