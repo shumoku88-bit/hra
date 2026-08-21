@@ -169,14 +169,14 @@ package body HRA.Household_Home_Observation is
            (Status      => Available,
             Observation => Cycle_Obs);
          Cycle_Opt :=
-           (Status => HRA.Household_Daily_Target_View.Available,
+           (Status => HRA.Household_Daily_Target_View.Cycle_Window_Available,
             Window => Cycle_Obs.Current_Window);
       else
          Result.Cycle :=
            (Status => Unavailable,
             Error  => Cycle_Stat);
          Cycle_Opt :=
-           (Status => HRA.Household_Daily_Target_View.Unavailable,
+           (Status => HRA.Household_Daily_Target_View.Cycle_Window_Unavailable,
             Error  => Cycle_Stat);
       end if;
 

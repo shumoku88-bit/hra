@@ -9,9 +9,12 @@ with HRA.Plan_Temporal_Observation;
 
 --  Shared semantic Daily Target view over one admitted Household_State.
 --
---  This package combines the admitted Household scope state with already-built
---  temporal Plan and Cycle Account contexts. It does not reparse sources, query
---  the Ledger, or re-admit Plan/Cycle state.
+--  This package combines the admitted Household Daily Target scope state with
+--  temporal Plan and Cycle Account contexts. It never reparses sources or
+--  re-admits Plan/Cycle authorities.
+--  - Project consumes already-observed Cycle Accounts contexts (such as Report).
+--  - Project_From_Cycle evaluates Daily Target from a resolved Cycle Window,
+--    observing Cycle Accounts once against the admitted Ledger when configured.
 package HRA.Household_Daily_Target_View is
 
    type View_Status is
@@ -39,12 +42,15 @@ package HRA.Household_Daily_Target_View is
       end case;
    end record;
 
-   type Cycle_Availability is (Available, Unavailable);
+   type Cycle_Availability is
+     (Cycle_Window_Available,
+      Cycle_Window_Unavailable);
 
-   type Cycle_Window_Option (Status : Cycle_Availability := Unavailable) is record
+   type Cycle_Window_Option
+     (Status : Cycle_Availability := Cycle_Window_Unavailable) is record
       case Status is
-         when Available   => Window : HRA.Cycle_Observation.Cycle_Window;
-         when Unavailable => Error  : HRA.Cycle_Observation.Resolve_Status;
+         when Cycle_Window_Available   => Window : HRA.Cycle_Observation.Cycle_Window;
+         when Cycle_Window_Unavailable => Error  : HRA.Cycle_Observation.Resolve_Status;
       end case;
    end record;
 

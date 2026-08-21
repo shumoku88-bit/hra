@@ -263,7 +263,7 @@ begin
    declare
       Unavail_Cycle_Opt : constant
         HRA.Household_Daily_Target_View.Cycle_Window_Option :=
-          (Status => HRA.Household_Daily_Target_View.Unavailable,
+          (Status => HRA.Household_Daily_Target_View.Cycle_Window_Unavailable,
            Error  => HRA.Cycle_Observation.Missing_Future_Plan_Anchor);
    begin
       View := HRA.Household_Daily_Target_View.Project_From_Cycle
@@ -283,7 +283,7 @@ begin
    declare
       Unavail_Cycle_Opt : constant
         HRA.Household_Daily_Target_View.Cycle_Window_Option :=
-          (Status => HRA.Household_Daily_Target_View.Unavailable,
+          (Status => HRA.Household_Daily_Target_View.Cycle_Window_Unavailable,
            Error  => HRA.Cycle_Observation.Missing_Future_Plan_Anchor);
    begin
       View := HRA.Household_Daily_Target_View.Project_From_Cycle
@@ -301,7 +301,7 @@ begin
    declare
       Unavail_Cycle_Opt : constant
         HRA.Household_Daily_Target_View.Cycle_Window_Option :=
-          (Status => HRA.Household_Daily_Target_View.Unavailable,
+          (Status => HRA.Household_Daily_Target_View.Cycle_Window_Unavailable,
            Error  => HRA.Cycle_Observation.Missing_Future_Plan_Anchor);
    begin
       View := HRA.Household_Daily_Target_View.Project_From_Cycle
@@ -321,7 +321,7 @@ begin
    declare
       Avail_Cycle_Opt : constant
         HRA.Household_Daily_Target_View.Cycle_Window_Option :=
-          (Status => HRA.Household_Daily_Target_View.Available,
+          (Status => HRA.Household_Daily_Target_View.Cycle_Window_Available,
            Window => Cycle_Win);
    begin
       --  Observation date outside cycle (2026-09-10 > 2026-09-01 limit)
@@ -342,7 +342,7 @@ begin
    declare
       Avail_Cycle_Opt : constant
         HRA.Household_Daily_Target_View.Cycle_Window_Option :=
-          (Status => HRA.Household_Daily_Target_View.Available,
+          (Status => HRA.Household_Daily_Target_View.Cycle_Window_Available,
            Window => Cycle_Win);
    begin
       View := HRA.Household_Daily_Target_View.Project_From_Cycle

@@ -56,12 +56,12 @@ package body HRA.Household_Daily_Target_View is
             end if;
 
             case Cycle_Window.Status is
-               when Unavailable =>
+               when Cycle_Window_Unavailable =>
                   return View'
                     (Status      => Cycle_Unavailable,
                      Cycle_Error => Cycle_Window.Error);
 
-               when Available =>
+               when Cycle_Window_Available =>
                   declare
                      Account_State : HRA.Cycle_Accounts_Observation.Observation;
                      Acc_Diag      : HRA.Cycle_Accounts_Observation.Observe_Diagnostic;
