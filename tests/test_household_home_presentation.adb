@@ -185,17 +185,17 @@ begin
 
    declare
       Obs  : constant HRA.Household_Home_Observation.Home_Observation :=
-        HRA.Household_Home_Observation.Observe
+        HRA.Household_Home_Observation.See_Home
           (D ("2026-08-19"), D ("2026-08-19"), State);
       Pres : constant HRA.Household_Home_Presentation.Home_Presentation :=
         HRA.Household_Home_Presentation.Present (Obs);
    begin
-      Assert (Pres.Observed_Through = D ("2026-08-19")
+      Assert (Pres.Known_Through = D ("2026-08-19")
               and then Pres.Selected_Day = D ("2026-08-19"),
-              "Presentation preserves temporal coordinates");
+              "Presentation preserves known-through and focus coordinates");
       Assert (Pres.Actual.Status = HRA.Household_Home_Presentation.Available
               and then Natural (Pres.Actual.Items.Length) = 1,
-              "Presentation exposes observed Actual items");
+              "Presentation exposes visible Actual items");
       Assert (Pres.Plan.Items.Is_Empty,
               "Plan presentation is available empty without an availability shell");
       Assert (Pres.Cycle.Status = HRA.Household_Home_Presentation.Available,
@@ -206,7 +206,7 @@ begin
 
    declare
       Obs  : constant HRA.Household_Home_Observation.Home_Observation :=
-        HRA.Household_Home_Observation.Observe
+        HRA.Household_Home_Observation.See_Home
           (D ("2026-08-19"), D ("2026-08-25"), State);
       Pres : constant HRA.Household_Home_Presentation.Home_Presentation :=
         HRA.Household_Home_Presentation.Present (Obs);
@@ -231,22 +231,25 @@ begin
               and then Index (Text, "plan-util-aug") > 0
               and then Index (Text, "[Open]") > 0,
               "Text renderer consumes always-present Plan presentation");
+      Assert (Index (Text, "known through 2026-08-19") > 0
+              and then Index (Text, "not yet visible") > 0,
+              "Text names knowledge and visibility without observation-machine wording");
 
       declare
          Horizon_Obs : constant HRA.Household_Home_Observation.Home_Horizon_Observation :=
-           HRA.Household_Home_Observation.Observe_Horizon (D ("2026-08-19"), State);
-         Day_Obs     : constant HRA.Household_Home_Observation.Home_Day_Observation :=
+           HRA.Household_Home_Observation.See_Horizon (D ("2026-08-19"), State);
+         Day_Obs : constant HRA.Household_Home_Observation.Home_Day_Observation :=
            HRA.Household_Home_Observation.Project_Day (Horizon_Obs, D ("2026-08-25"), State);
-         Pres_Split  : constant HRA.Household_Home_Presentation.Home_Presentation :=
+         Pres_Split : constant HRA.Household_Home_Presentation.Home_Presentation :=
            HRA.Household_Home_Presentation.Present (Horizon_Obs, Day_Obs);
       begin
          Assert (Pres_Split.Is_Future_Focus = Pres.Is_Future_Focus
-                 and then Pres_Split.Observed_Through = Pres.Observed_Through
+                 and then Pres_Split.Known_Through = Pres.Known_Through
                  and then Pres_Split.Selected_Day = Pres.Selected_Day
                  and then Pres_Split.Actual.Status = Pres.Actual.Status
                  and then Natural (Pres_Split.Plan.Items.Length) = Natural (Pres.Plan.Items.Length)
                  and then Natural (Pres_Split.Issue.Items.Length) = Natural (Pres.Issue.Items.Length),
-                 "Present (Horizon, Day_Obs) produces identical Home_Presentation to Present (Obs)");
+                 "Present (Horizon, Day_Obs) matches presentation from See_Home");
       end;
    end;
 
@@ -261,8 +264,8 @@ begin
            (Undet_Sources, Undet_State, Undet_Err),
          "Admit state with undetermined Issue closure");
       declare
-         Obs  : constant HRA.Household_Home_Observation.Home_Observation :=
-           HRA.Household_Home_Observation.Observe
+         Obs : constant HRA.Household_Home_Observation.Home_Observation :=
+           HRA.Household_Home_Observation.See_Home
              (D ("2026-08-19"), D ("2026-08-25"), Undet_State);
          Pres : constant HRA.Household_Home_Presentation.Home_Presentation :=
            HRA.Household_Home_Presentation.Present (Obs);
@@ -287,8 +290,8 @@ begin
            (No_Anchor_Sources, No_Anchor_State, No_Anchor_Err),
          "Admit state without future Plan cycle anchor");
       declare
-         Obs  : constant HRA.Household_Home_Observation.Home_Observation :=
-           HRA.Household_Home_Observation.Observe
+         Obs : constant HRA.Household_Home_Observation.Home_Observation :=
+           HRA.Household_Home_Observation.See_Home
              (D ("2026-08-19"), D ("2026-08-30"), No_Anchor_State);
          Pres : constant HRA.Household_Home_Presentation.Home_Presentation :=
            HRA.Household_Home_Presentation.Present (Obs);
@@ -313,92 +316,92 @@ begin
         (Kind => HRA.Household_Home_Presentation.Out_Of_Range_Padding);
 
       Single_Digit_Plain : constant HRA.Household_Home_Presentation.Calendar_Cell :=
-        (Kind                => HRA.Household_Home_Presentation.Dated_Cell,
-         Date_Value          => D ("2026-08-05"),
-         Is_Current_Month    => True,
-         Is_Selected         => False,
-         Is_Observed_Through => False,
-         Is_Future           => False,
-         Attention           => (Plan_Scheduled => HRA.Household_Home_Presentation.Absent,
-                                 Issue_Due      => HRA.Household_Home_Presentation.Absent,
-                                 Cycle_End      => HRA.Household_Home_Presentation.Absent));
+        (Kind             => HRA.Household_Home_Presentation.Dated_Cell,
+         Date_Value       => D ("2026-08-05"),
+         Is_Current_Month => True,
+         Is_Selected      => False,
+         Is_Known_Through => False,
+         Is_Future        => False,
+         Attention        => (Plan_Scheduled => HRA.Household_Home_Presentation.Absent,
+                              Issue_Due      => HRA.Household_Home_Presentation.Absent,
+                              Cycle_End      => HRA.Household_Home_Presentation.Absent));
 
       Single_Digit_Selected : constant HRA.Household_Home_Presentation.Calendar_Cell :=
-        (Kind                => HRA.Household_Home_Presentation.Dated_Cell,
-         Date_Value          => D ("2026-08-05"),
-         Is_Current_Month    => True,
-         Is_Selected         => True,
-         Is_Observed_Through => False,
-         Is_Future           => False,
-         Attention           => (Plan_Scheduled => HRA.Household_Home_Presentation.Absent,
-                                 Issue_Due      => HRA.Household_Home_Presentation.Absent,
-                                 Cycle_End      => HRA.Household_Home_Presentation.Absent));
+        (Kind             => HRA.Household_Home_Presentation.Dated_Cell,
+         Date_Value       => D ("2026-08-05"),
+         Is_Current_Month => True,
+         Is_Selected      => True,
+         Is_Known_Through => False,
+         Is_Future        => False,
+         Attention        => (Plan_Scheduled => HRA.Household_Home_Presentation.Absent,
+                              Issue_Due      => HRA.Household_Home_Presentation.Absent,
+                              Cycle_End      => HRA.Household_Home_Presentation.Absent));
 
       Single_Digit_Marked : constant HRA.Household_Home_Presentation.Calendar_Cell :=
-        (Kind                => HRA.Household_Home_Presentation.Dated_Cell,
-         Date_Value          => D ("2026-08-05"),
-         Is_Current_Month    => True,
-         Is_Selected         => False,
-         Is_Observed_Through => False,
-         Is_Future           => False,
-         Attention           => (Plan_Scheduled => HRA.Household_Home_Presentation.Present,
-                                 Issue_Due      => HRA.Household_Home_Presentation.Absent,
-                                 Cycle_End      => HRA.Household_Home_Presentation.Absent));
+        (Kind             => HRA.Household_Home_Presentation.Dated_Cell,
+         Date_Value       => D ("2026-08-05"),
+         Is_Current_Month => True,
+         Is_Selected      => False,
+         Is_Known_Through => False,
+         Is_Future        => False,
+         Attention        => (Plan_Scheduled => HRA.Household_Home_Presentation.Present,
+                              Issue_Due      => HRA.Household_Home_Presentation.Absent,
+                              Cycle_End      => HRA.Household_Home_Presentation.Absent));
 
       Single_Digit_Marked_Selected : constant HRA.Household_Home_Presentation.Calendar_Cell :=
-        (Kind                => HRA.Household_Home_Presentation.Dated_Cell,
-         Date_Value          => D ("2026-08-05"),
-         Is_Current_Month    => True,
-         Is_Selected         => True,
-         Is_Observed_Through => False,
-         Is_Future           => False,
-         Attention           => (Plan_Scheduled => HRA.Household_Home_Presentation.Present,
-                                 Issue_Due      => HRA.Household_Home_Presentation.Absent,
-                                 Cycle_End      => HRA.Household_Home_Presentation.Absent));
+        (Kind             => HRA.Household_Home_Presentation.Dated_Cell,
+         Date_Value       => D ("2026-08-05"),
+         Is_Current_Month => True,
+         Is_Selected      => True,
+         Is_Known_Through => False,
+         Is_Future        => False,
+         Attention        => (Plan_Scheduled => HRA.Household_Home_Presentation.Present,
+                              Issue_Due      => HRA.Household_Home_Presentation.Absent,
+                              Cycle_End      => HRA.Household_Home_Presentation.Absent));
 
       Double_Digit_Plain : constant HRA.Household_Home_Presentation.Calendar_Cell :=
-        (Kind                => HRA.Household_Home_Presentation.Dated_Cell,
-         Date_Value          => D ("2026-08-15"),
-         Is_Current_Month    => True,
-         Is_Selected         => False,
-         Is_Observed_Through => False,
-         Is_Future           => False,
-         Attention           => (Plan_Scheduled => HRA.Household_Home_Presentation.Absent,
-                                 Issue_Due      => HRA.Household_Home_Presentation.Absent,
-                                 Cycle_End      => HRA.Household_Home_Presentation.Absent));
+        (Kind             => HRA.Household_Home_Presentation.Dated_Cell,
+         Date_Value       => D ("2026-08-15"),
+         Is_Current_Month => True,
+         Is_Selected      => False,
+         Is_Known_Through => False,
+         Is_Future        => False,
+         Attention        => (Plan_Scheduled => HRA.Household_Home_Presentation.Absent,
+                              Issue_Due      => HRA.Household_Home_Presentation.Absent,
+                              Cycle_End      => HRA.Household_Home_Presentation.Absent));
 
       Double_Digit_Selected : constant HRA.Household_Home_Presentation.Calendar_Cell :=
-        (Kind                => HRA.Household_Home_Presentation.Dated_Cell,
-         Date_Value          => D ("2026-08-15"),
-         Is_Current_Month    => True,
-         Is_Selected         => True,
-         Is_Observed_Through => False,
-         Is_Future           => False,
-         Attention           => (Plan_Scheduled => HRA.Household_Home_Presentation.Absent,
-                                 Issue_Due      => HRA.Household_Home_Presentation.Absent,
-                                 Cycle_End      => HRA.Household_Home_Presentation.Absent));
+        (Kind             => HRA.Household_Home_Presentation.Dated_Cell,
+         Date_Value       => D ("2026-08-15"),
+         Is_Current_Month => True,
+         Is_Selected      => True,
+         Is_Known_Through => False,
+         Is_Future        => False,
+         Attention        => (Plan_Scheduled => HRA.Household_Home_Presentation.Absent,
+                              Issue_Due      => HRA.Household_Home_Presentation.Absent,
+                              Cycle_End      => HRA.Household_Home_Presentation.Absent));
 
       Double_Digit_Marked : constant HRA.Household_Home_Presentation.Calendar_Cell :=
-        (Kind                => HRA.Household_Home_Presentation.Dated_Cell,
-         Date_Value          => D ("2026-08-15"),
-         Is_Current_Month    => True,
-         Is_Selected         => False,
-         Is_Observed_Through => False,
-         Is_Future           => False,
-         Attention           => (Plan_Scheduled => HRA.Household_Home_Presentation.Present,
-                                 Issue_Due      => HRA.Household_Home_Presentation.Absent,
-                                 Cycle_End      => HRA.Household_Home_Presentation.Absent));
+        (Kind             => HRA.Household_Home_Presentation.Dated_Cell,
+         Date_Value       => D ("2026-08-15"),
+         Is_Current_Month => True,
+         Is_Selected      => False,
+         Is_Known_Through => False,
+         Is_Future        => False,
+         Attention        => (Plan_Scheduled => HRA.Household_Home_Presentation.Present,
+                              Issue_Due      => HRA.Household_Home_Presentation.Absent,
+                              Cycle_End      => HRA.Household_Home_Presentation.Absent));
 
       Double_Digit_Marked_Selected : constant HRA.Household_Home_Presentation.Calendar_Cell :=
-        (Kind                => HRA.Household_Home_Presentation.Dated_Cell,
-         Date_Value          => D ("2026-08-15"),
-         Is_Current_Month    => True,
-         Is_Selected         => True,
-         Is_Observed_Through => False,
-         Is_Future           => False,
-         Attention           => (Plan_Scheduled => HRA.Household_Home_Presentation.Present,
-                                 Issue_Due      => HRA.Household_Home_Presentation.Absent,
-                                 Cycle_End      => HRA.Household_Home_Presentation.Absent));
+        (Kind             => HRA.Household_Home_Presentation.Dated_Cell,
+         Date_Value       => D ("2026-08-15"),
+         Is_Current_Month => True,
+         Is_Selected      => True,
+         Is_Known_Through => False,
+         Is_Future        => False,
+         Attention        => (Plan_Scheduled => HRA.Household_Home_Presentation.Present,
+                              Issue_Due      => HRA.Household_Home_Presentation.Absent,
+                              Cycle_End      => HRA.Household_Home_Presentation.Absent));
    begin
       Assert (HRA.Household_Home_Text.Format_Cell (Padding_Cell) = "     ",
               "Padding cell formats as 5 spaces");

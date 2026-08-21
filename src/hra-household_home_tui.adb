@@ -59,15 +59,15 @@ package body HRA.Household_Home_TUI is
    end Draw;
 
    procedure Run
-     (State            : HRA.Household.Household_State;
-      Observed_Through : HRA.Dates.Date;
-      Selected_Day     : HRA.Dates.Date)
+     (State         : HRA.Household.Household_State;
+      Known_Through : HRA.Dates.Date;
+      Selected_Day  : HRA.Dates.Date)
    is
       Coordinates : Interaction.Home_Coordinates :=
-        Interaction.Make_Coordinates (Observed_Through, Selected_Day);
+        Interaction.Make_Coordinates (Known_Through, Selected_Day);
       Horizon : HRA.Household_Home_Observation.Home_Horizon_Observation :=
-        HRA.Household_Home_Observation.Observe_Horizon
-          (Coordinates.Observed_Through, State);
+        HRA.Household_Home_Observation.See_Horizon
+          (Coordinates.Known_Through, State);
       Running        : Boolean := True;
       Screen_Started : Boolean := False;
    begin
@@ -93,10 +93,10 @@ package body HRA.Household_Home_TUI is
                   begin
                      case Result.Status is
                         when Interaction.Applied =>
-                           if Result.Coordinates.Observed_Through /= Coordinates.Observed_Through then
+                           if Result.Coordinates.Known_Through /= Coordinates.Known_Through then
                               Horizon :=
-                                HRA.Household_Home_Observation.Observe_Horizon
-                                  (Result.Coordinates.Observed_Through, State);
+                                HRA.Household_Home_Observation.See_Horizon
+                                  (Result.Coordinates.Known_Through, State);
                            end if;
                            Coordinates := Result.Coordinates;
                            Draw (State, Horizon, Coordinates);

@@ -137,18 +137,18 @@ package body HRA.Household_Home_Command is
 
       if Parsed.Has_Through then
          Opts.Observed_Through := Parsed.Through_Date;
-         Opts.Through_Source   := Explicit;
+         Opts.Through_Source := Explicit;
       else
          Opts.Observed_Through := Today;
-         Opts.Through_Source   := Defaulted;
+         Opts.Through_Source := Defaulted;
       end if;
 
       if Parsed.Has_Day then
          Opts.Selected_Day := Parsed.Day_Date;
-         Opts.Day_Source   := Explicit;
+         Opts.Day_Source := Explicit;
       else
          Opts.Selected_Day := Opts.Observed_Through;
-         Opts.Day_Source   := Defaulted;
+         Opts.Day_Source := Defaulted;
       end if;
 
       return Opts;
@@ -167,15 +167,15 @@ package body HRA.Household_Home_Command is
    end Resolve_Home_Options;
 
    function Execute_Home
-     (State            : HRA.Household.Household_State;
-      Observed_Through : HRA.Dates.Date;
-      Selected_Day     : HRA.Dates.Date) return String
+     (State         : HRA.Household.Household_State;
+      Known_Through : HRA.Dates.Date;
+      Selected_Day  : HRA.Dates.Date) return String
    is
-      Obs  : constant HRA.Household_Home_Observation.Home_Observation :=
-        HRA.Household_Home_Observation.Observe
-          (Observed_Through => Observed_Through,
-           Selected_Day     => Selected_Day,
-           State            => State);
+      Obs : constant HRA.Household_Home_Observation.Home_Observation :=
+        HRA.Household_Home_Observation.See_Home
+          (Known_Through => Known_Through,
+           Selected_Day  => Selected_Day,
+           State         => State);
       Pres : constant HRA.Household_Home_Presentation.Home_Presentation :=
         HRA.Household_Home_Presentation.Present (Obs);
    begin

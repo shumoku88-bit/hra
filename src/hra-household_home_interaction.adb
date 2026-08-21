@@ -56,17 +56,17 @@ is
    end Step_Days_Backward;
 
    function Make_Coordinates
-     (Observed_Through : HRA.Dates.Date) return Home_Coordinates
+     (Known_Through : HRA.Dates.Date) return Home_Coordinates
    is
-     ((Observed_Through => Observed_Through,
-       Selected_Day     => Observed_Through));
+     ((Known_Through => Known_Through,
+       Selected_Day  => Known_Through));
 
    function Make_Coordinates
-     (Observed_Through : HRA.Dates.Date;
-      Selected_Day     : HRA.Dates.Date) return Home_Coordinates
+     (Known_Through : HRA.Dates.Date;
+      Selected_Day  : HRA.Dates.Date) return Home_Coordinates
    is
-     ((Observed_Through => Observed_Through,
-       Selected_Day     => Selected_Day));
+     ((Known_Through => Known_Through,
+       Selected_Day  => Selected_Day));
 
    function Select_Day
      (Coordinates : Home_Coordinates;
@@ -74,8 +74,8 @@ is
    is
      ((Status      => Applied,
        Coordinates =>
-         (Observed_Through => Coordinates.Observed_Through,
-          Selected_Day     => Day)));
+         (Known_Through => Coordinates.Known_Through,
+          Selected_Day  => Day)));
 
    function Previous_Day
      (Coordinates : Home_Coordinates) return Transition_Result
@@ -87,8 +87,8 @@ is
          return
            (Status      => Applied,
             Coordinates =>
-              (Observed_Through => Coordinates.Observed_Through,
-               Selected_Day     => Step.Day));
+              (Known_Through => Coordinates.Known_Through,
+               Selected_Day  => Step.Day));
       else
          return
            (Status      => Lower_Bound_Exceeded,
@@ -106,8 +106,8 @@ is
          return
            (Status      => Applied,
             Coordinates =>
-              (Observed_Through => Coordinates.Observed_Through,
-               Selected_Day     => Step.Day));
+              (Known_Through => Coordinates.Known_Through,
+               Selected_Day  => Step.Day));
       else
          return
            (Status      => Upper_Bound_Exceeded,
@@ -125,8 +125,8 @@ is
          return
            (Status      => Applied,
             Coordinates =>
-              (Observed_Through => Coordinates.Observed_Through,
-               Selected_Day     => Step.Day));
+              (Known_Through => Coordinates.Known_Through,
+               Selected_Day  => Step.Day));
       else
          return
            (Status      => Lower_Bound_Exceeded,
@@ -144,8 +144,8 @@ is
          return
            (Status      => Applied,
             Coordinates =>
-              (Observed_Through => Coordinates.Observed_Through,
-               Selected_Day     => Step.Day));
+              (Known_Through => Coordinates.Known_Through,
+               Selected_Day  => Step.Day));
       else
          return
            (Status      => Upper_Bound_Exceeded,
@@ -153,13 +153,13 @@ is
       end if;
    end Next_Week;
 
-   function Focus_Observed_Through
+   function Focus_Known_Through
      (Coordinates : Home_Coordinates) return Transition_Result
    is
      ((Status      => Applied,
        Coordinates =>
-         (Observed_Through => Coordinates.Observed_Through,
-          Selected_Day     => Coordinates.Observed_Through)));
+         (Known_Through => Coordinates.Known_Through,
+          Selected_Day  => Coordinates.Known_Through)));
 
    function Apply_Intent
      (Coordinates : Home_Coordinates;
@@ -177,8 +177,8 @@ is
             return Previous_Week (Coordinates);
          when Next_Week =>
             return Next_Week (Coordinates);
-         when Focus_Observed_Through =>
-            return Focus_Observed_Through (Coordinates);
+         when Focus_Known_Through =>
+            return Focus_Known_Through (Coordinates);
       end case;
    end Apply_Intent;
 

@@ -41,12 +41,12 @@ begin
       C2 : constant Home_Coordinates := Make_Coordinates (Horizon, D ("2026-08-25"));
    begin
       Assert
-        (Image (C1.Observed_Through) = "2026-08-19"
+        (Image (C1.Known_Through) = "2026-08-19"
            and then Image (C1.Selected_Day) = "2026-08-19",
-         "Make_Coordinates (1-arg) defaults Selected_Day to Observed_Through");
+         "Make_Coordinates (1-arg) defaults Selected_Day to Known_Through");
 
       Assert
-        (Image (C2.Observed_Through) = "2026-08-19"
+        (Image (C2.Known_Through) = "2026-08-19"
            and then Image (C2.Selected_Day) = "2026-08-25",
          "Make_Coordinates (2-arg) retains explicit Selected_Day");
    end;
@@ -62,11 +62,11 @@ begin
       Assert (Res1.Status = Applied, "Next_Day status is Applied");
       Assert (Is_Applied (Res1), "Is_Applied returns True for Applied");
       Assert (Image (Res1.Coordinates.Selected_Day) = "2026-08-11", "Next_Day advances +1 day within month");
-      Assert (Image (Res1.Coordinates.Observed_Through) = "2026-08-19", "Next_Day preserves Observed_Through");
+      Assert (Image (Res1.Coordinates.Known_Through) = "2026-08-19", "Next_Day preserves Known_Through");
 
       Assert (Res2.Status = Applied, "Intent_Next_Day status is Applied");
       Assert (Image (Res2.Coordinates.Selected_Day) = "2026-08-11", "Intent_Next_Day advances +1 day within month");
-      Assert (Image (Res2.Coordinates.Observed_Through) = "2026-08-19", "Intent_Next_Day preserves Observed_Through");
+      Assert (Image (Res2.Coordinates.Known_Through) = "2026-08-19", "Intent_Next_Day preserves Known_Through");
    end;
 
    -- =========================================================================
@@ -79,11 +79,11 @@ begin
    begin
       Assert (Res1.Status = Applied, "Previous_Day status is Applied");
       Assert (Image (Res1.Coordinates.Selected_Day) = "2026-08-09", "Previous_Day retreats -1 day within month");
-      Assert (Image (Res1.Coordinates.Observed_Through) = "2026-08-19", "Previous_Day preserves Observed_Through");
+      Assert (Image (Res1.Coordinates.Known_Through) = "2026-08-19", "Previous_Day preserves Known_Through");
 
       Assert (Res2.Status = Applied, "Intent_Previous_Day status is Applied");
       Assert (Image (Res2.Coordinates.Selected_Day) = "2026-08-09", "Intent_Previous_Day retreats -1 day within month");
-      Assert (Image (Res2.Coordinates.Observed_Through) = "2026-08-19", "Intent_Previous_Day preserves Observed_Through");
+      Assert (Image (Res2.Coordinates.Known_Through) = "2026-08-19", "Intent_Previous_Day preserves Known_Through");
    end;
 
    -- =========================================================================
@@ -96,11 +96,11 @@ begin
    begin
       Assert (Res1.Status = Applied, "Next_Week status is Applied");
       Assert (Image (Res1.Coordinates.Selected_Day) = "2026-08-17", "Next_Week advances +7 days within month");
-      Assert (Image (Res1.Coordinates.Observed_Through) = "2026-08-19", "Next_Week preserves Observed_Through");
+      Assert (Image (Res1.Coordinates.Known_Through) = "2026-08-19", "Next_Week preserves Known_Through");
 
       Assert (Res2.Status = Applied, "Intent_Next_Week status is Applied");
       Assert (Image (Res2.Coordinates.Selected_Day) = "2026-08-17", "Intent_Next_Week advances +7 days within month");
-      Assert (Image (Res2.Coordinates.Observed_Through) = "2026-08-19", "Intent_Next_Week preserves Observed_Through");
+      Assert (Image (Res2.Coordinates.Known_Through) = "2026-08-19", "Intent_Next_Week preserves Known_Through");
    end;
 
    -- =========================================================================
@@ -113,38 +113,27 @@ begin
    begin
       Assert (Res1.Status = Applied, "Previous_Week status is Applied");
       Assert (Image (Res1.Coordinates.Selected_Day) = "2026-08-10", "Previous_Week retreats -7 days within month");
-      Assert (Image (Res1.Coordinates.Observed_Through) = "2026-08-19", "Previous_Week preserves Observed_Through");
+      Assert (Image (Res1.Coordinates.Known_Through) = "2026-08-19", "Previous_Week preserves Known_Through");
 
       Assert (Res2.Status = Applied, "Intent_Previous_Week status is Applied");
       Assert (Image (Res2.Coordinates.Selected_Day) = "2026-08-10", "Intent_Previous_Week retreats -7 days within month");
-      Assert (Image (Res2.Coordinates.Observed_Through) = "2026-08-19", "Intent_Previous_Week preserves Observed_Through");
+      Assert (Image (Res2.Coordinates.Known_Through) = "2026-08-19", "Intent_Previous_Week preserves Known_Through");
    end;
 
    -- =========================================================================
    -- 6. Month Boundary Crossing
    -- =========================================================================
    declare
-      -- Jan 31 -> Feb 1
       Coord_Jan_End : constant Home_Coordinates := Make_Coordinates (Horizon, D ("2026-01-31"));
       Res_Next_Jan  : constant Transition_Result := Next_Day (Coord_Jan_End);
-
-      -- Mar 1 -> Feb 28 (common year)
       Coord_Mar_Beg : constant Home_Coordinates := Make_Coordinates (Horizon, D ("2026-03-01"));
       Res_Prev_Mar  : constant Transition_Result := Previous_Day (Coord_Mar_Beg);
-
-      -- Jan 28 + 7 days -> Feb 4
       Coord_Jan_Wk  : constant Home_Coordinates := Make_Coordinates (Horizon, D ("2026-01-28"));
       Res_Next_Wk   : constant Transition_Result := Next_Week (Coord_Jan_Wk);
-
-      -- Mar 4 - 7 days -> Feb 25
       Coord_Mar_Wk  : constant Home_Coordinates := Make_Coordinates (Horizon, D ("2026-03-04"));
       Res_Prev_Wk   : constant Transition_Result := Previous_Week (Coord_Mar_Wk);
-
-      -- Apr 30 -> May 1 (30-day month)
       Coord_Apr_End : constant Home_Coordinates := Make_Coordinates (Horizon, D ("2026-04-30"));
       Res_Next_Apr  : constant Transition_Result := Next_Day (Coord_Apr_End);
-
-      -- May 1 -> Apr 30 (30-day month)
       Coord_May_Beg : constant Home_Coordinates := Make_Coordinates (Horizon, D ("2026-05-01"));
       Res_Prev_May  : constant Transition_Result := Previous_Day (Coord_May_Beg);
    begin
@@ -152,27 +141,22 @@ begin
         (Res_Next_Jan.Status = Applied
            and then Image (Res_Next_Jan.Coordinates.Selected_Day) = "2026-02-01",
          "Next_Day crosses Jan 31 -> Feb 01 month boundary");
-
       Assert
         (Res_Prev_Mar.Status = Applied
            and then Image (Res_Prev_Mar.Coordinates.Selected_Day) = "2026-02-28",
          "Previous_Day crosses Mar 01 -> Feb 28 month boundary (common year)");
-
       Assert
         (Res_Next_Wk.Status = Applied
            and then Image (Res_Next_Wk.Coordinates.Selected_Day) = "2026-02-04",
          "Next_Week crosses Jan 28 -> Feb 04 month boundary");
-
       Assert
         (Res_Prev_Wk.Status = Applied
            and then Image (Res_Prev_Wk.Coordinates.Selected_Day) = "2026-02-25",
          "Previous_Week crosses Mar 04 -> Feb 25 month boundary");
-
       Assert
         (Res_Next_Apr.Status = Applied
            and then Image (Res_Next_Apr.Coordinates.Selected_Day) = "2026-05-01",
          "Next_Day crosses Apr 30 -> May 01 month boundary");
-
       Assert
         (Res_Prev_May.Status = Applied
            and then Image (Res_Prev_May.Coordinates.Selected_Day) = "2026-04-30",
@@ -183,19 +167,12 @@ begin
    -- 7. Year Boundary Crossing
    -- =========================================================================
    declare
-      -- Dec 31 -> Jan 1
       Coord_Dec_End : constant Home_Coordinates := Make_Coordinates (Horizon, D ("2026-12-31"));
       Res_Next_Dec  : constant Transition_Result := Next_Day (Coord_Dec_End);
-
-      -- Jan 1 -> Dec 31
       Coord_Jan_Beg : constant Home_Coordinates := Make_Coordinates (Horizon, D ("2026-01-01"));
       Res_Prev_Jan  : constant Transition_Result := Previous_Day (Coord_Jan_Beg);
-
-      -- Dec 28 + 7 days -> Jan 4
       Coord_Dec_Wk  : constant Home_Coordinates := Make_Coordinates (Horizon, D ("2026-12-28"));
       Res_Next_Yr   : constant Transition_Result := Next_Week (Coord_Dec_Wk);
-
-      -- Jan 4 - 7 days -> Dec 28
       Coord_Jan_Wk  : constant Home_Coordinates := Make_Coordinates (Horizon, D ("2026-01-04"));
       Res_Prev_Yr   : constant Transition_Result := Previous_Week (Coord_Jan_Wk);
    begin
@@ -203,17 +180,14 @@ begin
         (Res_Next_Dec.Status = Applied
            and then Image (Res_Next_Dec.Coordinates.Selected_Day) = "2027-01-01",
          "Next_Day crosses Dec 31 -> Jan 01 year boundary");
-
       Assert
         (Res_Prev_Jan.Status = Applied
            and then Image (Res_Prev_Jan.Coordinates.Selected_Day) = "2025-12-31",
          "Previous_Day crosses Jan 01 -> Dec 31 year boundary");
-
       Assert
         (Res_Next_Yr.Status = Applied
            and then Image (Res_Next_Yr.Coordinates.Selected_Day) = "2027-01-04",
          "Next_Week crosses Dec 28 -> Jan 04 year boundary");
-
       Assert
         (Res_Prev_Yr.Status = Applied
            and then Image (Res_Prev_Yr.Coordinates.Selected_Day) = "2025-12-28",
@@ -224,26 +198,15 @@ begin
    -- 8. Leap-Day Crossing
    -- =========================================================================
    declare
-      -- 2024-02-28 -> 2024-02-29
       Coord_Leap_Eve : constant Home_Coordinates := Make_Coordinates (Horizon, D ("2024-02-28"));
       Res_To_Leap    : constant Transition_Result := Next_Day (Coord_Leap_Eve);
-
-      -- 2024-02-29 -> 2024-03-01
       Coord_Leap_Day : constant Home_Coordinates := Make_Coordinates (Horizon, D ("2024-02-29"));
       Res_From_Leap  : constant Transition_Result := Next_Day (Coord_Leap_Day);
-
-      -- 2024-03-01 -> 2024-02-29
       Coord_Mar_Leap : constant Home_Coordinates := Make_Coordinates (Horizon, D ("2024-03-01"));
       Res_Back_Leap  : constant Transition_Result := Previous_Day (Coord_Mar_Leap);
-
-      -- 2024-02-29 -> 2024-02-28
       Res_Prev_Leap  : constant Transition_Result := Previous_Day (Coord_Leap_Day);
-
-      -- 2024-02-25 + 7 days -> 2024-03-03 (spanning leap day)
       Coord_Wk_Leap  : constant Home_Coordinates := Make_Coordinates (Horizon, D ("2024-02-25"));
       Res_Wk_Fwd     : constant Transition_Result := Next_Week (Coord_Wk_Leap);
-
-      -- 2024-03-05 - 7 days -> 2024-02-27 (spanning leap day)
       Coord_Wk_Mar   : constant Home_Coordinates := Make_Coordinates (Horizon, D ("2024-03-05"));
       Res_Wk_Back    : constant Transition_Result := Previous_Week (Coord_Wk_Mar);
    begin
@@ -251,27 +214,22 @@ begin
         (Res_To_Leap.Status = Applied
            and then Image (Res_To_Leap.Coordinates.Selected_Day) = "2024-02-29",
          "Next_Day enters leap day (2024-02-28 -> 2024-02-29)");
-
       Assert
         (Res_From_Leap.Status = Applied
            and then Image (Res_From_Leap.Coordinates.Selected_Day) = "2024-03-01",
          "Next_Day leaves leap day (2024-02-29 -> 2024-03-01)");
-
       Assert
         (Res_Back_Leap.Status = Applied
            and then Image (Res_Back_Leap.Coordinates.Selected_Day) = "2024-02-29",
          "Previous_Day enters leap day (2024-03-01 -> 2024-02-29)");
-
       Assert
         (Res_Prev_Leap.Status = Applied
            and then Image (Res_Prev_Leap.Coordinates.Selected_Day) = "2024-02-28",
          "Previous_Day leaves leap day (2024-02-29 -> 2024-02-28)");
-
       Assert
         (Res_Wk_Fwd.Status = Applied
            and then Image (Res_Wk_Fwd.Coordinates.Selected_Day) = "2024-03-03",
          "Next_Week spans leap day (2024-02-25 + 7d = 2024-03-03)");
-
       Assert
         (Res_Wk_Back.Status = Applied
            and then Image (Res_Wk_Back.Coordinates.Selected_Day) = "2024-02-27",
@@ -288,39 +246,39 @@ begin
    begin
       Assert (Res1.Status = Applied, "Select_Day status is Applied");
       Assert (Image (Res1.Coordinates.Selected_Day) = "2030-11-20", "Select_Day jumps directly to target date");
-      Assert (Image (Res1.Coordinates.Observed_Through) = "2026-08-19", "Select_Day preserves Observed_Through");
+      Assert (Image (Res1.Coordinates.Known_Through) = "2026-08-19", "Select_Day preserves Known_Through");
 
       Assert (Res2.Status = Applied, "Intent_Select_Day status is Applied");
       Assert (Image (Res2.Coordinates.Selected_Day) = "2020-05-15", "Intent_Select_Day jumps directly to target date");
-      Assert (Image (Res2.Coordinates.Observed_Through) = "2026-08-19", "Intent_Select_Day preserves Observed_Through");
+      Assert (Image (Res2.Coordinates.Known_Through) = "2026-08-19", "Intent_Select_Day preserves Known_Through");
    end;
 
    -- =========================================================================
-   -- 10. Focus_Observed_Through
+   -- 10. Focus_Known_Through
    -- =========================================================================
    declare
       Coord_Past   : constant Home_Coordinates := Make_Coordinates (Horizon, D ("2026-01-15"));
       Coord_Future : constant Home_Coordinates := Make_Coordinates (Horizon, D ("2026-12-25"));
       Coord_Same   : constant Home_Coordinates := Make_Coordinates (Horizon, Horizon);
 
-      Res_Past   : constant Transition_Result := Focus_Observed_Through (Coord_Past);
-      Res_Future : constant Transition_Result := Apply_Intent (Coord_Future, Intent_Focus_Observed_Through);
-      Res_Same   : constant Transition_Result := Focus_Observed_Through (Coord_Same);
+      Res_Past   : constant Transition_Result := Focus_Known_Through (Coord_Past);
+      Res_Future : constant Transition_Result := Apply_Intent (Coord_Future, Intent_Focus_Known_Through);
+      Res_Same   : constant Transition_Result := Focus_Known_Through (Coord_Same);
    begin
-      Assert (Res_Past.Status = Applied, "Focus_Observed_Through from past is Applied");
-      Assert (Image (Res_Past.Coordinates.Selected_Day) = "2026-08-19", "Focus_Observed_Through resets focus to horizon");
-      Assert (Image (Res_Past.Coordinates.Observed_Through) = "2026-08-19", "Observed_Through unchanged");
+      Assert (Res_Past.Status = Applied, "Focus_Known_Through from past is Applied");
+      Assert (Image (Res_Past.Coordinates.Selected_Day) = "2026-08-19", "Focus_Known_Through resets focus to horizon");
+      Assert (Image (Res_Past.Coordinates.Known_Through) = "2026-08-19", "Known_Through unchanged");
 
-      Assert (Res_Future.Status = Applied, "Intent_Focus_Observed_Through from future is Applied");
-      Assert (Image (Res_Future.Coordinates.Selected_Day) = "2026-08-19", "Focus_Observed_Through resets future focus to horizon");
-      Assert (Image (Res_Future.Coordinates.Observed_Through) = "2026-08-19", "Observed_Through unchanged");
+      Assert (Res_Future.Status = Applied, "Intent_Focus_Known_Through from future is Applied");
+      Assert (Image (Res_Future.Coordinates.Selected_Day) = "2026-08-19", "Focus_Known_Through resets future focus to horizon");
+      Assert (Image (Res_Future.Coordinates.Known_Through) = "2026-08-19", "Known_Through unchanged");
 
-      Assert (Res_Same.Status = Applied, "Focus_Observed_Through when already on horizon is Applied");
+      Assert (Res_Same.Status = Applied, "Focus_Known_Through when already on horizon is Applied");
       Assert (Image (Res_Same.Coordinates.Selected_Day) = "2026-08-19", "Focus remains on horizon");
    end;
 
    -- =========================================================================
-   -- 11. Selected_Day May Move Beyond Observed_Through
+   -- 11. Selected_Day May Move Beyond Known_Through
    -- =========================================================================
    declare
       Coord : constant Home_Coordinates := Make_Coordinates (Horizon, Horizon);
@@ -330,18 +288,18 @@ begin
       Assert
         (Res1.Status = Applied
            and then Image (Res1.Coordinates.Selected_Day) = "2026-08-20",
-         "Selected_Day moves 1 day beyond Observed_Through");
+         "Selected_Day moves 1 day beyond Known_Through");
       Assert
-        (Image (Res1.Coordinates.Observed_Through) = "2026-08-19",
-         "Observed_Through remains invariant when focus enters future");
+        (Image (Res1.Coordinates.Known_Through) = "2026-08-19",
+         "Known_Through remains invariant when focus enters future");
 
       Assert
         (Res2.Status = Applied
            and then Image (Res2.Coordinates.Selected_Day) = "2026-08-27",
          "Selected_Day moves further into future (+1 week)");
       Assert
-        (Image (Res2.Coordinates.Observed_Through) = "2026-08-19",
-         "Observed_Through remains invariant across future week navigation");
+        (Image (Res2.Coordinates.Known_Through) = "2026-08-19",
+         "Known_Through remains invariant across future week navigation");
    end;
 
    -- =========================================================================
@@ -366,8 +324,8 @@ begin
         (Image (Res_Prev_Day.Coordinates.Selected_Day) = "0001-01-01",
          "Selected_Day remains strictly 0001-01-01 without wraparound");
       Assert
-        (Image (Res_Prev_Day.Coordinates.Observed_Through) = "2026-08-19",
-         "Observed_Through preserved on lower bound failure");
+        (Image (Res_Prev_Day.Coordinates.Known_Through) = "2026-08-19",
+         "Known_Through preserved on lower bound failure");
 
       Assert
         (Res_Prev_Wk.Status = Lower_Bound_Exceeded,
@@ -413,8 +371,8 @@ begin
         (Image (Res_Next_Day.Coordinates.Selected_Day) = "9999-12-31",
          "Selected_Day remains strictly 9999-12-31 without wraparound");
       Assert
-        (Image (Res_Next_Day.Coordinates.Observed_Through) = "2026-08-19",
-         "Observed_Through preserved on upper bound failure");
+        (Image (Res_Next_Day.Coordinates.Known_Through) = "2026-08-19",
+         "Known_Through preserved on upper bound failure");
 
       Assert
         (Res_Next_Wk.Status = Upper_Bound_Exceeded,
@@ -444,12 +402,12 @@ begin
    declare
       Coord : Home_Coordinates := Make_Coordinates (Horizon, D ("2026-08-19"));
       Intents : constant array (1 .. 6) of Home_Intent :=
-        [Intent_Next_Day,               -- 2026-08-20
-         Intent_Next_Week,              -- 2026-08-27
-         Intent_Previous_Day,           -- 2026-08-26
-         Intent_Previous_Week,          -- 2026-08-19
-         Intent_Select_Day (D ("2026-12-01")), -- 2026-12-01
-         Intent_Focus_Observed_Through];       -- 2026-08-19
+        [Intent_Next_Day,
+         Intent_Next_Week,
+         Intent_Previous_Day,
+         Intent_Previous_Week,
+         Intent_Select_Day (D ("2026-12-01")),
+         Intent_Focus_Known_Through];
       Expected : constant array (1 .. 6) of String (1 .. 10) :=
         ["2026-08-20",
          "2026-08-27",
@@ -467,8 +425,8 @@ begin
               (Image (Res.Coordinates.Selected_Day) = Expected (I),
                "Step" & Natural'Image (I) & " reached " & Expected (I));
             Assert
-              (Image (Res.Coordinates.Observed_Through) = "2026-08-19",
-               "Step" & Natural'Image (I) & " preserved Observed_Through");
+              (Image (Res.Coordinates.Known_Through) = "2026-08-19",
+               "Step" & Natural'Image (I) & " preserved Known_Through");
             Coord := Res.Coordinates;
          end;
       end loop;

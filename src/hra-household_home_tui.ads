@@ -8,8 +8,8 @@ with HRA.Household;
 package HRA.Household_Home_TUI is
 
    procedure Run
-     (State            : HRA.Household.Household_State;
-      Observed_Through : HRA.Dates.Date;
-      Selected_Day     : HRA.Dates.Date);
+     (State         : HRA.Household.Household_State;
+      Known_Through : HRA.Dates.Date;
+      Selected_Day  : HRA.Dates.Date);
 
 end HRA.Household_Home_TUI;

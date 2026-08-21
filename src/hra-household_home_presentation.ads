@@ -9,7 +9,7 @@ with HRA.Issues;
 with HRA.Money;
 with HRA.Plan;
 
---  Pure presentation mapping for Household Home observation.
+--  Pure presentation mapping for the Household Home view.
 --  Transforms semantic Home_Observation into UI-neutral structured view models:
 --    - Monthly calendar grid with attention facts
 --    - Structured Selected-Day details for Actual, Plan, Issue, and Cycle
@@ -31,12 +31,12 @@ package HRA.Household_Home_Presentation is
    type Calendar_Cell (Kind : Calendar_Cell_Kind := Dated_Cell) is record
       case Kind is
          when Dated_Cell =>
-            Date_Value          : HRA.Dates.Date;
-            Is_Current_Month    : Boolean := False;
-            Is_Selected         : Boolean := False;
-            Is_Observed_Through : Boolean := False;
-            Is_Future           : Boolean := False;
-            Attention           : Attention_Summary;
+            Date_Value       : HRA.Dates.Date;
+            Is_Current_Month : Boolean := False;
+            Is_Selected      : Boolean := False;
+            Is_Known_Through : Boolean := False;
+            Is_Future        : Boolean := False;
+            Attention        : Attention_Summary;
          when Out_Of_Range_Padding =>
             null;
       end case;
@@ -65,7 +65,7 @@ package HRA.Household_Home_Presentation is
 
    type Domain_Availability is (Available, Unavailable);
 
-   type Actual_Unavailable_Reason is (Observation_Horizon_Exceeded);
+   type Actual_Unavailable_Reason is (Beyond_Known_Horizon);
 
    type Actual_Item is record
       Transaction_Id : Unbounded_String;
@@ -83,7 +83,7 @@ package HRA.Household_Home_Presentation is
          when Available =>
             Items : Actual_Item_Vectors.Vector;
          when Unavailable =>
-            Reason : Actual_Unavailable_Reason := Observation_Horizon_Exceeded;
+            Reason : Actual_Unavailable_Reason := Beyond_Known_Horizon;
       end case;
    end record;
 
@@ -147,15 +147,15 @@ package HRA.Household_Home_Presentation is
    end record;
 
    type Home_Presentation is record
-      Observed_Through : HRA.Dates.Date;
-      Selected_Day     : HRA.Dates.Date;
-      Is_Future_Focus  : Boolean := False;
-      Attention        : Attention_Summary;
-      Calendar         : Calendar_Grid;
-      Actual           : Actual_Presentation;
-      Plan             : Plan_Presentation;
-      Issue            : Issue_Presentation;
-      Cycle            : Cycle_Presentation;
+      Known_Through  : HRA.Dates.Date;
+      Selected_Day   : HRA.Dates.Date;
+      Is_Future_Focus : Boolean := False;
+      Attention       : Attention_Summary;
+      Calendar        : Calendar_Grid;
+      Actual          : Actual_Presentation;
+      Plan            : Plan_Presentation;
+      Issue           : Issue_Presentation;
+      Cycle           : Cycle_Presentation;
    end record;
 
    function Present

@@ -29,8 +29,8 @@ package body HRA.Household_Home_Presentation is
       return Calendar_Grid
    is
       Focus_Day     : constant HRA.Dates.Date := Selected_Day;
-      Obs_Through   : constant HRA.Dates.Date :=
-        HRA.Household_Home_Observation.Observed_Through (Horizon);
+      Known_Through : constant HRA.Dates.Date :=
+        HRA.Household_Home_Observation.Known_Through (Horizon);
       Focus_Year    : constant Positive := HRA.Dates.Year (Focus_Day);
       Focus_Month   : constant Positive := HRA.Dates.Month (Focus_Day);
       First_Date    : constant HRA.Dates.Date :=
@@ -99,15 +99,15 @@ package body HRA.Household_Home_Presentation is
                   begin
                      if not Past_Limit then
                         Cell :=
-                          (Kind                => Dated_Cell,
-                           Date_Value          => Current_Day,
-                           Is_Current_Month    =>
+                          (Kind             => Dated_Cell,
+                           Date_Value       => Current_Day,
+                           Is_Current_Month =>
                              (HRA.Dates.Year (Current_Day) = Focus_Year
                               and then HRA.Dates.Month (Current_Day) = Focus_Month),
-                           Is_Selected         => (Current_Day = Focus_Day),
-                           Is_Observed_Through => (Current_Day = Obs_Through),
-                           Is_Future           => (Current_Day > Obs_Through),
-                           Attention           =>
+                           Is_Selected      => (Current_Day = Focus_Day),
+                           Is_Known_Through => (Current_Day = Known_Through),
+                           Is_Future        => (Current_Day > Known_Through),
+                           Attention        =>
                              Map_Attention
                                 (HRA.Household_Home_Observation.Day_Attention
                                    (Horizon, Current_Day)));
@@ -156,8 +156,8 @@ package body HRA.Household_Home_Presentation is
                      Item : Actual_Item;
                   begin
                      Item.Transaction_Id := Tx.Event_ID;
-                     Item.Date           := Tx.Date;
-                     Item.Description    := Tx.Code_Or_Payee;
+                     Item.Date := Tx.Date;
+                     Item.Description := Tx.Code_Or_Payee;
 
                      for P of Tx.Postings loop
                         Item.Postings.Append
@@ -176,8 +176,8 @@ package body HRA.Household_Home_Presentation is
             declare
                Reason : constant Actual_Unavailable_Reason :=
                  (case Obs.Reason is
-                     when HRA.Household_Home_Observation.Observation_Horizon_Exceeded =>
-                        Observation_Horizon_Exceeded);
+                     when HRA.Household_Home_Observation.Beyond_Known_Horizon =>
+                        Beyond_Known_Horizon);
             begin
                return (Status => Unavailable, Reason => Reason);
             end;
@@ -303,30 +303,30 @@ package body HRA.Household_Home_Presentation is
       Day     : HRA.Household_Home_Observation.Home_Day_Observation)
       return Home_Presentation
    is
-      Focus_Day   : constant HRA.Dates.Date :=
+      Focus_Day : constant HRA.Dates.Date :=
         HRA.Household_Home_Observation.Selected_Day (Day);
-      Obs_Through : constant HRA.Dates.Date :=
-        HRA.Household_Home_Observation.Observed_Through (Horizon);
-      Result      : Home_Presentation;
+      Known_Through : constant HRA.Dates.Date :=
+        HRA.Household_Home_Observation.Known_Through (Horizon);
+      Result : Home_Presentation;
    begin
-      Result.Observed_Through := Obs_Through;
-      Result.Selected_Day     := Focus_Day;
-      Result.Is_Future_Focus  := (Focus_Day > Obs_Through);
-      Result.Attention        :=
+      Result.Known_Through := Known_Through;
+      Result.Selected_Day := Focus_Day;
+      Result.Is_Future_Focus := (Focus_Day > Known_Through);
+      Result.Attention :=
         Map_Attention
           (HRA.Household_Home_Observation.Selected_Attention (Day));
 
       Result.Calendar := Build_Calendar_Grid (Horizon, Focus_Day);
-      Result.Actual   :=
+      Result.Actual :=
         Build_Actual_Presentation
           (HRA.Household_Home_Observation.Actual (Day));
-      Result.Plan     :=
+      Result.Plan :=
         Build_Plan_Presentation
           (HRA.Household_Home_Observation.Plan (Day));
-      Result.Issue    :=
+      Result.Issue :=
         Build_Issue_Presentation
           (HRA.Household_Home_Observation.Issue (Day));
-      Result.Cycle    :=
+      Result.Cycle :=
         Build_Cycle_Presentation
           (HRA.Household_Home_Observation.Cycle (Horizon),
            Focus_Day);

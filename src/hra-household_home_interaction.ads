@@ -3,13 +3,13 @@ use type HRA.Dates.Date;
 
 --  Pure UI-neutral interaction semantics for Household Home navigation.
 --  Maps user navigation intents to pure coordinate transitions over:
---    Observed_Through : fixed knowledge / observation horizon
---    Selected_Day     : mutable focus coordinate
+--    Known_Through : fixed knowledge horizon
+--    Selected_Day  : mutable focus coordinate
 --
 --  Temporal navigation laws:
---    1. Navigation NEVER alters Observed_Through (knowledge horizon is invariant).
+--    1. Navigation NEVER alters Known_Through (knowledge horizon is invariant).
 --    2. Navigation ONLY changes Selected_Day (presentation focus coordinate).
---    3. Selected_Day may freely move before, on, or beyond Observed_Through.
+--    3. Selected_Day may freely move before, on, or beyond Known_Through.
 --    4. Boundary transitions fail closed without wraparound, sentinels, or exceptions.
 --    5. No system clock, no file I/O, no UI glyph/key/terminal coupling.
 package HRA.Household_Home_Interaction
@@ -21,23 +21,23 @@ is
    --  ========================================================================
 
    type Home_Coordinates is record
-      Observed_Through : HRA.Dates.Date;
-      Selected_Day     : HRA.Dates.Date;
+      Known_Through : HRA.Dates.Date;
+      Selected_Day  : HRA.Dates.Date;
    end record;
 
-   --  Construct focus coordinates with initial focus matching the observation horizon.
+   --  Construct focus coordinates with initial focus matching what is known through.
    function Make_Coordinates
-     (Observed_Through : HRA.Dates.Date) return Home_Coordinates
+     (Known_Through : HRA.Dates.Date) return Home_Coordinates
      with Post =>
-       Make_Coordinates'Result.Observed_Through = Observed_Through
-       and then Make_Coordinates'Result.Selected_Day = Observed_Through;
+       Make_Coordinates'Result.Known_Through = Known_Through
+       and then Make_Coordinates'Result.Selected_Day = Known_Through;
 
-   --  Construct focus coordinates with explicit observation horizon and selected day.
+   --  Construct focus coordinates with explicit knowledge horizon and selected day.
    function Make_Coordinates
-     (Observed_Through : HRA.Dates.Date;
-      Selected_Day     : HRA.Dates.Date) return Home_Coordinates
+     (Known_Through : HRA.Dates.Date;
+      Selected_Day  : HRA.Dates.Date) return Home_Coordinates
      with Post =>
-       Make_Coordinates'Result.Observed_Through = Observed_Through
+       Make_Coordinates'Result.Known_Through = Known_Through
        and then Make_Coordinates'Result.Selected_Day = Selected_Day;
 
    --  ========================================================================
@@ -50,9 +50,9 @@ is
       Next_Day,
       Previous_Week,
       Next_Week,
-      Focus_Observed_Through);
+      Focus_Known_Through);
 
-   type Home_Intent (Kind : Home_Intent_Kind := Focus_Observed_Through) is record
+   type Home_Intent (Kind : Home_Intent_Kind := Focus_Known_Through) is record
       case Kind is
          when Select_Day =>
             Target_Day : HRA.Dates.Date;
@@ -60,7 +60,7 @@ is
             | Next_Day
             | Previous_Week
             | Next_Week
-            | Focus_Observed_Through =>
+            | Focus_Known_Through =>
             null;
       end case;
    end record;
@@ -81,8 +81,8 @@ is
    function Intent_Next_Week return Home_Intent is
      ((Kind => Next_Week));
 
-   function Intent_Focus_Observed_Through return Home_Intent is
-     ((Kind => Focus_Observed_Through));
+   function Intent_Focus_Known_Through return Home_Intent is
+     ((Kind => Focus_Known_Through));
 
    --  ========================================================================
    --  Transition Status and Result
@@ -110,7 +110,7 @@ is
      (Coordinates : Home_Coordinates;
       Day         : HRA.Dates.Date) return Transition_Result
      with Post =>
-       Select_Day'Result.Coordinates.Observed_Through = Coordinates.Observed_Through
+       Select_Day'Result.Coordinates.Known_Through = Coordinates.Known_Through
        and then Select_Day'Result.Coordinates.Selected_Day = Day
        and then Select_Day'Result.Status = Applied;
 
@@ -119,7 +119,7 @@ is
    function Previous_Day
      (Coordinates : Home_Coordinates) return Transition_Result
      with Post =>
-       Previous_Day'Result.Coordinates.Observed_Through = Coordinates.Observed_Through
+       Previous_Day'Result.Coordinates.Known_Through = Coordinates.Known_Through
        and then Previous_Day'Result.Status in Applied | Lower_Bound_Exceeded
        and then (if Previous_Day'Result.Status = Lower_Bound_Exceeded
                  then Previous_Day'Result.Coordinates.Selected_Day = Coordinates.Selected_Day);
@@ -129,7 +129,7 @@ is
    function Next_Day
      (Coordinates : Home_Coordinates) return Transition_Result
      with Post =>
-       Next_Day'Result.Coordinates.Observed_Through = Coordinates.Observed_Through
+       Next_Day'Result.Coordinates.Known_Through = Coordinates.Known_Through
        and then Next_Day'Result.Status in Applied | Upper_Bound_Exceeded
        and then (if Next_Day'Result.Status = Upper_Bound_Exceeded
                  then Next_Day'Result.Coordinates.Selected_Day = Coordinates.Selected_Day);
@@ -139,7 +139,7 @@ is
    function Previous_Week
      (Coordinates : Home_Coordinates) return Transition_Result
      with Post =>
-       Previous_Week'Result.Coordinates.Observed_Through = Coordinates.Observed_Through
+       Previous_Week'Result.Coordinates.Known_Through = Coordinates.Known_Through
        and then Previous_Week'Result.Status in Applied | Lower_Bound_Exceeded
        and then (if Previous_Week'Result.Status = Lower_Bound_Exceeded
                  then Previous_Week'Result.Coordinates.Selected_Day = Coordinates.Selected_Day);
@@ -149,18 +149,18 @@ is
    function Next_Week
      (Coordinates : Home_Coordinates) return Transition_Result
      with Post =>
-       Next_Week'Result.Coordinates.Observed_Through = Coordinates.Observed_Through
+       Next_Week'Result.Coordinates.Known_Through = Coordinates.Known_Through
        and then Next_Week'Result.Status in Applied | Upper_Bound_Exceeded
        and then (if Next_Week'Result.Status = Upper_Bound_Exceeded
                  then Next_Week'Result.Coordinates.Selected_Day = Coordinates.Selected_Day);
 
-   --  Reset focus to Observed_Through. Always succeeds.
-   function Focus_Observed_Through
+   --  Reset focus to Known_Through. Always succeeds.
+   function Focus_Known_Through
      (Coordinates : Home_Coordinates) return Transition_Result
      with Post =>
-       Focus_Observed_Through'Result.Coordinates.Observed_Through = Coordinates.Observed_Through
-       and then Focus_Observed_Through'Result.Coordinates.Selected_Day = Coordinates.Observed_Through
-       and then Focus_Observed_Through'Result.Status = Applied;
+       Focus_Known_Through'Result.Coordinates.Known_Through = Coordinates.Known_Through
+       and then Focus_Known_Through'Result.Coordinates.Selected_Day = Coordinates.Known_Through
+       and then Focus_Known_Through'Result.Status = Applied;
 
    --  ========================================================================
    --  Intent Dispatch
@@ -171,7 +171,7 @@ is
      (Coordinates : Home_Coordinates;
       Intent      : Home_Intent) return Transition_Result
      with Post =>
-       Apply_Intent'Result.Coordinates.Observed_Through = Coordinates.Observed_Through
+       Apply_Intent'Result.Coordinates.Known_Through = Coordinates.Known_Through
        and then (if Apply_Intent'Result.Status /= Applied
                  then Apply_Intent'Result.Coordinates.Selected_Day = Coordinates.Selected_Day);
 
