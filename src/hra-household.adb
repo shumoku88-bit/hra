@@ -5,6 +5,7 @@ with HRA.Config_Support;
 with HRA.Entitlement_Journal;
 with HRA.Plan_Admission;
 with HRA.Plan_Completion;
+with HRA.Daily_Target_Scope;
 
 package body HRA.Household is
 
@@ -17,6 +18,9 @@ package body HRA.Household is
       State.Actual_Identity     := HRA.Actual_Admission.Empty_Observation;
       State.Plan_Journal        := HRA.Plan_Admission.Empty_Journal;
       State.Plan_Completions    := HRA.Plan_Completion.Empty_Relations;
+      State.Daily_Target        :=
+        (Status => Daily_Target_Scope_Available,
+         Value  => HRA.Daily_Target_Scope.Empty_Scope);
       State.Entitlement_History := HRA.Entitlement_Journal.Empty_History;
       State.Combined_Ledger     := Empty_Ledger;
       State.Envelope_Registry   := HRA.Envelope.Empty_Registry;
@@ -333,6 +337,30 @@ package body HRA.Household is
                 then ": " & To_String (Plan_Diag.Message)
                 else ""));
             return False;
+         end if;
+      end;
+
+      --  Daily Target scope is a narrow, atemporal projection of already
+      --  admitted policy and Plan facts. Materialize it once, but do not let a
+      --  projection failure invalidate the broader Household or Plan authority.
+      declare
+         Scope      : HRA.Daily_Target_Scope.Scope;
+         Scope_Diag : HRA.Daily_Target_Scope.Admission_Diagnostic;
+      begin
+         if HRA.Daily_Target_Scope.Admit
+           (Result.Household_Policy,
+            Result.Registry,
+            Result.Plan_Journal,
+            Scope,
+            Scope_Diag)
+         then
+            Result.Daily_Target :=
+              (Status => Daily_Target_Scope_Available,
+               Value  => Scope);
+         else
+            Result.Daily_Target :=
+              (Status     => Daily_Target_Scope_Unavailable,
+               Diagnostic => Scope_Diag);
          end if;
       end;
 
