@@ -72,9 +72,9 @@ package body HRA.Household_Home_Text is
                   end if;
                else
                   if M /= ' ' then
-                     return " " & Day_Str & M & " ";
+                     return " " & Day_Str & "  " & M;
                   else
-                     return "  " & Day_Str & " ";
+                     return " " & Day_Str & "   ";
                   end if;
                end if;
             end;
@@ -195,7 +195,6 @@ package body HRA.Household_Home_Text is
          "--------------------------------------------------------------------------------" &
          ASCII.LF);
 
-      --  Actual Section
       Append (Buf, " Actual Transactions:" & ASCII.LF);
       case Pres.Actual.Status is
          when Available =>
@@ -225,39 +224,29 @@ package body HRA.Household_Home_Text is
       end case;
       Append (Buf, ASCII.LF);
 
-      --  Plan Section
       Append (Buf, " Planned Payments:" & ASCII.LF);
-      case Pres.Plan.Status is
-         when Available =>
-            if Pres.Plan.Items.Is_Empty then
-               Append (Buf, "   (none scheduled)" & ASCII.LF);
-            else
-               for Item of Pres.Plan.Items loop
-                  Append
-                    (Buf,
-                     "   - Scheduled: " & HRA.Dates.Image (Item.Scheduled_Date) &
-                     "  [Open] " &
-                     HRA.Plan.Text (Item.Plan_Id) & ASCII.LF);
-                  Append
-                    (Buf,
-                     "       " & To_String (Item.Description) & ASCII.LF);
-                  for P of Item.Postings loop
-                     Append
-                       (Buf,
-                        "       " & HRA.Account.Name (P.Account) & "  " &
-                        Render_Amount (P.Amount) & ASCII.LF);
-                  end loop;
-               end loop;
-            end if;
-         when Unavailable =>
+      if Pres.Plan.Items.Is_Empty then
+         Append (Buf, "   (none scheduled)" & ASCII.LF);
+      else
+         for Item of Pres.Plan.Items loop
             Append
               (Buf,
-               "   [Unavailable] Plan observation unavailable: " &
-               To_String (Pres.Plan.Diagnostic.Message) & ASCII.LF);
-      end case;
+               "   - Scheduled: " & HRA.Dates.Image (Item.Scheduled_Date) &
+               "  [Open] " &
+               HRA.Plan.Text (Item.Plan_Id) & ASCII.LF);
+            Append
+              (Buf,
+               "       " & To_String (Item.Description) & ASCII.LF);
+            for P of Item.Postings loop
+               Append
+                 (Buf,
+                  "       " & HRA.Account.Name (P.Account) & "  " &
+                  Render_Amount (P.Amount) & ASCII.LF);
+            end loop;
+         end loop;
+      end if;
       Append (Buf, ASCII.LF);
 
-      --  Issue Section
       Append (Buf, " Due Issues:" & ASCII.LF);
       case Pres.Issue.Status is
          when Available =>
@@ -290,7 +279,6 @@ package body HRA.Household_Home_Text is
       end case;
       Append (Buf, ASCII.LF);
 
-      --  Cycle Section
       Append (Buf, " Cycle:" & ASCII.LF);
       case Pres.Cycle.Status is
          when Available =>
@@ -318,19 +306,11 @@ package body HRA.Household_Home_Text is
                   Focus_Role_Label (Pres.Cycle.Focus_Role) & ASCII.LF);
             end;
          when Unavailable =>
-            case Pres.Cycle.Failure.Reason is
-               when Plan_Dependency_Unavailable =>
-                  Append
-                    (Buf,
-                     "   [Unavailable] Cycle unavailable due to Plan dependency: " &
-                     To_String (Pres.Cycle.Failure.Plan_Error.Message) & ASCII.LF);
-               when Cycle_Resolution_Failed =>
-                  Append
-                    (Buf,
-                     "   [Unavailable] Cycle resolution failed: " &
-                     HRA.Cycle_Observation.Resolve_Status'Image
-                       (Pres.Cycle.Failure.Cycle_Error) & ASCII.LF);
-            end case;
+            Append
+              (Buf,
+               "   [Unavailable] Cycle resolution failed: " &
+               HRA.Cycle_Observation.Resolve_Status'Image (Pres.Cycle.Error) &
+               ASCII.LF);
       end case;
       Append
         (Buf,
