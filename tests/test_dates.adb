@@ -149,6 +149,14 @@ begin
       "half-open cardinality crosses common February exactly");
    Assert
      (Length_In_Days
+        (Must_Half_Open ("1900-02-28", "1900-03-01")) = 1,
+      "Gregorian century not divisible by 400 is not leap");
+   Assert
+     (Length_In_Days
+        (Must_Half_Open ("2000-02-28", "2000-03-01")) = 2,
+      "Gregorian century divisible by 400 remains leap");
+   Assert
+     (Length_In_Days
         (Must_Half_Open ("2025-12-31", "2026-01-02")) = 2,
       "half-open cardinality crosses year boundary exactly");
    Assert
