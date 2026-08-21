@@ -33,13 +33,22 @@ package HRA.Actual_Admission is
    --  One root-source Actual fact. In this owner Tx.Date is the event
    --  coordinate: when the admitted household transaction happened. It is not
    --  an admission timestamp or a record of when HRA learned the fact.
-   --  Transaction, optional durable identity, and parser-owned provenance stay
+   --
+   --  Identity is the effective Actual identity used by admitted Actual laws.
+   --  It may come from an explicit source event-id or be derived from plan-id
+   --  for Plan-completion/reversal semantics. Source_Durable_Identity is
+   --  narrower: it is present only when the source transaction explicitly owns
+   --  an event-id. Cross-source relations that require durable source evidence
+   --  must use Source_Durable_Identity rather than the effective Identity.
+   --
+   --  Transaction, optional identities, and parser-owned provenance stay
    --  aligned as one admitted value. Ordinary identity-free Actual remains a
    --  first-class entry.
    type Actual_Transaction_Entry is record
-      Tx       : HRA.Ledger.Transaction;
-      Identity : Actual_Id_Option;
-      Source   : HRA.Journal_Evidence.Transaction_Source;
+      Tx                      : HRA.Ledger.Transaction;
+      Identity                : Actual_Id_Option;
+      Source_Durable_Identity : Actual_Id_Option;
+      Source                  : HRA.Journal_Evidence.Transaction_Source;
    end record;
 
    type Reversal_Relation is record
@@ -73,6 +82,15 @@ package HRA.Actual_Admission is
      with Pre => Index <= Transaction_Count (Observation);
 
    function Identified_Count (Observation : Actual_Observation) return Natural;
+
+   --  Membership in the explicit source event-id universe. Plan-derived
+   --  effective identities remain available to Actual's own lifecycle laws but
+   --  are intentionally absent here, so cross-source relation owners do not
+   --  need to reinterpret Journal metadata themselves.
+   function Has_Source_Durable_Identity
+     (Observation : Actual_Observation;
+      ID          : Actual_Id) return Boolean;
+
    function Reversal_Count (Observation : Actual_Observation) return Natural;
 
    function Reversal_At

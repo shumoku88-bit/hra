@@ -124,7 +124,7 @@ begin
      (HRA.Actual_Admission.Transaction_Count (Observation) = 2
         and then HRA.Actual_Admission.Identified_Count (Observation) = 2
         and then HRA.Actual_Admission.Reversal_Count (Observation) = 1,
-      "Actual admission retains source-order transactions and reversal edge");
+      "Actual admission retains effective identity and reversal edge");
 
    declare
       First  : constant HRA.Actual_Admission.Actual_Transaction_Entry :=
@@ -138,15 +138,23 @@ begin
         (First.Identity.Present
            and then HRA.Actual_Admission.Text (First.Identity.Value) =
              "plan-completion-plan-a"
+           and then not First.Source_Durable_Identity.Present
+           and then not HRA.Actual_Admission.Has_Source_Durable_Identity
+             (Observation, First.Identity.Value)
            and then First.Source.Header_Line = 1
            and then Second.Identity.Present
-           and then HRA.Actual_Admission.Text (Second.Identity.Value) = "rev-a",
-         "Transaction entries align typed identity with parser-owned provenance");
+           and then HRA.Actual_Admission.Text (Second.Identity.Value) = "rev-a"
+           and then Second.Source_Durable_Identity.Present
+           and then HRA.Actual_Admission.Text
+             (Second.Source_Durable_Identity.Value) = "rev-a"
+           and then HRA.Actual_Admission.Has_Source_Durable_Identity
+             (Observation, Second.Identity.Value),
+         "Source durability excludes Plan-derived identity and retains explicit event-id");
       Assert
         (HRA.Actual_Admission.Text (Edge.Reversal_ID) = "rev-a"
            and then HRA.Actual_Admission.Text (Edge.Target_ID) =
              "plan-completion-plan-a",
-         "Reversal relation remains typed at the Actual package boundary");
+         "Reversal relation may still use admitted Plan-derived Actual identity");
    end;
 
    declare
@@ -161,7 +169,7 @@ begin
          To_String (Admitted.Transactions.Element (2).Event_ID) = "rev-a" and then
          To_String (Admitted.Transactions.Element (2).Reverses_ID) =
            "plan-completion-plan-a",
-         "Admitted Ledger carries only normalized identity provenance");
+         "Admitted Ledger carries normalized effective identity provenance");
    end;
 
    declare
