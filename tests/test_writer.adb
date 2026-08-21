@@ -3,6 +3,7 @@ with Ada.Directories; use Ada.Directories;
 with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
 with Ada.Text_IO; use Ada.Text_IO;
 with HRA.Writer; use HRA.Writer;
+with HRA.Writer.Test_Hooks;
 
 procedure Test_Writer is
    Passed_Count : Natural := 0;
@@ -202,16 +203,17 @@ begin
       Put (F, Init_3);
       Close (F);
 
+      HRA.Writer.Test_Hooks.Set_After_Stage_Hook (Inspect_Staging'Address);
       Assert
         (Atomic_Publish_Journal
-           (Target_Path      => Target_3,
-            Expected         => Make_Expected_Source (Init_3),
-            Candidate        => Make_Candidate_Source (Cand_3),
-            Status           => Status,
-            Error_Msg        => Error,
-            After_Stage_Hook => Inspect_Staging'Access)
+           (Target_Path => Target_3,
+            Expected    => Make_Expected_Source (Init_3),
+            Candidate   => Make_Candidate_Source (Cand_3),
+            Status      => Status,
+            Error_Msg   => Error)
          and then Status = Success,
          "publish with staging hook succeeds");
+      HRA.Writer.Test_Hooks.Clear_After_Stage_Hook;
 
       Assert
         (To_String (Captured_Stage) /= Target_3 & ".tmp",
@@ -281,16 +283,17 @@ begin
       --  Candidate is staged.
       --  Hook runs and modifies Target_4 with External_Mod.
       --  Second stale fence must detect the change!
+      HRA.Writer.Test_Hooks.Set_After_Stage_Hook (Simulate_Process_B'Address);
       Assert
         (not Atomic_Publish_Journal
-           (Target_Path      => Target_4,
-            Expected         => Make_Expected_Source (Init_4),
-            Candidate        => Make_Candidate_Source (Cand_4),
-            Status           => Status,
-            Error_Msg        => Error,
-            After_Stage_Hook => Simulate_Process_B'Access)
+           (Target_Path => Target_4,
+            Expected    => Make_Expected_Source (Init_4),
+            Candidate   => Make_Candidate_Source (Cand_4),
+            Status      => Status,
+            Error_Msg   => Error)
          and then Status = Stale_Source_Rejected,
          "second stale fence rejects publication when target was modified during staging");
+      HRA.Writer.Test_Hooks.Clear_After_Stage_Hook;
 
       Assert
         (Read_All (Target_4) = External_Mod,
@@ -341,16 +344,17 @@ begin
       Put (F, Init_5);
       Close (F);
 
+      HRA.Writer.Test_Hooks.Set_After_Stage_Hook (Simulate_Target_Deleted'Address);
       Assert
         (not Atomic_Publish_Journal
-           (Target_Path      => Target_5,
-            Expected         => Make_Expected_Source (Init_5),
-            Candidate        => Make_Candidate_Source (Cand_5),
-            Status           => Status,
-            Error_Msg        => Error,
-            After_Stage_Hook => Simulate_Target_Deleted'Access)
+           (Target_Path => Target_5,
+            Expected    => Make_Expected_Source (Init_5),
+            Candidate   => Make_Candidate_Source (Cand_5),
+            Status      => Status,
+            Error_Msg   => Error)
          and then Status = Stale_Source_Rejected,
          "second stale fence rejects publication when expected target disappeared during staging");
+      HRA.Writer.Test_Hooks.Clear_After_Stage_Hook;
 
       Assert
         (not Exists (Target_5),
@@ -405,14 +409,14 @@ begin
       begin
          Captured_Stage_6A := To_Unbounded_String (Staged_Path_A);
          --  Concurrent writer publishes Cand_6B to Target_6 while 6A is staged
+         HRA.Writer.Test_Hooks.Set_After_Stage_Hook (Capture_6B'Address);
          Nested_Success :=
            Atomic_Publish_Journal
-             (Target_Path      => Target_6,
-              Expected         => Make_Expected_Source (Init_6),
-              Candidate        => Make_Candidate_Source (Cand_6B),
-              Status           => Status_6B,
-              Error_Msg        => Error_6B,
-              After_Stage_Hook => Capture_6B'Access);
+             (Target_Path => Target_6,
+              Expected    => Make_Expected_Source (Init_6),
+              Candidate   => Make_Candidate_Source (Cand_6B),
+              Status      => Status_6B,
+              Error_Msg   => Error_6B);
       end Simulate_Concurrent_Publish;
    begin
       if Exists (Target_6) then
@@ -425,16 +429,17 @@ begin
 
       --  Outer publish (6A) stages, then during hook, 6B runs and publishes successfully.
       --  When 6A resumes at second stale fence, Target_6 now contains 6B, so 6A is rejected.
+      HRA.Writer.Test_Hooks.Set_After_Stage_Hook (Simulate_Concurrent_Publish'Address);
       Assert
         (not Atomic_Publish_Journal
-           (Target_Path      => Target_6,
-            Expected         => Make_Expected_Source (Init_6),
-            Candidate        => Make_Candidate_Source (Cand_6A),
-            Status           => Status,
-            Error_Msg        => Error,
-            After_Stage_Hook => Simulate_Concurrent_Publish'Access)
+           (Target_Path => Target_6,
+            Expected    => Make_Expected_Source (Init_6),
+            Candidate   => Make_Candidate_Source (Cand_6A),
+            Status      => Status,
+            Error_Msg   => Error)
          and then Status = Stale_Source_Rejected,
          "outer publish rejected by second stale fence after concurrent inner publication");
+      HRA.Writer.Test_Hooks.Clear_After_Stage_Hook;
 
       Assert
         (Nested_Success and then Status_6B = Success,

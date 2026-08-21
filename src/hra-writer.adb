@@ -3,6 +3,7 @@ with Ada.Directories;        use Ada.Directories;
 with GNAT.OS_Lib;            use type GNAT.OS_Lib.File_Descriptor;
 with HRA.Ledger;             use HRA.Ledger;
 with HRA.Journal;            use HRA.Journal;
+with HRA.Writer.Test_Hooks;
 
 package body HRA.Writer is
 
@@ -100,8 +101,6 @@ package body HRA.Writer is
       end if;
    end Format_Integer;
 
-   Global_Stage_Sequence : Natural := 0;
-
    function Stage_Candidate_File
      (Target_Path    : String;
       Candidate_Text : String;
@@ -114,11 +113,10 @@ package body HRA.Writer is
       Max_Attempts : constant := 100;
    begin
       for Attempt in 1 .. Max_Attempts loop
-         Global_Stage_Sequence := Global_Stage_Sequence + 1;
          declare
             Trial_Path : constant String :=
               Target_Path & ".candidate." & Pid_Str & "_" &
-              Format_Natural (Global_Stage_Sequence) & ".tmp";
+              Format_Natural (Attempt) & ".tmp";
             FD         : constant GNAT.OS_Lib.File_Descriptor :=
               GNAT.OS_Lib.Create_New_File (Trial_Path, GNAT.OS_Lib.Binary);
          begin
@@ -169,13 +167,12 @@ package body HRA.Writer is
    end Stage_Candidate_File;
 
    function Atomic_Publish_Journal
-     (Target_Path      : String;
-      Expected         : Expected_Source;
-      Candidate        : Candidate_Source;
-      Status           : out Writer_Status;
-      Error_Msg        : out Unbounded_String;
-      After_Stage_Hook : access procedure (Staged_Path : String) := null) return Boolean
-    is
+     (Target_Path : String;
+      Expected    : Expected_Source;
+      Candidate   : Candidate_Source;
+      Status      : out Writer_Status;
+      Error_Msg   : out Unbounded_String) return Boolean
+   is
       Initial_On_Disk  : Unbounded_String;
       Second_On_Disk   : Unbounded_String;
       Staged_Path      : Unbounded_String := Null_Unbounded_String;
@@ -214,9 +211,7 @@ package body HRA.Writer is
       end if;
 
       --  4. Optional test / inspection hook immediately after candidate staging.
-      if After_Stage_Hook /= null then
-         After_Stage_Hook.all (To_String (Staged_Path));
-      end if;
+      HRA.Writer.Test_Hooks.Notify_Staged (To_String (Staged_Path));
 
       --  5. Second Stale Fence: re-observe target right before publication to detect
       --  any modification occurring while staging was prepared.

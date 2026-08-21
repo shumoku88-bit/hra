@@ -44,23 +44,12 @@ package HRA.Writer is
 
    function Writer_Status_Image (Status : Writer_Status) return String;
 
-   --  Atomic journal publication:
-   --  1. Initial stale check (re-read target vs Expected)
-   --  2. Pre-admission validation
-   --  3. Unique candidate staging in same directory
-   --  4. Optional test/inspection hook
-   --  5. Second stale fence (re-read target vs Expected right before rename)
-   --  6. Backup creation
-   --  7. Atomic rename
-   --  8. Post-admission validation
-   --  9. Cleanup
    function Atomic_Publish_Journal
-     (Target_Path      : String;
-      Expected         : Expected_Source;
-      Candidate        : Candidate_Source;
-      Status           : out Writer_Status;
-      Error_Msg        : out Unbounded_String;
-      After_Stage_Hook : access procedure (Staged_Path : String) := null) return Boolean
+     (Target_Path : String;
+      Expected    : Expected_Source;
+      Candidate   : Candidate_Source;
+      Status      : out Writer_Status;
+      Error_Msg   : out Unbounded_String) return Boolean
      with Pre => Target_Path'Length > 0,
           Post => (if Atomic_Publish_Journal'Result then Status = Success);
 
