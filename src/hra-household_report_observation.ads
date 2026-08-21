@@ -10,6 +10,7 @@ with HRA.Money; use HRA.Money;
 with HRA.Planned_Payments;
 with HRA.Recent_Journal;
 with HRA.Report;
+with HRA.Report_Cycle_Accounts;
 with HRA.Report_Flow;
 with HRA.Report_Plan;
 
@@ -21,6 +22,7 @@ package HRA.Household_Report_Observation is
 
    type Report_Section_Key is
      (Envelope_And_Backing_Section,
+      Cycle_Accounts_Section,
       Account_Balances_Section,
       Balance_Sheet_Section,
       Profit_And_Loss_Section,
@@ -33,7 +35,7 @@ package HRA.Household_Report_Observation is
    type Report_Section_Order is
      array (Positive range <>) of Report_Section_Key;
 
-   subtype Current_Report_Section_Order is Report_Section_Order (1 .. 9);
+   subtype Current_Report_Section_Order is Report_Section_Order (1 .. 10);
 
    type Envelope_Report_Line is record
       Env_Id                 : HRA.Envelope.Envelope_Id;
@@ -148,6 +150,7 @@ package HRA.Household_Report_Observation is
       Section_Order      : Current_Report_Section_Order;
       Query_Plan         : HRA.Report_Plan.Resolved_Report_Plan;
       Envelope_Report    : Envelope_Report_Observation;
+      Cycle_Accounts     : HRA.Report_Cycle_Accounts.Report_Observation;
       Account_Balances   : Account_Balances_Report_Observation;
       Balance_Sheet      : Balance_Sheet_Report_Observation;
       Profit_And_Loss    : Profit_And_Loss_Report_Observation;
