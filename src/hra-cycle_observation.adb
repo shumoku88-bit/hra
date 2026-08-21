@@ -8,7 +8,7 @@ package body HRA.Cycle_Observation is
    use type HRA.Money.Quantity;
 
    function Is_Incoming_Anchor
-     (P              : HRA.Plan_Observation.Open_Plan;
+     (P              : HRA.Plan_Temporal_Observation.Open_Plan;
       Registry       : HRA.Account.Account_Registry;
       Income_Account : HRA.Account.Account) return Boolean
    is
@@ -44,7 +44,7 @@ package body HRA.Cycle_Observation is
    function Observe
      (Observed_Through : HRA.Dates.Date;
       Actual_Ledger    : HRA.Ledger.Ledger;
-      Open_Plans       : HRA.Plan_Observation.Open_Plan_Vectors.Vector;
+      Open_Plans       : HRA.Plan_Temporal_Observation.Open_Plan_Vectors.Vector;
       Registry         : HRA.Account.Account_Registry;
       Income_Account   : HRA.Account.Account;
       Result           : out Observation;
@@ -150,7 +150,7 @@ package body HRA.Cycle_Observation is
    function Resolve_Current
      (Observed_Through : HRA.Dates.Date;
       Actual_Ledger    : HRA.Ledger.Ledger;
-      Open_Plans       : HRA.Plan_Observation.Open_Plan_Vectors.Vector;
+      Open_Plans       : HRA.Plan_Temporal_Observation.Open_Plan_Vectors.Vector;
       Registry         : HRA.Account.Account_Registry;
       Income_Account   : HRA.Account.Account;
       Window           : out Cycle_Window;
