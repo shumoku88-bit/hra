@@ -5,16 +5,16 @@ with HRA.Issue_Observation;
 with HRA.Ledger;
 with HRA.Plan_Temporal_Observation;
 
---  Pure semantic observation for the Household Home view over one
---  already-admitted Household_State.
+--  Pure semantic view for Household Home over one already-admitted
+--  Household_State.
 --
 --  Temporal coordinate laws:
---    Observed_Through : knowledge / observation horizon
---    Selected_Day     : focus coordinate
+--    Known_Through : knowledge horizon
+--    Selected_Day  : focus coordinate
 --
---  Selected_Day > Observed_Through means Actual is Unavailable.
+--  Selected_Day > Known_Through means Actual is Unavailable.
 --  Future-dated admitted Actual transactions in State are never leaked.
---  Plan, Issue, and Cycle reflect knowledge known as of Observed_Through.
+--  Plan, Issue, and Cycle reflect what is known through Known_Through.
 --  Empty results (0 transactions/plans/issues) are distinct from Unavailable.
 --
 --  Home_Observation is opaque; presentation layers cannot manufacture
@@ -34,14 +34,14 @@ package HRA.Household_Home_Observation is
 
    type Actual_Availability is (Available, Unavailable);
 
-   type Actual_Unavailable_Reason is (Observation_Horizon_Exceeded);
+   type Actual_Unavailable_Reason is (Beyond_Known_Horizon);
 
    type Actual_Home_Observation (Status : Actual_Availability := Unavailable) is record
       case Status is
          when Available =>
             Transactions : HRA.Ledger.Transaction_Vectors.Vector;
          when Unavailable =>
-            Reason : Actual_Unavailable_Reason := Observation_Horizon_Exceeded;
+            Reason : Actual_Unavailable_Reason := Beyond_Known_Horizon;
       end case;
    end record;
 
@@ -92,13 +92,13 @@ package HRA.Household_Home_Observation is
 
    type Home_Horizon_Observation is private;
 
-   --  Observe horizon-stable projections (Plan temporal observation, Issue
-   --  lifecycle observation, Cycle resolution) as of Observed_Through.
-   function Observe_Horizon
-     (Observed_Through : HRA.Dates.Date;
-      State            : HRA.Household.Household_State) return Home_Horizon_Observation;
+   --  See the horizon-stable Plan, Issue, Cycle, and calendar-attention
+   --  projections using only facts known through Known_Through.
+   function See_Horizon
+     (Known_Through : HRA.Dates.Date;
+      State         : HRA.Household.Household_State) return Home_Horizon_Observation;
 
-   function Observed_Through
+   function Known_Through
      (Horizon : Home_Horizon_Observation) return HRA.Dates.Date;
 
    function Cycle
@@ -126,15 +126,15 @@ package HRA.Household_Home_Observation is
 
    type Home_Observation is private;
 
-   --  Combined convenience: Observe_Horizon followed by Project_Day.
-   function Observe
-     (Observed_Through : HRA.Dates.Date;
-      Selected_Day     : HRA.Dates.Date;
-      State            : HRA.Household.Household_State) return Home_Observation;
+   --  Combined convenience: See_Horizon followed by Project_Day.
+   function See_Home
+     (Known_Through : HRA.Dates.Date;
+      Selected_Day  : HRA.Dates.Date;
+      State         : HRA.Household.Household_State) return Home_Observation;
 
    function Horizon (Obs : Home_Observation) return Home_Horizon_Observation;
    function Day (Obs : Home_Observation) return Home_Day_Observation;
-   function Observed_Through (Obs : Home_Observation) return HRA.Dates.Date;
+   function Known_Through (Obs : Home_Observation) return HRA.Dates.Date;
    function Selected_Day (Obs : Home_Observation) return HRA.Dates.Date;
    function Actual (Obs : Home_Observation) return Actual_Home_Observation;
    function Plan (Obs : Home_Observation) return Plan_Home_Observation;
@@ -150,18 +150,18 @@ package HRA.Household_Home_Observation is
 private
 
    type Home_Horizon_Observation is record
-      Observed_Through : HRA.Dates.Date;
-      Cycle            : Cycle_Home_Observation;
-      All_Open_Plans   : HRA.Plan_Temporal_Observation.Open_Plan_Vectors.Vector;
-      Issue_Context    : HRA.Issue_Observation.Observation;
+      Known_Through : HRA.Dates.Date;
+      Cycle         : Cycle_Home_Observation;
+      All_Open_Plans : HRA.Plan_Temporal_Observation.Open_Plan_Vectors.Vector;
+      Issue_Context  : HRA.Issue_Observation.Observation;
    end record;
 
    type Home_Day_Observation is record
-      Selected_Day     : HRA.Dates.Date;
-      Actual           : Actual_Home_Observation;
-      Plan             : Plan_Home_Observation;
-      Issue            : Issue_Home_Observation;
-      Attention        : Attention_Observation;
+      Selected_Day : HRA.Dates.Date;
+      Actual       : Actual_Home_Observation;
+      Plan         : Plan_Home_Observation;
+      Issue        : Issue_Home_Observation;
+      Attention    : Attention_Observation;
    end record;
 
    type Home_Observation is record
