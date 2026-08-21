@@ -90,12 +90,11 @@ begin
    begin
       Assert
         (Index (Txt, "Daily Target") > 0
-         and then Index (Txt, "(unavailable:") > 0
-         and then Index (Txt, "selected plan does not match a supported daily target shape") > 0
-         and then Index (Txt, "plan-id=plan-123") > 0
-         and then Index (Txt, "selection=target-lunch") > 0
+         and then Index (Txt, "(unavailable: selected plan does not match a supported daily target shape (one asset source and one expense/liability destination))") > 0
+         and then Index (Txt, "plan-id=") = 0
+         and then Index (Txt, "selection=") = 0
          and then Index (Txt, "UNSUPPORTED_SELECTED_PLAN_SHAPE") = 0,
-         "Scope_Unavailable renders gentle explanation without raw enum 'Image");
+         "Scope_Unavailable renders gentle explanation without raw enum 'Image or internal identifiers");
    end;
 
    --  3. Observation_Unavailable render
@@ -110,14 +109,13 @@ begin
    begin
       Assert
         (Index (Txt, "Daily Target") > 0
-         and then Index (Txt, "(unavailable:") > 0
-         and then Index (Txt, "configured eligible asset is not present in cycle account state") > 0
-         and then Index (Txt, "account=assets:wallet") > 0
+         and then Index (Txt, "(unavailable: configured eligible asset is not present in cycle account state)") > 0
+         and then Index (Txt, "account=") = 0
          and then Index (Txt, "ELIGIBLE_ASSET_MISSING") = 0,
-         "Observation_Unavailable renders gentle explanation without raw enum 'Image");
+         "Observation_Unavailable renders gentle explanation without raw enum 'Image or internal identifiers");
    end;
 
-   --  4. Available render (populated scenario)
+   --  4. Available render (populated scenario via View)
    declare
       Registry      : HRA.Account.Account_Registry;
       Actual_Ledger : HRA.Ledger.Ledger;
@@ -228,7 +226,10 @@ begin
          "setup observes daily target");
 
       declare
-         Txt : constant String := HRA.Daily_Target_Render.Render (Obs);
+         V   : constant HRA.Household_Daily_Target_View.View :=
+           (Status      => HRA.Household_Daily_Target_View.Available,
+            Observation => Obs);
+         Txt : constant String := HRA.Daily_Target_Render.Render (V);
       begin
          Assert
            (Index (Txt, "Daily Target") > 0
@@ -236,9 +237,9 @@ begin
             and then Index (Txt, "Eligible assets:       3,000 JPY") > 0
             and then Index (Txt, "Open obligations:      600 JPY") > 0
             and then Index (Txt, "Net obligations:       600 JPY") > 0
-            and then Index (Txt, "Spending capacity:     2,400 JPY") > 0
+            and then Index (Txt, "Capacity:              2,400 JPY") > 0
             and then Index (Txt, "Remaining days:        12") > 0,
-            "Available renders exact multi-commodity capacity, basis, and breakdown");
+            "Available renders exact multi-commodity capacity, basis, and breakdown via View");
       end;
    end;
 

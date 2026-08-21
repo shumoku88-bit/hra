@@ -1,4 +1,5 @@
 with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
+with HRA.Daily_Target_Observation;
 with HRA.Daily_Target_Rate;
 with HRA.Daily_Target_Scope;
 with HRA.Money; use HRA.Money;
@@ -94,7 +95,7 @@ package body HRA.Daily_Target_Render is
       end case;
    end Gentle_Observation_Message;
 
-   function Render
+   function Render_Observation
      (Value : HRA.Daily_Target_Observation.Observation) return String
    is
       Rate   : constant HRA.Daily_Target_Rate.Rate :=
@@ -136,7 +137,7 @@ package body HRA.Daily_Target_Render is
          ASCII.LF);
       Append
         (Result,
-         "    Spending capacity:     " &
+         "    Capacity:              " &
          Render_Balance (HRA.Daily_Target_Observation.Capacity (Value)) &
          ASCII.LF);
       Append
@@ -144,7 +145,7 @@ package body HRA.Daily_Target_Render is
          "    Remaining days:        " &
          Days'Image (2 .. Days'Image'Last) & ASCII.LF);
       return To_String (Result);
-   end Render;
+   end Render_Observation;
 
    function Render
      (Value : HRA.Household_Daily_Target_View.View) return String
@@ -157,50 +158,21 @@ package body HRA.Daily_Target_Render is
                    "  (not configured)" & ASCII.LF;
 
          when HRA.Household_Daily_Target_View.Available =>
-            return Render (Value.Observation);
+            return Render_Observation (Value.Observation);
 
          when HRA.Household_Daily_Target_View.Scope_Unavailable =>
-            declare
-               Diag : constant HRA.Daily_Target_Scope.Admission_Diagnostic :=
-                 Value.Scope_Diagnostic;
-               Result : Unbounded_String :=
-                 To_Unbounded_String
-                   ("Daily Target" & ASCII.LF &
-                    "------------" & ASCII.LF &
-                    "  (unavailable: " & Gentle_Scope_Message (Diag));
-            begin
-               if Length (Diag.Plan_Id) > 0 then
-                  Append (Result, ", plan-id=" & To_String (Diag.Plan_Id));
-               end if;
-               if Length (Diag.Selection) > 0 then
-                  Append (Result, ", selection=" & To_String (Diag.Selection));
-               end if;
-               Append (Result, ")" & ASCII.LF);
-               if Length (Diag.Message) > 0 then
-                  Append (Result, "  " & To_String (Diag.Message) & ASCII.LF);
-               end if;
-               return To_String (Result);
-            end;
+            return "Daily Target" & ASCII.LF &
+                   "------------" & ASCII.LF &
+                   "  (unavailable: " &
+                   Gentle_Scope_Message (Value.Scope_Diagnostic) & ")" &
+                   ASCII.LF;
 
          when HRA.Household_Daily_Target_View.Observation_Unavailable =>
-            declare
-               Diag : constant HRA.Daily_Target_Observation.Observe_Diagnostic :=
-                 Value.Observation_Diagnostic;
-               Result : Unbounded_String :=
-                 To_Unbounded_String
-                   ("Daily Target" & ASCII.LF &
-                    "------------" & ASCII.LF &
-                    "  (unavailable: " & Gentle_Observation_Message (Diag));
-            begin
-               if Length (Diag.Account_Name) > 0 then
-                  Append (Result, ", account=" & To_String (Diag.Account_Name));
-               end if;
-               Append (Result, ")" & ASCII.LF);
-               if Length (Diag.Message) > 0 then
-                  Append (Result, "  " & To_String (Diag.Message) & ASCII.LF);
-               end if;
-               return To_String (Result);
-            end;
+            return "Daily Target" & ASCII.LF &
+                   "------------" & ASCII.LF &
+                   "  (unavailable: " &
+                   Gentle_Observation_Message (Value.Observation_Diagnostic) & ")" &
+                   ASCII.LF;
       end case;
    end Render;
 
