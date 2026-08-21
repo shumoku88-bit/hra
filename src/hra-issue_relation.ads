@@ -34,11 +34,11 @@ package HRA.Issue_Relation is
    function "=" (Left, Right : Relation_Event_Id) return Boolean;
 
    --  Start with the first relation meaning needed by HRA. Additional meanings
-   --  remain distinct constructors rather than being flattened into a generic
-   --  graph edge.
+   --  remain distinct discriminants rather than being flattened into a generic
+   --  graph edge or one untyped target coordinate.
    type Relation_Kind is (Realized_As);
 
-   type Relation_Event is private;
+   type Relation_Event (Meaning : Relation_Kind := Realized_As) is private;
 
    type Create_Status is
      (Create_Success,
@@ -89,13 +89,15 @@ private
       ID_Text : Unbounded_String;
    end record;
 
-   type Relation_Event is record
+   type Relation_Event (Meaning : Relation_Kind := Realized_As) is record
       Event_Identity : Relation_Event_Id;
       Event_Date     : HRA.Dates.Date;
       Source_Issue   : HRA.Issues.Issue_Id;
-      Meaning        : Relation_Kind := Realized_As;
-      Target_Actual  : HRA.Actual_Admission.Actual_Id;
       Event_Details  : Unbounded_String;
+      case Meaning is
+         when Realized_As =>
+            Target_Actual : HRA.Actual_Admission.Actual_Id;
+      end case;
    end record;
 
 end HRA.Issue_Relation;
