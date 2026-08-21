@@ -288,6 +288,130 @@ begin
       end;
    end;
 
+   --  ========================================================================
+   --  Calendar Format_Cell fixed 4-slot invariant tests
+   --  ========================================================================
+   declare
+      Padding_Cell : constant HRA.Household_Home_Presentation.Calendar_Cell :=
+        (Kind => HRA.Household_Home_Presentation.Out_Of_Range_Padding);
+
+      Single_Digit_Plain : constant HRA.Household_Home_Presentation.Calendar_Cell :=
+        (Kind                => HRA.Household_Home_Presentation.Dated_Cell,
+         Date_Value          => D ("2026-08-05"),
+         Is_Current_Month    => True,
+         Is_Selected         => False,
+         Is_Observed_Through => False,
+         Is_Future           => False,
+         Attention           => (Plan_Scheduled => HRA.Household_Home_Presentation.Absent,
+                                 Issue_Due      => HRA.Household_Home_Presentation.Absent,
+                                 Cycle_End      => HRA.Household_Home_Presentation.Absent));
+
+      Single_Digit_Selected : constant HRA.Household_Home_Presentation.Calendar_Cell :=
+        (Kind                => HRA.Household_Home_Presentation.Dated_Cell,
+         Date_Value          => D ("2026-08-05"),
+         Is_Current_Month    => True,
+         Is_Selected         => True,
+         Is_Observed_Through => False,
+         Is_Future           => False,
+         Attention           => (Plan_Scheduled => HRA.Household_Home_Presentation.Absent,
+                                 Issue_Due      => HRA.Household_Home_Presentation.Absent,
+                                 Cycle_End      => HRA.Household_Home_Presentation.Absent));
+
+      Single_Digit_Marked : constant HRA.Household_Home_Presentation.Calendar_Cell :=
+        (Kind                => HRA.Household_Home_Presentation.Dated_Cell,
+         Date_Value          => D ("2026-08-05"),
+         Is_Current_Month    => True,
+         Is_Selected         => False,
+         Is_Observed_Through => False,
+         Is_Future           => False,
+         Attention           => (Plan_Scheduled => HRA.Household_Home_Presentation.Present,
+                                 Issue_Due      => HRA.Household_Home_Presentation.Absent,
+                                 Cycle_End      => HRA.Household_Home_Presentation.Absent));
+
+      Single_Digit_Marked_Selected : constant HRA.Household_Home_Presentation.Calendar_Cell :=
+        (Kind                => HRA.Household_Home_Presentation.Dated_Cell,
+         Date_Value          => D ("2026-08-05"),
+         Is_Current_Month    => True,
+         Is_Selected         => True,
+         Is_Observed_Through => False,
+         Is_Future           => False,
+         Attention           => (Plan_Scheduled => HRA.Household_Home_Presentation.Present,
+                                 Issue_Due      => HRA.Household_Home_Presentation.Absent,
+                                 Cycle_End      => HRA.Household_Home_Presentation.Absent));
+
+      Double_Digit_Plain : constant HRA.Household_Home_Presentation.Calendar_Cell :=
+        (Kind                => HRA.Household_Home_Presentation.Dated_Cell,
+         Date_Value          => D ("2026-08-15"),
+         Is_Current_Month    => True,
+         Is_Selected         => False,
+         Is_Observed_Through => False,
+         Is_Future           => False,
+         Attention           => (Plan_Scheduled => HRA.Household_Home_Presentation.Absent,
+                                 Issue_Due      => HRA.Household_Home_Presentation.Absent,
+                                 Cycle_End      => HRA.Household_Home_Presentation.Absent));
+
+      Double_Digit_Selected : constant HRA.Household_Home_Presentation.Calendar_Cell :=
+        (Kind                => HRA.Household_Home_Presentation.Dated_Cell,
+         Date_Value          => D ("2026-08-15"),
+         Is_Current_Month    => True,
+         Is_Selected         => True,
+         Is_Observed_Through => False,
+         Is_Future           => False,
+         Attention           => (Plan_Scheduled => HRA.Household_Home_Presentation.Absent,
+                                 Issue_Due      => HRA.Household_Home_Presentation.Absent,
+                                 Cycle_End      => HRA.Household_Home_Presentation.Absent));
+
+      Double_Digit_Marked : constant HRA.Household_Home_Presentation.Calendar_Cell :=
+        (Kind                => HRA.Household_Home_Presentation.Dated_Cell,
+         Date_Value          => D ("2026-08-15"),
+         Is_Current_Month    => True,
+         Is_Selected         => False,
+         Is_Observed_Through => False,
+         Is_Future           => False,
+         Attention           => (Plan_Scheduled => HRA.Household_Home_Presentation.Present,
+                                 Issue_Due      => HRA.Household_Home_Presentation.Absent,
+                                 Cycle_End      => HRA.Household_Home_Presentation.Absent));
+
+      Double_Digit_Marked_Selected : constant HRA.Household_Home_Presentation.Calendar_Cell :=
+        (Kind                => HRA.Household_Home_Presentation.Dated_Cell,
+         Date_Value          => D ("2026-08-15"),
+         Is_Current_Month    => True,
+         Is_Selected         => True,
+         Is_Observed_Through => False,
+         Is_Future           => False,
+         Attention           => (Plan_Scheduled => HRA.Household_Home_Presentation.Present,
+                                 Issue_Due      => HRA.Household_Home_Presentation.Absent,
+                                 Cycle_End      => HRA.Household_Home_Presentation.Absent));
+   begin
+      Assert (HRA.Household_Home_Text.Format_Cell (Padding_Cell) = "     ",
+              "Padding cell formats as 5 spaces");
+      Assert (HRA.Household_Home_Text.Format_Cell (Single_Digit_Plain) = "  5  ",
+              "Single-digit plain cell formats as '  5  '");
+      Assert (HRA.Household_Home_Text.Format_Cell (Single_Digit_Selected) = "[ 5 ]",
+              "Single-digit selected cell formats as '[ 5 ]' preserving digit column");
+      Assert (HRA.Household_Home_Text.Format_Cell (Single_Digit_Marked) = "  5$ ",
+              "Single-digit marked cell formats as '  5$ '");
+      Assert (HRA.Household_Home_Text.Format_Cell (Single_Digit_Marked_Selected) = "[ 5$]",
+              "Single-digit marked selected cell formats as '[ 5$]' preserving digit column");
+      Assert (HRA.Household_Home_Text.Format_Cell (Double_Digit_Plain) = " 15  ",
+              "Double-digit plain cell formats as ' 15  '");
+      Assert (HRA.Household_Home_Text.Format_Cell (Double_Digit_Selected) = "[15 ]",
+              "Double-digit selected cell formats as '[15 ]' preserving digit column");
+      Assert (HRA.Household_Home_Text.Format_Cell (Double_Digit_Marked) = " 15$ ",
+              "Double-digit marked cell formats as ' 15$ '");
+      Assert (HRA.Household_Home_Text.Format_Cell (Double_Digit_Marked_Selected) = "[15$]",
+              "Double-digit marked selected cell formats as '[15$]' preserving digit column");
+
+      declare
+         Grid : HRA.Household_Home_Presentation.Calendar_Grid;
+         Grid_Text : constant String :=
+           HRA.Household_Home_Text.Render_Calendar_Grid (Grid);
+      begin
+         Assert (Index (Grid_Text, " Mon  Tue  Wed  Thu  Fri  Sat  Sun") > 0,
+                 "Calendar header aligns with 4-slot cell layout");
+      end;
+   end;
+
    Put_Line ("--------------------------------------------------");
    Put_Line
      ("Summary: Passed =" & Natural'Image (Passed_Count) &

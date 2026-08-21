@@ -57,26 +57,19 @@ package body HRA.Household_Home_Text is
             return "     ";
          when Dated_Cell =>
             declare
-               Day_Num : constant Positive := HRA.Dates.Day (Cell.Date_Value);
-               Day_Str : constant String :=
+               Day_Num     : constant Positive := HRA.Dates.Day (Cell.Date_Value);
+               Day_Str     : constant String :=
                  (if Day_Num < 10
                   then " " & Trim (Positive'Image (Day_Num), Both)
                   else Trim (Positive'Image (Day_Num), Both));
-               M       : constant Character := Resolve_Marker (Cell.Attention, Markers);
+               Left_Delim  : constant Character :=
+                 (if Cell.Is_Selected then '[' else ' ');
+               Right_Delim : constant Character :=
+                 (if Cell.Is_Selected then ']' else ' ');
+               Marker      : constant Character :=
+                 Resolve_Marker (Cell.Attention, Markers);
             begin
-               if Cell.Is_Selected then
-                  if M /= ' ' then
-                     return "[" & Day_Str & M & "]";
-                  else
-                     return "[" & Day_Str & "] ";
-                  end if;
-               else
-                  if M /= ' ' then
-                     return " " & Day_Str & M & " ";
-                  else
-                     return "  " & Day_Str & " ";
-                  end if;
-               end if;
+               return Left_Delim & Day_Str & Marker & Right_Delim;
             end;
       end case;
    end Format_Cell;
@@ -106,12 +99,14 @@ package body HRA.Household_Home_Text is
         (Cycle_End => '|', Plan_Due => '$', Issue_Due => '!', Multiple => '+'))
       return String
    is
-      Buf   : Unbounded_String;
-      Title : constant String :=
+      Buf        : Unbounded_String;
+      Title      : constant String :=
         Month_Name (Grid.Month) & " " & Trim (Positive'Image (Grid.Year), Both);
+      Pad_Spaces : constant Natural :=
+        (if Title'Length < 35 then (35 - Title'Length) / 2 else 0);
    begin
-      Append (Buf, "        " & Title & ASCII.LF);
-      Append (Buf, "  Mon  Tue  Wed  Thu  Fri  Sat  Sun" & ASCII.LF);
+      Append (Buf, (1 .. Pad_Spaces => ' ') & Title & ASCII.LF);
+      Append (Buf, " Mon  Tue  Wed  Thu  Fri  Sat  Sun" & ASCII.LF);
 
       for Week of Grid.Weeks loop
          for Wday in HRA.Dates.Day_Of_Week loop
