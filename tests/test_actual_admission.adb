@@ -123,8 +123,10 @@ begin
    Assert
      (HRA.Actual_Admission.Transaction_Count (Observation) = 2
         and then HRA.Actual_Admission.Identified_Count (Observation) = 2
+        and then HRA.Actual_Admission.Source_Durable_Identified_Count
+          (Observation) = 1
         and then HRA.Actual_Admission.Reversal_Count (Observation) = 1,
-      "Actual admission retains source-order transactions and reversal edge");
+      "Actual admission distinguishes effective and source-durable identities");
 
    declare
       First  : constant HRA.Actual_Admission.Actual_Transaction_Entry :=
@@ -138,15 +140,19 @@ begin
         (First.Identity.Present
            and then HRA.Actual_Admission.Text (First.Identity.Value) =
              "plan-completion-plan-a"
+           and then not First.Source_Durable_Identity.Present
            and then First.Source.Header_Line = 1
            and then Second.Identity.Present
-           and then HRA.Actual_Admission.Text (Second.Identity.Value) = "rev-a",
-         "Transaction entries align typed identity with parser-owned provenance");
+           and then HRA.Actual_Admission.Text (Second.Identity.Value) = "rev-a"
+           and then Second.Source_Durable_Identity.Present
+           and then HRA.Actual_Admission.Text
+             (Second.Source_Durable_Identity.Value) = "rev-a",
+         "Transaction entries retain source durability separately from effective identity");
       Assert
         (HRA.Actual_Admission.Text (Edge.Reversal_ID) = "rev-a"
            and then HRA.Actual_Admission.Text (Edge.Target_ID) =
              "plan-completion-plan-a",
-         "Reversal relation remains typed at the Actual package boundary");
+         "Reversal relation may still use admitted Plan-derived Actual identity");
    end;
 
    declare
@@ -161,7 +167,7 @@ begin
          To_String (Admitted.Transactions.Element (2).Event_ID) = "rev-a" and then
          To_String (Admitted.Transactions.Element (2).Reverses_ID) =
            "plan-completion-plan-a",
-         "Admitted Ledger carries only normalized identity provenance");
+         "Admitted Ledger carries normalized effective identity provenance");
    end;
 
    declare
