@@ -13,6 +13,7 @@ with HRA.Plan;
 --  Transforms semantic Home_Observation into UI-neutral structured view models:
 --    - Monthly calendar grid with attention facts
 --    - Structured Selected-Day details for Actual, Plan, Issue, and Cycle
+--    - Structured Daily Target summary for knowledge horizon
 --
 --  Terminal-specific formatting (fixed-width cells, ASCII boxes, glyph mapping)
 --  is strictly excluded and owned by HRA.Household_Home_Text.
@@ -142,14 +143,36 @@ package HRA.Household_Home_Presentation is
             Current_Window  : HRA.Dates.Half_Open_Period;
             Focus_Role      : Cycle_Focus_Role;
          when Unavailable =>
-            Error : HRA.Cycle_Observation.Resolve_Status;
+            Error : HRA.Cycle_Observation.Resolve_Status :=
+              HRA.Cycle_Observation.Insufficient_Actual_Anchors;
+      end case;
+   end record;
+
+   type Daily_Target_Availability is (Unconfigured, Visible, Not_Visible);
+
+   type Daily_Target_Not_Visible_Reason is
+     (Scope_Unavailable,
+      Cycle_Unavailable,
+      Cycle_Accounts_Unavailable,
+      Observation_Unavailable);
+
+   type Daily_Target_Presentation (Status : Daily_Target_Availability := Unconfigured) is record
+      case Status is
+         when Unconfigured =>
+            null;
+         when Visible =>
+            Capacity       : HRA.Money.Balance;
+            Remaining_Days : HRA.Dates.Positive_Day_Count;
+         when Not_Visible =>
+            Reason : Daily_Target_Not_Visible_Reason;
       end case;
    end record;
 
    type Home_Presentation is record
-      Known_Through  : HRA.Dates.Date;
-      Selected_Day   : HRA.Dates.Date;
+      Known_Through   : HRA.Dates.Date;
+      Selected_Day    : HRA.Dates.Date;
       Is_Future_Focus : Boolean := False;
+      Daily_Target    : Daily_Target_Presentation;
       Attention       : Attention_Summary;
       Calendar        : Calendar_Grid;
       Actual          : Actual_Presentation;

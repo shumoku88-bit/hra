@@ -8,6 +8,8 @@ with HRA.Dates;                       use type HRA.Dates.Date;
 with HRA.Household;
 with HRA.Household_Home_Observation;
 with HRA.Household_Home_Presentation; use type HRA.Household_Home_Presentation.Attention_State;
+                                      use type HRA.Household_Home_Presentation.Daily_Target_Availability;
+                                      use type HRA.Household_Home_Presentation.Daily_Target_Not_Visible_Reason;
                                       use type HRA.Household_Home_Presentation.Domain_Availability;
                                       use type HRA.Household_Home_Presentation.Issue_Unavailable_Reason;
 with HRA.Household_Home_Text;
@@ -193,6 +195,8 @@ begin
       Assert (Pres.Known_Through = D ("2026-08-19")
               and then Pres.Selected_Day = D ("2026-08-19"),
               "Presentation preserves known-through and focus coordinates");
+      Assert (Pres.Daily_Target.Status = HRA.Household_Home_Presentation.Unconfigured,
+              "Daily Target presentation is Unconfigured when absent from policy");
       Assert (Pres.Actual.Status = HRA.Household_Home_Presentation.Available
               and then Natural (Pres.Actual.Items.Length) = 1,
               "Presentation exposes visible Actual items");
@@ -202,6 +206,14 @@ begin
               "Cycle presentation is available for admitted anchors");
       Assert (Pres.Calendar.Year = 2026 and then Pres.Calendar.Month = 8,
               "Calendar presentation retains selected month");
+      declare
+         Text : constant String := HRA.Household_Home_Text.Render_Home (Pres);
+      begin
+         Assert (Index (Text, "Daily Target : (not configured)") > 0
+                 and then Index (Text, "Known Through: 2026-08-19") < Index (Text, "Daily Target :")
+                 and then Index (Text, "Daily Target :") < Index (Text, "Attention    :"),
+                 "Text renders Daily Target unconfigured between Known Through and Attention");
+      end;
    end;
 
    declare
@@ -429,6 +441,205 @@ begin
       begin
          Assert (Index (Grid_Text, " Mon  Tue  Wed  Thu  Fri  Sat  Sun") > 0,
                  "Calendar header aligns with 4-slot cell layout");
+      end;
+   end;
+
+   --  ========================================================================
+   --  Daily Target Presentation & Text Rendering scenarios
+   --  ========================================================================
+   declare
+      DT_Sources : HRA.Canonical_Source.Source_Observation := Make_Synthetic_Sources;
+      DT_State   : HRA.Household.Household_State;
+      DT_Err     : Unbounded_String;
+   begin
+      --  Configure [daily-target]
+      DT_Sources.Texts (Household_Config_Source) := To_Unbounded_String
+        ("[cycle]" & ASCII.LF &
+         "mode = ""income-anchor""" & ASCII.LF &
+         "income-account = ""income:salary""" & ASCII.LF &
+         "[money]" & ASCII.LF &
+         "primary-commodity = ""JPY""" & ASCII.LF &
+         "[daily-target]" & ASCII.LF &
+         "assets = [{ id = ""bank"", account = ""assets:bank"" }, { id = ""cash"", account = ""assets:cash"" }]" & ASCII.LF &
+         "[envelope-history]" & ASCII.LF &
+         "identities = [""food""]" & ASCII.LF &
+         "[[envelope-history.expense-routing]]" & ASCII.LF &
+         "effective-from = ""initial""" & ASCII.LF &
+         "expense-account = ""expenses:food""" & ASCII.LF &
+         "route = ""managed""" & ASCII.LF &
+         "target = ""food""" & ASCII.LF &
+         "note = ""home presentation routing""" & ASCII.LF);
+
+      --  Tag plan with daily-target-id
+      DT_Sources.Texts (Plan_Source) := To_Unbounded_String
+        ("2026-08-25 Planned Utility Bill" & ASCII.LF &
+         "    ; plan-id: plan-util-aug" & ASCII.LF &
+         "    ; daily-target-id: sel-util" & ASCII.LF &
+         "    expenses:food          8000 JPY" & ASCII.LF &
+         "    assets:bank           -8000 JPY" & ASCII.LF & ASCII.LF &
+         "2026-08-31 September Salary" & ASCII.LF &
+         "    ; plan-id: plan-sep-salary" & ASCII.LF &
+         "    assets:bank          300000 JPY" & ASCII.LF &
+         "    income:salary       -300000 JPY" & ASCII.LF);
+
+      Assert
+        (HRA.Household.Admit_Canonical_Household (DT_Sources, DT_State, DT_Err),
+         "Admit Household state configured with Daily Target");
+
+      declare
+         Obs  : constant HRA.Household_Home_Observation.Home_Observation :=
+           HRA.Household_Home_Observation.See_Home
+             (D ("2026-08-19"), D ("2026-08-19"), DT_State);
+         Pres : constant HRA.Household_Home_Presentation.Home_Presentation :=
+           HRA.Household_Home_Presentation.Present (Obs);
+         Text : constant String := HRA.Household_Home_Text.Render_Home (Pres);
+      begin
+         Assert
+           (Pres.Daily_Target.Status = HRA.Household_Home_Presentation.Visible,
+            "Configured Daily Target presents as Visible");
+         Assert
+           (Pres.Daily_Target.Remaining_Days = 12,
+            "Visible Daily Target retains exact remaining days");
+         Assert
+           (Index (Text, "Daily Target : ") > 0
+            and then Index (Text, "over 12 remaining days in cycle") > 0,
+            "Text renders Visible Daily Target with exact capacity and days");
+      end;
+
+      --  Configured Daily Target + Missing Future Anchor -> Cycle_Unavailable
+      declare
+         Broken_Cycle_Sources : HRA.Canonical_Source.Source_Observation := DT_Sources;
+         Broken_Cycle_State   : HRA.Household.Household_State;
+      begin
+         Broken_Cycle_Sources.Texts (Plan_Source) := To_Unbounded_String
+           ("2026-08-25 Planned Utility Bill" & ASCII.LF &
+            "    ; plan-id: plan-util-aug" & ASCII.LF &
+            "    ; daily-target-id: sel-util" & ASCII.LF &
+            "    expenses:food          8000 JPY" & ASCII.LF &
+            "    assets:bank           -8000 JPY" & ASCII.LF);
+
+         Assert
+           (HRA.Household.Admit_Canonical_Household
+              (Broken_Cycle_Sources, Broken_Cycle_State, DT_Err),
+            "Admit configured Daily Target state without future cycle anchor");
+
+         declare
+            Obs  : constant HRA.Household_Home_Observation.Home_Observation :=
+              HRA.Household_Home_Observation.See_Home
+                (D ("2026-08-19"), D ("2026-08-19"), Broken_Cycle_State);
+            Pres : constant HRA.Household_Home_Presentation.Home_Presentation :=
+              HRA.Household_Home_Presentation.Present (Obs);
+            Text : constant String := HRA.Household_Home_Text.Render_Home (Pres);
+         begin
+            Assert
+              (Pres.Daily_Target.Status = HRA.Household_Home_Presentation.Not_Visible
+               and then Pres.Daily_Target.Reason =
+                 HRA.Household_Home_Presentation.Cycle_Unavailable,
+               "Daily Target presents as Not_Visible (Cycle_Unavailable)");
+            Assert
+              (Index (Text, "Daily Target : (not yet visible: cycle boundaries are undetermined)") > 0,
+               "Text renders gentle not-yet-visible message for Cycle_Unavailable");
+         end;
+      end;
+
+      --  Scope Unavailable scenario
+      declare
+         Scope_Unavail_Sources : HRA.Canonical_Source.Source_Observation := DT_Sources;
+         Scope_Unavail_State   : HRA.Household.Household_State;
+      begin
+         --  Invalid plan shape: 3 postings
+         Scope_Unavail_Sources.Texts (Plan_Source) := To_Unbounded_String
+           ("2026-08-25 Planned Three-Leg Bill" & ASCII.LF &
+            "    ; plan-id: plan-bad" & ASCII.LF &
+            "    ; daily-target-id: sel-bad" & ASCII.LF &
+            "    expenses:food          4000 JPY" & ASCII.LF &
+            "    expenses:food          4000 JPY" & ASCII.LF &
+            "    assets:bank           -8000 JPY" & ASCII.LF & ASCII.LF &
+            "2026-08-31 September Salary" & ASCII.LF &
+            "    ; plan-id: plan-sep-salary" & ASCII.LF &
+            "    assets:bank          300000 JPY" & ASCII.LF &
+            "    income:salary       -300000 JPY" & ASCII.LF);
+
+         Assert
+           (HRA.Household.Admit_Canonical_Household
+              (Scope_Unavail_Sources, Scope_Unavail_State, DT_Err),
+            "Admit state with unsupported daily target plan shape");
+
+         declare
+            Obs  : constant HRA.Household_Home_Observation.Home_Observation :=
+              HRA.Household_Home_Observation.See_Home
+                (D ("2026-08-19"), D ("2026-08-19"), Scope_Unavail_State);
+            Pres : constant HRA.Household_Home_Presentation.Home_Presentation :=
+              HRA.Household_Home_Presentation.Present (Obs);
+            Text : constant String := HRA.Household_Home_Text.Render_Home (Pres);
+         begin
+            Assert
+              (Pres.Daily_Target.Status = HRA.Household_Home_Presentation.Not_Visible
+               and then Pres.Daily_Target.Reason =
+                 HRA.Household_Home_Presentation.Scope_Unavailable,
+               "Daily Target presents as Not_Visible (Scope_Unavailable)");
+            Assert
+              (Index (Text, "Daily Target : (setup unavailable: daily target configuration cannot be applied)") > 0
+               and then Index (Text, "not yet visible") = 0,
+               "Text distinguishes setup-unavailable from temporal not-yet-visible");
+         end;
+      end;
+
+      --  Observation_Unavailable presentation & rendering law
+      declare
+         Base_Obs : constant HRA.Household_Home_Observation.Home_Observation :=
+           HRA.Household_Home_Observation.See_Home
+             (D ("2026-08-19"), D ("2026-08-19"), DT_State);
+         Base_Pres : constant HRA.Household_Home_Presentation.Home_Presentation :=
+           HRA.Household_Home_Presentation.Present (Base_Obs);
+         Obs_Unavail_Pres : HRA.Household_Home_Presentation.Home_Presentation := Base_Pres;
+      begin
+         Obs_Unavail_Pres.Daily_Target :=
+           (Status => HRA.Household_Home_Presentation.Not_Visible,
+            Reason => HRA.Household_Home_Presentation.Observation_Unavailable);
+         declare
+            Text : constant String :=
+              HRA.Household_Home_Text.Render_Home (Obs_Unavail_Pres);
+         begin
+            Assert
+              (Obs_Unavail_Pres.Daily_Target.Status = HRA.Household_Home_Presentation.Not_Visible
+               and then Obs_Unavail_Pres.Daily_Target.Reason =
+                 HRA.Household_Home_Presentation.Observation_Unavailable,
+               "Daily Target presents as Not_Visible (Observation_Unavailable)");
+            Assert
+              (Index (Text, "Daily Target : (not visible from the current Daily Target view)") > 0,
+               "Daily Target renders non-temporal unvisibility message for Observation_Unavailable");
+            Assert
+              (Index (Text, "Daily Target : (not yet visible") = 0,
+               "Observation_Unavailable does not use 'not yet visible'");
+         end;
+      end;
+
+      --  Cycle_Accounts_Unavailable presentation & rendering law
+      declare
+         Base_Obs : constant HRA.Household_Home_Observation.Home_Observation :=
+           HRA.Household_Home_Observation.See_Home
+             (D ("2026-08-19"), D ("2026-08-19"), DT_State);
+         Base_Pres : constant HRA.Household_Home_Presentation.Home_Presentation :=
+           HRA.Household_Home_Presentation.Present (Base_Obs);
+         Acc_Unavail_Pres : HRA.Household_Home_Presentation.Home_Presentation := Base_Pres;
+      begin
+         Acc_Unavail_Pres.Daily_Target :=
+           (Status => HRA.Household_Home_Presentation.Not_Visible,
+            Reason => HRA.Household_Home_Presentation.Cycle_Accounts_Unavailable);
+         declare
+            Text : constant String :=
+              HRA.Household_Home_Text.Render_Home (Acc_Unavail_Pres);
+         begin
+            Assert
+              (Acc_Unavail_Pres.Daily_Target.Status = HRA.Household_Home_Presentation.Not_Visible
+               and then Acc_Unavail_Pres.Daily_Target.Reason =
+                 HRA.Household_Home_Presentation.Cycle_Accounts_Unavailable,
+               "Daily Target presents as Not_Visible (Cycle_Accounts_Unavailable)");
+            Assert
+              (Index (Text, "Daily Target : (not yet visible: cycle account balances are undetermined)") > 0,
+               "Daily Target renders temporal not-yet-visible message for Cycle_Accounts_Unavailable");
+         end;
       end;
    end;
 
