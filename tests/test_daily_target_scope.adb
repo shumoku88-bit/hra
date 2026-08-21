@@ -123,31 +123,43 @@ begin
    begin
       Assert (OK, "eligible Asset plus selected outgoing Plan admits");
       if OK then
-         declare
-            Assets : constant HRA.Daily_Target_Scope.Account_Vectors.Vector :=
-              HRA.Daily_Target_Scope.Eligible_Assets (Scope);
-            O : constant HRA.Daily_Target_Scope.Obligation :=
-              HRA.Daily_Target_Scope.Obligation_At (Scope, 1);
-         begin
+         Assert
+           (HRA.Daily_Target_Scope.Is_Configured (Scope)
+              and then HRA.Daily_Target_Scope.Eligible_Asset_Count (Scope) = 1,
+            "scope retains long-lived eligible Asset policy");
+
+         if HRA.Daily_Target_Scope.Eligible_Asset_Count (Scope) = 1 then
             Assert
-              (HRA.Daily_Target_Scope.Is_Configured (Scope)
-                 and then Natural (Assets.Length) = 1,
-               "scope retains long-lived eligible Asset policy");
-            Assert
-              (HRA.Daily_Target_Scope.Obligation_Count (Scope) = 1
-                 and then HRA.Plan.Text (O.Plan_ID) = "rent",
-               "unselected multi-post Plan remains legal and outside Daily Target");
-            Assert
-              (O.Amount.Val = 100.0
-                 and then HRA.Money.Code (O.Amount.Comm) = "JPY",
-               "selected outgoing obligation retains exact positive amount");
-            Assert
-              (O.Reservation.Present
-                 and then O.Reservation.Value.Amount.Val = 40.0
-                 and then HRA.Money.Code
-                   (O.Reservation.Value.Amount.Comm) = "JPY",
-               "reservation remains distinct exact evidence");
-         end;
+              (HRA.Account.Name
+                 (HRA.Daily_Target_Scope.Eligible_Asset_At (Scope, 1)) =
+                   "assets:cash",
+               "eligible Asset is exposed through opaque source-order access");
+         end if;
+
+         Assert
+           (HRA.Daily_Target_Scope.Obligation_Count (Scope) = 1,
+            "unselected multi-post Plan remains outside Daily Target");
+
+         if HRA.Daily_Target_Scope.Obligation_Count (Scope) = 1 then
+            declare
+               O : constant HRA.Daily_Target_Scope.Obligation :=
+                 HRA.Daily_Target_Scope.Obligation_At (Scope, 1);
+            begin
+               Assert
+                 (HRA.Plan.Text (O.Plan_ID) = "rent",
+                  "selected Plan identity remains attached to obligation");
+               Assert
+                 (O.Amount.Val = 100.0
+                    and then HRA.Money.Code (O.Amount.Comm) = "JPY",
+                  "selected outgoing obligation retains exact positive amount");
+               Assert
+                 (O.Reservation.Present
+                    and then O.Reservation.Value.Amount.Val = 40.0
+                    and then HRA.Money.Code
+                      (O.Reservation.Value.Amount.Comm) = "JPY",
+                  "reservation remains distinct exact evidence");
+            end;
+         end if;
       end if;
    end;
 
