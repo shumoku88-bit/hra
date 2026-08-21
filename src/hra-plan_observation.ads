@@ -1,4 +1,5 @@
 with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
+with Ada.Containers.Indefinite_Vectors;
 with HRA.Dates;
 with HRA.Ledger;
 with HRA.Plan;
