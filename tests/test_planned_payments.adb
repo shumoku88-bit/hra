@@ -17,7 +17,7 @@ with HRA.Planned_Payments_Render;
 
 procedure Test_Planned_Payments is
    use type HRA.Planned_Payments.Temporal_Status;
-   use type HRA.Planned_Payments.Admission_Status;
+   use type HRA.Planned_Payments.Projection_Status;
 
    Passed_Count : Natural := 0;
    Failed_Count : Natural := 0;
@@ -164,7 +164,7 @@ procedure Test_Planned_Payments is
 
    Registry  : HRA.Account.Account_Registry := HRA.Account.Empty_Registry;
    Result    : HRA.Planned_Payments.Observation;
-   Diag      : HRA.Planned_Payments.Admission_Diagnostic;
+   Diag      : HRA.Planned_Payments.Projection_Diagnostic;
    As_Of     : constant HRA.Dates.Date := D ("2026-08-15");
 
 begin
