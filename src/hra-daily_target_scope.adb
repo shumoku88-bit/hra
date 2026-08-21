@@ -9,9 +9,31 @@ package body HRA.Daily_Target_Scope is
    use type HRA.Account.Account_Type;
    use type HRA.Money.Commodity;
    use type HRA.Money.Quantity;
+   use type HRA.Plan.Plan_Id;
 
    package String_Vectors is new Ada.Containers.Indefinite_Vectors
      (Index_Type => Positive, Element_Type => String);
+
+   function "=" (Left, Right : Obligation) return Boolean is
+   begin
+      if Left.Selection /= Right.Selection
+        or else Left.Plan_ID /= Right.Plan_ID
+        or else Left.Amount.Comm /= Right.Amount.Comm
+        or else Left.Amount.Val /= Right.Amount.Val
+        or else Left.Reservation.Present /= Right.Reservation.Present
+      then
+         return False;
+      elsif not Left.Reservation.Present then
+         return True;
+      else
+         return
+           Left.Reservation.Value.ID = Right.Reservation.Value.ID
+           and then Left.Reservation.Value.Amount.Comm =
+             Right.Reservation.Value.Amount.Comm
+           and then Left.Reservation.Value.Amount.Val =
+             Right.Reservation.Value.Amount.Val;
+      end if;
+   end "=";
 
    function Contains
      (Values : String_Vectors.Vector;
@@ -372,7 +394,6 @@ package body HRA.Daily_Target_Scope is
                        (Obligation'
                           (Selection   => Selection_Value,
                            Plan_ID     => Item.ID,
-                           Tx          => Item.Tx,
                            Amount      => Payment_Amount,
                            Reservation => Reservation));
                   end;
