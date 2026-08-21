@@ -23,8 +23,8 @@ package body HRA.Household_Home_Observation is
    function Is_Available (Obs : Cycle_Home_Observation) return Boolean is
      (Obs.Status = Available);
 
-   function Observed_Through (Horizon : Home_Horizon_Observation) return HRA.Dates.Date is
-     (Horizon.Observed_Through);
+   function Known_Through (Horizon : Home_Horizon_Observation) return HRA.Dates.Date is
+     (Horizon.Known_Through);
 
    function Cycle (Horizon : Home_Horizon_Observation) return Cycle_Home_Observation is
      (Horizon.Cycle);
@@ -50,8 +50,8 @@ package body HRA.Household_Home_Observation is
    function Day (Obs : Home_Observation) return Home_Day_Observation is
      (Obs.Day);
 
-   function Observed_Through (Obs : Home_Observation) return HRA.Dates.Date is
-     (Obs.Horizon.Observed_Through);
+   function Known_Through (Obs : Home_Observation) return HRA.Dates.Date is
+     (Obs.Horizon.Known_Through);
 
    function Selected_Day (Obs : Home_Observation) return HRA.Dates.Date is
      (Obs.Day.Selected_Day);
@@ -126,29 +126,29 @@ package body HRA.Household_Home_Observation is
       Day : HRA.Dates.Date) return Attention_Observation is
      (Day_Attention (Obs.Horizon, Day));
 
-   function Observe_Horizon
-     (Observed_Through : HRA.Dates.Date;
-      State            : HRA.Household.Household_State) return Home_Horizon_Observation
+   function See_Horizon
+     (Known_Through : HRA.Dates.Date;
+      State         : HRA.Household.Household_State) return Home_Horizon_Observation
    is
       Result     : Home_Horizon_Observation;
       Plan_Obs   : constant HRA.Plan_Temporal_Observation.Observation :=
         HRA.Plan_Temporal_Observation.Observe
-          (State.Plan_Journal, State.Plan_Completions, Observed_Through);
+          (State.Plan_Journal, State.Plan_Completions, Known_Through);
       Income_Acc : HRA.Account.Account;
       Cycle_Obs  : HRA.Cycle_Observation.Observation;
       Cycle_Stat : HRA.Cycle_Observation.Resolve_Status;
    begin
-      Result.Observed_Through := Observed_Through;
-      Result.All_Open_Plans   := Plan_Obs.Open_Plans;
-      Result.Issue_Context    :=
-        HRA.Issue_Observation.Observe (State.Issues, Observed_Through);
+      Result.Known_Through := Known_Through;
+      Result.All_Open_Plans := Plan_Obs.Open_Plans;
+      Result.Issue_Context :=
+        HRA.Issue_Observation.Observe (State.Issues, Known_Through);
 
       Income_Acc :=
         HRA.Account.Make_Account
           (To_String (State.Household_Policy.Cycle_Income_Account));
 
       if HRA.Cycle_Observation.Observe
-           (Observed_Through => Observed_Through,
+           (Observed_Through => Known_Through,
             Actual_Ledger    => State.Actual_Ledger,
             Open_Plans       => Result.All_Open_Plans,
             Registry         => State.Registry,
@@ -166,7 +166,7 @@ package body HRA.Household_Home_Observation is
       end if;
 
       return Result;
-   end Observe_Horizon;
+   end See_Horizon;
 
    function Project_Day
      (Horizon      : Home_Horizon_Observation;
@@ -177,7 +177,7 @@ package body HRA.Household_Home_Observation is
    begin
       Result.Selected_Day := Selected_Day;
 
-      if Selected_Day <= Horizon.Observed_Through then
+      if Selected_Day <= Horizon.Known_Through then
          declare
             Selected_Txs : HRA.Ledger.Transaction_Vectors.Vector;
          begin
@@ -193,7 +193,7 @@ package body HRA.Household_Home_Observation is
       else
          Result.Actual :=
            (Status => Unavailable,
-            Reason => Observation_Horizon_Exceeded);
+            Reason => Beyond_Known_Horizon);
       end if;
 
       declare
@@ -231,17 +231,17 @@ package body HRA.Household_Home_Observation is
       return Result;
    end Project_Day;
 
-   function Observe
-     (Observed_Through : HRA.Dates.Date;
-      Selected_Day     : HRA.Dates.Date;
-      State            : HRA.Household.Household_State) return Home_Observation
+   function See_Home
+     (Known_Through : HRA.Dates.Date;
+      Selected_Day  : HRA.Dates.Date;
+      State         : HRA.Household.Household_State) return Home_Observation
    is
       Horizon_Obs : constant Home_Horizon_Observation :=
-        Observe_Horizon (Observed_Through, State);
-      Day_Obs     : constant Home_Day_Observation :=
+        See_Horizon (Known_Through, State);
+      Day_Obs : constant Home_Day_Observation :=
         Project_Day (Horizon_Obs, Selected_Day, State);
    begin
       return (Horizon => Horizon_Obs, Day => Day_Obs);
-   end Observe;
+   end See_Home;
 
 end HRA.Household_Home_Observation;
