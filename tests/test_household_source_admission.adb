@@ -8,6 +8,9 @@ with HRA.Plan_Admission;
 with HRA.Plan_Completion;
 
 procedure Test_Household_Source_Admission is
+   use type HRA.Household.Daily_Target_Scope_Availability;
+   use type HRA.Daily_Target_Scope.Admission_Status;
+
    Passed_Count : Natural := 0;
    Failed_Count : Natural := 0;
 
