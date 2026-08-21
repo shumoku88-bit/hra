@@ -81,6 +81,19 @@ package body HRA.Actual_Admission is
       return Count;
    end Identified_Count;
 
+   function Source_Durable_Identified_Count
+     (Observation : Actual_Observation) return Natural
+   is
+      Count : Natural := 0;
+   begin
+      for Item of Observation.In_Order loop
+         if Item.Source_Durable_Identity.Present then
+            Count := Count + 1;
+         end if;
+      end loop;
+      return Count;
+   end Source_Durable_Identified_Count;
+
    procedure Find_Metadata
      (Source      : Transaction_Source;
       Key         : String;
@@ -440,9 +453,13 @@ package body HRA.Actual_Admission is
             Output.Value.Transactions.Replace_Element (I, Normalized_Tx);
             Output.In_Order.Append
               (Actual_Transaction_Entry'
-                 (Tx       => Normalized_Tx,
-                  Identity => Assigned_Identity,
-                  Source   => Source));
+                 (Tx                      => Normalized_Tx,
+                  Identity                => Assigned_Identity,
+                  Source_Durable_Identity =>
+                    (if Has_Event
+                     then (Present => True, Value => Event_ID)
+                     else (Present => False)),
+                  Source                  => Source));
          end;
       end loop;
 
