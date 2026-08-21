@@ -4,6 +4,7 @@ with Ada.Text_IO;           use Ada.Text_IO;
 with HRA.Account;
 with HRA.Actual_Admission;
 with HRA.Backing_Policy;
+with HRA.Cycle_Observation;
 with HRA.Envelope_Config;
 with HRA.Config_Support;
 with HRA.Dates;
@@ -23,6 +24,7 @@ with HRA.Plan_Completion;
 with HRA.Planned_Payments;
 with HRA.Planned_Payments_Render;
 with HRA.Report_Config;
+with HRA.Report_Cycle_Accounts;
 
 procedure Test_Household_Report_Observation is
    use type HRA.Dates.Date;
@@ -30,6 +32,7 @@ procedure Test_Household_Report_Observation is
    use type HRA.Household_Report_Observation.Current_Report_Section_Order;
    use type HRA.Household_Report_Observation.Planned_Payments_Availability;
    use type HRA.Planned_Payments.Projection_Status;
+   use type HRA.Report_Cycle_Accounts.Comparison_Availability;
    use type HRA.Money.Quantity;
 
    Passed_Count : Natural := 0;
@@ -313,6 +316,24 @@ begin
       and then Observation.Recent_Journal.Through_Date = D ("2026-08-10"),
       "TB, BS, P&L, Daily, Monthly, and Recent retain exact resolved coordinates");
    Assert
+     (Observation.Cycle_Accounts.Current.Observed_Through = D ("2026-08-10")
+      and then HRA.Cycle_Observation.Start_Date
+        (Observation.Cycle_Accounts.Current.Window) = D ("2026-08-01")
+      and then HRA.Cycle_Observation.End_Exclusive
+        (Observation.Cycle_Accounts.Current.Window) = D ("2026-09-01")
+      and then Natural (Observation.Cycle_Accounts.Current.Rows.Length) = 3
+      and then HRA.Report_Cycle_Accounts.Is_Balanced
+        (Observation.Cycle_Accounts.Current),
+      "Cycle Accounts retains the report book's typed Household cycle coordinate");
+   Assert
+     (Observation.Cycle_Accounts.Comparison.Status =
+        HRA.Report_Cycle_Accounts.Comparison_Available
+      and then Observation.Cycle_Accounts.Comparison.Value.Baseline.Observed_Through =
+        D ("2026-07-10")
+      and then HRA.Report_Cycle_Accounts.Is_Balanced
+        (Observation.Cycle_Accounts.Comparison.Value),
+      "Cycle comparison aligns the previous cycle at equal elapsed day");
+   Assert
      (Natural (Observation.Daily_Flow.Lines.Length) = 2
       and then Natural (Observation.Monthly_Accounts.Months.Length) = 2,
       "flow sections expose admitted Actual through the resolved report periods");
@@ -329,6 +350,7 @@ begin
      (Observation.Section_Order =
         HRA.Household_Report_Observation.Current_Report_Section_Order'
           [HRA.Household_Report_Observation.Envelope_And_Backing_Section,
+           HRA.Household_Report_Observation.Cycle_Accounts_Section,
            HRA.Household_Report_Observation.Account_Balances_Section,
            HRA.Household_Report_Observation.Balance_Sheet_Section,
            HRA.Household_Report_Observation.Profit_And_Loss_Section,
@@ -420,6 +442,8 @@ begin
       "valid multi-post Plan keeps report book successful and only Planned Payments unavailable");
    Assert
      (Failed_Book.Account_Balances.As_Of = Observation.Account_Balances.As_Of
+      and then Failed_Book.Cycle_Accounts.Current.Observed_Through =
+        Observation.Cycle_Accounts.Current.Observed_Through
       and then HRA.Dates.Last (Failed_Book.Daily_Flow.Period) =
         HRA.Dates.Last (Observation.Daily_Flow.Period)
       and then HRA.Dates.Last (Failed_Book.Monthly_Accounts.Period) =
