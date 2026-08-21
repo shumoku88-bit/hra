@@ -1,0 +1,184 @@
+with HRA.Ledger;
+
+package body HRA.Actual_Root_Candidate is
+
+   use type HRA.Ledger.Transaction;
+
+   function Text (Candidate : Candidate_Root) return String is
+     (To_String (Candidate.Source_Text));
+
+   function Empty_Journal_Diagnostic return HRA.Journal.Parse_Diagnostic is
+     ((File_Name   => Null_Unbounded_String,
+       Line_Number => 0,
+       Raw_Text    => Null_Unbounded_String,
+       Message     => Null_Unbounded_String));
+
+   function Empty_Evidence_Diagnostic
+     return HRA.Journal_Evidence.Evidence_Diagnostic is
+     ((Line_Number => 0,
+       Message     => Null_Unbounded_String));
+
+   function Prepare
+     (Root_Path : String;
+      Root_Text : String;
+      Block     : HRA.Actual_Candidate.Candidate_Block;
+      Candidate : out Candidate_Root;
+      Diag      : out Candidate_Diagnostic) return Boolean
+   is
+      Existing_Ledger    : HRA.Ledger.Ledger;
+      Existing_Evidence  : HRA.Journal_Evidence.Journal_Evidence;
+      Candidate_Ledger   : HRA.Ledger.Ledger;
+      Candidate_Evidence : HRA.Journal_Evidence.Journal_Evidence;
+      Block_Ledger       : HRA.Ledger.Ledger;
+      Block_Evidence     : HRA.Journal_Evidence.Journal_Evidence;
+      Journal_Diag       : HRA.Journal.Parse_Diagnostic :=
+        Empty_Journal_Diagnostic;
+      Evidence_Diag      : HRA.Journal_Evidence.Evidence_Diagnostic :=
+        Empty_Evidence_Diagnostic;
+      Rendered           : Unbounded_String := To_Unbounded_String (Root_Text);
+      Block_Text         : constant String := HRA.Actual_Candidate.Text (Block);
+   begin
+      Candidate := (Source_Text => Null_Unbounded_String);
+      Diag :=
+        (Status   => Success,
+         Journal  => Empty_Journal_Diagnostic,
+         Evidence => Empty_Evidence_Diagnostic,
+         Message  => Null_Unbounded_String);
+
+      if not HRA.Journal.Parse_Journal_Text
+        (Root_Text, Root_Path, Existing_Ledger, Journal_Diag)
+      then
+         Diag.Status := Existing_Root_Journal_Admission_Failed;
+         Diag.Journal := Journal_Diag;
+         Diag.Message := To_Unbounded_String
+           ("existing Actual root source is not admitted by Journal syntax");
+         return False;
+      end if;
+
+      if not HRA.Journal_Evidence.Extract
+        (Root_Text,
+         Root_Path,
+         Existing_Ledger,
+         Existing_Evidence,
+         Evidence_Diag)
+      then
+         Diag.Status := Existing_Root_Evidence_Admission_Failed;
+         Diag.Evidence := Evidence_Diag;
+         Diag.Message := To_Unbounded_String
+           ("existing Actual root source does not retain aligned evidence");
+         return False;
+      end if;
+
+      if Length (Rendered) > 0
+        and then Element (Rendered, Length (Rendered)) /= ASCII.LF
+      then
+         Append (Rendered, ASCII.LF);
+      end if;
+      Append (Rendered, Block_Text);
+
+      Journal_Diag := Empty_Journal_Diagnostic;
+      if not HRA.Journal.Parse_Journal_Text
+        (To_String (Rendered), Root_Path, Candidate_Ledger, Journal_Diag)
+      then
+         Diag.Status := Candidate_Root_Journal_Admission_Failed;
+         Diag.Journal := Journal_Diag;
+         Diag.Message := To_Unbounded_String
+           ("Actual root candidate is not admitted by Journal syntax");
+         return False;
+      end if;
+
+      Evidence_Diag := Empty_Evidence_Diagnostic;
+      if not HRA.Journal_Evidence.Extract
+        (To_String (Rendered),
+         Root_Path,
+         Candidate_Ledger,
+         Candidate_Evidence,
+         Evidence_Diag)
+      then
+         Diag.Status := Candidate_Root_Evidence_Admission_Failed;
+         Diag.Evidence := Evidence_Diag;
+         Diag.Message := To_Unbounded_String
+           ("Actual root candidate does not retain aligned source evidence");
+         return False;
+      end if;
+
+      --  Candidate_Block is private and already qualified by Actual_Candidate,
+      --  but parse it once here as the suffix meaning against which the complete
+      --  root candidate is checked. No include graph is involved.
+      Journal_Diag := Empty_Journal_Diagnostic;
+      if not HRA.Journal.Parse_Journal_Text
+        (Block_Text, "<actual-root-block>", Block_Ledger, Journal_Diag)
+      then
+         Diag.Status := Semantic_Roundtrip_Failed;
+         Diag.Journal := Journal_Diag;
+         Diag.Message := To_Unbounded_String
+           ("qualified Actual block no longer admits as one root-local suffix");
+         return False;
+      end if;
+
+      Evidence_Diag := Empty_Evidence_Diagnostic;
+      if not HRA.Journal_Evidence.Extract
+        (Block_Text,
+         "<actual-root-block>",
+         Block_Ledger,
+         Block_Evidence,
+         Evidence_Diag)
+      then
+         Diag.Status := Semantic_Roundtrip_Failed;
+         Diag.Evidence := Evidence_Diag;
+         Diag.Message := To_Unbounded_String
+           ("qualified Actual block lost root-local source evidence");
+         return False;
+      end if;
+
+      declare
+         Existing_Count  : constant Natural :=
+           Natural (Existing_Ledger.Transactions.Length);
+         Candidate_Count : constant Natural :=
+           Natural (Candidate_Ledger.Transactions.Length);
+         Block_Count     : constant Natural :=
+           Natural (Block_Ledger.Transactions.Length);
+         Existing_Evidence_Count : constant Natural :=
+           Natural (Existing_Evidence.Transactions.Length);
+         Candidate_Evidence_Count : constant Natural :=
+           Natural (Candidate_Evidence.Transactions.Length);
+         Block_Evidence_Count : constant Natural :=
+           Natural (Block_Evidence.Transactions.Length);
+      begin
+         if Block_Count /= 1
+           or else Block_Evidence_Count /= 1
+           or else Candidate_Count /= Existing_Count + 1
+           or else Candidate_Evidence_Count /= Existing_Evidence_Count + 1
+         then
+            Diag.Status := Semantic_Roundtrip_Failed;
+            Diag.Message := To_Unbounded_String
+              ("Actual root candidate did not add exactly one direct root transaction");
+            return False;
+         end if;
+
+         for I in 1 .. Existing_Count loop
+            if Candidate_Ledger.Transactions.Element (I) /=
+              Existing_Ledger.Transactions.Element (I)
+            then
+               Diag.Status := Semantic_Roundtrip_Failed;
+               Diag.Message := To_Unbounded_String
+                 ("Actual root candidate changed existing direct transaction meaning");
+               return False;
+            end if;
+         end loop;
+
+         if Candidate_Ledger.Transactions.Element (Candidate_Count) /=
+           Block_Ledger.Transactions.Element (1)
+         then
+            Diag.Status := Semantic_Roundtrip_Failed;
+            Diag.Message := To_Unbounded_String
+              ("Actual root candidate changed appended block meaning");
+            return False;
+         end if;
+      end;
+
+      Candidate := (Source_Text => Rendered);
+      return True;
+   end Prepare;
+
+end HRA.Actual_Root_Candidate;
