@@ -196,16 +196,16 @@ begin
 
    declare
       Obs : constant Home_Observation :=
-        Observe (D ("2026-08-19"), D ("2026-08-19"), State);
+        See_Home (D ("2026-08-19"), D ("2026-08-19"), State);
    begin
-      Assert (Observed_Through (Obs) = D ("2026-08-19"),
-              "Observed_Through is preserved");
+      Assert (Known_Through (Obs) = D ("2026-08-19"),
+              "Known_Through is preserved");
       Assert (Selected_Day (Obs) = D ("2026-08-19"),
               "Selected_Day is preserved");
       Assert (Is_Available (Actual (Obs)),
-              "Actual is available at the observation horizon");
+              "Actual is available at the knowledge horizon");
       Assert (Transaction_Count (Actual (Obs)) = 1,
-              "Actual observes one transaction on 2026-08-19");
+              "Actual sees one transaction on 2026-08-19");
       Assert (Open_Plan_Count (Plan (Obs)) = 0,
               "Plan projection is available empty on 2026-08-19");
       Assert (Is_Available (Issue (Obs)) and then Due_Issue_Count (Issue (Obs)) = 0,
@@ -216,10 +216,10 @@ begin
 
    declare
       Obs : constant Home_Observation :=
-        Observe (D ("2026-08-19"), D ("2026-08-25"), State);
+        See_Home (D ("2026-08-19"), D ("2026-08-25"), State);
    begin
       Assert (not Is_Available (Actual (Obs))
-              and then Actual (Obs).Reason = Observation_Horizon_Exceeded,
+              and then Actual (Obs).Reason = Beyond_Known_Horizon,
               "Future Actual is unavailable beyond knowledge horizon");
       Assert (Open_Plan_Count (Plan (Obs)) = 1,
               "Known future Plan remains visible beyond Actual horizon");
@@ -235,10 +235,10 @@ begin
 
    declare
       Obs : constant Home_Observation :=
-        Observe (D ("2026-08-19"), D ("2026-08-10"), State);
+        See_Home (D ("2026-08-19"), D ("2026-08-10"), State);
    begin
       Assert (Is_Available (Actual (Obs)) and then Transaction_Count (Actual (Obs)) = 1,
-              "Past Actual remains observable");
+              "Past Actual remains visible");
       Assert (Open_Plan_Count (Plan (Obs)) = 0,
               "Past day with no scheduled Plan is empty, not unavailable");
    end;
@@ -247,7 +247,7 @@ begin
    --  Home consumes the admitted Plan_Journal + Plan_Completions authority.
    declare
       Obs : constant Home_Observation :=
-        Observe (D ("2026-08-19"), D ("2026-08-25"), State);
+        See_Home (D ("2026-08-19"), D ("2026-08-25"), State);
    begin
       Assert
         (HRA.Plan_Admission.Transaction_Count (State.Plan_Journal) = 2,
@@ -274,7 +274,7 @@ begin
          "Admit state with undetermined issue closure");
       declare
          Obs : constant Home_Observation :=
-           Observe (D ("2026-08-19"), D ("2026-08-25"), Undet_State);
+           See_Home (D ("2026-08-19"), D ("2026-08-25"), Undet_State);
       begin
          Assert (not Is_Available (Issue (Obs))
                  and then Issue (Obs).Reason = Closure_Timing_Undetermined,
@@ -298,7 +298,7 @@ begin
          "Admit state with no future Plan anchor");
       declare
          Obs : constant Home_Observation :=
-           Observe (D ("2026-08-19"), D ("2026-08-30"), No_Anchor_State);
+           See_Home (D ("2026-08-19"), D ("2026-08-30"), No_Anchor_State);
       begin
          Assert (not Is_Available (Cycle (Obs))
                  and then Cycle (Obs).Error = HRA.Cycle_Observation.Missing_Future_Plan_Anchor,
@@ -320,7 +320,7 @@ begin
          "Admit state with no Actual income anchors");
       declare
          Obs : constant Home_Observation :=
-           Observe (D ("2026-08-19"), D ("2026-08-30"), No_Actual_State);
+           See_Home (D ("2026-08-19"), D ("2026-08-30"), No_Actual_State);
       begin
          Assert (not Is_Available (Cycle (Obs))
                  and then Cycle (Obs).Error = HRA.Cycle_Observation.Insufficient_Actual_Anchors,
@@ -335,7 +335,7 @@ begin
         To_Unbounded_String ("income:invalid");
       declare
          Obs : constant Home_Observation :=
-           Observe (D ("2026-08-19"), D ("2026-08-25"), Broken_Cycle_State);
+           See_Home (D ("2026-08-19"), D ("2026-08-25"), Broken_Cycle_State);
       begin
          Assert (not Is_Available (Cycle (Obs)),
                  "Cycle failure remains independent");
@@ -348,7 +348,7 @@ begin
 
    declare
       Obs : constant Home_Observation :=
-        Observe (D ("2026-08-19"), D ("2026-08-19"), State);
+        See_Home (D ("2026-08-19"), D ("2026-08-19"), State);
    begin
       Assert (Day_Attention (Obs, D ("2026-07-31")).Cycle_End = Present,
               "Previous cycle human end is marked");
@@ -361,24 +361,23 @@ begin
    end;
 
    --  ========================================================================
-   --  Observe_Horizon & Project_Day semantic boundary tests
+   --  See_Horizon & Project_Day semantic boundary tests
    --  ========================================================================
    declare
       Horizon_Obs : constant Home_Horizon_Observation :=
-        Observe_Horizon (D ("2026-08-19"), State);
+        See_Horizon (D ("2026-08-19"), State);
    begin
-      Assert (Observed_Through (Horizon_Obs) = D ("2026-08-19"),
-              "Horizon retains Observed_Through coordinate");
+      Assert (Known_Through (Horizon_Obs) = D ("2026-08-19"),
+              "Horizon retains Known_Through coordinate");
       Assert (Is_Available (Cycle (Horizon_Obs)),
-              "Horizon observes available cycle anchors");
+              "Horizon sees available cycle anchors");
       Assert (Day_Attention (Horizon_Obs, D ("2026-08-25")).Plan_Scheduled = Present,
-              "Horizon Day_Attention observes scheduled Plan");
+              "Horizon Day_Attention sees scheduled Plan");
       Assert (Day_Attention (Horizon_Obs, D ("2026-08-25")).Issue_Due = Present,
-              "Horizon Day_Attention observes due Issue");
+              "Horizon Day_Attention sees due Issue");
       Assert (Day_Attention (Horizon_Obs, D ("2026-08-30")).Cycle_End = Present,
-              "Horizon Day_Attention observes Cycle end");
+              "Horizon Day_Attention sees Cycle end");
 
-      --  Project past day on same horizon
       declare
          Obs_Past : constant Home_Day_Observation :=
            Project_Day (Horizon_Obs, D ("2026-08-10"), State);
@@ -387,32 +386,30 @@ begin
                  "Project_Day preserves past coordinates");
          Assert (Is_Available (Actual (Obs_Past))
                  and then Transaction_Count (Actual (Obs_Past)) = 1,
-                 "Project_Day observes past Actual on date");
+                 "Project_Day sees past Actual on date");
          Assert (Open_Plan_Count (Plan (Obs_Past)) = 0,
-                 "Project_Day observes 0 open plans on past date");
+                 "Project_Day sees 0 open plans on past date");
       end;
 
-      --  Project horizon day on same horizon
       declare
          Obs_Today : constant Home_Day_Observation :=
            Project_Day (Horizon_Obs, D ("2026-08-19"), State);
       begin
          Assert (Is_Available (Actual (Obs_Today))
                  and then Transaction_Count (Actual (Obs_Today)) = 1,
-                 "Project_Day observes Actual on horizon date");
+                 "Project_Day sees Actual on horizon date");
          Assert (Open_Plan_Count (Plan (Obs_Today)) = 0,
-                 "Project_Day observes 0 open plans on horizon date");
+                 "Project_Day sees 0 open plans on horizon date");
       end;
 
-      --  Project future day on same horizon
       declare
          Obs_Future : constant Home_Day_Observation :=
            Project_Day (Horizon_Obs, D ("2026-08-25"), State);
          Obs_Direct : constant Home_Observation :=
-           Observe (D ("2026-08-19"), D ("2026-08-25"), State);
+           See_Home (D ("2026-08-19"), D ("2026-08-25"), State);
       begin
          Assert (not Is_Available (Actual (Obs_Future))
-                 and then Actual (Obs_Future).Reason = Observation_Horizon_Exceeded,
+                 and then Actual (Obs_Future).Reason = Beyond_Known_Horizon,
                  "Project_Day marks future Actual as unavailable");
          Assert (Open_Plan_Count (Plan (Obs_Future)) = 1
                  and then HRA.Plan.Text (Plan (Obs_Future).Open_Plans.Element (1).ID) = "plan-util-aug",
@@ -423,13 +420,11 @@ begin
          Assert (Selected_Attention (Obs_Future).Plan_Scheduled = Present
                  and then Selected_Attention (Obs_Future).Issue_Due = Present,
                  "Project_Day sets selected attention correctly");
-
-         --  Parity assertion between Observe and Project_Day (Observe_Horizon)
          Assert (not Is_Available (Actual (Obs_Direct))
-                 and then Observed_Through (Obs_Direct) = Observed_Through (Horizon_Obs)
+                 and then Known_Through (Obs_Direct) = Known_Through (Horizon_Obs)
                  and then Open_Plan_Count (Plan (Obs_Direct)) = Open_Plan_Count (Plan (Obs_Future))
                  and then Due_Issue_Count (Issue (Obs_Direct)) = Due_Issue_Count (Issue (Obs_Future)),
-                 "Observe produces identical projections to Project_Day on Observe_Horizon");
+                 "See_Home produces identical projections to Project_Day on See_Horizon");
       end;
    end;
 
