@@ -11,7 +11,6 @@ with HRA.Actual_Admission;
 with HRA.Plan;
 with HRA.Plan_Admission;
 with HRA.Plan_Completion;
-with HRA.Daily_Target_Scope;
 with HRA.Envelope;
 with HRA.Entitlement_Journal;
 with HRA.Envelope_Routing;
@@ -56,11 +55,6 @@ package HRA.Household is
       --  Plan_Journal only at the boundary that needs them.
       Plan_Journal        : HRA.Plan_Admission.Plan_Journal;
       Plan_Completions    : HRA.Plan_Completion.Completion_Relations;
-
-      --  Daily_Target_Context is assembled once from the long-lived
-      --  household.toml Asset selections and semantic metadata already retained
-      --  by Plan_Journal. It is not a second Plan or Household authority.
-      Daily_Target_Context : HRA.Daily_Target_Scope.Scope;
 
       Entitlement_History : HRA.Entitlement_Journal.Entitlement_History;
       Combined_Ledger     : Ledger.Ledger;
