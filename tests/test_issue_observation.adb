@@ -157,6 +157,16 @@ begin
          Assert (Dues.Is_Empty, "0 issues due on 2026-08-26");
       end;
 
+      --  Has_Due_Issue_On for 2026-08-25: True
+      Assert
+        (Has_Due_Issue_On (Obs, D ("2026-08-25")),
+         "Has_Due_Issue_On is True for 2026-08-25");
+
+      --  Has_Due_Issue_On for 2026-08-26: False
+      Assert
+        (not Has_Due_Issue_On (Obs, D ("2026-08-26")),
+         "Has_Due_Issue_On is False for 2026-08-26");
+
       --  Has_Undetermined_Due_On for 2026-08-25: True (ISSUE-RES-UNDET has due 2026-08-25)
       Assert
         (Has_Undetermined_Due_On (Obs, D ("2026-08-25")),

@@ -583,9 +583,21 @@ begin
              (Pres, State.Report_Policy.Presentation.Calendar);
          Actual_Text   : constant String :=
            Execute_Home (State, D ("2026-08-19"), D ("2026-08-19"));
+         Horizon       : constant HRA.Household_Home_Observation.Home_Horizon_Observation :=
+           HRA.Household_Home_Observation.Observe_Horizon (D ("2026-08-19"), State);
+         Horizon_Text  : constant String :=
+           Execute_Home (State, Horizon, D ("2026-08-19"));
+         Future_Text   : constant String :=
+           Execute_Home (State, Horizon, D ("2026-08-25"));
+         Expected_Future_Text : constant String :=
+           Execute_Home (State, D ("2026-08-19"), D ("2026-08-25"));
       begin
          Assert (Actual_Text = Expected_Text,
                  "Execute_Home output matches Home_Text.Render_Home exactly");
+         Assert (Horizon_Text = Expected_Text,
+                 "Execute_Home with Horizon matches standard Execute_Home");
+         Assert (Future_Text = Expected_Future_Text,
+                 "Execute_Home with Horizon on future day matches direct execution");
       end;
    end;
 

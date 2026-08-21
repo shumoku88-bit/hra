@@ -83,6 +83,21 @@ package body HRA.Issue_Observation is
       return Result;
    end Due_Issues_On;
 
+   function Has_Due_Issue_On
+     (Obs        : Observation;
+      Target_Day : HRA.Dates.Date) return Boolean
+   is
+   begin
+      for Item of Obs.Open_Issues loop
+         if Item.Issue.Due.Kind = HRA.Issues.Due_On
+           and then Item.Issue.Due.Due_Date = Target_Day
+         then
+            return True;
+         end if;
+      end loop;
+      return False;
+   end Has_Due_Issue_On;
+
    function Has_Undetermined_Due_On
      (Obs        : Observation;
       Target_Day : HRA.Dates.Date) return Boolean

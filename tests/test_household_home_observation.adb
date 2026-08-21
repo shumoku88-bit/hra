@@ -6,7 +6,6 @@ with HRA.Cycle_Observation;
 with HRA.Dates;             use HRA.Dates;
 with HRA.Household;
 with HRA.Household_Home_Observation; use HRA.Household_Home_Observation;
-with HRA.Issues;
 with HRA.Plan;
 with HRA.Plan_Admission;
 
@@ -359,6 +358,79 @@ begin
               "Arbitrary-day Plan attention sees known future schedule");
       Assert (Day_Attention (Obs, D ("2026-08-31")).Cycle_End = Unavailable,
               "Cycle limit is outside current cycle coverage");
+   end;
+
+   --  ========================================================================
+   --  Observe_Horizon & Project_Day semantic boundary tests
+   --  ========================================================================
+   declare
+      Horizon_Obs : constant Home_Horizon_Observation :=
+        Observe_Horizon (D ("2026-08-19"), State);
+   begin
+      Assert (Observed_Through (Horizon_Obs) = D ("2026-08-19"),
+              "Horizon retains Observed_Through coordinate");
+      Assert (Is_Available (Cycle (Horizon_Obs)),
+              "Horizon observes available cycle anchors");
+      Assert (Day_Attention (Horizon_Obs, D ("2026-08-25")).Plan_Scheduled = Present,
+              "Horizon Day_Attention observes scheduled Plan");
+      Assert (Day_Attention (Horizon_Obs, D ("2026-08-25")).Issue_Due = Present,
+              "Horizon Day_Attention observes due Issue");
+      Assert (Day_Attention (Horizon_Obs, D ("2026-08-30")).Cycle_End = Present,
+              "Horizon Day_Attention observes Cycle end");
+
+      --  Project past day on same horizon
+      declare
+         Obs_Past : constant Home_Day_Observation :=
+           Project_Day (Horizon_Obs, D ("2026-08-10"), State);
+      begin
+         Assert (Selected_Day (Obs_Past) = D ("2026-08-10"),
+                 "Project_Day preserves past coordinates");
+         Assert (Is_Available (Actual (Obs_Past))
+                 and then Transaction_Count (Actual (Obs_Past)) = 1,
+                 "Project_Day observes past Actual on date");
+         Assert (Open_Plan_Count (Plan (Obs_Past)) = 0,
+                 "Project_Day observes 0 open plans on past date");
+      end;
+
+      --  Project horizon day on same horizon
+      declare
+         Obs_Today : constant Home_Day_Observation :=
+           Project_Day (Horizon_Obs, D ("2026-08-19"), State);
+      begin
+         Assert (Is_Available (Actual (Obs_Today))
+                 and then Transaction_Count (Actual (Obs_Today)) = 1,
+                 "Project_Day observes Actual on horizon date");
+         Assert (Open_Plan_Count (Plan (Obs_Today)) = 0,
+                 "Project_Day observes 0 open plans on horizon date");
+      end;
+
+      --  Project future day on same horizon
+      declare
+         Obs_Future : constant Home_Day_Observation :=
+           Project_Day (Horizon_Obs, D ("2026-08-25"), State);
+         Obs_Direct : constant Home_Observation :=
+           Observe (D ("2026-08-19"), D ("2026-08-25"), State);
+      begin
+         Assert (not Is_Available (Actual (Obs_Future))
+                 and then Actual (Obs_Future).Reason = Observation_Horizon_Exceeded,
+                 "Project_Day marks future Actual as unavailable");
+         Assert (Open_Plan_Count (Plan (Obs_Future)) = 1
+                 and then HRA.Plan.Text (Plan (Obs_Future).Open_Plans.Element (1).ID) = "plan-util-aug",
+                 "Project_Day projects scheduled future Plan on date");
+         Assert (Is_Available (Issue (Obs_Future))
+                 and then Due_Issue_Count (Issue (Obs_Future)) = 2,
+                 "Project_Day projects due Issues on date");
+         Assert (Selected_Attention (Obs_Future).Plan_Scheduled = Present
+                 and then Selected_Attention (Obs_Future).Issue_Due = Present,
+                 "Project_Day sets selected attention correctly");
+
+         --  Parity assertion between Observe and Project_Day (Observe_Horizon)
+         Assert (not Is_Available (Actual (Obs_Direct))
+                 and then Observed_Through (Obs_Direct) = Observed_Through (Horizon_Obs)
+                 and then Open_Plan_Count (Plan (Obs_Direct)) = Open_Plan_Count (Plan (Obs_Future))
+                 and then Due_Issue_Count (Issue (Obs_Direct)) = Due_Issue_Count (Issue (Obs_Future)),
+                 "Observe produces identical projections to Project_Day on Observe_Horizon");
+      end;
    end;
 
    Put_Line ("--------------------------------------------------");

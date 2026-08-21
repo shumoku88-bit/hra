@@ -1,5 +1,6 @@
 with HRA.Household_Home_Command;
 with HRA.Household_Home_Interaction;
+with HRA.Household_Home_Observation;
 with HRA.Household_Home_TUI_Input;
 with HRA.Terminal_UTF8;
 with Terminal_Interface.Curses;
@@ -10,15 +11,17 @@ package body HRA.Household_Home_TUI is
    package Interaction renames HRA.Household_Home_Interaction;
    package Input renames HRA.Household_Home_TUI_Input;
    package Curses renames Terminal_Interface.Curses;
+   use type HRA.Dates.Date;
 
    procedure Draw
      (State       : HRA.Household.Household_State;
+      Horizon     : HRA.Household_Home_Observation.Home_Horizon_Observation;
       Coordinates : Interaction.Home_Coordinates)
    is
       Text : constant String :=
         Command.Execute_Home
           (State,
-           Coordinates.Observed_Through,
+           Horizon,
            Coordinates.Selected_Day);
       Max_Rows : constant Natural := Natural (Curses.Lines);
       Max_Columns : constant Natural := Natural (Curses.Columns);
@@ -62,6 +65,9 @@ package body HRA.Household_Home_TUI is
    is
       Coordinates : Interaction.Home_Coordinates :=
         Interaction.Make_Coordinates (Observed_Through, Selected_Day);
+      Horizon : HRA.Household_Home_Observation.Home_Horizon_Observation :=
+        HRA.Household_Home_Observation.Observe_Horizon
+          (Coordinates.Observed_Through, State);
       Running        : Boolean := True;
       Screen_Started : Boolean := False;
    begin
@@ -72,7 +78,7 @@ package body HRA.Household_Home_TUI is
       Curses.Set_Echo_Mode (False);
       Curses.Set_KeyPad_Mode (Curses.Standard_Window, True);
 
-      Draw (State, Coordinates);
+      Draw (State, Horizon, Coordinates);
 
       while Running loop
          declare
@@ -87,8 +93,13 @@ package body HRA.Household_Home_TUI is
                   begin
                      case Result.Status is
                         when Interaction.Applied =>
+                           if Result.Coordinates.Observed_Through /= Coordinates.Observed_Through then
+                              Horizon :=
+                                HRA.Household_Home_Observation.Observe_Horizon
+                                  (Result.Coordinates.Observed_Through, State);
+                           end if;
                            Coordinates := Result.Coordinates;
-                           Draw (State, Coordinates);
+                           Draw (State, Horizon, Coordinates);
                         when Interaction.Lower_Bound_Exceeded
                            | Interaction.Upper_Bound_Exceeded =>
                            null;
@@ -99,7 +110,7 @@ package body HRA.Household_Home_TUI is
                   Running := False;
 
                when Input.Redraw =>
-                  Draw (State, Coordinates);
+                  Draw (State, Horizon, Coordinates);
 
                when Input.Ignored =>
                   null;

@@ -1,6 +1,7 @@
 with Ada.Containers.Indefinite_Vectors;
 with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
 with HRA.Actual_Admission;
+with HRA.Dates;
 with HRA.Plan;
 with HRA.Plan_Admission;
 
@@ -33,6 +34,15 @@ package HRA.Plan_Completion is
    function Has_Completion
      (Relations : Completion_Relations;
       Plan_ID   : HRA.Plan.Plan_Id) return Boolean;
+
+   --  Query whether an admitted Plan has a completed Actual visible as of
+   --  Observed_Through, and if so return the matching relation without
+   --  copying non-matching relations.
+   function Has_Visible_Completion
+     (Relations        : Completion_Relations;
+      Plan_ID          : HRA.Plan.Plan_Id;
+      Observed_Through : HRA.Dates.Date;
+      Relation         : out Completion_Relation) return Boolean;
 
    type Admission_Status is
      (Success,
