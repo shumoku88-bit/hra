@@ -45,9 +45,6 @@ package HRA.Daily_Target_Scope is
       Reservation : Reservation_Option;
    end record;
 
-   --  Explicit equality avoids asking a container instantiation to derive
-   --  equality prematurely through private component types. It also makes the
-   --  semantic value boundary visible rather than relying on representation.
    function "=" (Left, Right : Obligation) return Boolean;
 
    package Account_Vectors is new Ada.Containers.Indefinite_Vectors
@@ -55,17 +52,21 @@ package HRA.Daily_Target_Scope is
       Element_Type => HRA.Account.Account,
       "="          => HRA.Account."=");
 
-   package Obligation_Vectors is new Ada.Containers.Indefinite_Vectors
-     (Index_Type   => Positive,
-      Element_Type => Obligation,
-      "="          => "=");
-
+   --  Scope storage is deliberately opaque. In particular, do not expose the
+   --  generic container instantiated for Obligation: Obligation contains
+   --  private semantic identities, and a visible generic instantiation would
+   --  force Ada to use those private components prematurely. Consumers read a
+   --  stable source-order snapshot through Count/At instead.
    type Scope is private;
 
    function Empty_Scope return Scope;
    function Is_Configured (Value : Scope) return Boolean;
    function Eligible_Assets (Value : Scope) return Account_Vectors.Vector;
-   function Obligations (Value : Scope) return Obligation_Vectors.Vector;
+   function Obligation_Count (Value : Scope) return Natural;
+   function Obligation_At
+     (Value : Scope;
+      Index : Positive) return Obligation
+     with Pre => Index <= Obligation_Count (Value);
 
    type Admission_Status is
      (Success,
@@ -111,6 +112,11 @@ private
       Value : Unbounded_String;
    end record;
 
+   package Obligation_Vectors is new Ada.Containers.Indefinite_Vectors
+     (Index_Type   => Positive,
+      Element_Type => Obligation,
+      "="          => "=");
+
    type Scope is record
       Assets      : Account_Vectors.Vector;
       Obligations : Obligation_Vectors.Vector;
@@ -138,7 +144,12 @@ private
    function Eligible_Assets (Value : Scope) return Account_Vectors.Vector is
      (Value.Assets);
 
-   function Obligations (Value : Scope) return Obligation_Vectors.Vector is
-     (Value.Obligations);
+   function Obligation_Count (Value : Scope) return Natural is
+     (Natural (Value.Obligations.Length));
+
+   function Obligation_At
+     (Value : Scope;
+      Index : Positive) return Obligation is
+     (Value.Obligations.Element (Index));
 
 end HRA.Daily_Target_Scope;
