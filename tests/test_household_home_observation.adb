@@ -8,6 +8,7 @@ with HRA.Household;
 with HRA.Household_Home_Observation; use HRA.Household_Home_Observation;
 with HRA.Issues;
 with HRA.Plan;
+with HRA.Plan_Admission;
 
 procedure Test_Household_Home_Observation is
    use type HRA.Cycle_Observation.Resolve_Status;
@@ -243,28 +244,23 @@ begin
               "Past day with no scheduled Plan is empty, not unavailable");
    end;
 
-   --  Legacy Ledger/Evidence/Id fields are materialized read projections only.
-   --  Home must consume the admitted Plan_Journal + Plan_Completions authority.
+   --  Household no longer stores parallel Plan Ledger/Evidence/Id projections.
+   --  Home consumes the admitted Plan_Journal + Plan_Completions authority.
    declare
-      Projection_Damaged_State : HRA.Household.Household_State := State;
+      Obs : constant Home_Observation :=
+        Observe (D ("2026-08-19"), D ("2026-08-25"), State);
    begin
-      Projection_Damaged_State.Plan_Ledger.Transactions.Clear;
-      Projection_Damaged_State.Plan_Evidence.Transactions.Clear;
-      Projection_Damaged_State.Plan_Ids := HRA.Plan.Empty_Plan_Id_Universe;
-      declare
-         Obs : constant Home_Observation :=
-           Observe
-             (D ("2026-08-19"), D ("2026-08-25"), Projection_Damaged_State);
-      begin
-         Assert (Open_Plan_Count (Plan (Obs)) = 1,
-                 "Home ignores damaged legacy Plan read projections");
-         Assert (HRA.Plan.Text (Plan (Obs).Open_Plans.Element (1).ID) = "plan-util-aug",
-                 "Admitted Plan authority retains identity after projection damage");
-         Assert (Is_Available (Cycle (Obs)),
-                 "Cycle consumes the same admitted temporal Plan authority");
-         Assert (Selected_Attention (Obs).Plan_Scheduled = Present,
-                 "Plan attention comes from admitted temporal authority");
-      end;
+      Assert
+        (HRA.Plan_Admission.Transaction_Count (State.Plan_Journal) = 2,
+         "Household retains the admitted Plan journal as its Plan authority");
+      Assert (Open_Plan_Count (Plan (Obs)) = 1,
+              "Home derives future Plans from admitted temporal authority");
+      Assert (HRA.Plan.Text (Plan (Obs).Open_Plans.Element (1).ID) = "plan-util-aug",
+              "Admitted Plan authority retains durable identity");
+      Assert (Is_Available (Cycle (Obs)),
+              "Cycle consumes the same admitted temporal Plan authority");
+      Assert (Selected_Attention (Obs).Plan_Scheduled = Present,
+              "Plan attention comes from admitted temporal authority");
    end;
 
    declare
