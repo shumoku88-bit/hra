@@ -6,7 +6,7 @@ with HRA.Household_Home_Observation;
 --  Application command boundary for Household Home overview.
 --  Coordinates pure option parsing (Stage A), temporal default resolution (Stage B),
 --  and pure pipeline execution:
---    Household_Home_Observation.Observe
+--    Household_Home_Observation.See_Home
 --    -> Household_Home_Presentation.Present
 --    -> Household_Home_Text.Render_Home
 --
@@ -16,11 +16,11 @@ package HRA.Household_Home_Command is
    type Date_Option_Source is (Defaulted, Explicit);
 
    type Home_Options is record
-      Base_Directory   : Ada.Strings.Unbounded.Unbounded_String;
-      Observed_Through : HRA.Dates.Date;
-      Through_Source   : Date_Option_Source := Defaulted;
-      Selected_Day     : HRA.Dates.Date;
-      Day_Source       : Date_Option_Source := Defaulted;
+      Base_Directory : Ada.Strings.Unbounded.Unbounded_String;
+      Known_Through  : HRA.Dates.Date;
+      Through_Source : Date_Option_Source := Defaulted;
+      Selected_Day   : HRA.Dates.Date;
+      Day_Source     : Date_Option_Source := Defaulted;
    end record;
 
    type Parse_Status is
@@ -69,8 +69,8 @@ package HRA.Household_Home_Command is
 
    --  Stage B: Resolve temporal defaults when Today is provided / required.
    --  Temporal law:
-   --    if explicit Through: Observed_Through := explicit Through else Today
-   --    if explicit Day:     Selected_Day     := explicit Day     else Observed_Through
+   --    if explicit Through: Known_Through := explicit Through else Today
+   --    if explicit Day:     Selected_Day  := explicit Day     else Known_Through
    function Resolve_Home_Options
      (Parsed : Parsed_Home_Arguments;
       Today  : HRA.Dates.Date) return Home_Options;
@@ -82,13 +82,13 @@ package HRA.Household_Home_Command is
      (Parsed : Parsed_Home_Arguments) return Home_Options;
 
    --  Pure execution pipeline on already-admitted Household_State:
-   --  1. Household_Home_Observation.Observe (Observed_Through, Selected_Day, State)
+   --  1. Household_Home_Observation.See_Home (Known_Through, Selected_Day, State)
    --  2. Household_Home_Presentation.Present (Obs)
    --  3. Household_Home_Text.Render_Home (Pres, State.Report_Policy.Presentation.Calendar)
    function Execute_Home
-     (State            : HRA.Household.Household_State;
-      Observed_Through : HRA.Dates.Date;
-      Selected_Day     : HRA.Dates.Date) return String;
+     (State         : HRA.Household.Household_State;
+      Known_Through : HRA.Dates.Date;
+      Selected_Day  : HRA.Dates.Date) return String;
 
    --  Execute pipeline with an existing horizon observation:
    --  1. Household_Home_Observation.Project_Day (Horizon, Selected_Day, State)
