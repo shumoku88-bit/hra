@@ -3,6 +3,8 @@ with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
 with Ada.Text_IO; use Ada.Text_IO;
 with HRA.Canonical_Source; use HRA.Canonical_Source;
 with HRA.Household;
+with HRA.Plan_Admission;
+with HRA.Plan_Completion;
 
 procedure Test_Household_Source_Admission is
    Passed_Count : Natural := 0;
@@ -46,10 +48,15 @@ begin
 
    Observation.Texts (Actual_Source) := To_Unbounded_String
      ("2026-08-13 Coffee Purchase" & ASCII.LF &
+      "    ; plan-id: plan-coffee" & ASCII.LF &
       "    expenses:coffee         500 JPY" & ASCII.LF &
       "    assets:wallet          -500 JPY" & ASCII.LF);
 
-   Observation.Texts (Plan_Source) := Null_Unbounded_String;
+   Observation.Texts (Plan_Source) := To_Unbounded_String
+     ("2026-08-13 Planned Coffee" & ASCII.LF &
+      "    ; plan-id: plan-coffee" & ASCII.LF &
+      "    expenses:coffee         500 JPY" & ASCII.LF &
+      "    assets:wallet          -500 JPY" & ASCII.LF);
    Observation.Texts (Entitlement_Source) :=
      To_Unbounded_String (Original_Entitlement);
 
@@ -109,6 +116,12 @@ begin
      (HRA.Household.Admit_Canonical_Household
         (Observation, State, Err),
       "Admit complete canonical Household from in-memory source observation");
+   Assert
+     (HRA.Plan_Admission.Transaction_Count (State.Plan_Journal) = 1,
+      "Household retains one admitted Plan Journal authority");
+   Assert
+     (HRA.Plan_Completion.Count (State.Plan_Completions) = 1,
+      "Household retains typed Plan-to-Actual completion relation");
    Assert
      (Text_For (State.Sources, Actual_Source) =
         Text_For (Observation, Actual_Source),
