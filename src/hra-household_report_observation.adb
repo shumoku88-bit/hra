@@ -22,7 +22,8 @@ package body HRA.Household_Report_Observation is
       Error_Msg        : out Unbounded_String) return Boolean
    is
       Report_Status : HRA.Report_Plan.Resolve_Status;
-      Payment_Diag  : HRA.Planned_Payments.Admission_Diagnostic;
+      Payment_Diag  : HRA.Planned_Payments.Projection_Diagnostic;
+      Payment_Value : HRA.Planned_Payments.Observation;
       Envelope_Obs : HRA.Household_Envelope_Observation.Observation;
       Funding      : HRA.Backing_Policy.Funding_Commitment_Observation;
       Backing      : HRA.Backing_Policy.Backing_Observation;
@@ -173,9 +174,10 @@ package body HRA.Household_Report_Observation is
       end Build_Envelope_Report;
 
    begin
-      --  Compose into a local value. Result is published only after every
-      --  section succeeds, so unavailable can never masquerade as a partial
-      --  successful report book.
+      --  Compose into a local value. Structural observation failures still
+      --  reject the report book. A bounded section projection that cannot
+      --  represent an otherwise valid domain value is retained as typed
+      --  Unavailable instead of masquerading as a Household failure.
       if not HRA.Household_Envelope_Observation.Observe
         (Observed_Through, State, Envelope_Obs, Error_Msg)
       then
@@ -221,21 +223,20 @@ package body HRA.Household_Report_Observation is
          Output.Query_Plan.Recent_Transactions_Through,
          Output.Query_Plan.Recent_Transactions_Count);
 
-      if not HRA.Planned_Payments.Project
+      if HRA.Planned_Payments.Project
         (Envelope_Obs.Open_Plans,
          State.Registry,
          Observed_Through,
-         Output.Planned_Payments,
+         Payment_Value,
          Payment_Diag)
       then
-         Error_Msg := To_Unbounded_String
-           ("Planned Payments observation failed: " &
-            HRA.Planned_Payments.Admission_Status'Image
-              (Payment_Diag.Status) &
-            (if Length (Payment_Diag.Message) > 0
-             then ": " & To_String (Payment_Diag.Message)
-             else ""));
-         return False;
+         Output.Planned_Payments :=
+           (Status => Available,
+            Value  => Payment_Value);
+      else
+         Output.Planned_Payments :=
+           (Status     => Unavailable,
+            Diagnostic => Payment_Diag);
       end if;
 
       Output.Open_Issues.Open_Items := HRA.Issues.Open_Issues (State.Issues);
