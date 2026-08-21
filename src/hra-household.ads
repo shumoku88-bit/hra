@@ -9,6 +9,8 @@ with HRA.Report_Config;
 with HRA.Journal_Evidence;
 with HRA.Actual_Admission;
 with HRA.Plan;
+with HRA.Plan_Admission;
+with HRA.Plan_Completion;
 with HRA.Envelope;
 with HRA.Entitlement_Journal;
 with HRA.Envelope_Routing;
@@ -48,9 +50,15 @@ package HRA.Household is
       Actual_Evidence     : HRA.Journal_Evidence.Journal_Evidence;
       Actual_Identity     : HRA.Actual_Admission.Actual_Observation;
 
+      --  Plan_Journal and Plan_Completions are the admitted Plan authorities.
+      --  The Ledger/Evidence/Ids fields remain materialized read projections
+      --  for consumers that have not yet moved to the temporal Plan owner.
+      Plan_Journal        : HRA.Plan_Admission.Plan_Journal;
+      Plan_Completions    : HRA.Plan_Completion.Completion_Relations;
       Plan_Ledger         : Ledger.Ledger;
       Plan_Evidence       : HRA.Journal_Evidence.Journal_Evidence;
       Plan_Ids            : HRA.Plan.Plan_Id_Universe;
+
       Entitlement_History : HRA.Entitlement_Journal.Entitlement_History;
       Combined_Ledger     : Ledger.Ledger;
       Issues              : Issues_Inventory;
