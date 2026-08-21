@@ -188,4 +188,19 @@ package body HRA.Cycle_Observation is
       return HRA.Dates.Contains (Window, Date);
    end Contains;
 
+   function Aligned_Day
+     (Current_Through : HRA.Dates.Date;
+      Current_Window  : Cycle_Window;
+      Baseline_Window : Cycle_Window) return HRA.Dates.Date
+   is
+      Current_Cursor  : HRA.Dates.Date := Start_Date (Current_Window);
+      Baseline_Cursor : HRA.Dates.Date := Start_Date (Baseline_Window);
+   begin
+      while Current_Cursor < Current_Through loop
+         Current_Cursor := HRA.Dates.Next (Current_Cursor);
+         Baseline_Cursor := HRA.Dates.Next (Baseline_Cursor);
+      end loop;
+      return Baseline_Cursor;
+   end Aligned_Day;
+
 end HRA.Cycle_Observation;
