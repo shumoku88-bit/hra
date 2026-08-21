@@ -26,6 +26,19 @@ procedure Test_Dates is
       return Value;
    end Must_Date;
 
+   function Must_Half_Open
+     (First_Text, Limit_Text : String) return Half_Open_Period
+   is
+      Result : Half_Open_Period;
+   begin
+      if not Make_Half_Open_Period
+        (Must_Date (First_Text), Must_Date (Limit_Text), Result)
+      then
+         raise Program_Error with "test half-open period failed to admit";
+      end if;
+      return Result;
+   end Must_Half_Open;
+
    procedure Assert_Invalid (Text : String; Test_Name : String) is
       Value  : Date;
       Status : Date_Status;
@@ -114,10 +127,34 @@ begin
            and then not Contains (Period_Val, Must_Date ("2026-09-01")),
          "half-open period includes first and excludes limit");
       Assert
+        (Length_In_Days (Period_Val) = 31,
+         "half-open month cardinality is exact");
+      Assert
         (not Make_Half_Open_Period
            (Must_Date ("2026-08-01"), Must_Date ("2026-08-01"), Period_Val),
          "half-open period rejects empty window");
    end;
+
+   Assert
+     (Length_In_Days
+        (Must_Half_Open ("2026-08-31", "2026-09-01")) = 1,
+      "last in-cycle day has one remaining half-open day");
+   Assert
+     (Length_In_Days
+        (Must_Half_Open ("2024-02-28", "2024-03-01")) = 2,
+      "half-open cardinality crosses leap day exactly");
+   Assert
+     (Length_In_Days
+        (Must_Half_Open ("2026-02-28", "2026-03-01")) = 1,
+      "half-open cardinality crosses common February exactly");
+   Assert
+     (Length_In_Days
+        (Must_Half_Open ("2025-12-31", "2026-01-02")) = 2,
+      "half-open cardinality crosses year boundary exactly");
+   Assert
+     (Length_In_Days
+        (Must_Half_Open ("2026-07-31", "2026-08-14")) = 14,
+      "half-open suffix counts its observed first day");
 
    Assert
      (Day_Of_Week_Of (Must_Date ("2026-08-19")) = Wednesday,
