@@ -52,4 +52,14 @@ package HRA.Cycle_Observation is
      (Window : Cycle_Window;
       Date   : HRA.Dates.Date) return Boolean;
 
+   --  Map Current_Through onto Baseline_Window by preserving elapsed calendar
+   --  days from each cycle start. The caller owns comparison policy and must
+   --  establish that Current_Through belongs to Current_Window, then decide
+   --  whether the returned day belongs to Baseline_Window. Keeping this mapping
+   --  here prevents each temporal report from inventing its own alignment law.
+   function Aligned_Day
+     (Current_Through : HRA.Dates.Date;
+      Current_Window  : Cycle_Window;
+      Baseline_Window : Cycle_Window) return HRA.Dates.Date;
+
 end HRA.Cycle_Observation;
