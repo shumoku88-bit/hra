@@ -20,6 +20,7 @@ with HRA.Ledger;
 with HRA.Money;
 with HRA.Plan_Admission;
 with HRA.Plan_Completion;
+with HRA.Planned_Payments;
 with HRA.Planned_Payments_Render;
 with HRA.Report_Config;
 
@@ -27,6 +28,8 @@ procedure Test_Household_Report_Observation is
    use type HRA.Dates.Date;
    use type HRA.Backing_Policy.Backing_Condition;
    use type HRA.Household_Report_Observation.Current_Report_Section_Order;
+   use type HRA.Household_Report_Observation.Planned_Payments_Availability;
+   use type HRA.Planned_Payments.Projection_Status;
    use type HRA.Money.Quantity;
 
    Passed_Count : Natural := 0;
@@ -302,8 +305,10 @@ begin
       and then Observation.Recent_Journal.Through_Date = D ("2026-08-10"),
       "TB, BS, P&L, and Recent retain exact resolved coordinates");
    Assert
-     (Natural (Observation.Planned_Payments.Payments.Length) = 1,
-      "Planned Payments belongs to the same observation");
+     (Observation.Planned_Payments.Status =
+        HRA.Household_Report_Observation.Available
+      and then Natural (Observation.Planned_Payments.Value.Payments.Length) = 1,
+      "Planned Payments belongs to the same observation when projection is available");
    Assert
      (HRA.Issues.Count (Observation.Open_Issues.Open_Items) = 1
       and then Observation.Open_Issues.Resolved_Count = 1,
@@ -391,14 +396,23 @@ begin
          "setup admits multi-post completion relations");
    end;
    Assert
-     (not HRA.Household_Report_Observation.Observe
+     (HRA.Household_Report_Observation.Observe
         (D ("2026-08-10"), Failed_State, Failed_Book, Error_Msg)
-      and then Index (To_String (Error_Msg), "Planned Payments") > 0,
-      "projection failure rejects the complete book instead of partial success");
+      and then Length (Error_Msg) = 0
+      and then Failed_Book.Planned_Payments.Status =
+        HRA.Household_Report_Observation.Unavailable
+      and then Failed_Book.Planned_Payments.Diagnostic.Status =
+        HRA.Planned_Payments.Plan_Report_Requires_Binary_Outgoing,
+      "valid multi-post Plan keeps report book successful and only Planned Payments unavailable");
+   Assert
+     (Failed_Book.Account_Balances.As_Of = Observation.Account_Balances.As_Of
+      and then HRA.Issues.Count (Failed_Book.Open_Issues.Open_Items) = 1,
+      "Planned Payments projection limit does not erase independent report sections");
 
    Assert
-     (HRA.Planned_Payments_Render.Render (Observation.Planned_Payments)'Length > 0,
-      "section renderer consumes only its semantic observation");
+     (HRA.Planned_Payments_Render.Render
+        (Observation.Planned_Payments.Value)'Length > 0,
+      "section renderer consumes only its available semantic observation");
 
    Put_Line
      (Natural'Image (Passed_Count) & " passed, " &
