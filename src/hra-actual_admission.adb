@@ -81,18 +81,20 @@ package body HRA.Actual_Admission is
       return Count;
    end Identified_Count;
 
-   function Source_Durable_Identified_Count
-     (Observation : Actual_Observation) return Natural
+   function Has_Source_Durable_Identity
+     (Observation : Actual_Observation;
+      ID          : Actual_Id) return Boolean
    is
-      Count : Natural := 0;
    begin
       for Item of Observation.In_Order loop
-         if Item.Source_Durable_Identity.Present then
-            Count := Count + 1;
+         if Item.Source_Durable_Identity.Present
+           and then Item.Source_Durable_Identity.Value = ID
+         then
+            return True;
          end if;
       end loop;
-      return Count;
-   end Source_Durable_Identified_Count;
+      return False;
+   end Has_Source_Durable_Identity;
 
    procedure Find_Metadata
      (Source      : Transaction_Source;
