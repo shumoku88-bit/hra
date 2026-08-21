@@ -7,6 +7,7 @@ with Ada.Calendar.Formatting;
 with Ada.Calendar.Time_Zones;
 with HRA;
 with HRA.Cycle_Accounts_Render;
+with HRA.Daily_Target_Render;
 with HRA.Dates;
 with HRA.Household;          use HRA.Household;
 with HRA.Household_Check_Observation;
@@ -336,6 +337,10 @@ begin
                                        Put
                                          (HRA.Cycle_Accounts_Render.Render
                                             (Household_Obs.Cycle_Accounts));
+                                    when HRA.Household_Report_Observation.Daily_Target_Section =>
+                                       Put
+                                         (HRA.Daily_Target_Render.Render
+                                            (Household_Obs.Daily_Target));
                                     when HRA.Household_Report_Observation.Account_Balances_Section =>
                                        Put
                                          (Render_Account_Balances

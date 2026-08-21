@@ -4,6 +4,7 @@ with HRA.Envelope_Commitment;
 with HRA.Envelope_Consumption;
 with HRA.Envelope_Entitlement;
 with HRA.Envelope_Position;
+with HRA.Household_Daily_Target_View;
 with HRA.Household_Envelope_Observation;
 with HRA.Plan_Temporal_Observation;
 with HRA.Report_Cycle_Accounts;
@@ -14,14 +15,15 @@ package body HRA.Household_Report_Observation is
    Current_Section_Order : constant Current_Report_Section_Order :=
      [1  => Envelope_And_Backing_Section,
       2  => Cycle_Accounts_Section,
-      3  => Account_Balances_Section,
-      4  => Balance_Sheet_Section,
-      5  => Profit_And_Loss_Section,
-      6  => Daily_Flow_Section,
-      7  => Monthly_Accounts_Section,
-      8  => Recent_Journal_Section,
-      9  => Planned_Payments_Section,
-      10 => Open_Issues_Section];
+      3  => Daily_Target_Section,
+      4  => Account_Balances_Section,
+      5  => Balance_Sheet_Section,
+      6  => Profit_And_Loss_Section,
+      7  => Daily_Flow_Section,
+      8  => Monthly_Accounts_Section,
+      9  => Recent_Journal_Section,
+      10 => Planned_Payments_Section,
+      11 => Open_Issues_Section];
 
    function Observe
      (Observed_Through : HRA.Dates.Date;
@@ -267,6 +269,11 @@ package body HRA.Household_Report_Observation is
               (Status     => HRA.Report_Cycle_Accounts.Comparison_Unavailable,
                Diagnostic => Cycle_Comparison_Diag));
       end if;
+
+      Output.Daily_Target := HRA.Household_Daily_Target_View.Project
+        (Scope_State   => State.Daily_Target,
+         Plans         => Plan_Obs,
+         Account_State => Cycle_Current);
 
       --  Report policy is resolved exactly once. Configurable bounded sections
       --  consume coordinates from this resolved plan. Cycle Accounts does not
