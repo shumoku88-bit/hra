@@ -6,7 +6,7 @@ with HRA.Cycle_Observation;
 with HRA.Dates;
 with HRA.Issue_Observation;
 with HRA.Issues;
-with HRA.Money;
+with HRA.Money;            use type HRA.Money.Quantity;
 with HRA.Plan;
 
 package body HRA.Household_Home_Text is
@@ -15,6 +15,39 @@ package body HRA.Household_Home_Text is
    begin
       return HRA.Money.Render_Quantity (Amt.Val) & " " & HRA.Money.Code (Amt.Comm);
    end Render_Amount;
+
+   function Render_Amount_Or_Paren
+     (Q : HRA.Money.Quantity; Comm_Code : String) return String
+   is
+   begin
+      if HRA.Money.Is_Zero (Q) then
+         return "0 " & Comm_Code;
+      elsif Q < HRA.Money.Zero_Quantity then
+         return "(" & HRA.Money.Render_Quantity (-Q) & " " & Comm_Code & ")";
+      else
+         return HRA.Money.Render_Quantity (Q) & " " & Comm_Code;
+      end if;
+   end Render_Amount_Or_Paren;
+
+   function Render_Balance (B : HRA.Money.Balance) return String is
+      Ents : constant HRA.Money.Balance_Entry_Array := HRA.Money.Entries (B);
+      Buf  : Unbounded_String;
+   begin
+      if Ents'Length = 0 then
+         return "0";
+      end if;
+
+      for I in Ents'Range loop
+         if I > Ents'First then
+            Append (Buf, ", ");
+         end if;
+         Append
+           (Buf,
+            Render_Amount_Or_Paren
+              (Ents (I).Val, HRA.Money.Code (Ents (I).Comm)));
+      end loop;
+      return To_String (Buf);
+   end Render_Balance;
 
    function Resolve_Marker
      (Attention : HRA.Household_Home_Presentation.Attention_Summary;
@@ -105,7 +138,7 @@ package body HRA.Household_Home_Text is
       Pad_Spaces : constant Natural :=
         (if Title'Length < 35 then (35 - Title'Length) / 2 else 0);
    begin
-      Append (Buf, (1 .. Pad_Spaces => ' ') & Title & ASCII.LF);
+      Append (Buf, [1 .. Pad_Spaces => ' '] & Title & ASCII.LF);
       Append (Buf, " Mon  Tue  Wed  Thu  Fri  Sat  Sun" & ASCII.LF);
 
       for Week of Grid.Weeks loop
@@ -176,6 +209,46 @@ package body HRA.Household_Home_Text is
         (Buf,
          " Known Through: " & HRA.Dates.Image (Pres.Known_Through) &
          ASCII.LF);
+      Append (Buf, " Daily Target : ");
+      case Pres.Daily_Target.Status is
+         when Unconfigured =>
+            Append (Buf, "(not configured)" & ASCII.LF);
+
+         when Visible =>
+            Append
+              (Buf,
+               Render_Balance (Pres.Daily_Target.Capacity) & " over " &
+               Trim (Positive'Image (Pres.Daily_Target.Remaining_Days), Both) &
+               (if Pres.Daily_Target.Remaining_Days = 1 then
+                  " remaining day in cycle"
+                else
+                  " remaining days in cycle") &
+               ASCII.LF);
+
+         when Not_Visible =>
+            case Pres.Daily_Target.Reason is
+               when Scope_Unavailable =>
+                  Append
+                    (Buf,
+                     "(setup unavailable: daily target configuration cannot be applied)" &
+                     ASCII.LF);
+               when Cycle_Unavailable =>
+                  Append
+                    (Buf,
+                     "(not yet visible: cycle boundaries are undetermined)" &
+                     ASCII.LF);
+               when Cycle_Accounts_Unavailable =>
+                  Append
+                    (Buf,
+                     "(not yet visible: cycle account balances are undetermined)" &
+                     ASCII.LF);
+               when Observation_Unavailable =>
+                  Append
+                    (Buf,
+                     "(not yet visible: daily target calculation is undetermined)" &
+                     ASCII.LF);
+            end case;
+      end case;
       Append
         (Buf,
          " Attention    : Plan: " &

@@ -1,5 +1,7 @@
+with HRA.Daily_Target_Rate;
 with HRA.Dates;  use type HRA.Dates.Date;
                  use type HRA.Dates.Day_Of_Week;
+with HRA.Household_Daily_Target_View;
 with HRA.Issues; use type HRA.Issues.Issue_Due_Kind;
 
 package body HRA.Household_Home_Presentation is
@@ -298,6 +300,41 @@ package body HRA.Household_Home_Presentation is
       end case;
    end Build_Cycle_Presentation;
 
+   function Build_Daily_Target_Presentation
+     (DT_View : HRA.Household_Daily_Target_View.View)
+      return Daily_Target_Presentation
+   is
+   begin
+      case DT_View.Status is
+         when HRA.Household_Daily_Target_View.Unconfigured =>
+            return (Status => Unconfigured);
+
+         when HRA.Household_Daily_Target_View.Available =>
+            declare
+               Rate : constant HRA.Daily_Target_Rate.Rate :=
+                 HRA.Daily_Target_Rate.Derive (DT_View.Observation);
+            begin
+               return
+                 (Status         => Visible,
+                  Capacity       => HRA.Daily_Target_Rate.Capacity_Numerator (Rate),
+                  Remaining_Days =>
+                    Positive (HRA.Daily_Target_Rate.Remaining_Days (Rate)));
+            end;
+
+         when HRA.Household_Daily_Target_View.Scope_Unavailable =>
+            return (Status => Not_Visible, Reason => Scope_Unavailable);
+
+         when HRA.Household_Daily_Target_View.Cycle_Unavailable =>
+            return (Status => Not_Visible, Reason => Cycle_Unavailable);
+
+         when HRA.Household_Daily_Target_View.Cycle_Accounts_Unavailable =>
+            return (Status => Not_Visible, Reason => Cycle_Accounts_Unavailable);
+
+         when HRA.Household_Daily_Target_View.Observation_Unavailable =>
+            return (Status => Not_Visible, Reason => Observation_Unavailable);
+      end case;
+   end Build_Daily_Target_Presentation;
+
    function Present
      (Horizon : HRA.Household_Home_Observation.Home_Horizon_Observation;
       Day     : HRA.Household_Home_Observation.Home_Day_Observation)
@@ -316,6 +353,9 @@ package body HRA.Household_Home_Presentation is
         Map_Attention
           (HRA.Household_Home_Observation.Selected_Attention (Day));
 
+      Result.Daily_Target :=
+        Build_Daily_Target_Presentation
+          (HRA.Household_Home_Observation.Daily_Target (Horizon));
       Result.Calendar := Build_Calendar_Grid (Horizon, Focus_Day);
       Result.Actual :=
         Build_Actual_Presentation

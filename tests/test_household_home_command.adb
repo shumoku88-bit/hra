@@ -515,6 +515,8 @@ begin
          Assert (Home_Text_Today'Length > 0, "Execute_Home produces non-empty output");
          Assert (Ada.Strings.Fixed.Index (Home_Text_Today, "August 2026") > 0,
                  "Output includes August 2026 Calendar");
+         Assert (Ada.Strings.Fixed.Index (Home_Text_Today, "Daily Target : (not configured)") > 0,
+                 "Output includes unconfigured Daily Target summary");
          Assert (Ada.Strings.Fixed.Index (Home_Text_Today, "Dinner with 3 Postings") > 0,
                  "Output includes today's Actual transaction");
          Assert (Ada.Strings.Fixed.Index (Home_Text_Today, "expenses:food") > 0,
@@ -617,6 +619,52 @@ begin
                  "Report observation succeeds on admitted state: " & To_String (Err));
          Assert (Report_Obs.Section_Order'Length > 0,
                  "Report observation produces non-empty section order");
+      end;
+
+      --  Configured Daily Target via Execute_Home
+      declare
+         Sources_DT : HRA.Canonical_Source.Source_Observation := Sources_Report;
+         State_DT   : HRA.Household.Household_State;
+      begin
+         Sources_DT.Texts (Household_Config_Source) := To_Unbounded_String
+           ("[cycle]" & ASCII.LF &
+            "mode = ""income-anchor""" & ASCII.LF &
+            "income-account = ""income:salary""" & ASCII.LF &
+            "[money]" & ASCII.LF &
+            "primary-commodity = ""JPY""" & ASCII.LF &
+            "[daily-target]" & ASCII.LF &
+            "assets = [{ id = ""bank"", account = ""assets:bank"" }, { id = ""cash"", account = ""assets:cash"" }]" & ASCII.LF &
+            "[envelope-history]" & ASCII.LF &
+            "identities = [""food""]" & ASCII.LF &
+            "[[envelope-history.expense-routing]]" & ASCII.LF &
+            "effective-from = ""initial""" & ASCII.LF &
+            "expense-account = ""expenses:food""" & ASCII.LF &
+            "route = ""managed""" & ASCII.LF &
+            "target = ""food""" & ASCII.LF &
+            "note = ""home command routing""" & ASCII.LF);
+
+         Sources_DT.Texts (Plan_Source) := To_Unbounded_String
+           ("2026-08-25 Planned Utility Bill" & ASCII.LF &
+            "    ; plan-id: plan-util-aug" & ASCII.LF &
+            "    ; daily-target-id: sel-util" & ASCII.LF &
+            "    expenses:food          8000 JPY" & ASCII.LF &
+            "    assets:bank           -8000 JPY" & ASCII.LF & ASCII.LF &
+            "2026-08-31 September Salary" & ASCII.LF &
+            "    ; plan-id: plan-sep-salary" & ASCII.LF &
+            "    assets:bank          300000 JPY" & ASCII.LF &
+            "    income:salary       -300000 JPY" & ASCII.LF);
+
+         Assert (HRA.Household.Admit_Canonical_Household (Sources_DT, State_DT, Diag),
+                 "Admit synthetic Household state configured with Daily Target");
+
+         declare
+            Home_Text_DT : constant String :=
+              Execute_Home (State_DT, D ("2026-08-19"), D ("2026-08-19"));
+         begin
+            Assert (Ada.Strings.Fixed.Index (Home_Text_DT, "Daily Target : ") > 0
+                    and then Ada.Strings.Fixed.Index (Home_Text_DT, "over 12 remaining days in cycle") > 0,
+                    "Execute_Home renders configured Daily Target with remaining days");
+         end;
       end;
    end;
 
