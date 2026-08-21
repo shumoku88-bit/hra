@@ -10,6 +10,7 @@ with HRA.Money;
 
 procedure Test_Actual_Candidate is
    use type HRA.Actual_Candidate.Candidate_Status;
+   use type HRA.Money.Quantity;
 
    Passed_Count : Natural := 0;
    Failed_Count : Natural := 0;
