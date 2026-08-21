@@ -1,6 +1,7 @@
 with Ada.Strings.Fixed; use Ada.Strings.Fixed;
 with Ada.Text_IO;       use Ada.Text_IO;
 with HRA.Account;
+with HRA.Cycle_Accounts_Observation;
 with HRA.Cycle_Accounts_Render;
 with HRA.Cycle_Observation;
 with HRA.Dates;
@@ -99,8 +100,8 @@ procedure Test_Report_Cycle_Accounts is
 
    L          : HRA.Ledger.Ledger;
    Parse_Diag : HRA.Journal.Parse_Diagnostic;
-   Current    : HRA.Report_Cycle_Accounts.Current_Cycle_Accounts_Observation;
-   Current_Diag : HRA.Report_Cycle_Accounts.Current_Observe_Diagnostic;
+   Current    : HRA.Cycle_Accounts_Observation.Observation;
+   Current_Diag : HRA.Cycle_Accounts_Observation.Observe_Diagnostic;
    Comparison : HRA.Report_Cycle_Accounts.Cycle_Comparison_Observation;
    Comparison_Diag : HRA.Report_Cycle_Accounts.Comparison_Diagnostic;
 
@@ -113,7 +114,7 @@ begin
       "setup parses typed multi-Commodity Actual journal");
 
    Assert
-     (HRA.Report_Cycle_Accounts.Observe_Current
+     (HRA.Cycle_Accounts_Observation.Observe
         (L,
          Window ("2026-02-01", "2026-03-01"),
          D ("2026-02-03"),
@@ -135,36 +136,36 @@ begin
       and then JPY (Current.Rows.Element (1).Debit) = 105.0
       and then JPY (Current.Rows.Element (1).Credit) = -30.0
       and then JPY
-        (HRA.Report_Cycle_Accounts.Movement (Current.Rows.Element (1))) = 75.0
+        (HRA.Cycle_Accounts_Observation.Movement (Current.Rows.Element (1))) = 75.0
       and then JPY
-        (HRA.Report_Cycle_Accounts.Closing (Current.Rows.Element (1))) = 155.0,
+        (HRA.Cycle_Accounts_Observation.Closing (Current.Rows.Element (1))) = 155.0,
       "Asset row keeps opening, signed debit-credit movement, and derived closing");
 
    Assert
      (JPY (Current.Rows.Element (5).Debit) = 30.0
       and then JPY (Current.Rows.Element (5).Credit) = -5.0
       and then JPY
-        (HRA.Report_Cycle_Accounts.Movement (Current.Rows.Element (5))) = 25.0,
+        (HRA.Cycle_Accounts_Observation.Movement (Current.Rows.Element (5))) = 25.0,
       "Expense refund stays in the signed Credit lane");
 
    Assert
      (USD (Current.Rows.Element (1).Debit) = 10.0
       and then USD (Current.Rows.Element (2).Credit) = -10.0
-      and then USD (HRA.Report_Cycle_Accounts.Movement_Total (Current)) = 0.0,
+      and then USD (HRA.Cycle_Accounts_Observation.Movement_Total (Current)) = 0.0,
       "Cycle Accounts preserves Commodity identity through exact aggregation");
 
    Assert
      (HRA.Money.Is_Zero_Balance
-        (HRA.Report_Cycle_Accounts.Opening_Total (Current))
+        (HRA.Cycle_Accounts_Observation.Opening_Total (Current))
       and then HRA.Money.Is_Zero_Balance
-        (HRA.Report_Cycle_Accounts.Movement_Total (Current))
+        (HRA.Cycle_Accounts_Observation.Movement_Total (Current))
       and then HRA.Money.Is_Zero_Balance
-        (HRA.Report_Cycle_Accounts.Closing_Total (Current))
-      and then HRA.Report_Cycle_Accounts.Is_Balanced (Current),
+        (HRA.Cycle_Accounts_Observation.Closing_Total (Current))
+      and then HRA.Cycle_Accounts_Observation.Is_Balanced (Current),
       "opening, movement, and closing retain double-entry balance laws");
 
    Assert
-     (JPY (HRA.Report_Cycle_Accounts.Movement (Current.Rows.Element (5))) = 25.0,
+     (JPY (HRA.Cycle_Accounts_Observation.Movement (Current.Rows.Element (5))) = 25.0,
       "future in-cycle Actual after observation day is excluded");
 
    Assert
