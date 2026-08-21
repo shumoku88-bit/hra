@@ -7,7 +7,7 @@ package HRA.Writer is
    --  ========================================================================
 
    --  The complete source snapshot that the caller/operation observed before mutation.
-   --  Represents historical evidence and serves as the optimistic stale check premise.
+   --  Represents the observed publication premise used for optimistic stale checking.
    type Expected_Source is private;
 
    --  The complete source proposed for publication after operation preparation.
