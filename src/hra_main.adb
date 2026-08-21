@@ -12,6 +12,9 @@ with HRA.Household_Check_Observation;
 with HRA.Household_Report_Observation;
 with HRA.Household_Home_Command;
 with HRA.Household_Home_TUI;
+with HRA.Household_Temporal;
+with HRA.Household_Envelope_Change;
+with HRA.Household_Envelope_Cycle_Comparison;
 with HRA.Render;             use HRA.Render;
 with HRA.Recent_Journal_Render;
 with HRA.Planned_Payments_Render;
@@ -31,8 +34,17 @@ procedure HRA_Main is
       Put_Line ("           Options: [--base ROOT] [--through DATE] [--day DATE]");
       Put_Line ("  check    Validate the fixed 8-source topology, typed policy, and balance laws");
       Put_Line ("           Options: [--base ROOT]");
-      Put_Line ("  report   Render the currently admitted Household report portfolio");
-      Put_Line ("           Options: [--base ROOT]");
+      Put_Line ("  report [book]");
+      Put_Line ("           Render the admitted Household report book");
+      Put_Line ("           Options: [--base ROOT] [--through DATE]");
+      Put_Line ("  report envelope-change");
+      Put_Line ("           Render same-cycle Envelope Change");
+      Put_Line
+        ("           Options: [--base ROOT] [--through DATE] " &
+         "[--from cycle-start|previous-day|DATE]");
+      Put_Line ("  report envelope-previous-cycle");
+      Put_Line ("           Render aligned previous-cycle Envelope comparison");
+      Put_Line ("           Options: [--base ROOT] [--through DATE]");
       Put_Line ("  version  Show version information");
       Put_Line ("  help     Show this help message");
       New_Line;
@@ -150,9 +162,40 @@ begin
          end;
       elsif Cmd = "check" or Cmd = "report" then
          declare
+            type Report_Mode is
+              (Report_Book,
+               Envelope_Change_Report,
+               Envelope_Previous_Cycle_Report);
+
             Explicit_Base : Unbounded_String := Null_Unbounded_String;
+            Through_Text  : Unbounded_String := Null_Unbounded_String;
+            Change_From   : Unbounded_String := To_Unbounded_String ("cycle-start");
+            Mode          : Report_Mode := Report_Book;
             I             : Positive := 2;
          begin
+            if Cmd = "report"
+              and then I <= Argument_Count
+              and then Argument (I)'Length > 0
+              and then Argument (I) (Argument (I)'First) /= '-'
+            then
+               declare
+                  Name : constant String := Argument (I);
+               begin
+                  if Name = "book" then
+                     Mode := Report_Book;
+                  elsif Name = "envelope-change" then
+                     Mode := Envelope_Change_Report;
+                  elsif Name = "envelope-previous-cycle" then
+                     Mode := Envelope_Previous_Cycle_Report;
+                  else
+                     Put_Line ("Error: unknown report: " & Name);
+                     Set_Exit_Status (Failure);
+                     return;
+                  end if;
+                  I := I + 1;
+               end;
+            end if;
+
             while I <= Argument_Count loop
                declare
                   Arg : constant String := Argument (I);
@@ -165,6 +208,22 @@ begin
                      end if;
                      Explicit_Base := To_Unbounded_String (Argument (I + 1));
                      I := I + 2;
+                  elsif Cmd = "report" and then Arg = "--through" then
+                     if I + 1 > Argument_Count then
+                        Put_Line ("Error: missing value for option --through");
+                        Set_Exit_Status (Failure);
+                        return;
+                     end if;
+                     Through_Text := To_Unbounded_String (Argument (I + 1));
+                     I := I + 2;
+                  elsif Cmd = "report" and then Arg = "--from" then
+                     if I + 1 > Argument_Count then
+                        Put_Line ("Error: missing value for option --from");
+                        Set_Exit_Status (Failure);
+                        return;
+                     end if;
+                     Change_From := To_Unbounded_String (Argument (I + 1));
+                     I := I + 2;
                   else
                      Put_Line ("Error: unknown option for " & Cmd & ": " & Arg);
                      Set_Exit_Status (Failure);
@@ -172,6 +231,24 @@ begin
                   end if;
                end;
             end loop;
+
+            if Cmd = "check"
+              and then (Length (Through_Text) > 0
+                        or else To_String (Change_From) /= "cycle-start")
+            then
+               Put_Line ("Error: temporal report options are not valid for check");
+               Set_Exit_Status (Failure);
+               return;
+            end if;
+
+            if Cmd = "report"
+              and then Mode /= Envelope_Change_Report
+              and then To_String (Change_From) /= "cycle-start"
+            then
+               Put_Line ("Error: --from is valid only for report envelope-change");
+               Set_Exit_Status (Failure);
+               return;
+            end if;
 
             declare
                Root_Dir : constant String :=
@@ -210,58 +287,160 @@ begin
                   end;
                elsif Cmd = "report" then
                   declare
-                     Report_Day    : constant HRA.Dates.Date := Local_Today;
-                     Household_Obs : HRA.Household_Report_Observation.Report_Observation;
+                     Report_Day : HRA.Dates.Date := Local_Today;
+                     Date_Status : HRA.Dates.Date_Status;
                   begin
-                     if not HRA.Household_Report_Observation.Observe
-                       (Report_Day, State, Household_Obs, Err)
+                     if Length (Through_Text) > 0
+                       and then not HRA.Dates.Parse
+                         (To_String (Through_Text), Report_Day, Date_Status)
                      then
                         Put_Line
-                          ("Error observing Household report state: " & To_String (Err));
+                          ("Error: invalid --through date: " &
+                           To_String (Through_Text));
                         Set_Exit_Status (Failure);
                         return;
                      end if;
 
-                     Put_Line
-                       ("WARNING: daily-flow, monthly-accounts, and presentation " &
-                        "policy remain partial; this report book is not canonical.");
-                     Put_Line ("==================================================");
-                     Put_Line ("   HRA Household Reports");
-                     Put_Line ("   Canonical Root: " & Root_Dir);
-                     Put_Line ("==================================================");
-                     New_Line;
+                     case Mode is
+                        when Report_Book =>
+                           declare
+                              Household_Obs :
+                                HRA.Household_Report_Observation.Report_Observation;
+                           begin
+                              if not HRA.Household_Report_Observation.Observe
+                                (Report_Day, State, Household_Obs, Err)
+                              then
+                                 Put_Line
+                                   ("Error observing Household report state: " &
+                                    To_String (Err));
+                                 Set_Exit_Status (Failure);
+                                 return;
+                              end if;
 
-                     for Section of Household_Obs.Section_Order loop
-                        case Section is
-                           when HRA.Household_Report_Observation.Envelope_And_Backing_Section =>
-                              Put
-                                (HRA.Envelope_Report_Render.Render
-                                   (Household_Obs.Envelope_Report));
-                           when HRA.Household_Report_Observation.Account_Balances_Section =>
-                              Put
-                                (Render_Account_Balances
-                                   (Household_Obs.Account_Balances));
-                           when HRA.Household_Report_Observation.Balance_Sheet_Section =>
-                              Put
-                                (Render_Balance_Sheet
-                                   (Household_Obs.Balance_Sheet));
-                           when HRA.Household_Report_Observation.Profit_And_Loss_Section =>
-                              Put
-                                (Render_Profit_And_Loss
-                                   (Household_Obs.Profit_And_Loss));
-                           when HRA.Household_Report_Observation.Recent_Journal_Section =>
-                              Put
-                                (HRA.Recent_Journal_Render.Render
-                                   (Household_Obs.Recent_Journal));
-                           when HRA.Household_Report_Observation.Planned_Payments_Section =>
-                              Put
-                                (HRA.Planned_Payments_Render.Render
-                                   (Household_Obs.Planned_Payments));
-                           when HRA.Household_Report_Observation.Open_Issues_Section =>
-                              Put (Render_Household_Issues (Household_Obs.Open_Issues));
-                        end case;
-                        New_Line;
-                     end loop;
+                              Put_Line
+                                ("WARNING: daily-flow, monthly-accounts, and presentation " &
+                                 "policy remain partial; this report book is not canonical.");
+                              Put_Line ("==================================================");
+                              Put_Line ("   HRA Household Reports");
+                              Put_Line ("   Canonical Root: " & Root_Dir);
+                              Put_Line ("==================================================");
+                              New_Line;
+
+                              for Section of Household_Obs.Section_Order loop
+                                 case Section is
+                                    when HRA.Household_Report_Observation.Envelope_And_Backing_Section =>
+                                       Put
+                                         (HRA.Envelope_Report_Render.Render
+                                            (Household_Obs.Envelope_Report));
+                                    when HRA.Household_Report_Observation.Account_Balances_Section =>
+                                       Put
+                                         (Render_Account_Balances
+                                            (Household_Obs.Account_Balances));
+                                    when HRA.Household_Report_Observation.Balance_Sheet_Section =>
+                                       Put
+                                         (Render_Balance_Sheet
+                                            (Household_Obs.Balance_Sheet));
+                                    when HRA.Household_Report_Observation.Profit_And_Loss_Section =>
+                                       Put
+                                         (Render_Profit_And_Loss
+                                            (Household_Obs.Profit_And_Loss));
+                                    when HRA.Household_Report_Observation.Recent_Journal_Section =>
+                                       Put
+                                         (HRA.Recent_Journal_Render.Render
+                                            (Household_Obs.Recent_Journal));
+                                    when HRA.Household_Report_Observation.Planned_Payments_Section =>
+                                       Put
+                                         (HRA.Planned_Payments_Render.Render
+                                            (Household_Obs.Planned_Payments));
+                                    when HRA.Household_Report_Observation.Open_Issues_Section =>
+                                       Put
+                                         (Render_Household_Issues
+                                            (Household_Obs.Open_Issues));
+                                 end case;
+                                 New_Line;
+                              end loop;
+                           end;
+
+                        when Envelope_Change_Report =>
+                           declare
+                              procedure Render_Change
+                                (Baseline :
+                                   HRA.Household_Envelope_Change.Baseline_Request)
+                              is
+                                 Change :
+                                   HRA.Household_Envelope_Change.Change_Observation;
+                                 Diag : HRA.Household_Temporal.Observe_Diagnostic;
+                                 Previous : constant
+                                   HRA.Household_Envelope_Change.Previous_Observation_Context :=
+                                     (Kind =>
+                                        HRA.Household_Envelope_Change.No_Previous_Observation);
+                              begin
+                                 if not HRA.Household_Temporal.Observe_Envelope_Change
+                                   (Report_Day,
+                                    Previous,
+                                    Baseline,
+                                    State,
+                                    Change,
+                                    Diag)
+                                 then
+                                    Put_Line
+                                      ("Error observing Envelope Change: " &
+                                       HRA.Household_Temporal.Observe_Status'Image
+                                         (Diag.Status));
+                                    Set_Exit_Status (Failure);
+                                 else
+                                    Put (HRA.Envelope_Report_Render.Render (Change));
+                                 end if;
+                              end Render_Change;
+
+                              From_Text : constant String := To_String (Change_From);
+                              From_Day  : HRA.Dates.Date;
+                              From_Status : HRA.Dates.Date_Status;
+                           begin
+                              if From_Text = "cycle-start" then
+                                 Render_Change
+                                   ((Kind =>
+                                       HRA.Household_Envelope_Change.Cycle_Start));
+                              elsif From_Text = "previous-day" then
+                                 Render_Change
+                                   ((Kind =>
+                                       HRA.Household_Envelope_Change.Previous_Day));
+                              elsif HRA.Dates.Parse
+                                (From_Text, From_Day, From_Status)
+                              then
+                                 Render_Change
+                                   ((Kind          =>
+                                       HRA.Household_Envelope_Change.Explicit_Day,
+                                     Requested_Day => From_Day));
+                              else
+                                 Put_Line
+                                   ("Error: invalid --from value: " & From_Text &
+                                    " (expected cycle-start, previous-day, or YYYY-MM-DD)");
+                                 Set_Exit_Status (Failure);
+                              end if;
+                           end;
+
+                        when Envelope_Previous_Cycle_Report =>
+                           declare
+                              Comparison :
+                                HRA.Household_Envelope_Cycle_Comparison.Comparison_Observation;
+                              Diag :
+                                HRA.Household_Temporal.Cycle_Comparison_View_Diagnostic;
+                           begin
+                              if not HRA.Household_Temporal.Observe_Envelope_Aligned_Previous_Cycle
+                                (Report_Day, State, Comparison, Diag)
+                              then
+                                 Put_Line
+                                   ("Error observing aligned previous-cycle Envelope report: " &
+                                    HRA.Household_Temporal.Cycle_Comparison_View_Status'Image
+                                      (Diag.Status));
+                                 Set_Exit_Status (Failure);
+                              else
+                                 Put
+                                   (HRA.Envelope_Report_Render.Render (Comparison));
+                              end if;
+                           end;
+                     end case;
                   end;
                end if;
             end;
