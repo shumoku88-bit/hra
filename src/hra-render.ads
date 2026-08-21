@@ -1,4 +1,5 @@
 with HRA.Household_Report_Observation;
+with HRA.Report_Flow;
 
 package HRA.Render is
 
@@ -15,6 +16,12 @@ package HRA.Render is
      (Value :
         HRA.Household_Report_Observation.Profit_And_Loss_Report_Observation)
       return String;
+
+   function Render_Daily_Flow
+     (Value : HRA.Report_Flow.Daily_Flow_Observation) return String;
+
+   function Render_Monthly_Accounts
+     (Value : HRA.Report_Flow.Monthly_Accounts_Observation) return String;
 
    function Render_Household_Issues
      (Value : HRA.Household_Report_Observation.Issues_Report_Observation)

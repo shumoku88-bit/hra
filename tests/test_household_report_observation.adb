@@ -302,8 +302,20 @@ begin
         D ("2026-08-10")
       and then HRA.Dates.Last (Observation.Profit_And_Loss.Period) =
         D ("2026-08-10")
+      and then HRA.Dates.Last (Observation.Query_Plan.Daily_Flow) =
+        D ("2026-08-10")
+      and then HRA.Dates.Last (Observation.Daily_Flow.Period) =
+        D ("2026-08-10")
+      and then HRA.Dates.Last (Observation.Query_Plan.Monthly_Accounts) =
+        D ("2026-08-10")
+      and then HRA.Dates.Last (Observation.Monthly_Accounts.Period) =
+        D ("2026-08-10")
       and then Observation.Recent_Journal.Through_Date = D ("2026-08-10"),
-      "TB, BS, P&L, and Recent retain exact resolved coordinates");
+      "TB, BS, P&L, Daily, Monthly, and Recent retain exact resolved coordinates");
+   Assert
+     (Natural (Observation.Daily_Flow.Lines.Length) = 2
+      and then Natural (Observation.Monthly_Accounts.Months.Length) = 2,
+      "flow sections expose admitted Actual through the resolved report periods");
    Assert
      (Observation.Planned_Payments.Status =
         HRA.Household_Report_Observation.Available
@@ -320,6 +332,8 @@ begin
            HRA.Household_Report_Observation.Account_Balances_Section,
            HRA.Household_Report_Observation.Balance_Sheet_Section,
            HRA.Household_Report_Observation.Profit_And_Loss_Section,
+           HRA.Household_Report_Observation.Daily_Flow_Section,
+           HRA.Household_Report_Observation.Monthly_Accounts_Section,
            HRA.Household_Report_Observation.Recent_Journal_Section,
            HRA.Household_Report_Observation.Planned_Payments_Section,
            HRA.Household_Report_Observation.Open_Issues_Section],
@@ -406,6 +420,10 @@ begin
       "valid multi-post Plan keeps report book successful and only Planned Payments unavailable");
    Assert
      (Failed_Book.Account_Balances.As_Of = Observation.Account_Balances.As_Of
+      and then HRA.Dates.Last (Failed_Book.Daily_Flow.Period) =
+        HRA.Dates.Last (Observation.Daily_Flow.Period)
+      and then HRA.Dates.Last (Failed_Book.Monthly_Accounts.Period) =
+        HRA.Dates.Last (Observation.Monthly_Accounts.Period)
       and then HRA.Issues.Count (Failed_Book.Open_Issues.Open_Items) = 1,
       "Planned Payments projection limit does not erase independent report sections");
 

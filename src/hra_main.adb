@@ -52,8 +52,8 @@ procedure HRA_Main is
       Put_Line ("  --base, LEDGER_DATA_DIR, HKERNEL_LEDGER_DATA_DIR, ./ledger-data, .");
       New_Line;
       Put_Line
-        ("WARNING: daily-flow, monthly-accounts, and presentation policy are " &
-         "not yet fully applied; report output is not canonical.");
+        ("WARNING: presentation policy is not yet fully applied; " &
+         "report output is not canonical.");
    end Print_Help;
 
    function Resolve_Household_Root (Explicit_Base : String := "") return String is
@@ -118,8 +118,7 @@ begin
             end loop;
 
             declare
-               Parse_Res : constant Parse_Resolution :=
-                 Parse_Arguments (Args);
+               Parse_Res : constant Parse_Resolution := Parse_Arguments (Args);
             begin
                if Parse_Res.Status /= HRA.Household_Home_Command.Success then
                   Put_Line ("Error: " & To_String (Parse_Res.Message));
@@ -318,8 +317,8 @@ begin
                               end if;
 
                               Put_Line
-                                ("WARNING: daily-flow, monthly-accounts, and presentation " &
-                                 "policy remain partial; this report book is not canonical.");
+                                ("WARNING: presentation policy remains partial; " &
+                                 "this report book is not canonical.");
                               Put_Line ("==================================================");
                               Put_Line ("   HRA Household Reports");
                               Put_Line ("   Canonical Root: " & Root_Dir);
@@ -344,6 +343,12 @@ begin
                                        Put
                                          (Render_Profit_And_Loss
                                             (Household_Obs.Profit_And_Loss));
+                                    when HRA.Household_Report_Observation.Daily_Flow_Section =>
+                                       Put (Render_Daily_Flow (Household_Obs.Daily_Flow));
+                                    when HRA.Household_Report_Observation.Monthly_Accounts_Section =>
+                                       Put
+                                         (Render_Monthly_Accounts
+                                            (Household_Obs.Monthly_Accounts));
                                     when HRA.Household_Report_Observation.Recent_Journal_Section =>
                                        Put
                                          (HRA.Recent_Journal_Render.Render
@@ -364,24 +369,16 @@ begin
                         when Envelope_Change_Report =>
                            declare
                               procedure Render_Change
-                                (Baseline :
-                                   HRA.Household_Envelope_Change.Baseline_Request)
+                                (Baseline : HRA.Household_Envelope_Change.Baseline_Request)
                               is
-                                 Change :
-                                   HRA.Household_Envelope_Change.Change_Observation;
+                                 Change : HRA.Household_Envelope_Change.Change_Observation;
                                  Diag : HRA.Household_Temporal.Observe_Diagnostic;
                                  Previous : constant
                                    HRA.Household_Envelope_Change.Previous_Observation_Context :=
-                                     (Kind =>
-                                        HRA.Household_Envelope_Change.No_Previous_Observation);
+                                     (Kind => HRA.Household_Envelope_Change.No_Previous_Observation);
                               begin
                                  if not HRA.Household_Temporal.Observe_Envelope_Change
-                                   (Report_Day,
-                                    Previous,
-                                    Baseline,
-                                    State,
-                                    Change,
-                                    Diag)
+                                   (Report_Day, Previous, Baseline, State, Change, Diag)
                                  then
                                     Put_Line
                                       ("Error observing Envelope Change: " &
@@ -393,24 +390,19 @@ begin
                                  end if;
                               end Render_Change;
 
-                              From_Text : constant String := To_String (Change_From);
-                              From_Day  : HRA.Dates.Date;
+                              From_Text   : constant String := To_String (Change_From);
+                              From_Day    : HRA.Dates.Date;
                               From_Status : HRA.Dates.Date_Status;
                            begin
                               if From_Text = "cycle-start" then
                                  Render_Change
-                                   ((Kind =>
-                                       HRA.Household_Envelope_Change.Cycle_Start));
+                                   ((Kind => HRA.Household_Envelope_Change.Cycle_Start));
                               elsif From_Text = "previous-day" then
                                  Render_Change
-                                   ((Kind =>
-                                       HRA.Household_Envelope_Change.Previous_Day));
-                              elsif HRA.Dates.Parse
-                                (From_Text, From_Day, From_Status)
-                              then
+                                   ((Kind => HRA.Household_Envelope_Change.Previous_Day));
+                              elsif HRA.Dates.Parse (From_Text, From_Day, From_Status) then
                                  Render_Change
-                                   ((Kind          =>
-                                       HRA.Household_Envelope_Change.Explicit_Day,
+                                   ((Kind          => HRA.Household_Envelope_Change.Explicit_Day,
                                      Requested_Day => From_Day));
                               else
                                  Put_Line
@@ -424,8 +416,7 @@ begin
                            declare
                               Comparison :
                                 HRA.Household_Envelope_Cycle_Comparison.Comparison_Observation;
-                              Diag :
-                                HRA.Household_Temporal.Cycle_Comparison_View_Diagnostic;
+                              Diag : HRA.Household_Temporal.Cycle_Comparison_View_Diagnostic;
                            begin
                               if not HRA.Household_Temporal.Observe_Envelope_Aligned_Previous_Cycle
                                 (Report_Day, State, Comparison, Diag)
@@ -436,8 +427,7 @@ begin
                                       (Diag.Status));
                                  Set_Exit_Status (Failure);
                               else
-                                 Put
-                                   (HRA.Envelope_Report_Render.Render (Comparison));
+                                 Put (HRA.Envelope_Report_Render.Render (Comparison));
                               end if;
                            end;
                      end case;
