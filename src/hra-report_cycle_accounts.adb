@@ -1,3 +1,5 @@
+with HRA.Dates;
+
 package body HRA.Report_Cycle_Accounts is
 
    use type HRA.Account.Account;
