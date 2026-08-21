@@ -7,7 +7,7 @@ with HRA.Envelope_Entitlement;
 with HRA.Envelope_Fulfillment;
 with HRA.Envelope_Position;
 with HRA.Household;
-with HRA.Plan_Observation;
+with HRA.Plan_Temporal_Observation;
 
 --  Focused Envelope observation over one already-admitted Household state.
 --  This package owns use-case composition only. Source admission remains in
@@ -16,8 +16,8 @@ package HRA.Household_Envelope_Observation is
 
    type Observation is record
       Observed_Through   : HRA.Dates.Date;
-      Open_Plans         : HRA.Plan_Observation.Open_Plan_Vectors.Vector;
-      Completed_Plans    : HRA.Plan_Observation.Completed_Plan_Vectors.Vector;
+      Open_Plans         : HRA.Plan_Temporal_Observation.Open_Plan_Vectors.Vector;
+      Completed_Plans    : HRA.Plan_Temporal_Observation.Completed_Plan_Vectors.Vector;
       Current_Cycle      : HRA.Cycle_Observation.Cycle_Window;
       Entitlement        : HRA.Envelope_Entitlement.Entitlement_Observation;
       Consumption        : HRA.Envelope_Consumption.Envelope_Consumption;
