@@ -168,49 +168,13 @@ package body HRA.Daily_Target_Scope is
          Plan_Id     => Null_Unbounded_String,
          Message     => Null_Unbounded_String);
 
-      --  household.toml owns the durable Asset selections. Admit their semantic
-      --  Account references here rather than duplicating Daily Target account
-      --  meaning in the generic Household validator.
+      --  Household admission already proved that these source coordinates are
+      --  unique, syntactically valid, declared Asset Accounts. Re-admitting
+      --  those same facts here would create a second policy authority.
       for Selection of Policy.Daily_Target_Assets loop
-         declare
-            ID_Text : constant String := To_String (Selection.ID);
-            Acc     : HRA.Account.Account;
-            A_Status : HRA.Account.Account_Status;
-            Decl    : HRA.Account.Account_Declaration;
-         begin
-            if ID_Text'Length = 0 then
-               Fail
-                 (Empty_Selection_Id, 0, ID_Text, "",
-                  "Daily Target selection identity is empty");
-               return False;
-            elsif Contains (Seen_Selections, ID_Text) then
-               Fail
-                 (Duplicate_Selection_Id, 0, ID_Text, "",
-                  "Daily Target selection identity is duplicated");
-               return False;
-            elsif not HRA.Account.Create_Account
-              (To_String (Selection.Account), Acc, A_Status)
-              or else not HRA.Account.Lookup_Declaration (Registry, Acc, Decl)
-            then
-               Fail
-                 (Undeclared_Eligible_Asset, 0, ID_Text, "",
-                  "Daily Target eligible Asset is not declared in accounts.journal");
-               return False;
-            elsif Decl.Acc_Type /= HRA.Account.Asset then
-               Fail
-                 (Eligible_Account_Not_Asset, 0, ID_Text, "",
-                  "Daily Target eligible Account must be an Asset");
-               return False;
-            elsif Output.Assets.Contains (Acc) then
-               Fail
-                 (Duplicate_Eligible_Asset, 0, ID_Text, "",
-                  "Daily Target eligible Asset is duplicated");
-               return False;
-            end if;
-
-            Seen_Selections.Append (ID_Text);
-            Output.Assets.Append (Acc);
-         end;
+         Seen_Selections.Append (To_String (Selection.ID));
+         Output.Assets.Append
+           (HRA.Account.Make_Account (To_String (Selection.Account)));
       end loop;
 
       for I in 1 .. HRA.Plan_Admission.Transaction_Count (Plans) loop
