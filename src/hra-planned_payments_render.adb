@@ -48,4 +48,35 @@ package body HRA.Planned_Payments_Render is
       return To_String (Result);
    end Render;
 
+   function Render
+     (Value : HRA.Household_Report_Observation.Planned_Payments_Report_Observation)
+      return String
+   is
+   begin
+      case Value.Status is
+         when HRA.Household_Report_Observation.Available =>
+            return Render (Value.Value);
+         when HRA.Household_Report_Observation.Unavailable =>
+            declare
+               Diag : constant HRA.Planned_Payments.Projection_Diagnostic :=
+                 Value.Diagnostic;
+               Result : Unbounded_String :=
+                 To_Unbounded_String
+                   ("Planned Payments" & ASCII.LF &
+                    "----------------" & ASCII.LF &
+                    "  (unavailable: " &
+                    HRA.Planned_Payments.Projection_Status'Image (Diag.Status));
+            begin
+               if Length (Diag.Plan_Id) > 0 then
+                  Append (Result, ", plan-id=" & To_String (Diag.Plan_Id));
+               end if;
+               Append (Result, ")" & ASCII.LF);
+               if Length (Diag.Message) > 0 then
+                  Append (Result, "  " & To_String (Diag.Message) & ASCII.LF);
+               end if;
+               return To_String (Result);
+            end;
+      end case;
+   end Render;
+
 end HRA.Planned_Payments_Render;

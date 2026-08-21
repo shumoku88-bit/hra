@@ -125,6 +125,21 @@ package HRA.Household_Report_Observation is
       Resolved_Count : Natural := 0;
    end record;
 
+   --  A canonical Household may be successfully admitted while one bounded
+   --  report projection cannot represent every valid domain value. Preserve
+   --  that distinction in the report book instead of rejecting the whole book.
+   type Planned_Payments_Availability is (Available, Unavailable);
+
+   type Planned_Payments_Report_Observation
+     (Status : Planned_Payments_Availability := Unavailable) is record
+      case Status is
+         when Available =>
+            Value : HRA.Planned_Payments.Observation;
+         when Unavailable =>
+            Diagnostic : HRA.Planned_Payments.Projection_Diagnostic;
+      end case;
+   end record;
+
    type Report_Observation is record
       Observed_Through   : HRA.Dates.Date;
       Section_Order      : Current_Report_Section_Order;
@@ -134,7 +149,7 @@ package HRA.Household_Report_Observation is
       Balance_Sheet      : Balance_Sheet_Report_Observation;
       Profit_And_Loss    : Profit_And_Loss_Report_Observation;
       Recent_Journal     : HRA.Recent_Journal.Observation;
-      Planned_Payments   : HRA.Planned_Payments.Observation;
+      Planned_Payments   : Planned_Payments_Report_Observation;
       Open_Issues        : Issues_Report_Observation;
    end record;
 

@@ -28,14 +28,17 @@ package HRA.Planned_Payments is
       Payments : Payment_Vectors.Vector;
    end record;
 
-   type Admission_Status is
+   --  These statuses describe whether an already-admitted temporal Plan can be
+   --  represented by this deliberately narrow report projection. They are not
+   --  canonical source admission failures.
+   type Projection_Status is
      (Success,
       Undeclared_Plan_Account,
       Unsupported_Plan_Role_Flow,
       Plan_Report_Requires_Binary_Outgoing);
 
-   type Admission_Diagnostic is record
-      Status      : Admission_Status := Success;
+   type Projection_Diagnostic is record
+      Status      : Projection_Status := Success;
       Line_Number : Natural := 0;
       Plan_Id     : Unbounded_String;
       Message     : Unbounded_String;
@@ -43,12 +46,13 @@ package HRA.Planned_Payments is
 
    --  Report projection over an already-admitted temporal Plan observation.
    --  Source admission and cross-source relation resolution are deliberately
-   --  excluded from this package.
+   --  excluded from this package. False means only that this narrow projection
+   --  is unavailable for at least one otherwise valid open Plan.
    function Project
      (Open_Plans : HRA.Plan_Temporal_Observation.Open_Plan_Vectors.Vector;
       Registry   : HRA.Account.Account_Registry;
       As_Of_Date : HRA.Dates.Date;
       Result     : out Observation;
-      Diag       : out Admission_Diagnostic) return Boolean;
+      Diag       : out Projection_Diagnostic) return Boolean;
 
 end HRA.Planned_Payments;
