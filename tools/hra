@@ -28,7 +28,13 @@ Application commands:
   tui [--base ROOT] [--through DATE] [--day DATE]
                         Open the interactive Household Home terminal view
   check [--base ROOT]   Validate an admitted canonical Household
-  report [--base ROOT]  Render the current report portfolio
+  report [book] [--base ROOT] [--through DATE]
+                        Render the current report book
+  report envelope-change [--base ROOT] [--through DATE]
+         [--from cycle-start|previous-day|DATE]
+                        Render same-cycle Envelope Change
+  report envelope-previous-cycle [--base ROOT] [--through DATE]
+                        Render aligned previous-cycle Envelope comparison
   version               Show the hra version
   app-help              Show the hra application help
 
