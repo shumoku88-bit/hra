@@ -47,21 +47,18 @@ package HRA.Daily_Target_Scope is
 
    function "=" (Left, Right : Obligation) return Boolean;
 
-   package Account_Vectors is new Ada.Containers.Indefinite_Vectors
-     (Index_Type   => Positive,
-      Element_Type => HRA.Account.Account,
-      "="          => HRA.Account."=");
-
-   --  Scope storage is deliberately opaque. In particular, do not expose the
-   --  generic container instantiated for Obligation: Obligation contains
-   --  private semantic identities, and a visible generic instantiation would
-   --  force Ada to use those private components prematurely. Consumers read a
-   --  stable source-order snapshot through Count/At instead.
+   --  Scope storage is deliberately opaque. Consumers read admitted evidence
+   --  in stable source order through Count/At accessors; generic containers are
+   --  representation details and are not part of the semantic API.
    type Scope is private;
 
    function Empty_Scope return Scope;
    function Is_Configured (Value : Scope) return Boolean;
-   function Eligible_Assets (Value : Scope) return Account_Vectors.Vector;
+   function Eligible_Asset_Count (Value : Scope) return Natural;
+   function Eligible_Asset_At
+     (Value : Scope;
+      Index : Positive) return HRA.Account.Account
+     with Pre => Index <= Eligible_Asset_Count (Value);
    function Obligation_Count (Value : Scope) return Natural;
    function Obligation_At
      (Value : Scope;
@@ -112,6 +109,11 @@ private
       Value : Unbounded_String;
    end record;
 
+   package Account_Vectors is new Ada.Containers.Indefinite_Vectors
+     (Index_Type   => Positive,
+      Element_Type => HRA.Account.Account,
+      "="          => HRA.Account."=");
+
    package Obligation_Vectors is new Ada.Containers.Indefinite_Vectors
      (Index_Type   => Positive,
       Element_Type => Obligation,
@@ -141,8 +143,13 @@ private
    function Is_Configured (Value : Scope) return Boolean is
      (not Value.Assets.Is_Empty);
 
-   function Eligible_Assets (Value : Scope) return Account_Vectors.Vector is
-     (Value.Assets);
+   function Eligible_Asset_Count (Value : Scope) return Natural is
+     (Natural (Value.Assets.Length));
+
+   function Eligible_Asset_At
+     (Value : Scope;
+      Index : Positive) return HRA.Account.Account is
+     (Value.Assets.Element (Index));
 
    function Obligation_Count (Value : Scope) return Natural is
      (Natural (Value.Obligations.Length));
