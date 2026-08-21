@@ -7,13 +7,14 @@ with HRA.Money;
 with HRA.Plan;
 with HRA.Plan_Admission;
 
---  Admitted Daily Target meaning assembled from two existing authorities.
+--  Daily Target meaning assembled from already-admitted source authorities.
 --
---  household.toml owns the long-lived eligible Asset selections. plan.journal
---  owns current obligation declarations through already-parsed transaction
---  metadata. This package does not parse either source and does not narrow the
---  general Plan Journal. Only Plans explicitly selected for Daily Target are
---  required to project to one outgoing household commitment.
+--  Household admission owns validity of the long-lived eligible Asset policy.
+--  Plan_Journal owns general Plan identity, lifecycle evidence, transactions,
+--  and parser-produced metadata. This package owns only the cross-source Daily
+--  Target selection meaning and the narrower selected-obligation/reservation
+--  laws. It does not parse either source and does not narrow general Plan
+--  admission.
 package HRA.Daily_Target_Scope is
 
    type Selection_Id is private;
@@ -64,9 +65,6 @@ package HRA.Daily_Target_Scope is
      (Success,
       Empty_Selection_Id,
       Duplicate_Selection_Id,
-      Duplicate_Eligible_Asset,
-      Undeclared_Eligible_Asset,
-      Eligible_Account_Not_Asset,
       Duplicate_Daily_Target_Metadata,
       Reservation_Without_Selection,
       Incomplete_Reservation,
@@ -88,6 +86,8 @@ package HRA.Daily_Target_Scope is
       Message      : Unbounded_String;
    end record;
 
+   --  Policy and Registry are read from one successfully admitted Household.
+   --  Their Account-reference/type validity is therefore not re-admitted here.
    function Admit
      (Policy   : HRA.Household_Config.Household_Configuration;
       Registry : HRA.Account.Account_Registry;
