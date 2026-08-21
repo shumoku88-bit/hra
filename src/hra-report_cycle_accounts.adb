@@ -3,7 +3,6 @@ with HRA.Dates;
 package body HRA.Report_Cycle_Accounts is
 
    use type HRA.Account.Account;
-   use type HRA.Dates.Date;
 
    function Difference (Row : Comparison_Row) return Balance is
      (Subtract_Balance (Row.Current_Movement, Row.Baseline_Movement));
