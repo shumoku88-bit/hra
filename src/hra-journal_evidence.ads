@@ -5,6 +5,11 @@ with HRA.Ledger;
 --  Physical source evidence owned by Journal parsing.
 --
 --  The data model lives here so domain consumers can retain source coordinates.
+--  Source_Path, Header_Line, and parser-retained text describe where evidence
+--  came from physically. They do not say when HRA first learned, admitted, or
+--  stored that fact. No canonical cross-domain knowledge-time coordinate is
+--  hidden in this provenance structure.
+--
 --  Extract is only a projection/validation boundary: it delegates all lexical
 --  recognition to HRA.Journal.Document and owns no Journal grammar of its own.
 package HRA.Journal_Evidence is

@@ -3,8 +3,20 @@ with HRA.Dates;
 with HRA.Issues;
 
 --  Pure temporal projection for canonical Issue facts over an explicit
---  observation date. This package resolves as-of lifecycle state and
---  due-date queries without modifying the admitted issue inventory.
+--  observation date.
+--
+--  Temporal roles in this owner are local to an Issue lifecycle:
+--    Observed_Through : as-of visibility horizon
+--    Recorded_On      : when the Issue becomes visible in its own history
+--    Closed_Date      : lifecycle closure coordinate
+--    Due_Date         : target coordinate the open Issue points toward
+--
+--  Recorded_On is useful temporal evidence for Issues, but it is not a shared
+--  cross-domain "when HRA learned this fact" coordinate for Actual, Plan, and
+--  other admitted facts.
+--
+--  This package resolves as-of lifecycle state and due-date queries without
+--  modifying the admitted issue inventory.
 package HRA.Issue_Observation is
 
    type As_Of_Status is

@@ -10,12 +10,18 @@ with HRA.Plan_Temporal_Observation;
 --  Household_State.
 --
 --  Temporal coordinate laws:
---    Known_Through : knowledge horizon
+--    Known_Through : established API name for the as-of visibility horizon
 --    Selected_Day  : focus coordinate
+--
+--  Known_Through is not a canonical "when HRA learned this fact" timestamp.
+--  HRA does not currently retain that cross-domain knowledge-time coordinate.
+--  Visible_Through and Focus_Day expose the narrower meanings without creating
+--  a second temporal authority.
 --
 --  Selected_Day > Known_Through means Actual is Unavailable.
 --  Future-dated admitted Actual transactions in State are never leaked.
---  Plan, Issue, Cycle, and Daily Target reflect what is known through Known_Through.
+--  Plan, Issue, Cycle, and Daily Target reflect what is visible through
+--  Known_Through according to their own temporal laws.
 --  Empty results (0 transactions/plans/issues) are distinct from Unavailable.
 --
 --  Home_Observation is opaque; presentation layers cannot manufacture
@@ -94,13 +100,18 @@ package HRA.Household_Home_Observation is
    type Home_Horizon_Observation is private;
 
    --  See the horizon-stable Plan, Issue, Cycle, Daily Target, and
-   --  calendar-attention projections using only facts known through Known_Through.
+   --  calendar-attention projections using only evidence visible through
+   --  Known_Through according to each owner's temporal law.
    function See_Horizon
      (Known_Through : HRA.Dates.Date;
       State         : HRA.Household.Household_State) return Home_Horizon_Observation;
 
    function Known_Through
      (Horizon : Home_Horizon_Observation) return HRA.Dates.Date;
+
+   function Visible_Through
+     (Horizon : Home_Horizon_Observation) return HRA.Dates.Date is
+     (Known_Through (Horizon));
 
    function Cycle
      (Horizon : Home_Horizon_Observation) return Cycle_Home_Observation;
@@ -123,6 +134,11 @@ package HRA.Household_Home_Observation is
       State        : HRA.Household.Household_State) return Home_Day_Observation;
 
    function Selected_Day (Day_Obs : Home_Day_Observation) return HRA.Dates.Date;
+
+   function Focus_Day
+     (Day_Obs : Home_Day_Observation) return HRA.Dates.Date is
+     (Selected_Day (Day_Obs));
+
    function Actual (Day_Obs : Home_Day_Observation) return Actual_Home_Observation;
    function Plan (Day_Obs : Home_Day_Observation) return Plan_Home_Observation;
    function Issue (Day_Obs : Home_Day_Observation) return Issue_Home_Observation;
@@ -140,6 +156,13 @@ package HRA.Household_Home_Observation is
    function Day (Obs : Home_Observation) return Home_Day_Observation;
    function Known_Through (Obs : Home_Observation) return HRA.Dates.Date;
    function Selected_Day (Obs : Home_Observation) return HRA.Dates.Date;
+
+   function Visible_Through (Obs : Home_Observation) return HRA.Dates.Date is
+     (Known_Through (Obs));
+
+   function Focus_Day (Obs : Home_Observation) return HRA.Dates.Date is
+     (Selected_Day (Obs));
+
    function Actual (Obs : Home_Observation) return Actual_Home_Observation;
    function Plan (Obs : Home_Observation) return Plan_Home_Observation;
    function Issue (Obs : Home_Observation) return Issue_Home_Observation;

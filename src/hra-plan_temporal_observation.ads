@@ -8,6 +8,15 @@ with HRA.Plan_Completion;
 
 --  Pure temporal projection over already-admitted Plan and completion facts.
 --
+--  Temporal roles in this owner are deliberately distinct:
+--    Observed_Through : as-of visibility horizon
+--    Plan Tx.Date     : intention coordinate, where the commitment points
+--    retirement dates : lifecycle evidence coordinates
+--    completion Actual Tx.Date : event coordinate of the completing fact
+--
+--  The Plan transaction date is therefore not a visibility gate. A commitment
+--  may point beyond Observed_Through and still already be visible now.
+--
 --  This owner performs no source admission and no cross-source reference
 --  resolution. It answers only what is visible through one inclusive day.
 package HRA.Plan_Temporal_Observation is

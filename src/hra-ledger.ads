@@ -40,6 +40,14 @@ package HRA.Ledger is
    --  ========================================================================
    --  Transaction: Multi-Posting Entry with Balance Validation
    --  ========================================================================
+   --
+   --  Transaction.Date is a contextual temporal coordinate. Ledger keeps the
+   --  common transaction shape, while the admitting owner supplies its meaning:
+   --    Actual_Admission : event coordinate, when the transaction happened
+   --    Plan_Admission   : intention coordinate, when the commitment points
+   --
+   --  Ledger itself therefore does not reinterpret Date as a universal event,
+   --  knowledge, or observation timestamp.
    type Transaction is record
       Date          : HRA.Dates.Date;
       Code_Or_Payee : Unbounded_String;

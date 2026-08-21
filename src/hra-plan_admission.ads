@@ -7,6 +7,10 @@ with HRA.Plan;
 
 --  One admitted Plan Journal authority.
 --
+--  In this owner Tx.Date is the intention coordinate: the day toward which the
+--  admitted commitment points. It is not a visibility gate and does not become
+--  an Actual event merely because that day arrives.
+--
 --  Journal syntax owns transactions and parser-produced source coordinates.
 --  This package adds Plan identity and lifecycle evidence exactly once, while
 --  retaining the whole Transaction and its physical provenance together.
