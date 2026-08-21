@@ -6,7 +6,7 @@ with HRA.Account;
 with HRA.Envelope;
 with HRA.Envelope_Routing;
 with HRA.Fulfillment_Routing;
-with HRA.Plan_Observation;
+with HRA.Plan_Temporal_Observation;
 with HRA.Cycle_Observation;
 
 package HRA.Envelope_Commitment is
@@ -51,7 +51,7 @@ package HRA.Envelope_Commitment is
    --  history effective at the observation day. Account identity is never a
    --  fallback for savings, investment, transfer, or liability intent.
    function Observe
-     (Open_Plans       : HRA.Plan_Observation.Open_Plan_Vectors.Vector;
+     (Open_Plans       : HRA.Plan_Temporal_Observation.Open_Plan_Vectors.Vector;
       Registry         : HRA.Account.Account_Registry;
       Routing          : HRA.Envelope_Routing.Routing_History;
       Fulfillment      : HRA.Fulfillment_Routing.Fulfillment_Routing_History;

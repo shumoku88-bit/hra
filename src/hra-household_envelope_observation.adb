@@ -3,49 +3,12 @@ with HRA.Entitlement_Journal;
 
 package body HRA.Household_Envelope_Observation is
 
-   function Observe_Plans_At
-     (Observed_Through : HRA.Dates.Date;
-      State            : HRA.Household.Household_State;
-      Open_Plans       : out HRA.Plan_Observation.Open_Plan_Vectors.Vector;
-      Completed_Plans  : out HRA.Plan_Observation.Completed_Plan_Vectors.Vector;
-      Error_Msg        : out Unbounded_String) return Boolean
-   is
-      Plan_Diag : HRA.Plan_Observation.Admission_Diagnostic;
-   begin
-      Open_Plans := HRA.Plan_Observation.Open_Plan_Vectors.Empty_Vector;
-      Completed_Plans :=
-        HRA.Plan_Observation.Completed_Plan_Vectors.Empty_Vector;
-
-      if not HRA.Plan_Observation.Observe_Plans
-        (State.Plan_Ledger,
-         State.Plan_Evidence,
-         State.Actual_Ledger,
-         State.Actual_Evidence,
-         Observed_Through,
-         Open_Plans,
-         Completed_Plans,
-         Plan_Diag)
-      then
-         Error_Msg := To_Unbounded_String
-           ("Plan observation failed: " &
-            HRA.Plan_Observation.Admission_Status'Image
-              (Plan_Diag.Status) &
-            (if Length (Plan_Diag.Message) > 0
-             then ": " & To_String (Plan_Diag.Message)
-             else ""));
-         return False;
-      end if;
-
-      Error_Msg := Null_Unbounded_String;
-      return True;
-   end Observe_Plans_At;
-
    function Compose
      (Observed_Through : HRA.Dates.Date;
       Window           : HRA.Cycle_Observation.Cycle_Window;
       State            : HRA.Household.Household_State;
-      Open_Plans       : HRA.Plan_Observation.Open_Plan_Vectors.Vector;
-      Completed_Plans  : HRA.Plan_Observation.Completed_Plan_Vectors.Vector;
+      Open_Plans       : HRA.Plan_Temporal_Observation.Open_Plan_Vectors.Vector;
+      Completed_Plans  : HRA.Plan_Temporal_Observation.Completed_Plan_Vectors.Vector;
       Result           : out Observation;
       Error_Msg        : out Unbounded_String) return Boolean
    is
@@ -151,28 +114,19 @@ package body HRA.Household_Envelope_Observation is
       Result           : out Observation;
       Error_Msg        : out Unbounded_String) return Boolean
    is
-      Open_Plans      : HRA.Plan_Observation.Open_Plan_Vectors.Vector;
-      Completed_Plans : HRA.Plan_Observation.Completed_Plan_Vectors.Vector;
-      Window          : HRA.Cycle_Observation.Cycle_Window;
-      Cycle_Status    : HRA.Cycle_Observation.Resolve_Status;
-      Income_Acc      : constant HRA.Account.Account :=
+      Plan_Obs : constant HRA.Plan_Temporal_Observation.Observation :=
+        HRA.Plan_Temporal_Observation.Observe
+          (State.Plan_Journal, State.Plan_Completions, Observed_Through);
+      Window       : HRA.Cycle_Observation.Cycle_Window;
+      Cycle_Status : HRA.Cycle_Observation.Resolve_Status;
+      Income_Acc   : constant HRA.Account.Account :=
         HRA.Account.Make_Account
           (To_String (State.Household_Policy.Cycle_Income_Account));
    begin
-      if not Observe_Plans_At
-        (Observed_Through,
-         State,
-         Open_Plans,
-         Completed_Plans,
-         Error_Msg)
-      then
-         return False;
-      end if;
-
       if not HRA.Cycle_Observation.Resolve_Current
         (Observed_Through,
          State.Actual_Ledger,
-         Open_Plans,
+         Plan_Obs.Open_Plans,
          State.Registry,
          Income_Acc,
          Window,
@@ -188,8 +142,8 @@ package body HRA.Household_Envelope_Observation is
         (Observed_Through,
          Window,
          State,
-         Open_Plans,
-         Completed_Plans,
+         Plan_Obs.Open_Plans,
+         Plan_Obs.Completed_Plans,
          Result,
          Error_Msg);
    end Observe;
@@ -201,8 +155,9 @@ package body HRA.Household_Envelope_Observation is
       Result           : out Observation;
       Error_Msg        : out Unbounded_String) return Boolean
    is
-      Open_Plans      : HRA.Plan_Observation.Open_Plan_Vectors.Vector;
-      Completed_Plans : HRA.Plan_Observation.Completed_Plan_Vectors.Vector;
+      Plan_Obs : constant HRA.Plan_Temporal_Observation.Observation :=
+        HRA.Plan_Temporal_Observation.Observe
+          (State.Plan_Journal, State.Plan_Completions, Observed_Through);
    begin
       if not HRA.Cycle_Observation.Contains (Window, Observed_Through) then
          Error_Msg := To_Unbounded_String
@@ -213,22 +168,12 @@ package body HRA.Household_Envelope_Observation is
          return False;
       end if;
 
-      if not Observe_Plans_At
-        (Observed_Through,
-         State,
-         Open_Plans,
-         Completed_Plans,
-         Error_Msg)
-      then
-         return False;
-      end if;
-
       return Compose
         (Observed_Through,
          Window,
          State,
-         Open_Plans,
-         Completed_Plans,
+         Plan_Obs.Open_Plans,
+         Plan_Obs.Completed_Plans,
          Result,
          Error_Msg);
    end Observe_In_Window;

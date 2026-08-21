@@ -2,6 +2,7 @@ with Ada.Strings.Fixed;     use Ada.Strings.Fixed;
 with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
 with Ada.Text_IO;           use Ada.Text_IO;
 with HRA.Account;
+with HRA.Actual_Admission;
 with HRA.Backing_Policy;
 with HRA.Envelope_Config;
 with HRA.Config_Support;
@@ -17,6 +18,8 @@ with HRA.Journal;
 with HRA.Journal_Evidence;
 with HRA.Ledger;
 with HRA.Money;
+with HRA.Plan_Admission;
+with HRA.Plan_Completion;
 with HRA.Planned_Payments_Render;
 with HRA.Report_Config;
 
@@ -125,6 +128,17 @@ procedure Test_Household_Report_Observation is
      "    assets:cash             1000 JPY" & ASCII.LF &
      "    income:salary          -1000 JPY" & ASCII.LF;
 
+   Multi_Post_Plan_Text : constant String :=
+     "2026-08-15 Split planned food" & ASCII.LF &
+     "    ; plan-id: plan-food" & ASCII.LF &
+     "    assets:cash              -25 JPY" & ASCII.LF &
+     "    expenses:food             15 JPY" & ASCII.LF &
+     "    expenses:food             10 JPY" & ASCII.LF & ASCII.LF &
+     "2026-09-01 Next salary" & ASCII.LF &
+     "    ; plan-id: plan-next-salary" & ASCII.LF &
+     "    assets:cash             1000 JPY" & ASCII.LF &
+     "    income:salary          -1000 JPY" & ASCII.LF;
+
    Entitlement_Text : constant String :=
      "2026-08-01 origin JPY" & ASCII.LF &
      "2026-08-01 transfer unallocated -> food 100 JPY" & ASCII.LF &
@@ -144,6 +158,9 @@ procedure Test_Household_Report_Observation is
    Journal_Diag : HRA.Journal.Parse_Diagnostic;
    Evidence_Diag : HRA.Journal_Evidence.Evidence_Diagnostic;
    Entitlement_Diag : HRA.Entitlement_Journal.Admission_Diagnostic;
+   Actual_Diag  : HRA.Actual_Admission.Admission_Diagnostic;
+   Plan_Diag    : HRA.Plan_Admission.Admission_Diagnostic;
+   Completion_Diag : HRA.Plan_Completion.Admission_Diagnostic;
    Ids          : HRA.Config_Support.String_Vectors.Vector;
    JPY          : constant HRA.Money.Commodity := HRA.Money.Make_Commodity ("JPY");
    USD          : constant HRA.Money.Commodity := HRA.Money.Make_Commodity ("USD");
@@ -193,6 +210,15 @@ begin
          State.Actual_Evidence,
          Evidence_Diag),
       "setup retains Actual evidence");
+   State.Actual_Ledger.Registry := State.Registry;
+   Assert
+     (HRA.Actual_Admission.Admit
+        (State.Actual_Ledger,
+         State.Actual_Evidence,
+         State.Actual_Identity,
+         Actual_Diag),
+      "setup admits Actual authority");
+
    Assert
      (HRA.Journal.Parse_Journal_Text
         (Plan_Text, "plan.journal", State.Plan_Ledger, Journal_Diag),
@@ -204,6 +230,22 @@ begin
          State.Plan_Evidence,
          Evidence_Diag),
       "setup retains Plan evidence");
+   State.Plan_Ledger.Registry := State.Registry;
+   Assert
+     (HRA.Plan_Admission.Admit
+        (State.Plan_Ledger,
+         State.Plan_Evidence,
+         State.Plan_Journal,
+         Plan_Diag),
+      "setup admits Plan Journal authority");
+   Assert
+     (HRA.Plan_Completion.Admit
+        (State.Plan_Journal,
+         State.Actual_Identity,
+         State.Plan_Completions,
+         Completion_Diag),
+      "setup admits typed Plan completion relations");
+
    Assert
      (HRA.Entitlement_Journal.Admit
         (Entitlement_Text,
@@ -211,9 +253,6 @@ begin
          State.Entitlement_History,
          Entitlement_Diag),
       "setup admits multi-Commodity native Entitlement history");
-
-   State.Actual_Ledger.Registry := State.Registry;
-   State.Plan_Ledger.Registry := State.Registry;
 
    HRA.Issues.Append
      (State.Issues,
@@ -316,19 +355,38 @@ begin
 
    Failed_State := State;
    declare
-      Tx : HRA.Ledger.Transaction :=
-        Failed_State.Plan_Ledger.Transactions.Element (1);
+      Bad_Ledger   : HRA.Ledger.Ledger;
+      Bad_Evidence : HRA.Journal_Evidence.Journal_Evidence;
    begin
-      Tx.Postings.Replace_Element
-        (1,
-         HRA.Ledger.Make_Posting
-           (HRA.Account.Make_Account ("assets:cash"),
-            HRA.Money.Make_Amount (JPY, -15.0)));
-      Tx.Postings.Append
-        (HRA.Ledger.Make_Posting
-           (HRA.Account.Make_Account ("assets:cash"),
-            HRA.Money.Make_Amount (JPY, -10.0)));
-      Failed_State.Plan_Ledger.Transactions.Replace_Element (1, Tx);
+      Assert
+        (HRA.Journal.Parse_Journal_Text
+           (Multi_Post_Plan_Text,
+            "plan.journal",
+            Bad_Ledger,
+            Journal_Diag),
+         "setup parses valid multi-post Plan");
+      Assert
+        (HRA.Journal_Evidence.Extract
+           (Multi_Post_Plan_Text,
+            Bad_Ledger,
+            Bad_Evidence,
+            Evidence_Diag),
+         "setup retains multi-post Plan evidence");
+      Bad_Ledger.Registry := State.Registry;
+      Assert
+        (HRA.Plan_Admission.Admit
+           (Bad_Ledger,
+            Bad_Evidence,
+            Failed_State.Plan_Journal,
+            Plan_Diag),
+         "setup admits multi-post Plan authority");
+      Assert
+        (HRA.Plan_Completion.Admit
+           (Failed_State.Plan_Journal,
+            Failed_State.Actual_Identity,
+            Failed_State.Plan_Completions,
+            Completion_Diag),
+         "setup admits multi-post completion relations");
    end;
    Assert
      (not HRA.Household_Report_Observation.Observe

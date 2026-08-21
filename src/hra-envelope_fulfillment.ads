@@ -9,7 +9,7 @@ with HRA.Fulfillment_Routing;
 with HRA.Ledger;
 with HRA.Money; use HRA.Money;
 with HRA.Plan;
-with HRA.Plan_Observation;
+with HRA.Plan_Temporal_Observation;
 
 package HRA.Envelope_Fulfillment is
 
@@ -75,7 +75,7 @@ package HRA.Envelope_Fulfillment is
 
    --  Activity observation through one inclusive day.
    function Observe
-     (Completed        : HRA.Plan_Observation.Completed_Plan_Vectors.Vector;
+     (Completed        : HRA.Plan_Temporal_Observation.Completed_Plan_Vectors.Vector;
       Actual_Ledger    : HRA.Ledger.Ledger;
       Registry         : HRA.Account.Account_Registry;
       Routing          : HRA.Fulfillment_Routing.Fulfillment_Routing_History;
@@ -87,7 +87,7 @@ package HRA.Envelope_Fulfillment is
    --  completion root is on or after that Commodity's source-owned Entitlement
    --  origin. The whole reversal chain inherits that same root membership.
    function Observe_Stock
-     (Completed        : HRA.Plan_Observation.Completed_Plan_Vectors.Vector;
+     (Completed        : HRA.Plan_Temporal_Observation.Completed_Plan_Vectors.Vector;
       Actual_Ledger    : HRA.Ledger.Ledger;
       Registry         : HRA.Account.Account_Registry;
       Routing          : HRA.Fulfillment_Routing.Fulfillment_Routing_History;

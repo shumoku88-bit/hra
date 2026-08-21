@@ -33,23 +33,18 @@ package body HRA.Household_Home_Presentation is
         HRA.Household_Home_Observation.Observed_Through (Observation);
       Focus_Year    : constant Positive := HRA.Dates.Year (Focus_Day);
       Focus_Month   : constant Positive := HRA.Dates.Month (Focus_Day);
-
       First_Date    : constant HRA.Dates.Date :=
         HRA.Dates.First_Of_Month (Focus_Day);
       Last_Date     : constant HRA.Dates.Date :=
         HRA.Dates.Last_Of_Month (Focus_Day);
-
       Grid_Start    : HRA.Dates.Date := First_Date;
       Start_Weekday : constant HRA.Dates.Day_Of_Week :=
         HRA.Dates.Day_Of_Week_Of (First_Date);
-
       Result        : Calendar_Grid;
    begin
       Result.Year  := Focus_Year;
       Result.Month := Focus_Month;
 
-      --  Rewind Grid_Start to previous Monday if month does not start on Monday.
-      --  Bounded by Gregorian origin (year 1 month 1 starts on Monday).
       case Start_Weekday is
          when HRA.Dates.Monday =>
             null;
@@ -127,7 +122,6 @@ package body HRA.Household_Home_Presentation is
                            Past_Limit := True;
                         end if;
                      else
-                        --  Explicit typed padding beyond Gregorian limit (e.g. 9999-12 trailing cells)
                         Cell := (Kind => Out_Of_Range_Padding);
                      end if;
 
@@ -194,36 +188,27 @@ package body HRA.Household_Home_Presentation is
      (Obs : HRA.Household_Home_Observation.Plan_Home_Observation)
       return Plan_Presentation
    is
+      Result : Plan_Presentation;
    begin
-      case Obs.Status is
-         when HRA.Household_Home_Observation.Available =>
-            declare
-               Result : Plan_Presentation (Status => Available);
-            begin
-               for P of Obs.Open_Plans loop
-                  declare
-                     Item : Plan_Item;
-                  begin
-                     Item.Plan_Id        := P.ID;
-                     Item.Scheduled_Date := P.Tx.Date;
-                     Item.Description    := P.Tx.Code_Or_Payee;
+      for P of Obs.Open_Plans loop
+         declare
+            Item : Plan_Item;
+         begin
+            Item.Plan_Id        := P.ID;
+            Item.Scheduled_Date := P.Tx.Date;
+            Item.Description    := P.Tx.Code_Or_Payee;
 
-                     for Post of P.Tx.Postings loop
-                        Item.Postings.Append
-                          (Posting_Item'
-                             (Account => Post.Acc,
-                              Amount  => Post.Amt));
-                     end loop;
+            for Post of P.Tx.Postings loop
+               Item.Postings.Append
+                 (Posting_Item'
+                    (Account => Post.Acc,
+                     Amount  => Post.Amt));
+            end loop;
 
-                     Result.Items.Append (Item);
-                  end;
-               end loop;
-               return Result;
-            end;
-
-         when HRA.Household_Home_Observation.Unavailable =>
-            return (Status => Unavailable, Diagnostic => Obs.Error);
-      end case;
+            Result.Items.Append (Item);
+         end;
+      end loop;
+      return Result;
    end Build_Plan_Presentation;
 
    function Build_Issue_Presentation
@@ -309,21 +294,7 @@ package body HRA.Household_Home_Presentation is
             end;
 
          when HRA.Household_Home_Observation.Unavailable =>
-            declare
-               Detail : Cycle_Unavailable_Detail;
-            begin
-               case Obs.Failure.Reason is
-                  when HRA.Household_Home_Observation.Plan_Dependency_Unavailable =>
-                     Detail :=
-                       (Reason     => Plan_Dependency_Unavailable,
-                        Plan_Error => Obs.Failure.Plan_Error);
-                  when HRA.Household_Home_Observation.Cycle_Resolution_Failed =>
-                     Detail :=
-                       (Reason      => Cycle_Resolution_Failed,
-                        Cycle_Error => Obs.Failure.Cycle_Error);
-               end case;
-               return (Status => Unavailable, Failure => Detail);
-            end;
+            return (Status => Unavailable, Error => Obs.Error);
       end case;
    end Build_Cycle_Presentation;
 

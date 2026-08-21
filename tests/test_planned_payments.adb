@@ -2,11 +2,16 @@ with Ada.Text_IO;          use Ada.Text_IO;
 with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
 with Ada.Strings.Fixed;     use Ada.Strings.Fixed;
 with HRA.Account;
+with HRA.Actual_Admission;
 with HRA.Dates;
 with HRA.Journal;
+with HRA.Journal_Evidence;
 with HRA.Ledger;
 with HRA.Money;
 with HRA.Plan;
+with HRA.Plan_Admission;
+with HRA.Plan_Completion;
+with HRA.Plan_Temporal_Observation;
 with HRA.Planned_Payments;
 with HRA.Planned_Payments_Render;
 
@@ -68,6 +73,45 @@ procedure Test_Planned_Payments is
       return False;
    end Contains;
 
+   function Open_Plans
+     (Plan_Source   : String;
+      Actual_Source : String;
+      As_Of         : HRA.Dates.Date)
+      return HRA.Plan_Temporal_Observation.Open_Plan_Vectors.Vector
+   is
+      Plan_Ledger, Actual_Ledger : HRA.Ledger.Ledger;
+      Plan_Evidence, Actual_Evidence : HRA.Journal_Evidence.Journal_Evidence;
+      Parse_Error : Unbounded_String;
+      Evidence_Diag : HRA.Journal_Evidence.Evidence_Diagnostic;
+      Plans : HRA.Plan_Admission.Plan_Journal;
+      Plan_Diag : HRA.Plan_Admission.Admission_Diagnostic;
+      Actuals : HRA.Actual_Admission.Actual_Observation;
+      Actual_Diag : HRA.Actual_Admission.Admission_Diagnostic;
+      Completions : HRA.Plan_Completion.Completion_Relations;
+      Completion_Diag : HRA.Plan_Completion.Admission_Diagnostic;
+   begin
+      if not HRA.Journal.Parse_Journal_Text
+        (Plan_Source, Plan_Ledger, Parse_Error)
+        or else not HRA.Journal_Evidence.Extract
+          (Plan_Source, Plan_Ledger, Plan_Evidence, Evidence_Diag)
+        or else not HRA.Plan_Admission.Admit
+          (Plan_Ledger, Plan_Evidence, Plans, Plan_Diag)
+        or else not HRA.Journal.Parse_Journal_Text
+          (Actual_Source, Actual_Ledger, Parse_Error)
+        or else not HRA.Journal_Evidence.Extract
+          (Actual_Source, Actual_Ledger, Actual_Evidence, Evidence_Diag)
+        or else not HRA.Actual_Admission.Admit
+          (Actual_Ledger, Actual_Evidence, Actuals, Actual_Diag)
+        or else not HRA.Plan_Completion.Admit
+          (Plans, Actuals, Completions, Completion_Diag)
+      then
+         raise Program_Error with "temporal Planned Payments setup failed";
+      end if;
+
+      return HRA.Plan_Temporal_Observation.Observe
+        (Plans, Completions, As_Of).Open_Plans;
+   end Open_Plans;
+
    Plan_Source : constant String :=
      "2026-08-10 Overdue bill" & ASCII.LF &
      "    ; plan-id: plan-overdue" & ASCII.LF &
@@ -111,16 +155,6 @@ procedure Test_Planned_Payments is
      "    expenses:food        300 JPY" & ASCII.LF &
      "    assets:cash         -300 JPY" & ASCII.LF;
 
-   Duplicate_Source : constant String :=
-     "2026-08-20 First" & ASCII.LF &
-     "    ; plan-id: duplicate-plan" & ASCII.LF &
-     "    expenses:food        100 JPY" & ASCII.LF &
-     "    assets:cash         -100 JPY" & ASCII.LF & ASCII.LF &
-     "2026-08-21 Second" & ASCII.LF &
-     "    ; plan-id: duplicate-plan" & ASCII.LF &
-     "    expenses:food        200 JPY" & ASCII.LF &
-     "    assets:cash         -200 JPY" & ASCII.LF;
-
    Multi_Post_Source : constant String :=
      "2026-08-20 Shared purchase" & ASCII.LF &
      "    ; plan-id: multi-post" & ASCII.LF &
@@ -128,15 +162,10 @@ procedure Test_Planned_Payments is
      "    expenses:subs        400 JPY" & ASCII.LF &
      "    assets:cash        -1000 JPY" & ASCII.LF;
 
-   Registry     : HRA.Account.Account_Registry := HRA.Account.Empty_Registry;
-   Plans        : HRA.Ledger.Ledger;
-   Actual       : HRA.Ledger.Ledger;
-   Empty_Actual : HRA.Ledger.Ledger;
-   Duplicate    : HRA.Ledger.Ledger;
-   Multi_Post   : HRA.Ledger.Ledger;
-   Error_Msg    : Unbounded_String;
-   Result       : HRA.Planned_Payments.Observation;
-   Diag         : HRA.Planned_Payments.Admission_Diagnostic;
+   Registry  : HRA.Account.Account_Registry := HRA.Account.Empty_Registry;
+   Result    : HRA.Planned_Payments.Observation;
+   Diag      : HRA.Planned_Payments.Admission_Diagnostic;
+   As_Of     : constant HRA.Dates.Date := D ("2026-08-15");
 
 begin
    Put_Line ("--- Testing HRA.Planned_Payments ---");
@@ -147,21 +176,16 @@ begin
    Register (Registry, "expenses:food", HRA.Account.Expense);
    Register (Registry, "expenses:subs", HRA.Account.Expense);
 
-   Assert
-     (HRA.Journal.Parse_Journal_Text (Plan_Source, Plans, Error_Msg),
-      "Setup: parse Plan Journal accounting facts");
-   Assert
-     (HRA.Journal.Parse_Journal_Text (Actual_Source, Actual, Error_Msg),
-      "Setup: parse Actual Journal accounting facts");
-   Assert
-     (HRA.Journal.Parse_Journal_Text ("", Empty_Actual, Error_Msg),
-      "Setup: parse empty Actual Journal");
+   declare
+      Plans : constant HRA.Plan_Temporal_Observation.Open_Plan_Vectors.Vector :=
+        Open_Plans (Plan_Source, Actual_Source, As_Of);
+   begin
+      Assert
+        (HRA.Planned_Payments.Project
+           (Plans, Registry, As_Of, Result, Diag),
+         "Project Planned Payments from admitted temporal open Plans");
+   end;
 
-   Assert
-     (HRA.Planned_Payments.Observe
-        (Plans, Plan_Source, Actual, Actual_Source, Registry,
-         D ("2026-08-15"), Result, Diag),
-      "Observe open Planned Payments from explicit lifecycle evidence");
    Assert
      (Natural (Result.Payments.Length) = 4,
       "Open payment projection keeps four binary outgoing Plans");
@@ -200,25 +224,17 @@ begin
          "Human renderer consumes semantic Planned Payments result");
    end;
 
-   Assert
-     (HRA.Journal.Parse_Journal_Text (Duplicate_Source, Duplicate, Error_Msg),
-      "Setup: parse duplicate Plan Journal accounting facts");
-   Assert
-     (not HRA.Planned_Payments.Observe
-        (Duplicate, Duplicate_Source, Empty_Actual, "", Registry,
-         D ("2026-08-15"), Result, Diag)
-        and then Diag.Status = HRA.Planned_Payments.Duplicate_Plan_Id,
-      "Reject duplicate durable Plan identity");
-
-   Assert
-     (HRA.Journal.Parse_Journal_Text (Multi_Post_Source, Multi_Post, Error_Msg),
-      "Setup: parse valid multi-post outgoing Plan");
-   Assert
-     (not HRA.Planned_Payments.Observe
-        (Multi_Post, Multi_Post_Source, Empty_Actual, "", Registry,
-         D ("2026-08-15"), Result, Diag)
-        and then Diag.Status = HRA.Planned_Payments.Plan_Report_Requires_Binary_Outgoing,
-      "Keep valid multi-post Plan distinct from narrower Planned Payments projection");
+   declare
+      Plans : constant HRA.Plan_Temporal_Observation.Open_Plan_Vectors.Vector :=
+        Open_Plans (Multi_Post_Source, "", As_Of);
+   begin
+      Assert
+        (not HRA.Planned_Payments.Project
+           (Plans, Registry, As_Of, Result, Diag)
+         and then Diag.Status =
+           HRA.Planned_Payments.Plan_Report_Requires_Binary_Outgoing,
+         "Keep valid multi-post Plan distinct from narrower Planned Payments projection");
+   end;
 
    Put_Line
      (Natural'Image (Passed_Count) & " passed, " &

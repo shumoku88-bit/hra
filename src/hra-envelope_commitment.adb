@@ -49,7 +49,7 @@ package body HRA.Envelope_Commitment is
    end Add_Account;
 
    function Observe
-     (Open_Plans       : HRA.Plan_Observation.Open_Plan_Vectors.Vector;
+     (Open_Plans       : HRA.Plan_Temporal_Observation.Open_Plan_Vectors.Vector;
       Registry         : HRA.Account.Account_Registry;
       Routing          : HRA.Envelope_Routing.Routing_History;
       Fulfillment      : HRA.Fulfillment_Routing.Fulfillment_Routing_History;

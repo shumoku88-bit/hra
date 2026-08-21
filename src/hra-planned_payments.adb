@@ -4,32 +4,8 @@ package body HRA.Planned_Payments is
    use type HRA.Money.Quantity;
    use type HRA.Account.Account_Type;
 
-   function Map_Status
-     (Status : HRA.Plan_Observation.Admission_Status) return Admission_Status
-   is
-   begin
-      case Status is
-         when HRA.Plan_Observation.Success => return Success;
-         when HRA.Plan_Observation.Plan_Source_Evidence_Error => return Plan_Source_Evidence_Error;
-         when HRA.Plan_Observation.Actual_Source_Evidence_Error => return Actual_Source_Evidence_Error;
-         when HRA.Plan_Observation.Invalid_Observation_Date => return Invalid_Observation_Date;
-         when HRA.Plan_Observation.Missing_Plan_Id => return Missing_Plan_Id;
-         when HRA.Plan_Observation.Duplicate_Plan_Metadata => return Duplicate_Plan_Metadata;
-         when HRA.Plan_Observation.Invalid_Plan_Id => return Invalid_Plan_Id;
-         when HRA.Plan_Observation.Duplicate_Plan_Id => return Duplicate_Plan_Id;
-         when HRA.Plan_Observation.Invalid_Lifecycle_Metadata => return Invalid_Lifecycle_Metadata;
-         when HRA.Plan_Observation.Invalid_Lifecycle_Date => return Invalid_Lifecycle_Date;
-         when HRA.Plan_Observation.Invalid_Supersession_Target => return Invalid_Supersession_Target;
-         when HRA.Plan_Observation.Unknown_Supersession_Target => return Unknown_Supersession_Target;
-         when HRA.Plan_Observation.Supersession_Cycle => return Supersession_Cycle;
-         when HRA.Plan_Observation.Invalid_Actual_Plan_Id => return Invalid_Actual_Plan_Id;
-         when HRA.Plan_Observation.Unknown_Completion_Plan => return Unknown_Completion_Plan;
-         when HRA.Plan_Observation.Multiple_Completion_Actuals => return Multiple_Completion_Actuals;
-      end case;
-   end Map_Status;
-
    function Project
-     (Open_Plans : HRA.Plan_Observation.Open_Plan_Vectors.Vector;
+     (Open_Plans : HRA.Plan_Temporal_Observation.Open_Plan_Vectors.Vector;
       Registry   : HRA.Account.Account_Registry;
       As_Of_Date : HRA.Dates.Date;
       Result     : out Observation;
@@ -51,7 +27,7 @@ package body HRA.Planned_Payments is
       end Fail;
 
       function Project_Open_Plan
-        (P : HRA.Plan_Observation.Open_Plan) return Boolean
+        (P : HRA.Plan_Temporal_Observation.Open_Plan) return Boolean
       is
          All_Outgoing       : Boolean := True;
          All_Incoming       : Boolean := True;
@@ -207,39 +183,5 @@ package body HRA.Planned_Payments is
       Result := Output;
       return True;
    end Project;
-
-   function Observe
-     (Plan_Ledger        : HRA.Ledger.Ledger;
-      Plan_Source_Text   : String;
-      Actual_Ledger      : HRA.Ledger.Ledger;
-      Actual_Source_Text : String;
-      Registry           : HRA.Account.Account_Registry;
-      As_Of_Date         : HRA.Dates.Date;
-      Result             : out Observation;
-      Diag               : out Admission_Diagnostic) return Boolean
-   is
-      Open_Plans : HRA.Plan_Observation.Open_Plan_Vectors.Vector;
-      Plan_Diag  : HRA.Plan_Observation.Admission_Diagnostic;
-   begin
-      if not HRA.Plan_Observation.Observe_Open_Plans
-        (Plan_Ledger,
-         Plan_Source_Text,
-         Actual_Ledger,
-         Actual_Source_Text,
-         As_Of_Date,
-         Open_Plans,
-         Plan_Diag)
-      then
-         Diag :=
-           (Status      => Map_Status (Plan_Diag.Status),
-            Line_Number => Plan_Diag.Line_Number,
-            Plan_Id     => Plan_Diag.Plan_Id,
-            Message     => Plan_Diag.Message);
-         Result := (Payments => Payment_Vectors.Empty_Vector);
-         return False;
-      end if;
-
-      return Project (Open_Plans, Registry, As_Of_Date, Result, Diag);
-   end Observe;
 
 end HRA.Planned_Payments;
