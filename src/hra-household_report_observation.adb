@@ -1,4 +1,5 @@
 with HRA.Account;
+with HRA.Cycle_Accounts_Observation;
 with HRA.Envelope_Commitment;
 with HRA.Envelope_Consumption;
 with HRA.Envelope_Entitlement;
@@ -34,8 +35,8 @@ package body HRA.Household_Report_Observation is
       Flow_Diag     : HRA.Report_Flow.Observe_Diagnostic;
       Cycle_Status  : HRA.Cycle_Observation.Resolve_Status;
       Cycle_Context : HRA.Cycle_Observation.Observation;
-      Cycle_Current : HRA.Report_Cycle_Accounts.Current_Cycle_Accounts_Observation;
-      Cycle_Current_Diag : HRA.Report_Cycle_Accounts.Current_Observe_Diagnostic;
+      Cycle_Current : HRA.Cycle_Accounts_Observation.Observation;
+      Cycle_Current_Diag : HRA.Cycle_Accounts_Observation.Observe_Diagnostic;
       Cycle_Comparison : HRA.Report_Cycle_Accounts.Cycle_Comparison_Observation;
       Cycle_Comparison_Diag : HRA.Report_Cycle_Accounts.Comparison_Diagnostic;
       Plan_Obs : constant HRA.Plan_Temporal_Observation.Observation :=
@@ -227,7 +228,7 @@ package body HRA.Household_Report_Observation is
       Output.Observed_Through := Envelope_Obs.Observed_Through;
       Output.Section_Order := Current_Section_Order;
 
-      if not HRA.Report_Cycle_Accounts.Observe_Current
+      if not HRA.Cycle_Accounts_Observation.Observe
         (State.Actual_Ledger,
          Cycle_Context.Current_Window,
          Observed_Through,
@@ -236,7 +237,7 @@ package body HRA.Household_Report_Observation is
       then
          Error_Msg := To_Unbounded_String
            ("current Cycle Accounts observation failed: " &
-            HRA.Report_Cycle_Accounts.Current_Observe_Status'Image
+            HRA.Cycle_Accounts_Observation.Observe_Status'Image
               (Cycle_Current_Diag.Status) &
             (if Length (Cycle_Current_Diag.Account_Name) > 0
              then " [account=" & To_String (Cycle_Current_Diag.Account_Name) & "]"
