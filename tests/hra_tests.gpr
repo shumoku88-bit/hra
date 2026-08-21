@@ -62,7 +62,8 @@ project HRA_Tests is
       "test_household_home_command.adb",
       "test_household_home_interaction.adb",
       "test_household_home_tui_input.adb",
-      "test_writer.adb");
+      "test_writer.adb",
+      "test_writer_exact_source.adb");
 
    package Compiler is
       for Default_Switches ("Ada") use
@@ -131,5 +132,6 @@ project HRA_Tests is
       for Executable ("test_household_home_interaction.adb") use "test_household_home_interaction";
       for Executable ("test_household_home_tui_input.adb") use "test_household_home_tui_input";
       for Executable ("test_writer.adb") use "test_writer";
+      for Executable ("test_writer_exact_source.adb") use "test_writer_exact_source";
    end Builder;
 end HRA_Tests;
