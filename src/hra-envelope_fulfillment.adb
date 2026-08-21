@@ -56,7 +56,7 @@ package body HRA.Envelope_Fulfillment is
    end Add_Managed;
 
    function Observe_Internal
-     (Completed            : HRA.Plan_Observation.Completed_Plan_Vectors.Vector;
+     (Completed            : HRA.Plan_Temporal_Observation.Completed_Plan_Vectors.Vector;
       Actual_Ledger        : HRA.Ledger.Ledger;
       Registry             : HRA.Account.Account_Registry;
       Routing              : HRA.Fulfillment_Routing.Fulfillment_Routing_History;
@@ -391,7 +391,7 @@ package body HRA.Envelope_Fulfillment is
    end Observe_Internal;
 
    function Observe
-     (Completed        : HRA.Plan_Observation.Completed_Plan_Vectors.Vector;
+     (Completed        : HRA.Plan_Temporal_Observation.Completed_Plan_Vectors.Vector;
       Actual_Ledger    : HRA.Ledger.Ledger;
       Registry         : HRA.Account.Account_Registry;
       Routing          : HRA.Fulfillment_Routing.Fulfillment_Routing_History;
@@ -413,7 +413,7 @@ package body HRA.Envelope_Fulfillment is
    end Observe;
 
    function Observe_Stock
-     (Completed        : HRA.Plan_Observation.Completed_Plan_Vectors.Vector;
+     (Completed        : HRA.Plan_Temporal_Observation.Completed_Plan_Vectors.Vector;
       Actual_Ledger    : HRA.Ledger.Ledger;
       Registry         : HRA.Account.Account_Registry;
       Routing          : HRA.Fulfillment_Routing.Fulfillment_Routing_History;
