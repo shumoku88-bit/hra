@@ -11,6 +11,7 @@ project HRA_Tests is
       "test_plan_completion_relation.adb",
       "test_plan_temporal_observation.adb",
       "test_plan_completion_admission.adb",
+      "test_daily_target_scope.adb",
       "test_envelope_entitlement_standalone.adb",
       "test_entitlement_journal.adb",
       "test_entitlement_observation_horizon.adb",
@@ -68,6 +69,7 @@ project HRA_Tests is
       for Executable ("test_plan_completion_relation.adb") use "test_plan_completion_relation";
       for Executable ("test_plan_temporal_observation.adb") use "test_plan_temporal_observation";
       for Executable ("test_plan_completion_admission.adb") use "test_plan_completion_admission";
+      for Executable ("test_daily_target_scope.adb") use "test_daily_target_scope";
       for Executable ("test_envelope_entitlement_standalone.adb") use "test_entitlement";
       for Executable ("test_entitlement_journal.adb") use "test_entitlement_journal";
       for Executable ("test_entitlement_observation_horizon.adb") use "test_entitlement_observation_horizon";
