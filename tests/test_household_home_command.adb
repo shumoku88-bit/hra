@@ -166,7 +166,6 @@ begin
    --  ========================================================================
    declare
    begin
-      --  1a. Empty CLI args (home command with all defaults)
       declare
          Args : String_Array (1 .. 0);
          Res  : constant Parse_Resolution := Parse_Arguments (Args);
@@ -179,7 +178,6 @@ begin
          Assert (Needs_Clock (Res.Parsed), "Empty args requires clock read");
       end;
 
-      --  1b. Order A: --base then --through then --day
       declare
          Args : constant String_Array :=
            [1 => To_Unbounded_String ("--base"),
@@ -203,7 +201,6 @@ begin
          Assert (not Needs_Clock (Res.Parsed), "Order A with explicit through does not need clock");
       end;
 
-      --  1c. Order B: --day then --base then --through (order independent)
       declare
          Args : constant String_Array :=
            [1 => To_Unbounded_String ("--day"),
@@ -224,7 +221,6 @@ begin
          Assert (not Needs_Clock (Res.Parsed), "Order B does not need clock");
       end;
 
-      --  1d. Missing option values at end of argv fail closed
       declare
          Args_No_Base_Val : constant String_Array :=
            [1 => To_Unbounded_String ("--base")];
@@ -250,7 +246,6 @@ begin
                  "Missing --day diagnostic message");
       end;
 
-      --  1e. Missing option values followed by another option token fail closed
       declare
          Args_Through_Followed_By_Day : constant String_Array :=
            [1 => To_Unbounded_String ("--through"),
@@ -282,7 +277,6 @@ begin
                  "Missing --day followed by option message");
       end;
 
-      --  1f. Duplicate options fail closed as ambiguous CLI input
       declare
          Args_Dup_Through : constant String_Array :=
            [1 => To_Unbounded_String ("--through"),
@@ -317,7 +311,6 @@ begin
                  "Duplicate --base diagnostic message");
       end;
 
-      --  1g. Invalid Gregorian dates rejected during Stage A before Household load
       declare
          Args_Bad_Through : constant String_Array :=
            [1 => To_Unbounded_String ("--through"),
@@ -338,7 +331,6 @@ begin
                  "Invalid day date diagnostic contains bad date string");
       end;
 
-      --  1h. Unknown options fail closed
       declare
          Args_Unknown : constant String_Array :=
            [1 => To_Unbounded_String ("--unknown-option")];
@@ -364,7 +356,6 @@ begin
    declare
       Injected_Today : constant HRA.Dates.Date := D ("2026-08-19");
    begin
-      --  2a. Explicit through only: clock NOT needed (0 clock reads), day follows through
       declare
          Args : constant String_Array :=
            [1 => To_Unbounded_String ("--through"),
@@ -374,8 +365,6 @@ begin
          Assert (Parse_Res.Status = Success, "Stage A parse succeeds for explicit through");
          Assert (not Needs_Clock (Parse_Res.Parsed),
                  "Needs_Clock is False when --through is explicit (0 clock reads)");
-
-         --  Resolve WITHOUT passing Today (pure 1-arg overload)
          declare
             Opts : constant Home_Options := Resolve_Home_Options (Parse_Res.Parsed);
          begin
@@ -390,7 +379,6 @@ begin
          end;
       end;
 
-      --  2b. Explicit through + explicit day: clock NOT needed (0 clock reads)
       declare
          Args : constant String_Array :=
            [1 => To_Unbounded_String ("--through"),
@@ -402,8 +390,6 @@ begin
          Assert (Parse_Res.Status = Success, "Stage A parse succeeds for explicit both");
          Assert (not Needs_Clock (Parse_Res.Parsed),
                  "Needs_Clock is False when both explicit (0 clock reads)");
-
-         --  Resolve WITHOUT passing Today
          declare
             Opts : constant Home_Options := Resolve_Home_Options (Parse_Res.Parsed);
          begin
@@ -418,7 +404,6 @@ begin
          end;
       end;
 
-      --  2c. Omitted through + omitted day: clock NEEDED (1 clock read), day follows through
       declare
          Args : String_Array (1 .. 0);
          Parse_Res : constant Parse_Resolution := Parse_Arguments (Args);
@@ -426,8 +411,6 @@ begin
          Assert (Parse_Res.Status = Success, "Stage A parse succeeds for empty args");
          Assert (Needs_Clock (Parse_Res.Parsed),
                  "Needs_Clock is True when --through is omitted (1 clock read required)");
-
-         --  Resolve WITH injected Today
          declare
             Opts : constant Home_Options :=
               Resolve_Home_Options (Parse_Res.Parsed, Injected_Today);
@@ -443,7 +426,6 @@ begin
          end;
       end;
 
-      --  2d. Explicit day only: clock NEEDED (1 clock read because through is defaulted)
       declare
          Args : constant String_Array :=
            [1 => To_Unbounded_String ("--day"),
@@ -453,8 +435,6 @@ begin
          Assert (Parse_Res.Status = Success, "Stage A parse succeeds for explicit day only");
          Assert (Needs_Clock (Parse_Res.Parsed),
                  "Needs_Clock is True when only --day is explicit (1 clock read required for through)");
-
-         --  Resolve WITH injected Today
          declare
             Opts : constant Home_Options :=
               Resolve_Home_Options (Parse_Res.Parsed, Injected_Today);
@@ -470,7 +450,6 @@ begin
          end;
       end;
 
-      --  2e. Explicit through with base directory: clock NOT needed
       declare
          Args : constant String_Array :=
            [1 => To_Unbounded_String ("--base"),
@@ -493,7 +472,6 @@ begin
          end;
       end;
 
-      --  2f. Guardrail: calling 1-arg Resolve_Home_Options without explicit through fails closed
       declare
          Args : String_Array (1 .. 0);
          Parse_Res : constant Parse_Resolution := Parse_Arguments (Args);
@@ -516,7 +494,7 @@ begin
    end;
 
    --  ========================================================================
-   --  3. Pipeline Execution: Observation -> Presentation -> Text
+   --  3. Pipeline Execution: seeing -> presentation -> text
    --  ========================================================================
    declare
       Sources : constant HRA.Canonical_Source.Source_Observation :=
@@ -527,13 +505,12 @@ begin
       Assert (HRA.Household.Admit_Canonical_Household (Sources, State, Diag),
               "Admit synthetic Household state");
 
-      --  3a. Execute today's Home
       declare
          Home_Text_Today : constant String :=
            Execute_Home
-             (State            => State,
-              Observed_Through => D ("2026-08-19"),
-              Selected_Day     => D ("2026-08-19"));
+             (State         => State,
+              Known_Through => D ("2026-08-19"),
+              Selected_Day  => D ("2026-08-19"));
       begin
          Assert (Home_Text_Today'Length > 0, "Execute_Home produces non-empty output");
          Assert (Ada.Strings.Fixed.Index (Home_Text_Today, "August 2026") > 0,
@@ -544,50 +521,45 @@ begin
                  "Output includes structured account in Actual");
       end;
 
-      --  3b. Execute future focus day (2026-08-25) with through (2026-08-19)
       declare
          Home_Text_Future : constant String :=
            Execute_Home
-             (State            => State,
-              Observed_Through => D ("2026-08-19"),
-              Selected_Day     => D ("2026-08-25"));
+             (State         => State,
+              Known_Through => D ("2026-08-19"),
+              Selected_Day  => D ("2026-08-25"));
       begin
          Assert (Home_Text_Future'Length > 0,
                  "Execute_Home for future focus day produces output");
-         --  Actual is unavailable on future focus day
          Assert (Ada.Strings.Fixed.Index (Home_Text_Future, "Actual Transactions:") > 0,
                  "Output includes Actual Transactions section");
-         Assert (Ada.Strings.Fixed.Index (Home_Text_Future, "[Unavailable]") > 0,
-                 "Future selected day keeps Actual unavailable");
-         --  Known future Plan on 2026-08-25 remains visible
+         Assert (Ada.Strings.Fixed.Index (Home_Text_Future, "not yet visible") > 0,
+                 "Future selected day describes Actual as not yet visible");
          Assert (Ada.Strings.Fixed.Index (Home_Text_Future, "plan-multi-aug") > 0,
                  "Known future Plan remains visible on scheduled day");
          Assert (Ada.Strings.Fixed.Index (Home_Text_Future, "Planned Multi-Posting Payment") > 0,
                  "Plan description matches");
-         --  Known future Issue on 2026-08-25 remains visible
          Assert (Ada.Strings.Fixed.Index (Home_Text_Future, "ISSUE-1") > 0,
                  "Known future Issue remains visible on due date");
       end;
 
-      --  3c. Verify Home command output matches Home_Text.Render_Home exactly
       declare
-         Obs  : constant HRA.Household_Home_Observation.Home_Observation :=
-           HRA.Household_Home_Observation.Observe
-             (Observed_Through => D ("2026-08-19"),
-              Selected_Day     => D ("2026-08-19"),
-              State            => State);
+         Obs : constant HRA.Household_Home_Observation.Home_Observation :=
+           HRA.Household_Home_Observation.See_Home
+             (Known_Through => D ("2026-08-19"),
+              Selected_Day  => D ("2026-08-19"),
+              State         => State);
          Pres : constant HRA.Household_Home_Presentation.Home_Presentation :=
            HRA.Household_Home_Presentation.Present (Obs);
          Expected_Text : constant String :=
            HRA.Household_Home_Text.Render_Home
              (Pres, State.Report_Policy.Presentation.Calendar);
-         Actual_Text   : constant String :=
+         Actual_Text : constant String :=
            Execute_Home (State, D ("2026-08-19"), D ("2026-08-19"));
-         Horizon       : constant HRA.Household_Home_Observation.Home_Horizon_Observation :=
-           HRA.Household_Home_Observation.Observe_Horizon (D ("2026-08-19"), State);
-         Horizon_Text  : constant String :=
+         Horizon : constant HRA.Household_Home_Observation.Home_Horizon_Observation :=
+           HRA.Household_Home_Observation.See_Horizon (D ("2026-08-19"), State);
+         Horizon_Text : constant String :=
            Execute_Home (State, Horizon, D ("2026-08-19"));
-         Future_Text   : constant String :=
+         Future_Text : constant String :=
            Execute_Home (State, Horizon, D ("2026-08-25"));
          Expected_Future_Text : constant String :=
            Execute_Home (State, D ("2026-08-19"), D ("2026-08-25"));
@@ -623,7 +595,6 @@ begin
       Assert (HRA.Household.Admit_Canonical_Household (Sources_Report, State_Report, Diag),
               "Admit synthetic Household state for check/report");
 
-      --  4a. Check observation
       declare
          Check_Obs : constant HRA.Household_Check_Observation.Observation :=
            HRA.Household_Check_Observation.Observe (State_Report);
@@ -635,7 +606,6 @@ begin
          Assert (Check_Obs.Open_Issues = 1, "Check Open_Issues = 1");
       end;
 
-      --  4b. Report observation
       declare
          Report_Obs : HRA.Household_Report_Observation.Report_Observation;
          Err        : Unbounded_String;
@@ -650,9 +620,6 @@ begin
       end;
    end;
 
-   --  ========================================================================
-   --  Summary
-   --  ========================================================================
    Put_Line ("--------------------------------------------------");
    Put_Line ("Summary: Passed = " & Natural'Image (Passed_Count) &
              ", Failed = " & Natural'Image (Failed_Count));
