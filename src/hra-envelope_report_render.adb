@@ -3,6 +3,9 @@ with HRA.Backing_Policy;
 with HRA.Cycle_Observation;
 with HRA.Dates;
 with HRA.Envelope;
+with HRA.Envelope_Consumption;
+with HRA.Envelope_Fulfillment;
+with HRA.Household_Envelope_Cycle_Comparison;
 with HRA.Money; use HRA.Money;
 
 package body HRA.Envelope_Report_Render is
@@ -40,6 +43,20 @@ package body HRA.Envelope_Report_Render is
       return To_String (Result);
    end Render_Balance;
 
+   procedure Append_Window
+     (Buf    : in out Unbounded_String;
+      Label  : String;
+      Window : HRA.Cycle_Observation.Cycle_Window)
+   is
+   begin
+      Append
+        (Buf,
+         Label & ": [" &
+         HRA.Dates.Image (HRA.Cycle_Observation.Start_Date (Window)) & ", " &
+         HRA.Dates.Image (HRA.Cycle_Observation.End_Exclusive (Window)) &
+         ")" & ASCII.LF);
+   end Append_Window;
+
    function Render
      (Observation :
         HRA.Household_Report_Observation.Envelope_Report_Observation)
@@ -52,14 +69,8 @@ package body HRA.Envelope_Report_Render is
         (Buf,
          "Observed through: " &
          HRA.Dates.Image (Observation.Observed_Through) & ASCII.LF);
-      Append
-        (Buf,
-         "Current cycle: [" &
-         HRA.Dates.Image
-           (HRA.Cycle_Observation.Start_Date (Observation.Current_Cycle)) & ", " &
-         HRA.Dates.Image
-           (HRA.Cycle_Observation.End_Exclusive (Observation.Current_Cycle)) &
-         ")" & ASCII.LF & ASCII.LF);
+      Append_Window (Buf, "Current cycle", Observation.Current_Cycle);
+      Append (Buf, ASCII.LF);
 
       Append
         (Buf,
@@ -183,6 +194,128 @@ package body HRA.Envelope_Report_Render is
              when HRA.Backing_Policy.Fully_Backed => "fully_backed",
              when HRA.Backing_Policy.Under_Backed => "under_backed") &
          ASCII.LF);
+
+      return To_String (Buf);
+   end Render;
+
+   function Render
+     (Observation : HRA.Household_Envelope_Change.Change_Observation)
+      return String
+   is
+      Buf : Unbounded_String;
+   begin
+      Append (Buf, "== Envelope Change ==" & ASCII.LF);
+      Append_Window (Buf, "Cycle", Observation.Window);
+      Append
+        (Buf,
+         "From: " & HRA.Dates.Image (Observation.From_Date) & ASCII.LF &
+         "Through: " & HRA.Dates.Image (Observation.Through_Date) &
+         ASCII.LF & ASCII.LF);
+
+      if Observation.Lines.Is_Empty then
+         Append (Buf, "(no Envelope coordinates)" & ASCII.LF);
+         return To_String (Buf);
+      end if;
+
+      for Line of Observation.Lines loop
+         Append
+           (Buf,
+            "Envelope: " & HRA.Envelope.Image (Line.Env_Id) & ASCII.LF &
+            "  Entitlement change       : " &
+            Render_Balance (Line.Entitlement) & ASCII.LF &
+            "  Consumption charges change: " &
+            Render_Balance (Line.Consumption_Charges) & ASCII.LF &
+            "  Consumption refunds change: " &
+            Render_Balance (Line.Consumption_Refunds) & ASCII.LF &
+            "  Net consumption change   : " &
+            Render_Balance (Line.Net_Consumption) & ASCII.LF &
+            "  Fulfillment applied change: " &
+            Render_Balance (Line.Fulfillment_Applied) & ASCII.LF &
+            "  Fulfillment reversed change: " &
+            Render_Balance (Line.Fulfillment_Reversed) & ASCII.LF &
+            "  Net fulfillment change   : " &
+            Render_Balance (Line.Net_Fulfillment) & ASCII.LF &
+            "  Remaining change         : " &
+            Render_Balance (Line.Remaining) & ASCII.LF &
+            "  Plan commitment change   : " &
+            Render_Balance (Line.Plan_Commitment) & ASCII.LF &
+            "  Headroom change          : " &
+            Render_Balance (Line.Headroom) & ASCII.LF & ASCII.LF);
+      end loop;
+
+      return To_String (Buf);
+   end Render;
+
+   function Render
+     (Observation :
+        HRA.Household_Envelope_Cycle_Comparison.Comparison_Observation)
+      return String
+   is
+      package Comparison renames HRA.Household_Envelope_Cycle_Comparison;
+      Buf : Unbounded_String;
+   begin
+      Append (Buf, "== Envelope Aligned Previous Cycle ==" & ASCII.LF);
+      Append_Window (Buf, "Current cycle", Observation.Current_Window);
+      Append_Window (Buf, "Baseline cycle", Observation.Baseline_Window);
+      Append
+        (Buf,
+         "Current through: " & HRA.Dates.Image (Observation.Current_Through) &
+         ASCII.LF &
+         "Baseline through: " & HRA.Dates.Image (Observation.Baseline_Through) &
+         ASCII.LF & ASCII.LF);
+
+      if Observation.Lines.Is_Empty then
+         Append (Buf, "(no Envelope coordinates)" & ASCII.LF);
+         return To_String (Buf);
+      end if;
+
+      for Line of Observation.Lines loop
+         Append
+           (Buf,
+            "Envelope: " & HRA.Envelope.Image (Line.Env_Id) & ASCII.LF &
+            "  Consumption net          : " &
+            Render_Balance
+              (HRA.Envelope_Consumption.Net_Consumption
+                 (Line.Current_Consumption)) &
+            " current | " &
+            Render_Balance
+              (HRA.Envelope_Consumption.Net_Consumption
+                 (Line.Baseline_Consumption)) &
+            " baseline | " &
+            Render_Balance (Comparison.Consumption_Net_Difference (Line)) &
+            " difference" & ASCII.LF &
+            "  Fulfillment net          : " &
+            Render_Balance
+              (HRA.Envelope_Fulfillment.Net_Fulfillment
+                 (Line.Current_Fulfillment)) &
+            " current | " &
+            Render_Balance
+              (HRA.Envelope_Fulfillment.Net_Fulfillment
+                 (Line.Baseline_Fulfillment)) &
+            " baseline | " &
+            Render_Balance (Comparison.Fulfillment_Net_Difference (Line)) &
+            " difference" & ASCII.LF &
+            "  Entitlement              : " &
+            Render_Balance (Line.Current_Entitlement) & " current | " &
+            Render_Balance (Line.Baseline_Entitlement) & " baseline | " &
+            Render_Balance (Comparison.Entitlement_Difference (Line)) &
+            " difference" & ASCII.LF &
+            "  Remaining                : " &
+            Render_Balance (Line.Current_Remaining) & " current | " &
+            Render_Balance (Line.Baseline_Remaining) & " baseline | " &
+            Render_Balance (Comparison.Remaining_Difference (Line)) &
+            " difference" & ASCII.LF &
+            "  Plan commitment          : " &
+            Render_Balance (Line.Current_Commitment) & " current | " &
+            Render_Balance (Line.Baseline_Commitment) & " baseline | " &
+            Render_Balance (Comparison.Commitment_Difference (Line)) &
+            " difference" & ASCII.LF &
+            "  Headroom                 : " &
+            Render_Balance (Line.Current_Headroom) & " current | " &
+            Render_Balance (Line.Baseline_Headroom) & " baseline | " &
+            Render_Balance (Comparison.Headroom_Difference (Line)) &
+            " difference" & ASCII.LF & ASCII.LF);
+      end loop;
 
       return To_String (Buf);
    end Render;
