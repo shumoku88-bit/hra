@@ -28,24 +28,6 @@ package body HRA.Household_Envelope_Cycle_Comparison is
          Reversed => Subtract_Balance (Later.Reversed, Earlier.Reversed));
    end Fulfillment_Difference;
 
-   function Aligned_Day
-     (Current_Through : HRA.Dates.Date;
-      Current_Window  : HRA.Cycle_Observation.Cycle_Window;
-      Baseline_Window : HRA.Cycle_Observation.Cycle_Window)
-      return HRA.Dates.Date
-   is
-      Current_Cursor  : HRA.Dates.Date :=
-        HRA.Cycle_Observation.Start_Date (Current_Window);
-      Baseline_Cursor : HRA.Dates.Date :=
-        HRA.Cycle_Observation.Start_Date (Baseline_Window);
-   begin
-      while Current_Cursor < Current_Through loop
-         Current_Cursor := HRA.Dates.Next (Current_Cursor);
-         Baseline_Cursor := HRA.Dates.Next (Baseline_Cursor);
-      end loop;
-      return Baseline_Cursor;
-   end Aligned_Day;
-
    procedure Set_Diagnostic
      (Diag    : out Observe_Diagnostic;
       Status  : Observe_Status;
@@ -136,7 +118,8 @@ package body HRA.Household_Envelope_Cycle_Comparison is
       end if;
 
       Baseline_Through :=
-        Aligned_Day (Current_Through, Current_Window, Baseline_Window);
+        HRA.Cycle_Observation.Aligned_Day
+          (Current_Through, Current_Window, Baseline_Window);
 
       if not HRA.Cycle_Observation.Contains
         (Baseline_Window, Baseline_Through)
