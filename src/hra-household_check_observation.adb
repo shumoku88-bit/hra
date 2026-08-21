@@ -1,6 +1,7 @@
 with HRA.Account;
 with HRA.Issues;
 with HRA.Entitlement_Journal;
+with HRA.Plan_Admission;
 
 package body HRA.Household_Check_Observation is
 
@@ -13,7 +14,7 @@ package body HRA.Household_Check_Observation is
         (Actual_Transactions   =>
            Natural (State.Actual_Ledger.Transactions.Length),
          Plan_Transactions     =>
-           Natural (State.Plan_Ledger.Transactions.Length),
+           HRA.Plan_Admission.Transaction_Count (State.Plan_Journal),
          Entitlement_Movements =>
            HRA.Entitlement_Journal.Movement_Count (State.Entitlement_History),
          Registered_Accounts   =>

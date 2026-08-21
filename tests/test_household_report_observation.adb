@@ -161,6 +161,8 @@ procedure Test_Household_Report_Observation is
    Actual_Diag  : HRA.Actual_Admission.Admission_Diagnostic;
    Plan_Diag    : HRA.Plan_Admission.Admission_Diagnostic;
    Completion_Diag : HRA.Plan_Completion.Admission_Diagnostic;
+   Plan_Ledger  : HRA.Ledger.Ledger;
+   Plan_Evidence : HRA.Journal_Evidence.Journal_Evidence;
    Ids          : HRA.Config_Support.String_Vectors.Vector;
    JPY          : constant HRA.Money.Commodity := HRA.Money.Make_Commodity ("JPY");
    USD          : constant HRA.Money.Commodity := HRA.Money.Make_Commodity ("USD");
@@ -221,20 +223,20 @@ begin
 
    Assert
      (HRA.Journal.Parse_Journal_Text
-        (Plan_Text, "plan.journal", State.Plan_Ledger, Journal_Diag),
+        (Plan_Text, "plan.journal", Plan_Ledger, Journal_Diag),
       "setup parses Plan");
    Assert
      (HRA.Journal_Evidence.Extract
         (Plan_Text,
-         State.Plan_Ledger,
-         State.Plan_Evidence,
+         Plan_Ledger,
+         Plan_Evidence,
          Evidence_Diag),
-      "setup retains Plan evidence");
-   State.Plan_Ledger.Registry := State.Registry;
+      "setup retains Plan evidence locally for admission");
+   Plan_Ledger.Registry := State.Registry;
    Assert
      (HRA.Plan_Admission.Admit
-        (State.Plan_Ledger,
-         State.Plan_Evidence,
+        (Plan_Ledger,
+         Plan_Evidence,
          State.Plan_Journal,
          Plan_Diag),
       "setup admits Plan Journal authority");

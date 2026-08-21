@@ -1,4 +1,5 @@
 with HRA.Journal_Loader;
+with HRA.Journal_Evidence;
 with HRA.Canonical_Source; use HRA.Canonical_Source;
 with HRA.Config_Support;
 with HRA.Entitlement_Journal;
@@ -16,9 +17,6 @@ package body HRA.Household is
       State.Actual_Identity     := HRA.Actual_Admission.Empty_Observation;
       State.Plan_Journal        := HRA.Plan_Admission.Empty_Journal;
       State.Plan_Completions    := HRA.Plan_Completion.Empty_Relations;
-      State.Plan_Ledger         := Empty_Ledger;
-      State.Plan_Evidence.Transactions.Clear;
-      State.Plan_Ids            := HRA.Plan.Empty_Plan_Id_Universe;
       State.Entitlement_History := HRA.Entitlement_Journal.Empty_History;
       State.Combined_Ledger     := Empty_Ledger;
       State.Envelope_Registry   := HRA.Envelope.Empty_Registry;
@@ -300,26 +298,27 @@ package body HRA.Household is
       end if;
 
       declare
-         Plan : HRA.Journal_Loader.Journal_Observation;
+         Plan          : HRA.Journal_Loader.Journal_Observation;
+         Plan_Ledger   : Ledger.Ledger;
+         Plan_Evidence : HRA.Journal_Evidence.Journal_Evidence;
+         Plan_Diag     : HRA.Plan_Admission.Admission_Diagnostic;
       begin
          if not Load_Named_Journal (Plan_Source, Plan) then
             return False;
          end if;
-         Result.Plan_Ledger   := Plan.Value;
-         Result.Plan_Evidence := Plan.Evidence;
-      end;
-      if not Validate_Ledger_Accounts (Result.Plan_Ledger, "plan.journal") then
-         return False;
-      end if;
 
-      Result.Plan_Ledger.Registry := Result.Registry;
+         Plan_Ledger   := Plan.Value;
+         Plan_Evidence := Plan.Evidence;
 
-      declare
-         Plan_Diag : HRA.Plan_Admission.Admission_Diagnostic;
-      begin
+         if not Validate_Ledger_Accounts (Plan_Ledger, "plan.journal") then
+            return False;
+         end if;
+
+         Plan_Ledger.Registry := Result.Registry;
+
          if not HRA.Plan_Admission.Admit
-           (Result.Plan_Ledger,
-            Result.Plan_Evidence,
+           (Plan_Ledger,
+            Plan_Evidence,
             Result.Plan_Journal,
             Plan_Diag)
          then
@@ -336,13 +335,6 @@ package body HRA.Household is
             return False;
          end if;
       end;
-
-      --  Keep the existing Ledger/Evidence/Id surfaces as read projections of
-      --  the one admitted Plan Journal until all consumers move to the temporal
-      --  Plan owner.
-      Result.Plan_Ledger := HRA.Plan_Admission.Ledger_Of (Result.Plan_Journal);
-      Result.Plan_Evidence := HRA.Plan_Admission.Evidence_Of (Result.Plan_Journal);
-      Result.Plan_Ids := HRA.Plan_Admission.Plan_Ids_Of (Result.Plan_Journal);
 
       declare
          Completion_Diag : HRA.Plan_Completion.Admission_Diagnostic;
@@ -392,7 +384,6 @@ package body HRA.Household is
 
       Result.Combined_Ledger.Registry := Result.Registry;
       Result.Actual_Ledger.Registry   := Result.Registry;
-      Result.Plan_Ledger.Registry     := Result.Registry;
 
       --  Historical Expense meaning comes only from explicit routing history.
       declare
@@ -519,7 +510,7 @@ package body HRA.Household is
 
             if not HRA.Fulfillment_Routing.Admit
               (Decisions,
-               Result.Plan_Ids,
+               HRA.Plan_Admission.Plan_Ids_Of (Result.Plan_Journal),
                Result.Envelope_Registry,
                Result.Fulfillment_History,
                F_Status)

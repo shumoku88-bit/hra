@@ -8,8 +8,11 @@ with HRA.Envelope;
 with HRA.Household;
 with HRA.Household_Check_Observation;
 with HRA.Issues;
+with HRA.Journal;
+with HRA.Journal_Evidence;
 with HRA.Ledger;
 with HRA.Money;
+with HRA.Plan_Admission;
 
 procedure Test_Household_Check_Observation is
    use type HRA.Money.Quantity;
@@ -150,12 +153,45 @@ begin
    Populated_State.Actual_Ledger.Transactions.Append
      (Make_Dummy_Tx ("2026-08-02", "Actual Tx 2", "assets:cash", "expenses:food"));
 
-   Populated_State.Plan_Ledger.Transactions.Append
-     (Make_Dummy_Tx ("2026-08-10", "Plan Tx 1", "assets:cash", "expenses:food"));
-   Populated_State.Plan_Ledger.Transactions.Append
-     (Make_Dummy_Tx ("2026-08-11", "Plan Tx 2", "assets:cash", "expenses:food"));
-   Populated_State.Plan_Ledger.Transactions.Append
-     (Make_Dummy_Tx ("2026-08-12", "Plan Tx 3", "assets:cash", "expenses:food"));
+   declare
+      Plan_Source : constant String :=
+        "2026-08-10 Plan Tx 1" & ASCII.LF &
+        "    ; plan-id: check-plan-1" & ASCII.LF &
+        "    assets:cash        100 JPY" & ASCII.LF &
+        "    expenses:food     -100 JPY" & ASCII.LF & ASCII.LF &
+        "2026-08-11 Plan Tx 2" & ASCII.LF &
+        "    ; plan-id: check-plan-2" & ASCII.LF &
+        "    assets:cash        100 JPY" & ASCII.LF &
+        "    expenses:food     -100 JPY" & ASCII.LF & ASCII.LF &
+        "2026-08-12 Plan Tx 3" & ASCII.LF &
+        "    ; plan-id: check-plan-3" & ASCII.LF &
+        "    assets:cash        100 JPY" & ASCII.LF &
+        "    expenses:food     -100 JPY" & ASCII.LF;
+      Plan_Ledger   : HRA.Ledger.Ledger;
+      Plan_Evidence : HRA.Journal_Evidence.Journal_Evidence;
+      Parse_Error   : Unbounded_String;
+      Evidence_Diag : HRA.Journal_Evidence.Evidence_Diagnostic;
+      Plan_Diag     : HRA.Plan_Admission.Admission_Diagnostic;
+   begin
+      if not HRA.Journal.Parse_Journal_Text
+        (Plan_Source, Plan_Ledger, Parse_Error)
+      then
+         raise Program_Error with "synthetic Plan parse failed";
+      end if;
+      if not HRA.Journal_Evidence.Extract
+        (Plan_Source, Plan_Ledger, Plan_Evidence, Evidence_Diag)
+      then
+         raise Program_Error with "synthetic Plan evidence extraction failed";
+      end if;
+      if not HRA.Plan_Admission.Admit
+        (Plan_Ledger,
+         Plan_Evidence,
+         Populated_State.Plan_Journal,
+         Plan_Diag)
+      then
+         raise Program_Error with "synthetic native Plan admission failed";
+      end if;
+   end;
 
    declare
       IDs      : HRA.Config_Support.String_Vectors.Vector;
@@ -192,7 +228,7 @@ begin
       "Projects exact Actual transaction count");
    Assert
      (Populated_Obs.Plan_Transactions = 3,
-      "Projects exact Plan transaction count");
+      "Projects exact admitted Plan transaction count");
    Assert
      (Populated_Obs.Entitlement_Movements = 2,
       "Projects exact native Entitlement movement count");

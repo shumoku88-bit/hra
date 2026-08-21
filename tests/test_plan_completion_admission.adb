@@ -1,14 +1,16 @@
 with Ada.Command_Line;
 with Ada.Text_IO; use Ada.Text_IO;
 with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
+with HRA.Actual_Admission;
 with HRA.Journal;
 with HRA.Journal_Evidence;
 with HRA.Ledger;
-with HRA.Plan;
-with HRA.Plan_Observation;
+with HRA.Plan_Admission;
+with HRA.Plan_Completion;
 
 procedure Test_Plan_Completion_Admission is
-   use type HRA.Plan_Observation.Admission_Status;
+   use type HRA.Actual_Admission.Admission_Status;
+   use type HRA.Plan_Completion.Admission_Status;
 
    Passed_Count : Natural := 0;
    Failed_Count : Natural := 0;
@@ -24,22 +26,37 @@ procedure Test_Plan_Completion_Admission is
       end if;
    end Assert;
 
-   function Known_Plans return HRA.Plan.Plan_Id_Universe is
-      Result : HRA.Plan.Plan_Id_Universe :=
-        HRA.Plan.Empty_Plan_Id_Universe;
-      PID    : HRA.Plan.Plan_Id;
-      Status : HRA.Plan.Plan_Id_Status;
+   function Admit_Plans return HRA.Plan_Admission.Plan_Journal is
+      Source : constant String :=
+        "2026-08-20 Planned purchase" & ASCII.LF &
+        "    ; plan-id: plan-a" & ASCII.LF &
+        "    assets:cash        -100 JPY" & ASCII.LF &
+        "    expenses:food       100 JPY" & ASCII.LF;
+      L             : HRA.Ledger.Ledger;
+      Parse_Error   : Unbounded_String;
+      Evidence      : HRA.Journal_Evidence.Journal_Evidence;
+      Evidence_Diag : HRA.Journal_Evidence.Evidence_Diagnostic;
+      Journal       : HRA.Plan_Admission.Plan_Journal;
+      Diag          : HRA.Plan_Admission.Admission_Diagnostic;
    begin
-      if not HRA.Plan.Create_Plan_Id ("plan-a", PID, Status) then
-         raise Program_Error with "test PlanId setup failed";
+      if not HRA.Journal.Parse_Journal_Text (Source, L, Parse_Error) then
+         raise Program_Error with "test Plan source failed Journal admission";
       end if;
-      HRA.Plan.Include (Result, PID);
-      return Result;
-   end Known_Plans;
+      if not HRA.Journal_Evidence.Extract (Source, L, Evidence, Evidence_Diag) then
+         raise Program_Error with "test Plan source failed evidence extraction";
+      end if;
+      if not HRA.Plan_Admission.Admit (L, Evidence, Journal, Diag) then
+         raise Program_Error with "test Plan source failed native Plan admission";
+      end if;
+      return Journal;
+   end Admit_Plans;
 
-   function Admit_Source
+   Plans : constant HRA.Plan_Admission.Plan_Journal := Admit_Plans;
+
+   function Admit_Actual
      (Source : String;
-      Diag   : out HRA.Plan_Observation.Admission_Diagnostic) return Boolean
+      Result : out HRA.Actual_Admission.Actual_Observation;
+      Diag   : out HRA.Actual_Admission.Admission_Diagnostic) return Boolean
    is
       L             : HRA.Ledger.Ledger;
       Parse_Error   : Unbounded_String;
@@ -48,20 +65,31 @@ procedure Test_Plan_Completion_Admission is
    begin
       if not HRA.Journal.Parse_Journal_Text (Source, L, Parse_Error) then
          raise Program_Error with
-           "test source failed Journal admission: " & To_String (Parse_Error);
+           "test Actual source failed Journal admission: " & To_String (Parse_Error);
       end if;
-
-      if not HRA.Journal_Evidence.Extract
-        (Source, L, Evidence, Evidence_Diag)
-      then
+      if not HRA.Journal_Evidence.Extract (Source, L, Evidence, Evidence_Diag) then
          raise Program_Error with
-           "test source failed evidence extraction: " &
+           "test Actual source failed evidence extraction: " &
            To_String (Evidence_Diag.Message);
       end if;
+      return HRA.Actual_Admission.Admit (L, Evidence, Result, Diag);
+   end Admit_Actual;
 
-      return HRA.Plan_Observation.Admit_Plan_Completions
-        (Known_Plans, L, Evidence, Diag);
-   end Admit_Source;
+   function Admit_Completions
+     (Source : String;
+      Diag   : out HRA.Plan_Completion.Admission_Diagnostic) return Boolean
+   is
+      Actual      : HRA.Actual_Admission.Actual_Observation;
+      Actual_Diag : HRA.Actual_Admission.Admission_Diagnostic;
+      Relations   : HRA.Plan_Completion.Completion_Relations;
+   begin
+      if not Admit_Actual (Source, Actual, Actual_Diag) then
+         raise Program_Error with
+           "test source unexpectedly failed Actual admission: " &
+           HRA.Actual_Admission.Admission_Status'Image (Actual_Diag.Status);
+      end if;
+      return HRA.Plan_Completion.Admit (Plans, Actual, Relations, Diag);
+   end Admit_Completions;
 
    Known_Source : constant String :=
      "2026-08-10 Completion" & ASCII.LF &
@@ -103,38 +131,48 @@ procedure Test_Plan_Completion_Admission is
      "    assets:cash        -100 JPY" & ASCII.LF &
      "    expenses:food       100 JPY" & ASCII.LF;
 
-   Diag : HRA.Plan_Observation.Admission_Diagnostic;
+   Completion_Diag : HRA.Plan_Completion.Admission_Diagnostic;
 
 begin
    Put_Line ("--- Testing Plan completion admission ---");
 
    Assert
-     (Admit_Source (Known_Source, Diag),
+     (Admit_Completions (Known_Source, Completion_Diag),
       "Known Plan completion is admitted");
 
    Assert
-     (Admit_Source (Identity_Free_Source, Diag),
+     (Admit_Completions (Identity_Free_Source, Completion_Diag),
       "Ordinary identity-free Actual remains valid");
 
    Assert
-     (not Admit_Source (Unknown_Source, Diag)
-        and then Diag.Status = HRA.Plan_Observation.Unknown_Completion_Plan,
+     (not Admit_Completions (Unknown_Source, Completion_Diag)
+        and then Completion_Diag.Status = HRA.Plan_Completion.Unknown_Completion_Plan,
       "Actual completion must reference an admitted Plan");
 
    Assert
-     (not Admit_Source (Multiple_Source, Diag)
-        and then Diag.Status = HRA.Plan_Observation.Multiple_Completion_Actuals,
+     (not Admit_Completions (Multiple_Source, Completion_Diag)
+        and then Completion_Diag.Status = HRA.Plan_Completion.Multiple_Completion_Actuals,
       "Distinct Actual identities cannot complete one Plan twice");
 
-   Assert
-     (not Admit_Source (Duplicate_Metadata_Source, Diag)
-        and then Diag.Status = HRA.Plan_Observation.Duplicate_Plan_Metadata,
-      "Completion metadata is singular per Actual transaction");
+   declare
+      Actual      : HRA.Actual_Admission.Actual_Observation;
+      Actual_Diag : HRA.Actual_Admission.Admission_Diagnostic;
+   begin
+      Assert
+        (not Admit_Actual (Duplicate_Metadata_Source, Actual, Actual_Diag)
+           and then Actual_Diag.Status = HRA.Actual_Admission.Duplicate_Metadata,
+         "duplicate completion metadata is rejected by Actual admission");
+   end;
 
-   Assert
-     (not Admit_Source (Invalid_Source, Diag)
-        and then Diag.Status = HRA.Plan_Observation.Invalid_Actual_Plan_Id,
-      "Completion PlanId must be a valid durable Plan identity");
+   declare
+      Actual      : HRA.Actual_Admission.Actual_Observation;
+      Actual_Diag : HRA.Actual_Admission.Admission_Diagnostic;
+   begin
+      Assert
+        (not Admit_Actual (Invalid_Source, Actual, Actual_Diag)
+           and then Actual_Diag.Status = HRA.Actual_Admission.Invalid_Plan_Id,
+         "invalid completion PlanId is rejected by Actual admission");
+   end;
 
    New_Line;
    Put_Line
