@@ -8,6 +8,7 @@ with HRA.Issues;
 procedure Test_Issue_Close is
    use type HRA.Dates.Date;
    use type HRA.Issue_Close.Close_Status;
+   use type HRA.Issues.Admission_Status;
    use type HRA.Issues.Issue_Closed_Kind;
    use type HRA.Issues.Issue_Status;
 
