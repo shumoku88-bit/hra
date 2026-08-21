@@ -1,5 +1,6 @@
 with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
 with HRA.Account;
+with HRA.Cycle_Accounts_Observation;
 with HRA.Cycle_Observation;
 with HRA.Dates;
 with HRA.Money; use HRA.Money;
@@ -43,8 +44,7 @@ package body HRA.Cycle_Accounts_Render is
      (if Value then "yes" else "no");
 
    function Render_Current
-     (Value : HRA.Report_Cycle_Accounts.Current_Cycle_Accounts_Observation)
-      return String
+     (Value : HRA.Cycle_Accounts_Observation.Observation) return String
    is
       Buf : Unbounded_String;
    begin
@@ -73,24 +73,24 @@ package body HRA.Cycle_Accounts_Render is
             Render_Balance (Row.Opening) & " | " &
             Render_Balance (Row.Debit) & " | " &
             Render_Balance (Row.Credit) & " | " &
-            Render_Balance (HRA.Report_Cycle_Accounts.Movement (Row)) & " | " &
-            Render_Balance (HRA.Report_Cycle_Accounts.Closing (Row)) &
+            Render_Balance (HRA.Cycle_Accounts_Observation.Movement (Row)) & " | " &
+            Render_Balance (HRA.Cycle_Accounts_Observation.Closing (Row)) &
             ASCII.LF);
       end loop;
 
       Append
         (Buf,
          "Total | " &
-         Render_Balance (HRA.Report_Cycle_Accounts.Opening_Total (Value)) & " | " &
-         Render_Balance (HRA.Report_Cycle_Accounts.Debit_Total (Value)) & " | " &
-         Render_Balance (HRA.Report_Cycle_Accounts.Credit_Total (Value)) & " | " &
-         Render_Balance (HRA.Report_Cycle_Accounts.Movement_Total (Value)) & " | " &
-         Render_Balance (HRA.Report_Cycle_Accounts.Closing_Total (Value)) &
+         Render_Balance (HRA.Cycle_Accounts_Observation.Opening_Total (Value)) & " | " &
+         Render_Balance (HRA.Cycle_Accounts_Observation.Debit_Total (Value)) & " | " &
+         Render_Balance (HRA.Cycle_Accounts_Observation.Credit_Total (Value)) & " | " &
+         Render_Balance (HRA.Cycle_Accounts_Observation.Movement_Total (Value)) & " | " &
+         Render_Balance (HRA.Cycle_Accounts_Observation.Closing_Total (Value)) &
          ASCII.LF);
       Append
         (Buf,
          "Double-entry balanced: " &
-         Yes_No (HRA.Report_Cycle_Accounts.Is_Balanced (Value)) &
+         Yes_No (HRA.Cycle_Accounts_Observation.Is_Balanced (Value)) &
          ASCII.LF);
       return To_String (Buf);
    end Render_Current;
