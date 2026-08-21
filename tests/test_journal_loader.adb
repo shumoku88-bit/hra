@@ -4,8 +4,7 @@ with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
 with Ada.Text_IO;           use Ada.Text_IO;
 with HRA.Journal_Loader;
 with HRA.Ledger;        use HRA.Ledger;
-with HRA.Plan;
-with HRA.Plan_Observation;
+with HRA.Plan_Admission;
 
 procedure Test_Journal_Loader is
    Passed_Count : Natural := 0;
@@ -136,14 +135,14 @@ begin
          "included transaction metadata stays attached to its source evidence");
 
       declare
-         Universe : HRA.Plan.Plan_Id_Universe;
-         Diag     : HRA.Plan_Observation.Admission_Diagnostic;
+         Journal : HRA.Plan_Admission.Plan_Journal;
+         Diag    : HRA.Plan_Admission.Admission_Diagnostic;
       begin
          Assert
-           (HRA.Plan_Observation.Admit_Plan_Identities
-              (Obs.Value, Obs.Evidence, Universe, Diag)
-              and then HRA.Plan.Length (Universe) = 4,
-            "Plan identity admission consumes resolved graph evidence directly");
+           (HRA.Plan_Admission.Admit
+              (Obs.Value, Obs.Evidence, Journal, Diag)
+              and then HRA.Plan_Admission.Transaction_Count (Journal) = 4,
+            "native Plan admission consumes resolved graph evidence directly");
       end;
    end;
 
