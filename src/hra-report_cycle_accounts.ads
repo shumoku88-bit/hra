@@ -1,75 +1,17 @@
 with Ada.Containers.Vectors;
 with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
 with HRA.Account;
+with HRA.Cycle_Accounts_Observation;
 with HRA.Cycle_Observation;
-with HRA.Dates;
 with HRA.Ledger;
 with HRA.Money; use HRA.Money;
 
---  Exact Account state inside one admitted Household cycle, plus an explicit
---  comparison with the immediately previous cycle at the same elapsed day.
+--  Report-specific comparison over neutral current Cycle Account observations.
 --
---  Cycle resolution remains outside this package. This owner receives typed
---  cycle windows, one admitted Actual Ledger, and an observation day. Account
---  identity/order come from the admitted registry; names never classify facts.
+--  Exact current Account state is owned by HRA.Cycle_Accounts_Observation.
+--  This package owns only the aligned comparison with the immediately previous
+--  cycle and the section-level availability of that narrower projection.
 package HRA.Report_Cycle_Accounts is
-
-   type Current_Account_Row is record
-      Acc     : HRA.Account.Account;
-      Opening : Balance := Empty_Balance;
-      Debit   : Balance := Empty_Balance;
-      Credit  : Balance := Empty_Balance;
-   end record;
-
-   function Movement (Row : Current_Account_Row) return Balance;
-   function Closing (Row : Current_Account_Row) return Balance;
-
-   package Current_Account_Row_Vectors is new Ada.Containers.Vectors
-     (Index_Type   => Positive,
-      Element_Type => Current_Account_Row);
-
-   type Current_Cycle_Accounts_Observation is record
-      Window           : HRA.Cycle_Observation.Cycle_Window;
-      Observed_Through : HRA.Dates.Date;
-      Rows             : Current_Account_Row_Vectors.Vector;
-   end record;
-
-   function Opening_Total
-     (Observation : Current_Cycle_Accounts_Observation) return Balance;
-   function Debit_Total
-     (Observation : Current_Cycle_Accounts_Observation) return Balance;
-   function Credit_Total
-     (Observation : Current_Cycle_Accounts_Observation) return Balance;
-   function Movement_Total
-     (Observation : Current_Cycle_Accounts_Observation) return Balance;
-   function Closing_Total
-     (Observation : Current_Cycle_Accounts_Observation) return Balance;
-   function Is_Balanced
-     (Observation : Current_Cycle_Accounts_Observation) return Boolean;
-
-   type Current_Observe_Status is
-     (Success,
-      Observation_Outside_Cycle,
-      Undeclared_Account);
-
-   type Current_Observe_Diagnostic is record
-      Status       : Current_Observe_Status := Success;
-      Account_Name : Unbounded_String := Null_Unbounded_String;
-      Message      : Unbounded_String := Null_Unbounded_String;
-   end record;
-
-   --  Observe every declared Account, including zero-activity Accounts.
-   --
-   --  Opening contains all admitted Actual facts before cycle start. Debit and
-   --  Credit contain facts from cycle start through Observed_Through inclusive;
-   --  Debit retains positive Ledger sign and Credit retains negative Ledger
-   --  sign. Movement and Closing are derived, never independently stored.
-   function Observe_Current
-     (L                : HRA.Ledger.Ledger;
-      Window           : HRA.Cycle_Observation.Cycle_Window;
-      Observed_Through : HRA.Dates.Date;
-      Result           : out Current_Cycle_Accounts_Observation;
-      Diag             : out Current_Observe_Diagnostic) return Boolean;
 
    type Comparison_Policy is (Aligned_Elapsed);
 
@@ -87,8 +29,8 @@ package HRA.Report_Cycle_Accounts is
 
    type Cycle_Comparison_Observation is record
       Policy   : Comparison_Policy := Aligned_Elapsed;
-      Current  : Current_Cycle_Accounts_Observation;
-      Baseline : Current_Cycle_Accounts_Observation;
+      Current  : HRA.Cycle_Accounts_Observation.Observation;
+      Baseline : HRA.Cycle_Accounts_Observation.Observation;
       Rows     : Comparison_Row_Vectors.Vector;
    end record;
 
@@ -120,7 +62,7 @@ package HRA.Report_Cycle_Accounts is
    function Observe_Aligned
      (L               : HRA.Ledger.Ledger;
       Baseline_Window : HRA.Cycle_Observation.Cycle_Window;
-      Current         : Current_Cycle_Accounts_Observation;
+      Current         : HRA.Cycle_Accounts_Observation.Observation;
       Result          : out Cycle_Comparison_Observation;
       Diag            : out Comparison_Diagnostic) return Boolean;
 
@@ -141,7 +83,7 @@ package HRA.Report_Cycle_Accounts is
    end record;
 
    type Report_Observation is record
-      Current    : Current_Cycle_Accounts_Observation;
+      Current    : HRA.Cycle_Accounts_Observation.Observation;
       Comparison : Comparison_View;
    end record;
 

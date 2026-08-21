@@ -4,6 +4,7 @@ with Ada.Text_IO;           use Ada.Text_IO;
 with HRA.Account;
 with HRA.Actual_Admission;
 with HRA.Backing_Policy;
+with HRA.Cycle_Accounts_Observation;
 with HRA.Cycle_Observation;
 with HRA.Envelope_Config;
 with HRA.Config_Support;
@@ -322,7 +323,7 @@ begin
       and then HRA.Cycle_Observation.End_Exclusive
         (Observation.Cycle_Accounts.Current.Window) = D ("2026-09-01")
       and then Natural (Observation.Cycle_Accounts.Current.Rows.Length) = 3
-      and then HRA.Report_Cycle_Accounts.Is_Balanced
+      and then HRA.Cycle_Accounts_Observation.Is_Balanced
         (Observation.Cycle_Accounts.Current),
       "Cycle Accounts retains the report book's typed Household cycle coordinate");
    Assert
