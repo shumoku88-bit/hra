@@ -136,10 +136,10 @@ package body HRA.Household_Home_Command is
       Opts.Base_Directory := Parsed.Base_Directory;
 
       if Parsed.Has_Through then
-         Opts.Known_Through := Parsed.Through_Date;
+         Opts.Observed_Through := Parsed.Through_Date;
          Opts.Through_Source := Explicit;
       else
-         Opts.Known_Through := Today;
+         Opts.Observed_Through := Today;
          Opts.Through_Source := Defaulted;
       end if;
 
@@ -147,7 +147,7 @@ package body HRA.Household_Home_Command is
          Opts.Selected_Day := Parsed.Day_Date;
          Opts.Day_Source := Explicit;
       else
-         Opts.Selected_Day := Opts.Known_Through;
+         Opts.Selected_Day := Opts.Observed_Through;
          Opts.Day_Source := Defaulted;
       end if;
 
