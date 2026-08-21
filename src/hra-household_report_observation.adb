@@ -1,22 +1,26 @@
+with HRA.Account;
 with HRA.Envelope_Commitment;
 with HRA.Envelope_Consumption;
 with HRA.Envelope_Entitlement;
 with HRA.Envelope_Position;
 with HRA.Household_Envelope_Observation;
+with HRA.Plan_Temporal_Observation;
+with HRA.Report_Cycle_Accounts;
 with HRA.Report_Flow;
 
 package body HRA.Household_Report_Observation is
 
    Current_Section_Order : constant Current_Report_Section_Order :=
-     [1 => Envelope_And_Backing_Section,
-      2 => Account_Balances_Section,
-      3 => Balance_Sheet_Section,
-      4 => Profit_And_Loss_Section,
-      5 => Daily_Flow_Section,
-      6 => Monthly_Accounts_Section,
-      7 => Recent_Journal_Section,
-      8 => Planned_Payments_Section,
-      9 => Open_Issues_Section];
+     [1  => Envelope_And_Backing_Section,
+      2  => Cycle_Accounts_Section,
+      3  => Account_Balances_Section,
+      4  => Balance_Sheet_Section,
+      5  => Profit_And_Loss_Section,
+      6  => Daily_Flow_Section,
+      7  => Monthly_Accounts_Section,
+      8  => Recent_Journal_Section,
+      9  => Planned_Payments_Section,
+      10 => Open_Issues_Section];
 
    function Observe
      (Observed_Through : HRA.Dates.Date;
@@ -28,6 +32,18 @@ package body HRA.Household_Report_Observation is
       Payment_Diag  : HRA.Planned_Payments.Projection_Diagnostic;
       Payment_Value : HRA.Planned_Payments.Observation;
       Flow_Diag     : HRA.Report_Flow.Observe_Diagnostic;
+      Cycle_Status  : HRA.Cycle_Observation.Resolve_Status;
+      Cycle_Context : HRA.Cycle_Observation.Observation;
+      Cycle_Current : HRA.Report_Cycle_Accounts.Current_Cycle_Accounts_Observation;
+      Cycle_Current_Diag : HRA.Report_Cycle_Accounts.Current_Observe_Diagnostic;
+      Cycle_Comparison : HRA.Report_Cycle_Accounts.Cycle_Comparison_Observation;
+      Cycle_Comparison_Diag : HRA.Report_Cycle_Accounts.Comparison_Diagnostic;
+      Plan_Obs : constant HRA.Plan_Temporal_Observation.Observation :=
+        HRA.Plan_Temporal_Observation.Observe
+          (State.Plan_Journal, State.Plan_Completions, Observed_Through);
+      Income_Acc : constant HRA.Account.Account :=
+        HRA.Account.Make_Account
+          (To_String (State.Household_Policy.Cycle_Income_Account));
       Envelope_Obs : HRA.Household_Envelope_Observation.Observation;
       Funding      : HRA.Backing_Policy.Funding_Commitment_Observation;
       Backing      : HRA.Backing_Policy.Backing_Observation;
@@ -178,24 +194,86 @@ package body HRA.Household_Report_Observation is
       end Build_Envelope_Report;
 
    begin
-      --  Compose into a local value. Structural observation failures still
-      --  reject the report book. A bounded section projection that cannot
-      --  represent an otherwise valid domain value is retained as typed
-      --  Unavailable instead of masquerading as a Household failure.
-      if not HRA.Household_Envelope_Observation.Observe
-        (Observed_Through, State, Envelope_Obs, Error_Msg)
+      --  Resolve the Household cycle context once for this report composition.
+      --  The Plan temporal observer consumes admitted Plan authorities; it does
+      --  not reparse source text or create a second Plan authority.
+      if not HRA.Cycle_Observation.Observe
+        (Observed_Through,
+         State.Actual_Ledger,
+         Plan_Obs.Open_Plans,
+         State.Registry,
+         Income_Acc,
+         Cycle_Context,
+         Cycle_Status)
+      then
+         Error_Msg := To_Unbounded_String
+           ("report cycle context failed: " &
+            HRA.Cycle_Observation.Resolve_Status'Image (Cycle_Status));
+         return False;
+      end if;
+
+      --  Envelope composition receives the already resolved current window.
+      --  This keeps Cycle Accounts and Envelope on exactly one temporal axis.
+      if not HRA.Household_Envelope_Observation.Observe_In_Window
+        (Observed_Through,
+         Cycle_Context.Current_Window,
+         State,
+         Envelope_Obs,
+         Error_Msg)
       then
          return False;
       end if;
 
       Output.Observed_Through := Envelope_Obs.Observed_Through;
       Output.Section_Order := Current_Section_Order;
-      --  Report policy is resolved exactly once. Every bounded section below
-      --  consumes a coordinate from this one resolved plan.
+
+      if not HRA.Report_Cycle_Accounts.Observe_Current
+        (State.Actual_Ledger,
+         Cycle_Context.Current_Window,
+         Observed_Through,
+         Cycle_Current,
+         Cycle_Current_Diag)
+      then
+         Error_Msg := To_Unbounded_String
+           ("current Cycle Accounts observation failed: " &
+            HRA.Report_Cycle_Accounts.Current_Observe_Status'Image
+              (Cycle_Current_Diag.Status) &
+            (if Length (Cycle_Current_Diag.Account_Name) > 0
+             then " [account=" & To_String (Cycle_Current_Diag.Account_Name) & "]"
+             else "") &
+            (if Length (Cycle_Current_Diag.Message) > 0
+             then ": " & To_String (Cycle_Current_Diag.Message)
+             else ""));
+         return False;
+      end if;
+
+      if HRA.Report_Cycle_Accounts.Observe_Aligned
+        (State.Actual_Ledger,
+         Cycle_Context.Previous_Window,
+         Cycle_Current,
+         Cycle_Comparison,
+         Cycle_Comparison_Diag)
+      then
+         Output.Cycle_Accounts :=
+           (Current    => Cycle_Current,
+            Comparison =>
+              (Status => HRA.Report_Cycle_Accounts.Comparison_Available,
+               Value  => Cycle_Comparison));
+      else
+         Output.Cycle_Accounts :=
+           (Current    => Cycle_Current,
+            Comparison =>
+              (Status     => HRA.Report_Cycle_Accounts.Comparison_Unavailable,
+               Diagnostic => Cycle_Comparison_Diag));
+      end if;
+
+      --  Report policy is resolved exactly once. Configurable bounded sections
+      --  consume coordinates from this resolved plan. Cycle Accounts does not
+      --  invent a second report range; its coordinate is Household cycle evidence.
       if not HRA.Report_Plan.Resolve_With_Current_Cycle
         (Observed_Through,
          State.Actual_Ledger,
-         Envelope_Obs.Current_Cycle,
+         Cycle_Context.Current_Window,
          State.Report_Policy.Plan,
          Output.Query_Plan,
          Report_Status)
@@ -274,7 +352,7 @@ package body HRA.Household_Report_Observation is
       Funding := HRA.Backing_Policy.Observe_Funding_Commitment
         (State.Backing_Policy_Spec,
          Envelope_Obs.Open_Plans,
-         Envelope_Obs.Current_Cycle);
+         Cycle_Context.Current_Window);
 
       Backing := HRA.Backing_Policy.Observe_Backing
         (State.Backing_Policy_Spec,
