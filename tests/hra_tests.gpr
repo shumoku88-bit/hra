@@ -17,6 +17,7 @@ project HRA_Tests is
       "test_report_plan.adb",
       "test_report_account_order.adb",
       "test_report_flow.adb",
+      "test_report_cycle_accounts.adb",
       "test_household_report_observation.adb",
       "test_recent_journal.adb",
       "test_planned_payments.adb",
@@ -73,6 +74,7 @@ project HRA_Tests is
       for Executable ("test_report_plan.adb") use "test_report_plan";
       for Executable ("test_report_account_order.adb") use "test_report_account_order";
       for Executable ("test_report_flow.adb") use "test_report_flow";
+      for Executable ("test_report_cycle_accounts.adb") use "test_report_cycle_accounts";
       for Executable ("test_household_report_observation.adb") use "test_household_report_observation";
       for Executable ("test_recent_journal.adb") use "test_recent_journal";
       for Executable ("test_planned_payments.adb") use "test_planned_payments";
