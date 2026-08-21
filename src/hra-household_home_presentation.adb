@@ -318,7 +318,7 @@ package body HRA.Household_Home_Presentation is
                  (Status         => Visible,
                   Capacity       => HRA.Daily_Target_Rate.Capacity_Numerator (Rate),
                   Remaining_Days =>
-                    Positive (HRA.Daily_Target_Rate.Remaining_Days (Rate)));
+                    HRA.Daily_Target_Rate.Remaining_Days (Rate));
             end;
 
          when HRA.Household_Daily_Target_View.Scope_Unavailable =>

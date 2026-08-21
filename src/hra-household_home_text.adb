@@ -245,7 +245,7 @@ package body HRA.Household_Home_Text is
                when Observation_Unavailable =>
                   Append
                     (Buf,
-                     "(not yet visible: daily target calculation is undetermined)" &
+                     "(not visible from the current Daily Target view)" &
                      ASCII.LF);
             end case;
       end case;

@@ -584,6 +584,63 @@ begin
                "Text distinguishes setup-unavailable from temporal not-yet-visible");
          end;
       end;
+
+      --  Observation_Unavailable presentation & rendering law
+      declare
+         Base_Obs : constant HRA.Household_Home_Observation.Home_Observation :=
+           HRA.Household_Home_Observation.See_Home
+             (D ("2026-08-19"), D ("2026-08-19"), DT_State);
+         Base_Pres : constant HRA.Household_Home_Presentation.Home_Presentation :=
+           HRA.Household_Home_Presentation.Present (Base_Obs);
+         Obs_Unavail_Pres : HRA.Household_Home_Presentation.Home_Presentation := Base_Pres;
+      begin
+         Obs_Unavail_Pres.Daily_Target :=
+           (Status => HRA.Household_Home_Presentation.Not_Visible,
+            Reason => HRA.Household_Home_Presentation.Observation_Unavailable);
+         declare
+            Text : constant String :=
+              HRA.Household_Home_Text.Render_Home (Obs_Unavail_Pres);
+         begin
+            Assert
+              (Obs_Unavail_Pres.Daily_Target.Status = HRA.Household_Home_Presentation.Not_Visible
+               and then Obs_Unavail_Pres.Daily_Target.Reason =
+                 HRA.Household_Home_Presentation.Observation_Unavailable,
+               "Daily Target presents as Not_Visible (Observation_Unavailable)");
+            Assert
+              (Index (Text, "Daily Target : (not visible from the current Daily Target view)") > 0,
+               "Daily Target renders non-temporal unvisibility message for Observation_Unavailable");
+            Assert
+              (Index (Text, "Daily Target : (not yet visible") = 0,
+               "Observation_Unavailable does not use 'not yet visible'");
+         end;
+      end;
+
+      --  Cycle_Accounts_Unavailable presentation & rendering law
+      declare
+         Base_Obs : constant HRA.Household_Home_Observation.Home_Observation :=
+           HRA.Household_Home_Observation.See_Home
+             (D ("2026-08-19"), D ("2026-08-19"), DT_State);
+         Base_Pres : constant HRA.Household_Home_Presentation.Home_Presentation :=
+           HRA.Household_Home_Presentation.Present (Base_Obs);
+         Acc_Unavail_Pres : HRA.Household_Home_Presentation.Home_Presentation := Base_Pres;
+      begin
+         Acc_Unavail_Pres.Daily_Target :=
+           (Status => HRA.Household_Home_Presentation.Not_Visible,
+            Reason => HRA.Household_Home_Presentation.Cycle_Accounts_Unavailable);
+         declare
+            Text : constant String :=
+              HRA.Household_Home_Text.Render_Home (Acc_Unavail_Pres);
+         begin
+            Assert
+              (Acc_Unavail_Pres.Daily_Target.Status = HRA.Household_Home_Presentation.Not_Visible
+               and then Acc_Unavail_Pres.Daily_Target.Reason =
+                 HRA.Household_Home_Presentation.Cycle_Accounts_Unavailable,
+               "Daily Target presents as Not_Visible (Cycle_Accounts_Unavailable)");
+            Assert
+              (Index (Text, "Daily Target : (not yet visible: cycle account balances are undetermined)") > 0,
+               "Daily Target renders temporal not-yet-visible message for Cycle_Accounts_Unavailable");
+         end;
+      end;
    end;
 
    Put_Line ("--------------------------------------------------");

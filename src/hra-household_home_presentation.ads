@@ -143,7 +143,8 @@ package HRA.Household_Home_Presentation is
             Current_Window  : HRA.Dates.Half_Open_Period;
             Focus_Role      : Cycle_Focus_Role;
          when Unavailable =>
-            Error : HRA.Cycle_Observation.Resolve_Status;
+            Error : HRA.Cycle_Observation.Resolve_Status :=
+              HRA.Cycle_Observation.Insufficient_Actual_Anchors;
       end case;
    end record;
 
@@ -161,7 +162,7 @@ package HRA.Household_Home_Presentation is
             null;
          when Visible =>
             Capacity       : HRA.Money.Balance;
-            Remaining_Days : Positive;
+            Remaining_Days : HRA.Dates.Positive_Day_Count;
          when Not_Visible =>
             Reason : Daily_Target_Not_Visible_Reason;
       end case;
