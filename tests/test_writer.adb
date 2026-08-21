@@ -54,8 +54,30 @@ procedure Test_Writer is
    F       : File_Type;
 
 begin
-   Put_Line ("--- Testing HRA.Writer ---");
+   Put_Line ("--- Testing HRA.Writer & Typed Publication Coordinates ---");
 
+   --  ========================================================================
+   --  1. Typed Coordinate Construction & Accessor Invariants
+   --  ========================================================================
+   declare
+      Exp_Str : constant Expected_Source := Make_Expected_Source ("initial expected text");
+      Exp_Unb : constant Expected_Source := Make_Expected_Source (To_Unbounded_String ("unbounded expected"));
+      Can_Str : constant Candidate_Source := Make_Candidate_Source ("candidate text");
+      Can_Unb : constant Candidate_Source := Make_Candidate_Source (To_Unbounded_String ("unbounded candidate"));
+   begin
+      Assert (Source_Text (Exp_Str) = "initial expected text",
+              "Expected_Source from String preserves exact source text");
+      Assert (To_String (Unbounded_Text (Exp_Unb)) = "unbounded expected",
+              "Expected_Source from Unbounded_String preserves text");
+      Assert (Source_Text (Can_Str) = "candidate text",
+              "Candidate_Source from String preserves proposed source text");
+      Assert (To_String (Unbounded_Text (Can_Unb)) = "unbounded candidate",
+              "Candidate_Source from Unbounded_String preserves text");
+   end;
+
+   --  ========================================================================
+   --  2. Safe Publication Protocol with Typed Coordinates
+   --  ========================================================================
    if Exists (Target_File) then
       Delete_File (Target_File);
    end if;
@@ -72,16 +94,39 @@ begin
 
    declare
       Published : constant String := Read_All (Target_File);
+      Expected_Snapshot : constant Expected_Source := Make_Expected_Source (Published);
+      Stale_Snapshot    : constant Expected_Source := Make_Expected_Source ("stale source bytes");
+      Valid_Candidate   : constant Candidate_Source :=
+        Make_Candidate_Source
+          (Published & ASCII.LF &
+           "2026-08-16 Coffee" & ASCII.LF &
+           "    expenses:food          400 JPY" & ASCII.LF &
+           "    assets:cash           -400 JPY" & ASCII.LF);
+      Invalid_Candidate : constant Candidate_Source :=
+        Make_Candidate_Source
+          (Published & ASCII.LF &
+           "2026-08-16 Bad Leg" & ASCII.LF &
+           "    expenses:food          400 JPY" & ASCII.LF);
    begin
+      --  Stale rejection with typed Expected_Source
       Assert
         (not Atomic_Publish_Journal
-           (Target_File, "stale source", "replacement", Status, Error)
+           (Target_Path => Target_File,
+            Expected    => Stale_Snapshot,
+            Candidate   => Valid_Candidate,
+            Status      => Status,
+            Error_Msg   => Error)
          and then Status = Stale_Source_Rejected,
-         "reject stale publication expectation");
+         "reject stale publication expectation with typed Expected_Source");
 
+      --  Invalid candidate rejection with typed Candidate_Source
       Assert
-        (not Append_Transaction_Safely
-           (Target_File, Invalid_Tx_Text, Status, Error)
+        (not Atomic_Publish_Journal
+           (Target_Path => Target_File,
+            Expected    => Expected_Snapshot,
+            Candidate   => Invalid_Candidate,
+            Status      => Status,
+            Error_Msg   => Error)
          and then
            (Status = Pre_Admission_Failed or else
             Status = Post_Admission_Failed),
@@ -90,6 +135,30 @@ begin
       Assert
         (Read_All (Target_File) = Published,
          "failed publication leaves canonical bytes unchanged");
+
+      --  Valid atomic publish with typed coordinates succeeds
+      Assert
+        (Atomic_Publish_Journal
+           (Target_Path => Target_File,
+            Expected    => Expected_Snapshot,
+            Candidate   => Valid_Candidate,
+            Status      => Status,
+            Error_Msg   => Error)
+         and then Status = Success,
+         "atomic publish succeeds with matching Expected_Source and valid Candidate_Source");
+
+      Assert
+        (Read_All (Target_File) = Source_Text (Valid_Candidate),
+         "atomic publish replaces canonical bytes with candidate bytes exactly");
+
+      --  Append invalid transaction safely
+      Assert
+        (not Append_Transaction_Safely
+           (Target_File, Invalid_Tx_Text, Status, Error)
+         and then
+           (Status = Pre_Admission_Failed or else
+            Status = Post_Admission_Failed),
+         "Append_Transaction_Safely rejects unbalanced candidate");
    end;
 
    if Exists (Target_File) then
