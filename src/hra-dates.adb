@@ -17,6 +17,38 @@ is
             when others => 31);
    end Internal_Days_In_Month;
 
+   type Month_Offset_Table is array (Month_Number) of Natural;
+   Common_Year_Offset : constant Month_Offset_Table :=
+     [1  => 0,
+      2  => 31,
+      3  => 59,
+      4  => 90,
+      5  => 120,
+      6  => 151,
+      7  => 181,
+      8  => 212,
+      9  => 243,
+      10 => 273,
+      11 => 304,
+      12 => 334];
+
+   --  Zero-based proleptic Gregorian ordinal. 0001-01-01 is day zero.
+   function Day_Ordinal (Value : Date) return Natural is
+      Prior_Years : constant Natural := Natural (Value.Y) - 1;
+      Leap_Adjustment : constant Natural :=
+        (if Value.M > 2 and then Is_Leap_Year (Value.Y) then 1 else 0);
+   begin
+      return
+        Prior_Years * 365
+        + Prior_Years / 4
+        - Prior_Years / 100
+        + Prior_Years / 400
+        + Common_Year_Offset (Value.M)
+        + Leap_Adjustment
+        + Natural (Value.D)
+        - 1;
+   end Day_Ordinal;
+
    function Parse
      (Text   : String;
       Value  : out Date;
@@ -276,5 +308,13 @@ is
    begin
       return Period.First_Date <= Value and then Value < Period.Limit_Date;
    end Contains;
+
+   function Length_In_Days
+     (Period : Half_Open_Period) return Positive_Day_Count
+   is
+   begin
+      return Positive_Day_Count
+        (Day_Ordinal (Period.Limit_Date) - Day_Ordinal (Period.First_Date));
+   end Length_In_Days;
 
 end HRA.Dates;

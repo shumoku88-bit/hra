@@ -86,6 +86,13 @@ is
      (Period : Half_Open_Period;
       Value  : Date) return Boolean;
 
+   --  A Half_Open_Period is non-empty by construction. Its cardinality is
+   --  therefore positive rather than a Natural that callers must clamp.
+   subtype Positive_Day_Count is Positive;
+
+   function Length_In_Days
+     (Period : Half_Open_Period) return Positive_Day_Count;
+
 private
 
    subtype Year_Number  is Positive range 1 .. 9_999;
@@ -106,9 +113,13 @@ private
       Last_Date  : Date;
    end record;
 
+   --  Keep even the private default representation non-empty. Publicly
+   --  constructed values still come from Make_Half_Open_Period, but a temporary
+   --  or out parameter can never smuggle a zero-day interval into a function
+   --  whose result is Positive_Day_Count.
    type Half_Open_Period is record
-      First_Date : Date;
-      Limit_Date : Date;
+      First_Date : Date := (Y => 1, M => 1, D => 1);
+      Limit_Date : Date := (Y => 1, M => 1, D => 2);
    end record;
 
 end HRA.Dates;
