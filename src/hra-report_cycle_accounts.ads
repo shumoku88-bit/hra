@@ -124,4 +124,25 @@ package HRA.Report_Cycle_Accounts is
       Result          : out Cycle_Comparison_Observation;
       Diag            : out Comparison_Diagnostic) return Boolean;
 
+   --  Current-cycle Account state is structurally required by the report book.
+   --  The aligned historical comparison is narrower: a short previous cycle may
+   --  make only this projection unavailable without erasing the current state.
+   type Comparison_Availability is
+     (Comparison_Available, Comparison_Unavailable);
+
+   type Comparison_View
+     (Status : Comparison_Availability := Comparison_Unavailable) is record
+      case Status is
+         when Comparison_Available =>
+            Value : Cycle_Comparison_Observation;
+         when Comparison_Unavailable =>
+            Diagnostic : Comparison_Diagnostic;
+      end case;
+   end record;
+
+   type Report_Observation is record
+      Current    : Current_Cycle_Accounts_Observation;
+      Comparison : Comparison_View;
+   end record;
+
 end HRA.Report_Cycle_Accounts;
