@@ -2,7 +2,8 @@ with HRA.Journal_Loader;
 with HRA.Canonical_Source; use HRA.Canonical_Source;
 with HRA.Config_Support;
 with HRA.Entitlement_Journal;
-with HRA.Plan_Observation;
+with HRA.Plan_Admission;
+with HRA.Plan_Completion;
 
 package body HRA.Household is
 
@@ -13,6 +14,8 @@ package body HRA.Household is
       State.Actual_Ledger       := Empty_Ledger;
       State.Actual_Evidence.Transactions.Clear;
       State.Actual_Identity     := HRA.Actual_Admission.Empty_Observation;
+      State.Plan_Journal        := HRA.Plan_Admission.Empty_Journal;
+      State.Plan_Completions    := HRA.Plan_Completion.Empty_Relations;
       State.Plan_Ledger         := Empty_Ledger;
       State.Plan_Evidence.Transactions.Clear;
       State.Plan_Ids            := HRA.Plan.Empty_Plan_Id_Universe;
@@ -308,18 +311,21 @@ package body HRA.Household is
       if not Validate_Ledger_Accounts (Result.Plan_Ledger, "plan.journal") then
          return False;
       end if;
+
+      Result.Plan_Ledger.Registry := Result.Registry;
+
       declare
-         Plan_Diag : HRA.Plan_Observation.Admission_Diagnostic;
+         Plan_Diag : HRA.Plan_Admission.Admission_Diagnostic;
       begin
-         if not HRA.Plan_Observation.Admit_Plan_Identities
+         if not HRA.Plan_Admission.Admit
            (Result.Plan_Ledger,
             Result.Plan_Evidence,
-            Result.Plan_Ids,
+            Result.Plan_Journal,
             Plan_Diag)
          then
             Error_Msg := To_Unbounded_String
-              ("plan.journal: failed stable Plan identity admission: " &
-               HRA.Plan_Observation.Admission_Status'Image
+              ("plan.journal: failed native Plan admission: " &
+               HRA.Plan_Admission.Admission_Status'Image
                  (Plan_Diag.Status) &
                (if Length (Plan_Diag.Plan_Id) > 0
                 then " [plan-id=" & To_String (Plan_Diag.Plan_Id) & "]"
@@ -331,18 +337,25 @@ package body HRA.Household is
          end if;
       end;
 
+      --  Keep the existing Ledger/Evidence/Id surfaces as read projections of
+      --  the one admitted Plan Journal until all consumers move to the temporal
+      --  Plan owner.
+      Result.Plan_Ledger := HRA.Plan_Admission.Ledger_Of (Result.Plan_Journal);
+      Result.Plan_Evidence := HRA.Plan_Admission.Evidence_Of (Result.Plan_Journal);
+      Result.Plan_Ids := HRA.Plan_Admission.Plan_Ids_Of (Result.Plan_Journal);
+
       declare
-         Completion_Diag : HRA.Plan_Observation.Admission_Diagnostic;
+         Completion_Diag : HRA.Plan_Completion.Admission_Diagnostic;
       begin
-         if not HRA.Plan_Observation.Admit_Plan_Completions
-           (Result.Plan_Ids,
-            Result.Actual_Ledger,
-            Result.Actual_Evidence,
+         if not HRA.Plan_Completion.Admit
+           (Result.Plan_Journal,
+            Result.Actual_Identity,
+            Result.Plan_Completions,
             Completion_Diag)
          then
             Error_Msg := To_Unbounded_String
-              ("actual.journal: failed Plan completion admission: " &
-               HRA.Plan_Observation.Admission_Status'Image
+              ("actual.journal: failed typed Plan completion admission: " &
+               HRA.Plan_Completion.Admission_Status'Image
                  (Completion_Diag.Status) &
                (if Length (Completion_Diag.Plan_Id) > 0
                 then " [plan-id=" & To_String (Completion_Diag.Plan_Id) & "]"
