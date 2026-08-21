@@ -2,7 +2,6 @@ with Ada.Containers.Indefinite_Vectors;
 with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
 with HRA.Account;
 with HRA.Household_Config;
-with HRA.Ledger;
 with HRA.Money;
 with HRA.Plan;
 with HRA.Plan_Admission;
@@ -37,13 +36,19 @@ package HRA.Daily_Target_Scope is
       end case;
    end record;
 
+   --  A selected obligation retains only the evidence Daily Target actually
+   --  consumes. The general transaction remains owned by Plan_Journal.
    type Obligation is record
       Selection   : Selection_Id;
       Plan_ID     : HRA.Plan.Plan_Id;
-      Tx          : HRA.Ledger.Transaction;
       Amount      : HRA.Money.Amount;
       Reservation : Reservation_Option;
    end record;
+
+   --  Explicit equality avoids asking a container instantiation to derive
+   --  equality prematurely through private component types. It also makes the
+   --  semantic value boundary visible rather than relying on representation.
+   function "=" (Left, Right : Obligation) return Boolean;
 
    package Account_Vectors is new Ada.Containers.Indefinite_Vectors
      (Index_Type   => Positive,
@@ -52,7 +57,8 @@ package HRA.Daily_Target_Scope is
 
    package Obligation_Vectors is new Ada.Containers.Indefinite_Vectors
      (Index_Type   => Positive,
-      Element_Type => Obligation);
+      Element_Type => Obligation,
+      "="          => "=");
 
    type Scope is private;
 
