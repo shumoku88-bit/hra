@@ -165,7 +165,7 @@ package body HRA.Backing_Policy is
 
    function Observe_Funding_Commitment
      (Policy     : Backing_Policy;
-      Open_Plans : HRA.Plan_Observation.Open_Plan_Vectors.Vector;
+      Open_Plans : HRA.Plan_Temporal_Observation.Open_Plan_Vectors.Vector;
       Window     : HRA.Cycle_Observation.Cycle_Window)
       return Funding_Commitment_Observation
    is
