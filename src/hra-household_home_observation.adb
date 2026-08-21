@@ -29,29 +29,47 @@ package body HRA.Household_Home_Observation is
    function Cycle (Horizon : Home_Horizon_Observation) return Cycle_Home_Observation is
      (Horizon.Cycle);
 
+   function Selected_Day (Day_Obs : Home_Day_Observation) return HRA.Dates.Date is
+     (Day_Obs.Selected_Day);
+
+   function Actual (Day_Obs : Home_Day_Observation) return Actual_Home_Observation is
+     (Day_Obs.Actual);
+
+   function Plan (Day_Obs : Home_Day_Observation) return Plan_Home_Observation is
+     (Day_Obs.Plan);
+
+   function Issue (Day_Obs : Home_Day_Observation) return Issue_Home_Observation is
+     (Day_Obs.Issue);
+
+   function Selected_Attention (Day_Obs : Home_Day_Observation) return Attention_Observation is
+     (Day_Obs.Attention);
+
    function Horizon (Obs : Home_Observation) return Home_Horizon_Observation is
      (Obs.Horizon);
+
+   function Day (Obs : Home_Observation) return Home_Day_Observation is
+     (Obs.Day);
 
    function Observed_Through (Obs : Home_Observation) return HRA.Dates.Date is
      (Obs.Horizon.Observed_Through);
 
    function Selected_Day (Obs : Home_Observation) return HRA.Dates.Date is
-     (Obs.Selected_Day);
+     (Obs.Day.Selected_Day);
 
    function Actual (Obs : Home_Observation) return Actual_Home_Observation is
-     (Obs.Actual);
+     (Obs.Day.Actual);
 
    function Plan (Obs : Home_Observation) return Plan_Home_Observation is
-     (Obs.Plan);
+     (Obs.Day.Plan);
 
    function Issue (Obs : Home_Observation) return Issue_Home_Observation is
-     (Obs.Issue);
+     (Obs.Day.Issue);
 
    function Cycle (Obs : Home_Observation) return Cycle_Home_Observation is
      (Obs.Horizon.Cycle);
 
    function Selected_Attention (Obs : Home_Observation) return Attention_Observation is
-     (Obs.Attention);
+     (Obs.Day.Attention);
 
    function Day_Attention
      (Horizon : Home_Horizon_Observation;
@@ -153,11 +171,10 @@ package body HRA.Household_Home_Observation is
    function Project_Day
      (Horizon      : Home_Horizon_Observation;
       Selected_Day : HRA.Dates.Date;
-      State        : HRA.Household.Household_State) return Home_Observation
+      State        : HRA.Household.Household_State) return Home_Day_Observation
    is
-      Result : Home_Observation;
+      Result : Home_Day_Observation;
    begin
-      Result.Horizon      := Horizon;
       Result.Selected_Day := Selected_Day;
 
       if Selected_Day <= Horizon.Observed_Through then
@@ -219,11 +236,12 @@ package body HRA.Household_Home_Observation is
       Selected_Day     : HRA.Dates.Date;
       State            : HRA.Household.Household_State) return Home_Observation
    is
+      Horizon_Obs : constant Home_Horizon_Observation :=
+        Observe_Horizon (Observed_Through, State);
+      Day_Obs     : constant Home_Day_Observation :=
+        Project_Day (Horizon_Obs, Selected_Day, State);
    begin
-      return Project_Day
-        (Observe_Horizon (Observed_Through, State),
-         Selected_Day,
-         State);
+      return (Horizon => Horizon_Obs, Day => Day_Obs);
    end Observe;
 
 end HRA.Household_Home_Observation;

@@ -380,11 +380,10 @@ begin
 
       --  Project past day on same horizon
       declare
-         Obs_Past : constant Home_Observation :=
+         Obs_Past : constant Home_Day_Observation :=
            Project_Day (Horizon_Obs, D ("2026-08-10"), State);
       begin
-         Assert (Observed_Through (Obs_Past) = D ("2026-08-19")
-                 and then Selected_Day (Obs_Past) = D ("2026-08-10"),
+         Assert (Selected_Day (Obs_Past) = D ("2026-08-10"),
                  "Project_Day preserves past coordinates");
          Assert (Is_Available (Actual (Obs_Past))
                  and then Transaction_Count (Actual (Obs_Past)) = 1,
@@ -395,7 +394,7 @@ begin
 
       --  Project horizon day on same horizon
       declare
-         Obs_Today : constant Home_Observation :=
+         Obs_Today : constant Home_Day_Observation :=
            Project_Day (Horizon_Obs, D ("2026-08-19"), State);
       begin
          Assert (Is_Available (Actual (Obs_Today))
@@ -403,13 +402,11 @@ begin
                  "Project_Day observes Actual on horizon date");
          Assert (Open_Plan_Count (Plan (Obs_Today)) = 0,
                  "Project_Day observes 0 open plans on horizon date");
-         Assert (Is_Available (Cycle (Obs_Today)),
-                 "Project_Day provides Cycle observation from Horizon");
       end;
 
       --  Project future day on same horizon
       declare
-         Obs_Future : constant Home_Observation :=
+         Obs_Future : constant Home_Day_Observation :=
            Project_Day (Horizon_Obs, D ("2026-08-25"), State);
          Obs_Direct : constant Home_Observation :=
            Observe (D ("2026-08-19"), D ("2026-08-25"), State);
@@ -429,6 +426,7 @@ begin
 
          --  Parity assertion between Observe and Project_Day (Observe_Horizon)
          Assert (not Is_Available (Actual (Obs_Direct))
+                 and then Observed_Through (Obs_Direct) = Observed_Through (Horizon_Obs)
                  and then Open_Plan_Count (Plan (Obs_Direct)) = Open_Plan_Count (Plan (Obs_Future))
                  and then Due_Issue_Count (Issue (Obs_Direct)) = Due_Issue_Count (Issue (Obs_Future)),
                  "Observe produces identical projections to Project_Day on Observe_Horizon");

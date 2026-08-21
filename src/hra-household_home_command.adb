@@ -188,13 +188,13 @@ package body HRA.Household_Home_Command is
       Horizon      : HRA.Household_Home_Observation.Home_Horizon_Observation;
       Selected_Day : HRA.Dates.Date) return String
    is
-      Obs  : constant HRA.Household_Home_Observation.Home_Observation :=
+      Day_Obs : constant HRA.Household_Home_Observation.Home_Day_Observation :=
         HRA.Household_Home_Observation.Project_Day
           (Horizon      => Horizon,
            Selected_Day => Selected_Day,
            State        => State);
       Pres : constant HRA.Household_Home_Presentation.Home_Presentation :=
-        HRA.Household_Home_Presentation.Present (Obs);
+        HRA.Household_Home_Presentation.Present (Horizon, Day_Obs);
    begin
       return HRA.Household_Home_Text.Render_Home
         (Pres, State.Report_Policy.Presentation.Calendar);

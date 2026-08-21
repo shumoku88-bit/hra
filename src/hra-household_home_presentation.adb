@@ -24,13 +24,13 @@ package body HRA.Household_Home_Presentation is
    end Map_Attention;
 
    function Build_Calendar_Grid
-     (Observation : HRA.Household_Home_Observation.Home_Observation)
+     (Horizon      : HRA.Household_Home_Observation.Home_Horizon_Observation;
+      Selected_Day : HRA.Dates.Date)
       return Calendar_Grid
    is
-      Focus_Day     : constant HRA.Dates.Date :=
-        HRA.Household_Home_Observation.Selected_Day (Observation);
+      Focus_Day     : constant HRA.Dates.Date := Selected_Day;
       Obs_Through   : constant HRA.Dates.Date :=
-        HRA.Household_Home_Observation.Observed_Through (Observation);
+        HRA.Household_Home_Observation.Observed_Through (Horizon);
       Focus_Year    : constant Positive := HRA.Dates.Year (Focus_Day);
       Focus_Month   : constant Positive := HRA.Dates.Month (Focus_Day);
       First_Date    : constant HRA.Dates.Date :=
@@ -109,8 +109,8 @@ package body HRA.Household_Home_Presentation is
                            Is_Future           => (Current_Day > Obs_Through),
                            Attention           =>
                              Map_Attention
-                               (HRA.Household_Home_Observation.Day_Attention
-                                  (Observation, Current_Day)));
+                                (HRA.Household_Home_Observation.Day_Attention
+                                   (Horizon, Current_Day)));
 
                         if Current_Day = Last_Date and then Wday = HRA.Dates.Sunday then
                            Done := True;
@@ -299,13 +299,14 @@ package body HRA.Household_Home_Presentation is
    end Build_Cycle_Presentation;
 
    function Present
-     (Observation : HRA.Household_Home_Observation.Home_Observation)
+     (Horizon : HRA.Household_Home_Observation.Home_Horizon_Observation;
+      Day     : HRA.Household_Home_Observation.Home_Day_Observation)
       return Home_Presentation
    is
       Focus_Day   : constant HRA.Dates.Date :=
-        HRA.Household_Home_Observation.Selected_Day (Observation);
+        HRA.Household_Home_Observation.Selected_Day (Day);
       Obs_Through : constant HRA.Dates.Date :=
-        HRA.Household_Home_Observation.Observed_Through (Observation);
+        HRA.Household_Home_Observation.Observed_Through (Horizon);
       Result      : Home_Presentation;
    begin
       Result.Observed_Through := Obs_Through;
@@ -313,24 +314,31 @@ package body HRA.Household_Home_Presentation is
       Result.Is_Future_Focus  := (Focus_Day > Obs_Through);
       Result.Attention        :=
         Map_Attention
-          (HRA.Household_Home_Observation.Selected_Attention (Observation));
+          (HRA.Household_Home_Observation.Selected_Attention (Day));
 
-      Result.Calendar := Build_Calendar_Grid (Observation);
+      Result.Calendar := Build_Calendar_Grid (Horizon, Focus_Day);
       Result.Actual   :=
         Build_Actual_Presentation
-          (HRA.Household_Home_Observation.Actual (Observation));
+          (HRA.Household_Home_Observation.Actual (Day));
       Result.Plan     :=
         Build_Plan_Presentation
-          (HRA.Household_Home_Observation.Plan (Observation));
+          (HRA.Household_Home_Observation.Plan (Day));
       Result.Issue    :=
         Build_Issue_Presentation
-          (HRA.Household_Home_Observation.Issue (Observation));
+          (HRA.Household_Home_Observation.Issue (Day));
       Result.Cycle    :=
         Build_Cycle_Presentation
-          (HRA.Household_Home_Observation.Cycle (Observation),
+          (HRA.Household_Home_Observation.Cycle (Horizon),
            Focus_Day);
 
       return Result;
    end Present;
+
+   function Present
+     (Observation : HRA.Household_Home_Observation.Home_Observation)
+      return Home_Presentation is
+     (Present
+        (HRA.Household_Home_Observation.Horizon (Observation),
+         HRA.Household_Home_Observation.Day (Observation)));
 
 end HRA.Household_Home_Presentation;

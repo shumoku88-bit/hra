@@ -231,6 +231,23 @@ begin
               and then Index (Text, "plan-util-aug") > 0
               and then Index (Text, "[Open]") > 0,
               "Text renderer consumes always-present Plan presentation");
+
+      declare
+         Horizon_Obs : constant HRA.Household_Home_Observation.Home_Horizon_Observation :=
+           HRA.Household_Home_Observation.Observe_Horizon (D ("2026-08-19"), State);
+         Day_Obs     : constant HRA.Household_Home_Observation.Home_Day_Observation :=
+           HRA.Household_Home_Observation.Project_Day (Horizon_Obs, D ("2026-08-25"), State);
+         Pres_Split  : constant HRA.Household_Home_Presentation.Home_Presentation :=
+           HRA.Household_Home_Presentation.Present (Horizon_Obs, Day_Obs);
+      begin
+         Assert (Pres_Split.Is_Future_Focus = Pres.Is_Future_Focus
+                 and then Pres_Split.Observed_Through = Pres.Observed_Through
+                 and then Pres_Split.Selected_Day = Pres.Selected_Day
+                 and then Pres_Split.Actual.Status = Pres.Actual.Status
+                 and then Natural (Pres_Split.Plan.Items.Length) = Natural (Pres.Plan.Items.Length)
+                 and then Natural (Pres_Split.Issue.Items.Length) = Natural (Pres.Issue.Items.Length),
+                 "Present (Horizon, Day_Obs) produces identical Home_Presentation to Present (Obs)");
+      end;
    end;
 
    declare

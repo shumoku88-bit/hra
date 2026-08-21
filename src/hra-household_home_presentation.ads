@@ -159,6 +159,11 @@ package HRA.Household_Home_Presentation is
    end record;
 
    function Present
+     (Horizon : HRA.Household_Home_Observation.Home_Horizon_Observation;
+      Day     : HRA.Household_Home_Observation.Home_Day_Observation)
+      return Home_Presentation;
+
+   function Present
      (Observation : HRA.Household_Home_Observation.Home_Observation)
       return Home_Presentation;
 
