@@ -55,6 +55,7 @@ project HRA_Tests is
       "test_issue_relation_tsv.adb",
       "test_issue_relation_admission.adb",
       "test_issue_relation_sidecar.adb",
+      "test_issue_close.adb",
       "test_household_home_observation.adb",
       "test_household_home_presentation.adb",
       "test_household_home_command.adb",
@@ -121,6 +122,7 @@ project HRA_Tests is
       for Executable ("test_issue_relation_tsv.adb") use "test_issue_relation_tsv";
       for Executable ("test_issue_relation_admission.adb") use "test_issue_relation_admission";
       for Executable ("test_issue_relation_sidecar.adb") use "test_issue_relation_sidecar";
+      for Executable ("test_issue_close.adb") use "test_issue_close";
       for Executable ("test_household_home_observation.adb") use "test_household_home_observation";
       for Executable ("test_household_home_presentation.adb") use "test_household_home_presentation";
       for Executable ("test_household_home_command.adb") use "test_household_home_command";
