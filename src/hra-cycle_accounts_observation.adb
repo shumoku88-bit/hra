@@ -2,7 +2,6 @@ package body HRA.Cycle_Accounts_Observation is
 
    use type HRA.Account.Account;
    use type HRA.Dates.Date;
-   use type HRA.Money.Quantity;
 
    type Balance_Lane is (Opening_Lane, Debit_Lane, Credit_Lane);
 
