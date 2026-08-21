@@ -1,5 +1,6 @@
-with Ada.Text_IO;          use Ada.Text_IO;
 with Ada.Directories;        use Ada.Directories;
+with Ada.Streams;            use Ada.Streams;
+with Ada.Streams.Stream_IO;
 with GNAT.OS_Lib;            use type GNAT.OS_Lib.File_Descriptor;
 with HRA.Ledger;             use HRA.Ledger;
 with HRA.Journal;            use HRA.Journal;
@@ -8,11 +9,17 @@ with HRA.Writer.Test_Hooks;
 package body HRA.Writer is
 
    function Make_Expected_Source (Text : String) return Expected_Source is
-     ((Text => To_Unbounded_String (Text)));
+     ((State => Present, Text => To_Unbounded_String (Text)));
 
    function Make_Expected_Source
      (Text : Ada.Strings.Unbounded.Unbounded_String) return Expected_Source is
-     ((Text => Text));
+     ((State => Present, Text => Text));
+
+   function Make_Absent_Expected_Source return Expected_Source is
+     ((State => Absent, Text => Null_Unbounded_String));
+
+   function Presence_Of (Value : Expected_Source) return Source_Presence is
+     (Value.State);
 
    function Make_Candidate_Source (Text : String) return Candidate_Source is
      ((Text => To_Unbounded_String (Text)));
@@ -35,6 +42,124 @@ package body HRA.Writer is
      (Value : Candidate_Source) return Ada.Strings.Unbounded.Unbounded_String is
      (Value.Text);
 
+   function Same_Source
+     (Left : Expected_Source;
+      Right : Expected_Source) return Boolean is
+   begin
+      if Left.State /= Right.State then
+         return False;
+      end if;
+
+      if Left.State = Absent then
+         return True;
+      end if;
+
+      return To_String (Left.Text) = To_String (Right.Text);
+   end Same_Source;
+
+   function Observe_Source
+     (Target_Path : String;
+      Observed    : out Expected_Source;
+      Error_Msg   : out Unbounded_String) return Boolean
+   is
+      package SIO renames Ada.Streams.Stream_IO;
+      use type SIO.Count;
+
+      File : SIO.File_Type;
+   begin
+      if not Exists (Target_Path) then
+         Observed := Make_Absent_Expected_Source;
+         Error_Msg := Null_Unbounded_String;
+         return True;
+      end if;
+
+      if Kind (Target_Path) /= Ordinary_File then
+         Observed := Make_Absent_Expected_Source;
+         Error_Msg := To_Unbounded_String
+           ("Target source is not an ordinary file: " & Target_Path);
+         return False;
+      end if;
+
+      SIO.Open (File, SIO.In_File, Target_Path);
+      declare
+         Byte_Count : constant SIO.Count := SIO.Size (File);
+      begin
+         if Byte_Count > SIO.Count (Natural'Last) then
+            SIO.Close (File);
+            Observed := Make_Absent_Expected_Source;
+            Error_Msg := To_Unbounded_String
+              ("Target source is too large to observe exactly: " & Target_Path);
+            return False;
+         elsif Byte_Count = 0 then
+            SIO.Close (File);
+            Observed := Make_Expected_Source ("");
+            Error_Msg := Null_Unbounded_String;
+            return True;
+         else
+            declare
+               Bytes : Stream_Element_Array
+                 (1 .. Stream_Element_Offset (Byte_Count));
+               Last  : Stream_Element_Offset;
+               Value : String (1 .. Natural (Byte_Count));
+            begin
+               SIO.Read (File, Bytes, Last);
+               if Last /= Bytes'Last then
+                  SIO.Close (File);
+                  Observed := Make_Absent_Expected_Source;
+                  Error_Msg := To_Unbounded_String
+                    ("Short read while observing target source: " & Target_Path);
+                  return False;
+               end if;
+
+               for I in Bytes'Range loop
+                  Value (Natural (I)) := Character'Val (Bytes (I));
+               end loop;
+
+               SIO.Close (File);
+               Observed := Make_Expected_Source (Value);
+               Error_Msg := Null_Unbounded_String;
+               return True;
+            end;
+         end if;
+      end;
+   exception
+      when others =>
+         if SIO.Is_Open (File) then
+            SIO.Close (File);
+         end if;
+         Observed := Make_Absent_Expected_Source;
+         Error_Msg := To_Unbounded_String
+           ("Failed to observe target source bytes: " & Target_Path);
+         return False;
+   end Observe_Source;
+
+   function Write_File_Exact (Path : String; Content : String) return Boolean is
+      package SIO renames Ada.Streams.Stream_IO;
+      File : SIO.File_Type;
+   begin
+      SIO.Create (File, SIO.Out_File, Path);
+      if Content'Length > 0 then
+         declare
+            Bytes : Stream_Element_Array
+              (1 .. Stream_Element_Offset (Content'Length));
+         begin
+            for I in Content'Range loop
+               Bytes (Stream_Element_Offset (I - Content'First + 1)) :=
+                 Stream_Element (Character'Pos (Content (I)));
+            end loop;
+            SIO.Write (File, Bytes);
+         end;
+      end if;
+      SIO.Close (File);
+      return True;
+   exception
+      when others =>
+         if SIO.Is_Open (File) then
+            SIO.Close (File);
+         end if;
+         return False;
+   end Write_File_Exact;
+
    function Writer_Status_Image (Status : Writer_Status) return String is
    begin
       case Status is
@@ -46,40 +171,6 @@ package body HRA.Writer is
          when Post_Admission_Failed => return "Post_Admission_Failed";
       end case;
    end Writer_Status_Image;
-
-   function Read_File (Path : String; Content : out Unbounded_String) return Boolean is
-      F : File_Type;
-   begin
-      if not Exists (Path) then
-         Content := Null_Unbounded_String;
-         return True;
-      end if;
-
-      Open (F, In_File, Path);
-      Content := Null_Unbounded_String;
-      while not End_Of_File (F) loop
-         Append (Content, Get_Line (F));
-         Append (Content, ASCII.LF);
-      end loop;
-      Close (F);
-      return True;
-   exception
-      when others =>
-         Content := Null_Unbounded_String;
-         return False;
-   end Read_File;
-
-   function Write_File (Path : String; Content : String) return Boolean is
-      F : File_Type;
-   begin
-      Create (F, Out_File, Path);
-      Put (F, Content);
-      Close (F);
-      return True;
-   exception
-      when others =>
-         return False;
-   end Write_File;
 
    function Format_Natural (N : Natural) return String is
       Img : constant String := Natural'Image (N);
@@ -173,8 +264,9 @@ package body HRA.Writer is
       Status      : out Writer_Status;
       Error_Msg   : out Unbounded_String) return Boolean
    is
-      Initial_On_Disk  : Unbounded_String;
-      Second_On_Disk   : Unbounded_String;
+      Initial_On_Disk  : Expected_Source;
+      Second_On_Disk   : Expected_Source;
+      Read_Error       : Unbounded_String;
       Staged_Path      : Unbounded_String := Null_Unbounded_String;
       Bak_Path         : constant String := Target_Path & ".bak";
       Dummy_L          : Ledger.Ledger;
@@ -182,17 +274,20 @@ package body HRA.Writer is
       Expected_Text    : constant String := Source_Text (Expected);
       Candidate_Text   : constant String := Source_Text (Candidate);
    begin
-      --  1. Initial Stale Check: read current bytes before mutation or staging
-      --  to reject stale premise early.
-      if not Read_File (Target_Path, Initial_On_Disk) then
+      --  1. Initial stale check: compare exact filesystem presence and bytes
+      --  before any mutation or staging.
+      if not Observe_Source (Target_Path, Initial_On_Disk, Read_Error) then
          Status := File_Write_Failed;
-         Error_Msg := To_Unbounded_String ("Failed to read target file for initial stale check");
+         Error_Msg := To_Unbounded_String
+           ("Failed to observe target for initial stale check: " &
+            To_String (Read_Error));
          return False;
       end if;
 
-      if To_String (Initial_On_Disk) /= Expected_Text then
+      if not Same_Source (Initial_On_Disk, Expected) then
          Status := Stale_Source_Rejected;
-         Error_Msg := To_Unbounded_String ("Stale source rejected: file changed on disk by another process");
+         Error_Msg := To_Unbounded_String
+           ("Stale source rejected: file presence or exact bytes changed on disk");
          return False;
       end if;
 
@@ -213,30 +308,32 @@ package body HRA.Writer is
       --  4. Optional test / inspection hook immediately after candidate staging.
       HRA.Writer.Test_Hooks.Notify_Staged (To_String (Staged_Path));
 
-      --  5. Second Stale Fence: re-observe target right before publication to detect
-      --  any modification occurring while staging was prepared.
-      if not Read_File (Target_Path, Second_On_Disk) then
+      --  5. Second stale fence: re-observe target right before publication.
+      if not Observe_Source (Target_Path, Second_On_Disk, Read_Error) then
          if Exists (To_String (Staged_Path)) then
             Delete_File (To_String (Staged_Path));
          end if;
          Status := File_Write_Failed;
-         Error_Msg := To_Unbounded_String ("Failed to read target file for second stale fence");
+         Error_Msg := To_Unbounded_String
+           ("Failed to observe target for second stale fence: " &
+            To_String (Read_Error));
          return False;
       end if;
 
-      if To_String (Second_On_Disk) /= Expected_Text then
-         --  Second stale fence detected mismatch: cleanup staging only,
-         --  leave target untouched without modifying or restoring.
+      if not Same_Source (Second_On_Disk, Expected) then
          if Exists (To_String (Staged_Path)) then
             Delete_File (To_String (Staged_Path));
          end if;
          Status := Stale_Source_Rejected;
-         Error_Msg := To_Unbounded_String ("Stale source rejected: target modified on disk during publication preparation");
+         Error_Msg := To_Unbounded_String
+           ("Stale source rejected: target presence or exact bytes changed during publication preparation");
          return False;
       end if;
 
-      --  6. Keep a recovery copy until post-admission validation succeeds.
-      if Exists (Target_Path) and then not Write_File (Bak_Path, Expected_Text) then
+      --  6. Keep an exact recovery copy until post-admission validation succeeds.
+      if Expected.State = Present
+        and then not Write_File_Exact (Bak_Path, Expected_Text)
+      then
          if Exists (To_String (Staged_Path)) then
             Delete_File (To_String (Staged_Path));
          end if;
@@ -258,7 +355,7 @@ package body HRA.Writer is
             if Exists (To_String (Staged_Path)) then
                Delete_File (To_String (Staged_Path));
             end if;
-            if Exists (Bak_Path) then
+            if Expected.State = Present and then Exists (Bak_Path) then
                Delete_File (Bak_Path);
             end if;
             return False;
@@ -270,16 +367,19 @@ package body HRA.Writer is
          Parsed_L : Ledger.Ledger;
       begin
          if not Parse_Journal_Text (Candidate_Text, Parsed_L, Parse_Err) then
-            --  Post-admission failure: Restore from backup
-            if Exists (Bak_Path) then
+            if Expected.State = Present and then Exists (Bak_Path) then
                if Exists (Target_Path) then
                   Delete_File (Target_Path);
                end if;
                Rename (Bak_Path, Target_Path);
+            elsif Expected.State = Absent and then Exists (Target_Path) then
+               --  The exact pre-publication premise was absence, so rollback
+               --  restores absence rather than inventing an empty file.
+               Delete_File (Target_Path);
             end if;
 
             Status := Post_Admission_Failed;
-            Error_Msg := To_Unbounded_String ("Post-admission validation failed (file restored from backup): " & To_String (Parse_Err));
+            Error_Msg := To_Unbounded_String ("Post-admission validation failed (source premise restored): " & To_String (Parse_Err));
             return False;
          end if;
       end;
@@ -288,7 +388,7 @@ package body HRA.Writer is
       if Exists (To_String (Staged_Path)) then
          Delete_File (To_String (Staged_Path));
       end if;
-      if Exists (Bak_Path) then
+      if Expected.State = Present and then Exists (Bak_Path) then
          Delete_File (Bak_Path);
       end if;
 
@@ -303,15 +403,20 @@ package body HRA.Writer is
       Status      : out Writer_Status;
       Error_Msg   : out Unbounded_String) return Boolean
    is
-      Old_Content : Unbounded_String;
-      New_Content : Unbounded_String;
+      Observed_Source : Expected_Source;
+      Observe_Error   : Unbounded_String;
+      Old_Content     : Unbounded_String;
+      New_Content     : Unbounded_String;
    begin
-      if Exists (Target_Path) then
-         if not Read_File (Target_Path, Old_Content) then
-            Status := File_Write_Failed;
-            Error_Msg := To_Unbounded_String ("Failed to read target file");
-            return False;
-         end if;
+      if not Observe_Source (Target_Path, Observed_Source, Observe_Error) then
+         Status := File_Write_Failed;
+         Error_Msg := To_Unbounded_String
+           ("Failed to observe target file: " & To_String (Observe_Error));
+         return False;
+      end if;
+
+      if Presence_Of (Observed_Source) = Present then
+         Old_Content := Unbounded_Text (Observed_Source);
       else
          Old_Content := Null_Unbounded_String;
       end if;
@@ -327,7 +432,7 @@ package body HRA.Writer is
 
       return Atomic_Publish_Journal
         (Target_Path => Target_Path,
-         Expected    => Make_Expected_Source (Old_Content),
+         Expected    => Observed_Source,
          Candidate   => Make_Candidate_Source (New_Content),
          Status      => Status,
          Error_Msg   => Error_Msg);
