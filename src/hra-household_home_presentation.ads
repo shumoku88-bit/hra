@@ -13,7 +13,11 @@ with HRA.Plan;
 --  Transforms semantic Home_Observation into UI-neutral structured view models:
 --    - Monthly calendar grid with attention facts
 --    - Structured Selected-Day details for Actual, Plan, Issue, and Cycle
---    - Structured Daily Target summary for knowledge horizon
+--    - Structured Daily Target summary for the as-of visibility horizon
+--
+--  Established field names such as Known_Through and Is_Known_Through mirror
+--  the semantic observation API. They denote the visibility horizon here, not
+--  a canonical cross-domain knowledge-time timestamp.
 --
 --  Terminal-specific formatting (fixed-width cells, ASCII boxes, glyph mapping)
 --  is strictly excluded and owned by HRA.Household_Home_Text.
