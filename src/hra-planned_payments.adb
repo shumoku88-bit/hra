@@ -9,12 +9,12 @@ package body HRA.Planned_Payments is
       Registry   : HRA.Account.Account_Registry;
       As_Of_Date : HRA.Dates.Date;
       Result     : out Observation;
-      Diag       : out Admission_Diagnostic) return Boolean
+      Diag       : out Projection_Diagnostic) return Boolean
    is
       Output : Observation;
 
       procedure Fail
-        (Status  : Admission_Status;
+        (Status  : Projection_Status;
          Plan_ID : String;
          Message : String)
       is
