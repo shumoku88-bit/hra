@@ -38,7 +38,10 @@ current movement through the observation day with the immediately previous cycle
 at the same elapsed day count from cycle start.
 
 The baseline date is derived only from the two typed cycle windows and the current
-observation day. Journal activity does not choose the baseline.
+observation day. Journal activity does not choose the baseline. The calendar-day
+mapping itself belongs to `HRA.Cycle_Observation.Aligned_Day`; both Cycle
+Accounts and the pre-existing Envelope cycle comparison consume that one temporal
+law rather than maintaining parallel alignment algorithms.
 
 For each Account:
 
