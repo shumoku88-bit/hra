@@ -43,6 +43,12 @@ package HRA.Issue_Observation is
      (Obs        : Observation;
       Target_Day : HRA.Dates.Date) return Observed_Issue_Vectors.Vector;
 
+   --  Return True if there is at least one visible issue that is Open as-of
+   --  Observed_Through and has Due = Due_On (Target_Day).
+   function Has_Due_Issue_On
+     (Obs        : Observation;
+      Target_Day : HRA.Dates.Date) return Boolean;
+
    --  Return True if there is at least one visible issue whose closure is
    --  undetermined as-of Observed_Through and whose Due is Due_On (Target_Day).
    function Has_Undetermined_Due_On

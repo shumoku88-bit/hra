@@ -1,6 +1,7 @@
 with Ada.Strings.Unbounded;
 with HRA.Dates;
 with HRA.Household;
+with HRA.Household_Home_Observation;
 
 --  Application command boundary for Household Home overview.
 --  Coordinates pure option parsing (Stage A), temporal default resolution (Stage B),
@@ -88,5 +89,14 @@ package HRA.Household_Home_Command is
      (State            : HRA.Household.Household_State;
       Observed_Through : HRA.Dates.Date;
       Selected_Day     : HRA.Dates.Date) return String;
+
+   --  Execute pipeline with an existing horizon observation:
+   --  1. Household_Home_Observation.Project_Day (Horizon, Selected_Day, State)
+   --  2. Household_Home_Presentation.Present (Obs)
+   --  3. Household_Home_Text.Render_Home (Pres, State.Report_Policy.Presentation.Calendar)
+   function Execute_Home
+     (State        : HRA.Household.Household_State;
+      Horizon      : HRA.Household_Home_Observation.Home_Horizon_Observation;
+      Selected_Day : HRA.Dates.Date) return String;
 
 end HRA.Household_Home_Command;

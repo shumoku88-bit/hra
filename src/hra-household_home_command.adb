@@ -183,4 +183,21 @@ package body HRA.Household_Home_Command is
         (Pres, State.Report_Policy.Presentation.Calendar);
    end Execute_Home;
 
+   function Execute_Home
+     (State        : HRA.Household.Household_State;
+      Horizon      : HRA.Household_Home_Observation.Home_Horizon_Observation;
+      Selected_Day : HRA.Dates.Date) return String
+   is
+      Obs  : constant HRA.Household_Home_Observation.Home_Observation :=
+        HRA.Household_Home_Observation.Project_Day
+          (Horizon      => Horizon,
+           Selected_Day => Selected_Day,
+           State        => State);
+      Pres : constant HRA.Household_Home_Presentation.Home_Presentation :=
+        HRA.Household_Home_Presentation.Present (Obs);
+   begin
+      return HRA.Household_Home_Text.Render_Home
+        (Pres, State.Report_Policy.Presentation.Calendar);
+   end Execute_Home;
+
 end HRA.Household_Home_Command;

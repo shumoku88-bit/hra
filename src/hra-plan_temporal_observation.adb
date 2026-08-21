@@ -25,25 +25,6 @@ package body HRA.Plan_Temporal_Observation is
          end case;
       end Retired_As_Of;
 
-      function Visible_Completion_Index
-        (Plan_ID : HRA.Plan.Plan_Id) return Natural
-      is
-      begin
-         for I in 1 .. HRA.Plan_Completion.Count (Completions) loop
-            declare
-               Relation : constant HRA.Plan_Completion.Completion_Relation :=
-                 HRA.Plan_Completion.Relation_At (Completions, I);
-            begin
-               if Relation.Plan_ID = Plan_ID
-                 and then Relation.Actual.Tx.Date <= Observed_Through
-               then
-                  return I;
-               end if;
-            end;
-         end loop;
-         return 0;
-      end Visible_Completion_Index;
-
    begin
       Result.Observed_Through := Observed_Through;
       Result.Open_Plans.Clear;
@@ -57,23 +38,18 @@ package body HRA.Plan_Temporal_Observation is
          declare
             Plan_Entry : constant HRA.Plan_Admission.Plan_Transaction_Entry :=
               HRA.Plan_Admission.Transaction_At (Plans, I);
-            Completion_Index : constant Natural :=
-              Visible_Completion_Index (Plan_Entry.ID);
+            Relation   : HRA.Plan_Completion.Completion_Relation;
          begin
-            if Completion_Index > 0 then
-               declare
-                  Relation : constant HRA.Plan_Completion.Completion_Relation :=
-                    HRA.Plan_Completion.Relation_At
-                      (Completions, Positive (Completion_Index));
-               begin
-                  Result.Completed_Plans.Append
-                    (Completed_Plan'
-                       (ID            => Plan_Entry.ID,
-                        Plan_Tx       => Plan_Entry.Tx,
-                        Actual_Tx     => Relation.Actual.Tx,
-                        Plan_Source   => Plan_Entry.Source,
-                        Actual_Source => Relation.Actual.Source));
-               end;
+            if HRA.Plan_Completion.Has_Visible_Completion
+                 (Completions, Plan_Entry.ID, Observed_Through, Relation)
+            then
+               Result.Completed_Plans.Append
+                 (Completed_Plan'
+                    (ID            => Plan_Entry.ID,
+                     Plan_Tx       => Plan_Entry.Tx,
+                     Actual_Tx     => Relation.Actual.Tx,
+                     Plan_Source   => Plan_Entry.Source,
+                     Actual_Source => Relation.Actual.Source));
             elsif not Retired_As_Of (Plan_Entry) then
                Result.Open_Plans.Append
                  (Open_Plan'(ID => Plan_Entry.ID, Tx => Plan_Entry.Tx));

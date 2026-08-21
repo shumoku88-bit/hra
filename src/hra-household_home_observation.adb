@@ -4,7 +4,6 @@ with HRA.Account;
 package body HRA.Household_Home_Observation is
 
    use type HRA.Dates.Date;
-   use type HRA.Cycle_Observation.Resolve_Status;
 
    function Is_Available (Obs : Actual_Home_Observation) return Boolean is
      (Obs.Status = Available);
@@ -24,8 +23,17 @@ package body HRA.Household_Home_Observation is
    function Is_Available (Obs : Cycle_Home_Observation) return Boolean is
      (Obs.Status = Available);
 
+   function Observed_Through (Horizon : Home_Horizon_Observation) return HRA.Dates.Date is
+     (Horizon.Observed_Through);
+
+   function Cycle (Horizon : Home_Horizon_Observation) return Cycle_Home_Observation is
+     (Horizon.Cycle);
+
+   function Horizon (Obs : Home_Observation) return Home_Horizon_Observation is
+     (Obs.Horizon);
+
    function Observed_Through (Obs : Home_Observation) return HRA.Dates.Date is
-     (Obs.Observed_Through);
+     (Obs.Horizon.Observed_Through);
 
    function Selected_Day (Obs : Home_Observation) return HRA.Dates.Date is
      (Obs.Selected_Day);
@@ -40,48 +48,41 @@ package body HRA.Household_Home_Observation is
      (Obs.Issue);
 
    function Cycle (Obs : Home_Observation) return Cycle_Home_Observation is
-     (Obs.Cycle);
+     (Obs.Horizon.Cycle);
 
    function Selected_Attention (Obs : Home_Observation) return Attention_Observation is
-     (Day_Attention (Obs, Obs.Selected_Day));
+     (Obs.Attention);
 
    function Day_Attention
-     (Obs : Home_Observation;
-      Day : HRA.Dates.Date) return Attention_Observation
+     (Horizon : Home_Horizon_Observation;
+      Day     : HRA.Dates.Date) return Attention_Observation
    is
       Result : Attention_Observation;
    begin
       Result.Plan_Scheduled := Absent;
-      for P of Obs.All_Open_Plans loop
+      for P of Horizon.All_Open_Plans loop
          if P.Tx.Date = Day then
             Result.Plan_Scheduled := Present;
             exit;
          end if;
       end loop;
 
-      if HRA.Issue_Observation.Has_Undetermined_Due_On (Obs.Issue_Context, Day) then
+      if HRA.Issue_Observation.Has_Undetermined_Due_On (Horizon.Issue_Context, Day) then
          Result.Issue_Due := Unavailable;
+      elsif HRA.Issue_Observation.Has_Due_Issue_On (Horizon.Issue_Context, Day) then
+         Result.Issue_Due := Present;
       else
-         declare
-            Dues : constant HRA.Issue_Observation.Observed_Issue_Vectors.Vector :=
-              HRA.Issue_Observation.Due_Issues_On (Obs.Issue_Context, Day);
-         begin
-            if not Dues.Is_Empty then
-               Result.Issue_Due := Present;
-            else
-               Result.Issue_Due := Absent;
-            end if;
-         end;
+         Result.Issue_Due := Absent;
       end if;
 
-      if Obs.Cycle.Status = Unavailable then
+      if Horizon.Cycle.Status = Unavailable then
          Result.Cycle_End := Unavailable;
       else
          declare
             Prev_Win : constant HRA.Cycle_Observation.Cycle_Window :=
-              Obs.Cycle.Observation.Previous_Window;
+              Horizon.Cycle.Observation.Previous_Window;
             Curr_Win : constant HRA.Cycle_Observation.Cycle_Window :=
-              Obs.Cycle.Observation.Current_Window;
+              Horizon.Cycle.Observation.Current_Window;
             Prev_End : constant HRA.Dates.Date :=
               HRA.Dates.Previous (HRA.Cycle_Observation.End_Exclusive (Prev_Win));
             Curr_End : constant HRA.Dates.Date :=
@@ -102,13 +103,17 @@ package body HRA.Household_Home_Observation is
       return Result;
    end Day_Attention;
 
-   function Observe
+   function Day_Attention
+     (Obs : Home_Observation;
+      Day : HRA.Dates.Date) return Attention_Observation is
+     (Day_Attention (Obs.Horizon, Day));
+
+   function Observe_Horizon
      (Observed_Through : HRA.Dates.Date;
-      Selected_Day     : HRA.Dates.Date;
-      State            : HRA.Household.Household_State) return Home_Observation
+      State            : HRA.Household.Household_State) return Home_Horizon_Observation
    is
-      Result : Home_Observation;
-      Plan_Obs : constant HRA.Plan_Temporal_Observation.Observation :=
+      Result     : Home_Horizon_Observation;
+      Plan_Obs   : constant HRA.Plan_Temporal_Observation.Observation :=
         HRA.Plan_Temporal_Observation.Observe
           (State.Plan_Journal, State.Plan_Completions, Observed_Through);
       Income_Acc : HRA.Account.Account;
@@ -116,60 +121,9 @@ package body HRA.Household_Home_Observation is
       Cycle_Stat : HRA.Cycle_Observation.Resolve_Status;
    begin
       Result.Observed_Through := Observed_Through;
-      Result.Selected_Day     := Selected_Day;
-
-      if Selected_Day <= Observed_Through then
-         declare
-            Selected_Txs : HRA.Ledger.Transaction_Vectors.Vector;
-         begin
-            for Tx of State.Actual_Ledger.Transactions loop
-               if Tx.Date = Selected_Day then
-                  Selected_Txs.Append (Tx);
-               end if;
-            end loop;
-            Result.Actual :=
-              (Status       => Available,
-               Transactions => Selected_Txs);
-         end;
-      else
-         Result.Actual :=
-           (Status => Unavailable,
-            Reason => Observation_Horizon_Exceeded);
-      end if;
-
-      Result.All_Open_Plans := Plan_Obs.Open_Plans;
-      declare
-         Selected_Plans : HRA.Plan_Temporal_Observation.Open_Plan_Vectors.Vector;
-      begin
-         for P of Result.All_Open_Plans loop
-            if P.Tx.Date = Selected_Day then
-               Selected_Plans.Append (P);
-            end if;
-         end loop;
-         Result.Plan := (Open_Plans => Selected_Plans);
-      end;
-
-      Result.Issue_Context :=
+      Result.All_Open_Plans   := Plan_Obs.Open_Plans;
+      Result.Issue_Context    :=
         HRA.Issue_Observation.Observe (State.Issues, Observed_Through);
-
-      if HRA.Issue_Observation.Has_Undetermined_Due_On
-           (Result.Issue_Context, Selected_Day)
-      then
-         Result.Issue :=
-           (Status => Unavailable,
-            Reason => Closure_Timing_Undetermined);
-      else
-         declare
-            Selected_Due_Issues : constant
-              HRA.Issue_Observation.Observed_Issue_Vectors.Vector :=
-                HRA.Issue_Observation.Due_Issues_On
-                  (Result.Issue_Context, Selected_Day);
-         begin
-            Result.Issue :=
-              (Status     => Available,
-               Due_Issues => Selected_Due_Issues);
-         end;
-      end if;
 
       Income_Acc :=
         HRA.Account.Make_Account
@@ -194,6 +148,82 @@ package body HRA.Household_Home_Observation is
       end if;
 
       return Result;
+   end Observe_Horizon;
+
+   function Project_Day
+     (Horizon      : Home_Horizon_Observation;
+      Selected_Day : HRA.Dates.Date;
+      State        : HRA.Household.Household_State) return Home_Observation
+   is
+      Result : Home_Observation;
+   begin
+      Result.Horizon      := Horizon;
+      Result.Selected_Day := Selected_Day;
+
+      if Selected_Day <= Horizon.Observed_Through then
+         declare
+            Selected_Txs : HRA.Ledger.Transaction_Vectors.Vector;
+         begin
+            for Tx of State.Actual_Ledger.Transactions loop
+               if Tx.Date = Selected_Day then
+                  Selected_Txs.Append (Tx);
+               end if;
+            end loop;
+            Result.Actual :=
+              (Status       => Available,
+               Transactions => Selected_Txs);
+         end;
+      else
+         Result.Actual :=
+           (Status => Unavailable,
+            Reason => Observation_Horizon_Exceeded);
+      end if;
+
+      declare
+         Selected_Plans : HRA.Plan_Temporal_Observation.Open_Plan_Vectors.Vector;
+      begin
+         for P of Horizon.All_Open_Plans loop
+            if P.Tx.Date = Selected_Day then
+               Selected_Plans.Append (P);
+            end if;
+         end loop;
+         Result.Plan := (Open_Plans => Selected_Plans);
+      end;
+
+      if HRA.Issue_Observation.Has_Undetermined_Due_On
+           (Horizon.Issue_Context, Selected_Day)
+      then
+         Result.Issue :=
+           (Status => Unavailable,
+            Reason => Closure_Timing_Undetermined);
+      else
+         declare
+            Selected_Due_Issues : constant
+              HRA.Issue_Observation.Observed_Issue_Vectors.Vector :=
+                HRA.Issue_Observation.Due_Issues_On
+                  (Horizon.Issue_Context, Selected_Day);
+         begin
+            Result.Issue :=
+              (Status     => Available,
+               Due_Issues => Selected_Due_Issues);
+         end;
+      end if;
+
+      Result.Attention := Day_Attention (Horizon, Selected_Day);
+
+      return Result;
+   end Project_Day;
+
+   function Observe
+     (Observed_Through : HRA.Dates.Date;
+      Selected_Day     : HRA.Dates.Date;
+      State            : HRA.Household.Household_State) return Home_Observation
+   is
+   begin
+      return Project_Day
+        (Observe_Horizon (Observed_Through, State),
+         Selected_Day,
+         State);
    end Observe;
 
 end HRA.Household_Home_Observation;

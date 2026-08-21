@@ -1,4 +1,3 @@
-with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
 with HRA.Journal_Evidence; use HRA.Journal_Evidence;
 
 package body HRA.Plan_Completion is
@@ -24,6 +23,25 @@ package body HRA.Plan_Completion is
       end loop;
       return False;
    end Has_Completion;
+
+   function Has_Visible_Completion
+     (Relations        : Completion_Relations;
+      Plan_ID          : HRA.Plan.Plan_Id;
+      Observed_Through : HRA.Dates.Date;
+      Relation         : out Completion_Relation) return Boolean
+   is
+      use type HRA.Dates.Date;
+   begin
+      for Item of Relations.In_Order loop
+         if Item.Plan_ID = Plan_ID
+           and then Item.Actual.Tx.Date <= Observed_Through
+         then
+            Relation := Item;
+            return True;
+         end if;
+      end loop;
+      return False;
+   end Has_Visible_Completion;
 
    function Admit
      (Plans   : HRA.Plan_Admission.Plan_Journal;

@@ -2,6 +2,7 @@ with Ada.Command_Line;
 with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
 with Ada.Text_IO; use Ada.Text_IO;
 with HRA.Actual_Admission;
+with HRA.Dates;
 with HRA.Journal;
 with HRA.Journal_Evidence;
 with HRA.Ledger;
@@ -133,6 +134,33 @@ begin
            (Relation.Plan.Source.Header_Line = 1
               and then Relation.Actual.Source.Header_Line = 1,
             "relation preserves provenance on both endpoint facts");
+      end;
+
+      declare
+         PID      : HRA.Plan.Plan_Id;
+         PStat    : HRA.Plan.Plan_Id_Status;
+         Rel_Out  : HRA.Plan_Completion.Completion_Relation;
+         D_Before : HRA.Dates.Date;
+         D_After  : HRA.Dates.Date;
+         DStat    : HRA.Dates.Date_Status;
+      begin
+         if not HRA.Plan.Create_Plan_Id ("plan-a", PID, PStat)
+           or else not HRA.Dates.Parse ("2026-08-09", D_Before, DStat)
+           or else not HRA.Dates.Parse ("2026-08-10", D_After, DStat)
+         then
+            raise Program_Error with "test setup parsing failed";
+         end if;
+
+         Assert
+           (not HRA.Plan_Completion.Has_Visible_Completion
+              (Relations, PID, D_Before, Rel_Out),
+            "completion is not visible before Actual transaction date");
+
+         Assert
+           (HRA.Plan_Completion.Has_Visible_Completion
+              (Relations, PID, D_After, Rel_Out)
+              and then HRA.Plan.Text (Rel_Out.Plan_ID) = "plan-a",
+            "completion is visible on or after Actual transaction date");
       end;
    end;
 
