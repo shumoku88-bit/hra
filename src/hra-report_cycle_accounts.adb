@@ -129,7 +129,6 @@ package body HRA.Report_Cycle_Accounts is
          return False;
       end if;
 
-      --  The Account axis is policy evidence, not activity evidence.
       for Decl of HRA.Account.Declarations (L.Registry) loop
          Result.Rows.Append
            (Current_Account_Row'
@@ -139,14 +138,12 @@ package body HRA.Report_Cycle_Accounts is
                Credit  => Empty_Balance));
       end loop;
 
-      --  Actual is traversed once. Every relevant posting is accumulated into
-      --  exactly one source lane; Movement and Closing remain derived values.
       for Tx of L.Transactions loop
          if Tx.Date < Cycle_Start or else Tx.Date <= Observed_Through then
             for P of Tx.Postings loop
                declare
-                  Raw  : constant Balance := Singleton_Balance (P.Amt);
-                  Lane : Balance_Lane;
+                  Raw         : constant Balance := Singleton_Balance (P.Amt);
+                  Lane        : Balance_Lane;
                   Use_Posting : Boolean := True;
                begin
                   if Tx.Date < Cycle_Start then
@@ -221,46 +218,6 @@ package body HRA.Report_Cycle_Accounts is
       and then Is_Zero_Balance (Baseline_Total (Observation))
       and then Is_Zero_Balance (Difference_Total (Observation)));
 
-   function Resolve_Aligned_Baseline_Date
-     (Current         : Current_Cycle_Accounts_Observation;
-      Baseline_Window : HRA.Cycle_Observation.Cycle_Window;
-      Result          : out HRA.Dates.Date) return Boolean
-   is
-      Current_Cursor  : HRA.Dates.Date :=
-        HRA.Cycle_Observation.Start_Date (Current.Window);
-      Baseline_Cursor : HRA.Dates.Date :=
-        HRA.Cycle_Observation.Start_Date (Baseline_Window);
-   begin
-      if not HRA.Cycle_Observation.Contains
-        (Current.Window, Current.Observed_Through)
-      then
-         Result := Baseline_Cursor;
-         return False;
-      end if;
-
-      while Current_Cursor < Current.Observed_Through loop
-         if not HRA.Dates.Has_Next (Current_Cursor)
-           or else not HRA.Dates.Has_Next (Baseline_Cursor)
-         then
-            Result := Baseline_Cursor;
-            return False;
-         end if;
-
-         Current_Cursor := HRA.Dates.Next (Current_Cursor);
-         Baseline_Cursor := HRA.Dates.Next (Baseline_Cursor);
-
-         if not HRA.Cycle_Observation.Contains
-           (Baseline_Window, Baseline_Cursor)
-         then
-            Result := Baseline_Cursor;
-            return False;
-         end if;
-      end loop;
-
-      Result := Baseline_Cursor;
-      return HRA.Cycle_Observation.Contains (Baseline_Window, Result);
-   end Resolve_Aligned_Baseline_Date;
-
    function Observe_Aligned
      (L               : HRA.Ledger.Ledger;
       Baseline_Window : HRA.Cycle_Observation.Cycle_Window;
@@ -286,8 +243,10 @@ package body HRA.Report_Cycle_Accounts is
          return False;
       end if;
 
-      if not Resolve_Aligned_Baseline_Date
-        (Current, Baseline_Window, Baseline_Through)
+      Baseline_Through := HRA.Cycle_Observation.Aligned_Day
+        (Current.Observed_Through, Current.Window, Baseline_Window);
+      if not HRA.Cycle_Observation.Contains
+        (Baseline_Window, Baseline_Through)
       then
          Diag.Status := Baseline_Elapsed_Outside_Cycle;
          Diag.Message := To_Unbounded_String
