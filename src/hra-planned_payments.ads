@@ -3,9 +3,8 @@ with Ada.Containers.Indefinite_Vectors;
 with HRA.Dates;
 with HRA.Money;
 with HRA.Account;
-with HRA.Ledger;
 with HRA.Plan;
-with HRA.Plan_Observation;
+with HRA.Plan_Temporal_Observation;
 
 package HRA.Planned_Payments is
 
@@ -31,21 +30,6 @@ package HRA.Planned_Payments is
 
    type Admission_Status is
      (Success,
-      Plan_Source_Evidence_Error,
-      Actual_Source_Evidence_Error,
-      Invalid_Observation_Date,
-      Missing_Plan_Id,
-      Duplicate_Plan_Metadata,
-      Invalid_Plan_Id,
-      Duplicate_Plan_Id,
-      Invalid_Lifecycle_Metadata,
-      Invalid_Lifecycle_Date,
-      Invalid_Supersession_Target,
-      Unknown_Supersession_Target,
-      Supersession_Cycle,
-      Invalid_Actual_Plan_Id,
-      Unknown_Completion_Plan,
-      Multiple_Completion_Actuals,
       Undeclared_Plan_Account,
       Unsupported_Plan_Role_Flow,
       Plan_Report_Requires_Binary_Outgoing);
@@ -57,21 +41,14 @@ package HRA.Planned_Payments is
       Message     : Unbounded_String;
    end record;
 
+   --  Report projection over an already-admitted temporal Plan observation.
+   --  Source admission and cross-source relation resolution are deliberately
+   --  excluded from this package.
    function Project
-     (Open_Plans : HRA.Plan_Observation.Open_Plan_Vectors.Vector;
+     (Open_Plans : HRA.Plan_Temporal_Observation.Open_Plan_Vectors.Vector;
       Registry   : HRA.Account.Account_Registry;
       As_Of_Date : HRA.Dates.Date;
       Result     : out Observation;
       Diag       : out Admission_Diagnostic) return Boolean;
-
-   function Observe
-     (Plan_Ledger        : HRA.Ledger.Ledger;
-      Plan_Source_Text   : String;
-      Actual_Ledger      : HRA.Ledger.Ledger;
-      Actual_Source_Text : String;
-      Registry           : HRA.Account.Account_Registry;
-      As_Of_Date         : HRA.Dates.Date;
-      Result             : out Observation;
-      Diag               : out Admission_Diagnostic) return Boolean;
 
 end HRA.Planned_Payments;
