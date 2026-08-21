@@ -4,10 +4,14 @@ with HRA.Household_Home_Observation;
 
 --  Local temporal coordinates for Household Home.
 --
---  Visible_Through is the latest event-date allowed to contribute to Home's
---  as-of projections. It is deliberately NOT named as a canonical knowledge
---  time: HRA does not yet retain a separate "when this fact became known"
---  coordinate for admitted facts.
+--  Visible_Through is Home's current as-of horizon. Existing observers compare
+--  Actual and lifecycle evidence dates with this coordinate when deciding what
+--  is already visible. It is not a ceiling on target dates: an admitted Plan or
+--  Issue may point beyond it.
+--
+--  Visible_Through is deliberately NOT named as a canonical knowledge time:
+--  HRA does not yet retain a separate "when this fact became known" coordinate
+--  for admitted facts.
 --
 --  Focus_Day is where Home looks. It may lie before, at, or after
 --  Visible_Through. A focus beyond the visible horizon does not manufacture a
