@@ -4,6 +4,7 @@ with Ada.Strings.Fixed; use Ada.Strings.Fixed;
 package body HRA.Report_Flow is
 
    use type HRA.Account.Account;
+   use type HRA.Account.Account_Type;
    use type HRA.Dates.Date;
 
    function Month_Of (Value : HRA.Dates.Date) return Year_Month is
@@ -446,8 +447,8 @@ package body HRA.Report_Flow is
       Sort_Daily_Cells (Daily.Expense_Rows);
 
       declare
-         Kept_Daily : Daily_Expense_Row_Vectors.Vector;
-         Kept_Income : Monthly_Account_Row_Vectors.Vector;
+         Kept_Daily   : Daily_Expense_Row_Vectors.Vector;
+         Kept_Income  : Monthly_Account_Row_Vectors.Vector;
          Kept_Expense : Monthly_Account_Row_Vectors.Vector;
       begin
          for Row of Daily.Expense_Rows loop
