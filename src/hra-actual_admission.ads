@@ -30,9 +30,12 @@ package HRA.Actual_Admission is
       end case;
    end record;
 
-   --  One root-source Actual fact. Transaction, optional durable identity, and
-   --  parser-owned provenance stay aligned as one admitted value. Ordinary
-   --  identity-free Actual remains a first-class entry.
+   --  One root-source Actual fact. In this owner Tx.Date is the event
+   --  coordinate: when the admitted household transaction happened. It is not
+   --  an admission timestamp or a record of when HRA learned the fact.
+   --  Transaction, optional durable identity, and parser-owned provenance stay
+   --  aligned as one admitted value. Ordinary identity-free Actual remains a
+   --  first-class entry.
    type Actual_Transaction_Entry is record
       Tx       : HRA.Ledger.Transaction;
       Identity : Actual_Id_Option;
