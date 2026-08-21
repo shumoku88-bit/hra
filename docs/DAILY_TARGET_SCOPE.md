@@ -4,7 +4,7 @@ Daily Target is assembled from two existing admitted source families. It does no
 
 ## Ownership
 
-`household.toml` owns the long-lived selection of Asset Accounts that may contribute to ordinary daily spending capacity. Each selection already has a stable `id` and an Account coordinate.
+`household.toml` owns the long-lived selection of Asset Accounts that may contribute to ordinary daily spending capacity. Each selection already has a stable `id` and an Account coordinate. Account syntax, declaration, uniqueness, and Asset type are admitted by canonical Household admission and are not re-admitted by `HRA.Daily_Target_Scope`.
 
 `HRA.Plan_Admission.Plan_Journal` remains the general Plan authority. Its admitted transaction entries already retain parser-produced Journal metadata and physical provenance. `HRA.Daily_Target_Scope` assigns Daily Target meaning only to the metadata keys:
 
@@ -45,16 +45,20 @@ Amounts are rejected rather than clamped or converted.
 
 The current HRA canonical format allows `[daily-target]` to be absent. An absent policy with no selected Plan obligations therefore admits an explicit empty scope. Plan obligations without any eligible Asset selection fail admission.
 
-## Next consumer
+## Temporal ownership stays outside the scope
 
-A later Daily Target observation can combine this admitted scope with:
+`HRA.Daily_Target_Scope` deliberately does not decide whether a selected Plan is currently open or belongs to the current cycle. Those meanings already have typed owners.
 
-- current typed cycle coordinates
+A later Daily Target observation should combine this scope with:
+
+- the current typed cycle window
 - Actual balances through the observation day
 - `HRA.Plan_Temporal_Observation` open Plans
 
+Only selected Plans that are both open at the observation day and scheduled inside the current cycle contribute an obligation. A selection therefore needs no embedded cycle identifier and the scope does not duplicate Plan lifecycle or cycle authority.
+
 The intended derived evidence remains visible as separate quantities:
 
-`capacity = eligible assets - (open selected obligations - already excluded reservations)`
+`capacity = eligible assets - (current-cycle open selected obligations - already excluded reservations)`
 
-The final per-day rate is a report projection of that evidence, not an authority of its own.
+The final per-day rate is a report projection of that evidence, not an authority of its own. A failure of this narrow Daily Target projection should make only that report section unavailable, not invalidate the admitted Household or unrelated report sections.
