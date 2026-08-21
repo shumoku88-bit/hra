@@ -3,6 +3,7 @@ with HRA.Envelope_Consumption;
 with HRA.Envelope_Entitlement;
 with HRA.Envelope_Position;
 with HRA.Household_Envelope_Observation;
+with HRA.Report_Flow;
 
 package body HRA.Household_Report_Observation is
 
@@ -11,9 +12,11 @@ package body HRA.Household_Report_Observation is
       2 => Account_Balances_Section,
       3 => Balance_Sheet_Section,
       4 => Profit_And_Loss_Section,
-      5 => Recent_Journal_Section,
-      6 => Planned_Payments_Section,
-      7 => Open_Issues_Section];
+      5 => Daily_Flow_Section,
+      6 => Monthly_Accounts_Section,
+      7 => Recent_Journal_Section,
+      8 => Planned_Payments_Section,
+      9 => Open_Issues_Section];
 
    function Observe
      (Observed_Through : HRA.Dates.Date;
@@ -24,6 +27,7 @@ package body HRA.Household_Report_Observation is
       Report_Status : HRA.Report_Plan.Resolve_Status;
       Payment_Diag  : HRA.Planned_Payments.Projection_Diagnostic;
       Payment_Value : HRA.Planned_Payments.Observation;
+      Flow_Diag     : HRA.Report_Flow.Observe_Diagnostic;
       Envelope_Obs : HRA.Household_Envelope_Observation.Observation;
       Funding      : HRA.Backing_Policy.Funding_Commitment_Observation;
       Backing      : HRA.Backing_Policy.Backing_Observation;
@@ -217,6 +221,28 @@ package body HRA.Household_Report_Observation is
       Output.Profit_And_Loss.Period := Output.Query_Plan.Profit_And_Loss;
       Output.Profit_And_Loss.Value := HRA.Report.Generate_Profit_And_Loss_Period
         (State.Actual_Ledger, Output.Profit_And_Loss.Period);
+
+      --  Daily Flow and Monthly Accounts share one typed aggregation owner and
+      --  consume their independently resolved periods from the same report plan.
+      if not HRA.Report_Flow.Observe
+        (State.Actual_Ledger,
+         Output.Query_Plan.Daily_Flow,
+         Output.Query_Plan.Monthly_Accounts,
+         Output.Daily_Flow,
+         Output.Monthly_Accounts,
+         Flow_Diag)
+      then
+         Error_Msg := To_Unbounded_String
+           ("report flow observation failed: " &
+            HRA.Report_Flow.Observe_Status'Image (Flow_Diag.Status) &
+            (if Length (Flow_Diag.Account_Name) > 0
+             then " [account=" & To_String (Flow_Diag.Account_Name) & "]"
+             else "") &
+            (if Length (Flow_Diag.Message) > 0
+             then ": " & To_String (Flow_Diag.Message)
+             else ""));
+         return False;
+      end if;
 
       Output.Recent_Journal := HRA.Recent_Journal.Observe
         (State.Actual_Identity,
