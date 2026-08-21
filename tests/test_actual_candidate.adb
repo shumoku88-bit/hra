@@ -80,8 +80,8 @@ begin
       Expected : constant String :=
         "2026-08-20 Chair" & ASCII.LF &
         "    ; event-id: chair-actual" & ASCII.LF &
-        "    assets:cash" & ASCII.HT & "-20000 JPY" & ASCII.LF &
-        "    expenses:household" & ASCII.HT & "20000 JPY" & ASCII.LF;
+        "    assets:cash" & ASCII.HT & "-20,000 JPY" & ASCII.LF &
+        "    expenses:household" & ASCII.HT & "20,000 JPY" & ASCII.LF;
    begin
       Assert
         (HRA.Actual_Candidate.Prepare (Tx, ID, Candidate, Diag),
