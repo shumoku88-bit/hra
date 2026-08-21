@@ -38,6 +38,7 @@ project HRA_Tests is
       "test_household_temporal.adb",
       "test_household_source_admission.adb",
       "test_envelope_cycle_comparison.adb",
+      "test_envelope_report_render.adb",
       "test_household_temporal_cycle_context.adb",
       "test_account_reconciliation.adb",
       "test_household_check_observation.adb",
@@ -92,6 +93,7 @@ project HRA_Tests is
       for Executable ("test_household_temporal.adb") use "test_household_temporal";
       for Executable ("test_household_source_admission.adb") use "test_household_source_admission";
       for Executable ("test_envelope_cycle_comparison.adb") use "test_envelope_cycle_comparison";
+      for Executable ("test_envelope_report_render.adb") use "test_envelope_report_render";
       for Executable ("test_household_temporal_cycle_context.adb") use "test_household_temporal_cycle_context";
       for Executable ("test_account_reconciliation.adb") use "test_account_reconciliation";
       for Executable ("test_household_check_observation.adb") use "test_household_check_observation";
