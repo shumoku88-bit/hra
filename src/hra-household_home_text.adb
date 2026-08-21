@@ -153,9 +153,9 @@ package body HRA.Household_Home_Text is
          ASCII.LF);
       Append
         (Buf,
-         " Household Home: " & HRA.Dates.Image (Pres.Observed_Through) &
+         " Household Home: known through " & HRA.Dates.Image (Pres.Known_Through) &
          "  [Focus: " & HRA.Dates.Image (Pres.Selected_Day) &
-         (if Pres.Is_Future_Focus then " (Future)]" else "]") & ASCII.LF);
+         (if Pres.Is_Future_Focus then " (Beyond known day)]" else "]") & ASCII.LF);
       Append
         (Buf,
          "================================================================================" &
@@ -168,17 +168,17 @@ package body HRA.Household_Home_Text is
          ASCII.LF);
       Append
         (Buf,
-         " Selected Day: " & HRA.Dates.Image (Pres.Selected_Day) &
+         " Selected Day : " & HRA.Dates.Image (Pres.Selected_Day) &
          " (" & Focus_Wday & ")" &
-         (if Pres.Is_Future_Focus then "  [Future coordinate]" else "") &
+         (if Pres.Is_Future_Focus then "  [Beyond known day]" else "") &
          ASCII.LF);
       Append
         (Buf,
-         " Horizon     : " & HRA.Dates.Image (Pres.Observed_Through) &
+         " Known Through: " & HRA.Dates.Image (Pres.Known_Through) &
          ASCII.LF);
       Append
         (Buf,
-         " Attention   : Plan: " &
+         " Attention    : Plan: " &
          Attention_State'Image (Pres.Attention.Plan_Scheduled) &
          ", Issue: " &
          Attention_State'Image (Pres.Attention.Issue_Due) &
@@ -211,11 +211,11 @@ package body HRA.Household_Home_Text is
             end if;
          when Unavailable =>
             case Pres.Actual.Reason is
-               when Observation_Horizon_Exceeded =>
+               when Beyond_Known_Horizon =>
                   Append
                     (Buf,
-                     "   [Unavailable] Observation horizon exceeded (Observed through: " &
-                     HRA.Dates.Image (Pres.Observed_Through) & ")" & ASCII.LF);
+                     "   (not yet visible: this day is beyond what is known through " &
+                     HRA.Dates.Image (Pres.Known_Through) & ")" & ASCII.LF);
             end case;
       end case;
       Append (Buf, ASCII.LF);
