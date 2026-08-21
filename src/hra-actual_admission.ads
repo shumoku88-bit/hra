@@ -83,11 +83,13 @@ package HRA.Actual_Admission is
 
    function Identified_Count (Observation : Actual_Observation) return Natural;
 
-   --  Count only explicit source event-id identities. Plan-derived effective
-   --  identities remain available to Actual's own lifecycle laws but are not
-   --  promoted to cross-source durable evidence by this projection.
-   function Source_Durable_Identified_Count
-     (Observation : Actual_Observation) return Natural;
+   --  Membership in the explicit source event-id universe. Plan-derived
+   --  effective identities remain available to Actual's own lifecycle laws but
+   --  are intentionally absent here, so cross-source relation owners do not
+   --  need to reinterpret Journal metadata themselves.
+   function Has_Source_Durable_Identity
+     (Observation : Actual_Observation;
+      ID          : Actual_Id) return Boolean;
 
    function Reversal_Count (Observation : Actual_Observation) return Natural;
 
