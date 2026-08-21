@@ -15,10 +15,9 @@ package HRA.Household_Home_Command is
 
    type Date_Option_Source is (Defaulted, Explicit);
 
-   --  CLI keeps the compact --through / --day vocabulary at the application
-   --  edge. Before Home semantics are projected, these two resolved dates are
-   --  placed into one explicit Home coordinate pair: event visibility through
-   --  the resolved --through date, and focus at the resolved --day date.
+   --  CLI keeps the compact --through vocabulary at the application edge.
+   --  Execute_Home names the same resolved coordinate Known_Through when it
+   --  enters Household Home semantics.
    type Home_Options is record
       Base_Directory   : Ada.Strings.Unbounded.Unbounded_String;
       Observed_Through : HRA.Dates.Date;
@@ -85,14 +84,9 @@ package HRA.Household_Home_Command is
    function Resolve_Home_Options
      (Parsed : Parsed_Home_Arguments) return Home_Options;
 
-   --  Pure execution pipeline on already-admitted Household_State. At this
-   --  boundary the two Date arguments become one local Home coordinate pair:
-   --    Visible_Through := Known_Through
-   --    Focus_Day       := Selected_Day
-   --  The name Known_Through is retained at this public command boundary for
-   --  compatibility; Home_Coordinates does not claim it is canonical
-   --  knowledge-time evidence.
-   --  1. Household_Home_Coordinates.See (Coordinates, State)
+   --  Pure execution pipeline on already-admitted Household_State. The resolved
+   --  CLI through-date becomes Known_Through at this semantic boundary.
+   --  1. Household_Home_Observation.See_Home (Known_Through, Selected_Day, State)
    --  2. Household_Home_Presentation.Present (Obs)
    --  3. Household_Home_Text.Render_Home (Pres, State.Report_Policy.Presentation.Calendar)
    function Execute_Home

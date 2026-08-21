@@ -1,4 +1,3 @@
-with HRA.Household_Home_Coordinates;
 with HRA.Household_Home_Presentation;
 with HRA.Household_Home_Text;
 
@@ -171,14 +170,11 @@ package body HRA.Household_Home_Command is
       Known_Through : HRA.Dates.Date;
       Selected_Day  : HRA.Dates.Date) return String
    is
-      Position : constant HRA.Household_Home_Coordinates.Coordinates :=
-        HRA.Household_Home_Coordinates.Place
-          (Visible_Through => Known_Through,
-           Focus_Day       => Selected_Day);
       Obs : constant HRA.Household_Home_Observation.Home_Observation :=
-        HRA.Household_Home_Coordinates.See
-          (Position => Position,
-           State    => State);
+        HRA.Household_Home_Observation.See_Home
+          (Known_Through => Known_Through,
+           Selected_Day  => Selected_Day,
+           State         => State);
       Pres : constant HRA.Household_Home_Presentation.Home_Presentation :=
         HRA.Household_Home_Presentation.Present (Obs);
    begin

@@ -3,12 +3,17 @@ use type HRA.Dates.Date;
 
 --  Pure UI-neutral interaction semantics for Household Home navigation.
 --  Maps user navigation intents to pure coordinate transitions over:
---    Known_Through : fixed knowledge horizon
+--    Known_Through : fixed as-of visibility horizon
 --    Selected_Day  : mutable focus coordinate
 --
+--  Known_Through is an established field name in this package. It does NOT mean
+--  that HRA retains canonical "when this fact became known" time. Current Home
+--  observers use this coordinate as an as-of horizon over admitted event and
+--  lifecycle evidence. Visible_Through below exposes that narrower meaning.
+--
 --  Temporal navigation laws:
---    1. Navigation NEVER alters Known_Through (knowledge horizon is invariant).
---    2. Navigation ONLY changes Selected_Day (presentation focus coordinate).
+--    1. Navigation NEVER alters Known_Through (the visibility horizon is invariant).
+--    2. Navigation ONLY changes Selected_Day (the focus coordinate).
 --    3. Selected_Day may freely move before, on, or beyond Known_Through.
 --    4. Boundary transitions fail closed without wraparound, sentinels, or exceptions.
 --    5. No system clock, no file I/O, no UI glyph/key/terminal coupling.
@@ -17,7 +22,7 @@ package HRA.Household_Home_Interaction
 is
 
    --  ========================================================================
-   --  Home Focus Coordinates
+   --  Home Temporal Coordinates
    --  ========================================================================
 
    type Home_Coordinates is record
@@ -25,14 +30,24 @@ is
       Selected_Day  : HRA.Dates.Date;
    end record;
 
-   --  Construct focus coordinates with initial focus matching what is known through.
+   --  Semantic names for the two existing coordinates. These do not create a
+   --  second coordinate representation or a new temporal authority.
+   function Visible_Through
+     (Coordinates : Home_Coordinates) return HRA.Dates.Date is
+     (Coordinates.Known_Through);
+
+   function Focus_Day
+     (Coordinates : Home_Coordinates) return HRA.Dates.Date is
+     (Coordinates.Selected_Day);
+
+   --  Construct focus coordinates with initial focus matching the visibility horizon.
    function Make_Coordinates
      (Known_Through : HRA.Dates.Date) return Home_Coordinates
      with Post =>
        Make_Coordinates'Result.Known_Through = Known_Through
        and then Make_Coordinates'Result.Selected_Day = Known_Through;
 
-   --  Construct focus coordinates with explicit knowledge horizon and selected day.
+   --  Construct focus coordinates with explicit visibility horizon and focus day.
    function Make_Coordinates
      (Known_Through : HRA.Dates.Date;
       Selected_Day  : HRA.Dates.Date) return Home_Coordinates
@@ -154,7 +169,7 @@ is
        and then (if Next_Week'Result.Status = Upper_Bound_Exceeded
                  then Next_Week'Result.Coordinates.Selected_Day = Coordinates.Selected_Day);
 
-   --  Reset focus to Known_Through. Always succeeds.
+   --  Reset focus to the visibility horizon. Always succeeds.
    function Focus_Known_Through
      (Coordinates : Home_Coordinates) return Transition_Result
      with Post =>
