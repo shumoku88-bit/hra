@@ -1,35 +1,23 @@
 with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
-with Ada.Containers.Indefinite_Vectors;
 with HRA.Dates;
 with HRA.Ledger;
 with HRA.Plan;
 with HRA.Journal_Evidence;
+with HRA.Plan_Temporal_Observation;
 
+--  Legacy source-admission convenience surface. Production Household consumers
+--  use HRA.Plan_Admission + HRA.Plan_Completion + HRA.Plan_Temporal_Observation.
+--  While focused tests are migrated, this package re-exports the temporal
+--  projection types rather than owning duplicate Open/Completed Plan types.
 package HRA.Plan_Observation is
 
-   type Open_Plan is record
-      ID : HRA.Plan.Plan_Id;
-      Tx : HRA.Ledger.Transaction;
-   end record;
+   subtype Open_Plan is HRA.Plan_Temporal_Observation.Open_Plan;
+   package Open_Plan_Vectors renames
+     HRA.Plan_Temporal_Observation.Open_Plan_Vectors;
 
-   package Open_Plan_Vectors is new Ada.Containers.Indefinite_Vectors
-     (Index_Type   => Positive,
-      Element_Type => Open_Plan);
-
-   --  One whole admitted Plan paired with the explicit Actual transaction that
-   --  completes it. Source evidence stays attached to the physical Journal
-   --  documents that owned the metadata.
-   type Completed_Plan is record
-      ID            : HRA.Plan.Plan_Id;
-      Plan_Tx       : HRA.Ledger.Transaction;
-      Actual_Tx     : HRA.Ledger.Transaction;
-      Plan_Source   : HRA.Journal_Evidence.Transaction_Source;
-      Actual_Source : HRA.Journal_Evidence.Transaction_Source;
-   end record;
-
-   package Completed_Plan_Vectors is new Ada.Containers.Indefinite_Vectors
-     (Index_Type   => Positive,
-      Element_Type => Completed_Plan);
+   subtype Completed_Plan is HRA.Plan_Temporal_Observation.Completed_Plan;
+   package Completed_Plan_Vectors renames
+     HRA.Plan_Temporal_Observation.Completed_Plan_Vectors;
 
    type Admission_Status is
      (Success,
@@ -68,8 +56,6 @@ package HRA.Plan_Observation is
       Result           : out HRA.Plan.Plan_Id_Universe;
       Diag             : out Admission_Diagnostic) return Boolean;
 
-   --  Cross-source admission law for explicit Actual -> Plan completion
-   --  evidence. This is independent of observation date and report projection.
    function Admit_Plan_Completions
      (Known_Plans     : HRA.Plan.Plan_Id_Universe;
       Actual_Ledger   : HRA.Ledger.Ledger;
