@@ -11,6 +11,7 @@ with HRA.Actual_Admission;
 with HRA.Plan;
 with HRA.Plan_Admission;
 with HRA.Plan_Completion;
+with HRA.Daily_Target_Scope;
 with HRA.Envelope;
 with HRA.Entitlement_Journal;
 with HRA.Envelope_Routing;
@@ -31,6 +32,27 @@ package HRA.Household is
    --  ========================================================================
    --  Household State (Admitted facts from all canonical sources)
    --  ========================================================================
+
+   --  Daily Target is a deliberately narrower projection than general Plan
+   --  admission. A valid Household therefore remains admitted when that narrow
+   --  scope cannot represent one selected Plan. Retain either the admitted
+   --  scope or its exact diagnostic once, so later observers never re-admit
+   --  the same policy/Plan evidence or turn a section failure into a Household
+   --  failure.
+   type Daily_Target_Scope_Availability is
+     (Daily_Target_Scope_Available,
+      Daily_Target_Scope_Unavailable);
+
+   type Daily_Target_Scope_State
+     (Status : Daily_Target_Scope_Availability := Daily_Target_Scope_Available)
+   is record
+      case Status is
+         when Daily_Target_Scope_Available =>
+            Value : HRA.Daily_Target_Scope.Scope;
+         when Daily_Target_Scope_Unavailable =>
+            Diagnostic : HRA.Daily_Target_Scope.Admission_Diagnostic;
+      end case;
+   end record;
 
    type Household_State is record
       Root_Path           : Unbounded_String;
@@ -55,6 +77,8 @@ package HRA.Household is
       --  Plan_Journal only at the boundary that needs them.
       Plan_Journal        : HRA.Plan_Admission.Plan_Journal;
       Plan_Completions    : HRA.Plan_Completion.Completion_Relations;
+
+      Daily_Target        : Daily_Target_Scope_State;
 
       Entitlement_History : HRA.Entitlement_Journal.Entitlement_History;
       Combined_Ledger     : Ledger.Ledger;
