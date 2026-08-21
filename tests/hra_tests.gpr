@@ -14,6 +14,8 @@ project HRA_Tests is
       "test_daily_target_scope.adb",
       "test_daily_target_observation.adb",
       "test_daily_target_rate.adb",
+      "test_household_daily_target_view.adb",
+      "test_daily_target_render.adb",
       "test_envelope_entitlement_standalone.adb",
       "test_entitlement_journal.adb",
       "test_entitlement_observation_horizon.adb",
@@ -74,6 +76,8 @@ project HRA_Tests is
       for Executable ("test_daily_target_scope.adb") use "test_daily_target_scope";
       for Executable ("test_daily_target_observation.adb") use "test_daily_target_observation";
       for Executable ("test_daily_target_rate.adb") use "test_daily_target_rate";
+      for Executable ("test_household_daily_target_view.adb") use "test_household_daily_target_view";
+      for Executable ("test_daily_target_render.adb") use "test_daily_target_render";
       for Executable ("test_envelope_entitlement_standalone.adb") use "test_entitlement";
       for Executable ("test_entitlement_journal.adb") use "test_entitlement_journal";
       for Executable ("test_entitlement_observation_horizon.adb") use "test_entitlement_observation_horizon";

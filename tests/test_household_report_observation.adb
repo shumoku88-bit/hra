@@ -24,12 +24,15 @@ with HRA.Plan_Admission;
 with HRA.Plan_Completion;
 with HRA.Planned_Payments;
 with HRA.Planned_Payments_Render;
+with HRA.Household_Daily_Target_View;
+with HRA.Daily_Target_Render;
 with HRA.Report_Config;
 with HRA.Report_Cycle_Accounts;
 
 procedure Test_Household_Report_Observation is
    use type HRA.Dates.Date;
    use type HRA.Backing_Policy.Backing_Condition;
+   use type HRA.Household_Daily_Target_View.View_Status;
    use type HRA.Household_Report_Observation.Current_Report_Section_Order;
    use type HRA.Household_Report_Observation.Planned_Payments_Availability;
    use type HRA.Planned_Payments.Projection_Status;
@@ -352,6 +355,7 @@ begin
         HRA.Household_Report_Observation.Current_Report_Section_Order'
           [HRA.Household_Report_Observation.Envelope_And_Backing_Section,
            HRA.Household_Report_Observation.Cycle_Accounts_Section,
+           HRA.Household_Report_Observation.Daily_Target_Section,
            HRA.Household_Report_Observation.Account_Balances_Section,
            HRA.Household_Report_Observation.Balance_Sheet_Section,
            HRA.Household_Report_Observation.Profit_And_Loss_Section,
@@ -361,6 +365,15 @@ begin
            HRA.Household_Report_Observation.Planned_Payments_Section,
            HRA.Household_Report_Observation.Open_Issues_Section],
       "current semantic section order is stable");
+   Assert
+     (Observation.Daily_Target.Status =
+        HRA.Household_Daily_Target_View.Unconfigured,
+      "Daily Target is Unconfigured when absent from Household policy");
+   Assert
+     (Index
+        (HRA.Daily_Target_Render.Render (Observation.Daily_Target),
+         "(not configured)") > 0,
+      "Daily Target renders friendly not configured message for report book");
    Assert
      (Natural (Observation.Envelope_Report.Lines.Length) = 1
       and then HRA.Envelope.Image
