@@ -156,13 +156,13 @@ package body HRA.Actual_Candidate is
       end if;
 
       declare
-         Entry    : constant HRA.Actual_Admission.Actual_Transaction_Entry :=
+         Actual_Entry : constant HRA.Actual_Admission.Actual_Transaction_Entry :=
            HRA.Actual_Admission.Transaction_At (Observation, 1);
-         Expected : HRA.Ledger.Transaction := Tx;
+         Expected     : HRA.Ledger.Transaction := Tx;
       begin
          Expected.Event_ID :=
            To_Unbounded_String (HRA.Actual_Admission.Text (Actual_ID));
-         if Entry.Tx /= Expected then
+         if Actual_Entry.Tx /= Expected then
             Diag.Status := Semantic_Roundtrip_Failed;
             Diag.Message := To_Unbounded_String
               ("Actual candidate changed typed Transaction meaning during round-trip");
