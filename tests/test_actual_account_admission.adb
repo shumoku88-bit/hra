@@ -146,7 +146,7 @@ procedure Test_Actual_Account_Admission is
       end if;
 
       if not HRA.Actual_Graph_Admission.Admit_Candidate_Root
-        (Existing, Root_Path, Root, Graph, Graph_Diag)
+        (Existing, Root, Graph, Graph_Diag)
       then
          raise Program_Error with "graph candidate unexpectedly rejected before Account qualification";
       end if;
