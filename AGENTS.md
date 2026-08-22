@@ -84,13 +84,15 @@ source topology / meaningへ触れる作業では、HRA内の文書や過去実�
 - branchは最初のreviewable commitでpushしてDraft PRを作り、long-running repository qualificationをGitHub CIと並行させる
 - latest successful `main` CIや同条件の信頼できるbenchmarkがある場合、変更前baselineをローカルで再実行しない
 - benchmarkは比較条件を固定し、各候補に必要な最小回数だけ実行する。全候補後の重複`qualify`は行わない
-- PR latest headのGitHub `qualify`をrepository-only full qualificationの正本とする。Ready / mergeのgateはlatest head CI success、mergeable、未解決blockerなしである
+- Ada executionへ影響し得るPRでは、latest headのGitHub `qualify`をrepository-only full qualificationの正本とする。Ready / mergeのgateはlatest head CI success、mergeable、未解決blockerなしである
+- tracked変更がMarkdown (`*.md`) だけのPR / `main` pushではAda qualification workflowを起動しない。merge gateはreview済みdiff、mergeable、未解決blockerなしであり、build / test / proofを証拠なく消費しない
+- Markdown以外を1つでも変更するPRは、docsを同時変更していてもfull GitHub qualificationを通す
 - local `qualify`はPR CIを使えない場合、CI failureの診断、またはlocal固有の証拠が必要な場合だけ実行する。private canonical root、platform固有動作、resource計測は必要な対象commandだけを使う
 - taskがmergeまでを含む場合、gate通過後は待たずにReady、squash merge、branch delete、local `main` syncまで進める。明示されたreview checkpointやDraft維持指示は優先する
-- successful PR CI後に起動するpost-merge `main` CIは結果を追跡するが、merge完了報告や次の独立作業を待たせるgateにはしない
+- qualificationが起動したPRのmerge後に走る`main` CIは結果を追跡するが、merge完了報告や次の独立作業を待たせるgateにはしない
 - source mutation、CI/compiler failure、writer/domain correctnessでは速度よりexact evidenceを優先し、必要ならraw outputへ戻る
 
-このflowはtest数、SPARK checks、proof level、full CI qualificationを減らす許可ではない。
+このflowはexecution-affecting変更のtest数、SPARK checks、proof level、full CI qualificationを減らす許可ではない。
 
 ## 検証
 
