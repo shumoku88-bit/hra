@@ -1,5 +1,6 @@
 with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
 with HRA.Canonical_Source;
+with HRA.Writer;
 
 package body HRA.Household_Actual_Record is
 
@@ -25,6 +26,16 @@ package body HRA.Household_Actual_Record is
       Root_Text : constant String :=
         HRA.Canonical_Source.Text_For
           (State.Sources, HRA.Canonical_Source.Actual_Source);
+      Account_Guards : constant HRA.Writer.Source_Premise_Array (1 .. 1) :=
+        (1 =>
+           HRA.Writer.Make_Source_Premise
+             (Path =>
+                HRA.Canonical_Source.Path_For
+                  (State.Sources.Paths, HRA.Canonical_Source.Accounts_Source),
+              Expected =>
+                HRA.Writer.Make_Expected_Source
+                  (HRA.Canonical_Source.Text_For
+                     (State.Sources, HRA.Canonical_Source.Accounts_Source))));
 
       procedure Set_Diagnostic
         (Status  : Record_Status;
@@ -97,8 +108,8 @@ package body HRA.Household_Actual_Record is
          return False;
       end if;
 
-      if not HRA.Actual_Publication.Publish
-        (Qualified, Publication_Diag)
+      if not HRA.Actual_Publication.Publish_With_Guards
+        (Qualified, Account_Guards, Publication_Diag)
       then
          Set_Diagnostic
            (Publication_Rejected,
