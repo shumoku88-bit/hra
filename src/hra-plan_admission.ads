@@ -64,6 +64,15 @@ package HRA.Plan_Admission is
       Index   : Positive) return Plan_Transaction_Entry
      with Pre => Index <= Transaction_Count (Journal);
 
+   function Same_Retirement
+     (Left, Right : Plan_Retirement) return Boolean;
+
+   function Same_Entry
+     (Left, Right : Plan_Transaction_Entry) return Boolean;
+
+   function Same_Journal
+     (Left, Right : Plan_Journal) return Boolean;
+
    type Admission_Status is
      (Success,
       Source_Evidence_Error,

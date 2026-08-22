@@ -17,6 +17,7 @@ project HRA_Tests is
       "test_household_actual_record.adb",
       "test_household_actual_draft.adb",
       "test_plan_admission.adb",
+      "test_plan_preparation.adb",
       "test_plan_completion_relation.adb",
       "test_plan_temporal_observation.adb",
       "test_plan_completion_admission.adb",
@@ -104,6 +105,7 @@ project HRA_Tests is
       for Executable ("test_household_actual_record.adb") use "test_household_actual_record";
       for Executable ("test_household_actual_draft.adb") use "test_household_actual_draft";
       for Executable ("test_plan_admission.adb") use "test_plan_admission";
+      for Executable ("test_plan_preparation.adb") use "test_plan_preparation";
       for Executable ("test_plan_completion_relation.adb") use "test_plan_completion_relation";
       for Executable ("test_plan_temporal_observation.adb") use "test_plan_temporal_observation";
       for Executable ("test_plan_completion_admission.adb") use "test_plan_completion_admission";
