@@ -27,75 +27,11 @@ package body HRA.Actual_Graph_Admission is
      (Candidate.Sources.Element (Index));
 
    function Empty_Actual_Diagnostic
-     return HRA.Actual_Admission.Admission_Diagnostic is
+      return HRA.Actual_Admission.Admission_Diagnostic is
      ((Status      => HRA.Actual_Admission.Success,
        Line_Number => 0,
        Actual_Id   => Null_Unbounded_String,
        Message     => Null_Unbounded_String));
-
-   function Same_Identity
-     (Left  : HRA.Actual_Admission.Actual_Id_Option;
-      Right : HRA.Actual_Admission.Actual_Id_Option) return Boolean
-   is
-   begin
-      if Left.Present /= Right.Present then
-         return False;
-      elsif not Left.Present then
-         return True;
-      else
-         return Left.Value = Right.Value;
-      end if;
-   end Same_Identity;
-
-   function Same_Source
-     (Left  : HRA.Journal_Evidence.Transaction_Source;
-      Right : HRA.Journal_Evidence.Transaction_Source) return Boolean
-   is
-      Left_Metadata_Count  : constant Natural := Natural (Left.Metadata.Length);
-      Right_Metadata_Count : constant Natural := Natural (Right.Metadata.Length);
-   begin
-      if To_String (Left.Source_Path) /= To_String (Right.Source_Path)
-        or else Left.Header_Line /= Right.Header_Line
-        or else To_String (Left.Date_Text) /= To_String (Right.Date_Text)
-        or else To_String (Left.Description) /= To_String (Right.Description)
-        or else Left_Metadata_Count /= Right_Metadata_Count
-      then
-         return False;
-      end if;
-
-      for I in 1 .. Left_Metadata_Count loop
-         declare
-            Left_Entry  : constant HRA.Journal_Evidence.Metadata_Entry :=
-              Left.Metadata.Element (I);
-            Right_Entry : constant HRA.Journal_Evidence.Metadata_Entry :=
-              Right.Metadata.Element (I);
-         begin
-            if To_String (Left_Entry.Key) /= To_String (Right_Entry.Key)
-              or else To_String (Left_Entry.Value) /= To_String (Right_Entry.Value)
-              or else Left_Entry.Line_Number /= Right_Entry.Line_Number
-            then
-               return False;
-            end if;
-         end;
-      end loop;
-
-      return True;
-   end Same_Source;
-
-   function Same_Entry
-     (Left  : HRA.Actual_Admission.Actual_Transaction_Entry;
-      Right : HRA.Actual_Admission.Actual_Transaction_Entry) return Boolean is
-     (Left.Tx = Right.Tx
-      and then Same_Identity (Left.Identity, Right.Identity)
-      and then Same_Identity
-        (Left.Source_Durable_Identity, Right.Source_Durable_Identity)
-      and then Same_Source (Left.Source, Right.Source));
-
-   function Same_Reversal
-     (Left  : HRA.Actual_Admission.Reversal_Relation;
-      Right : HRA.Actual_Admission.Reversal_Relation) return Boolean is
-     (Left.Reversal_ID = Right.Reversal_ID
-      and then Left.Target_ID = Right.Target_ID);
 
    function Admit_Candidate_Root
      (Existing       : HRA.Actual_Admission.Actual_Observation;
@@ -202,7 +138,7 @@ package body HRA.Actual_Graph_Admission is
          end if;
 
          for I in 1 .. Existing_Count loop
-            if not Same_Entry
+            if not HRA.Actual_Admission.Same_Entry
               (HRA.Actual_Admission.Transaction_At (Existing, I),
                HRA.Actual_Admission.Transaction_At (Candidate_Actual, I))
             then
@@ -223,7 +159,7 @@ package body HRA.Actual_Graph_Admission is
          end if;
 
          for I in 1 .. Existing_Reversal_Count loop
-            if not Same_Reversal
+            if not HRA.Actual_Admission.Same_Reversal
               (HRA.Actual_Admission.Reversal_At (Existing, I),
                HRA.Actual_Admission.Reversal_At (Candidate_Actual, I))
             then
