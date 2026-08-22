@@ -253,7 +253,8 @@ package body HRA.Household_Actual_Record_TUI is
                         if Mode = Editing then
                            Backspace;
                         end if;
-                     when 32 .. HRA.Terminal_UTF8.Unicode_Code_Point'Last =>
+                     when 32 .. 126
+                        | 128 .. HRA.Terminal_UTF8.Unicode_Code_Point'Last =>
                         if Mode = Editing then
                            Append_Character (Event.Code_Point);
                         end if;
