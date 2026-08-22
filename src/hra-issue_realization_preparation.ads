@@ -75,8 +75,10 @@ private
       Actual           : HRA.Household_Actual_Preparation.Prepared_Actual;
       Relation_Source  : HRA.Issue_Relation_Candidate.Candidate_Source;
       Relation_History : HRA.Issue_Relation.Admission.Admitted_History;
-      Issues_Source    : HRA.Issue_Close.Candidate_Source;
-      Issues_Guard     : HRA.Writer.Source_Premise;
+      Issues_Source        : HRA.Issue_Close.Candidate_Source;
+      Issues_Path          : Unbounded_String;
+      Issues_Observed_Text : Unbounded_String;
+      Issues_Guard         : HRA.Writer.Source_Premise;
    end record;
 
 end HRA.Issue_Realization_Preparation;
