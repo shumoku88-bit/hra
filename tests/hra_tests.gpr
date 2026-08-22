@@ -70,6 +70,7 @@ project HRA_Tests is
       "test_issue_realization_publication.adb",
       "test_issue_realization_reconciliation.adb",
       "test_issue_realization_resume.adb",
+      "test_issue_closure_preparation.adb",
       "test_household_home_observation.adb",
       "test_household_home_presentation.adb",
       "test_household_home_command.adb",
@@ -156,6 +157,7 @@ project HRA_Tests is
       for Executable ("test_issue_realization_publication.adb") use "test_issue_realization_publication";
       for Executable ("test_issue_realization_reconciliation.adb") use "test_issue_realization_reconciliation";
       for Executable ("test_issue_realization_resume.adb") use "test_issue_realization_resume";
+      for Executable ("test_issue_closure_preparation.adb") use "test_issue_closure_preparation";
       for Executable ("test_household_home_observation.adb") use "test_household_home_observation";
       for Executable ("test_household_home_presentation.adb") use "test_household_home_presentation";
       for Executable ("test_household_home_command.adb") use "test_household_home_command";
