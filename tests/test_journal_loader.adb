@@ -7,6 +7,8 @@ with HRA.Ledger;        use HRA.Ledger;
 with HRA.Plan_Admission;
 
 procedure Test_Journal_Loader is
+   use type HRA.Journal_Loader.Source_Kind;
+
    Passed_Count : Natural := 0;
    Failed_Count : Natural := 0;
 
@@ -100,6 +102,33 @@ begin
            and then To_String (L.Transactions.Element (3).Code_Or_Payee) = "Grand"
            and then To_String (L.Transactions.Element (4).Code_Or_Payee) = "Root After",
          "include substitution preserves source order");
+
+      Assert
+        (Natural (Obs.Sources.Length) = 3,
+         "graph observation retains one exact source witness per physical document");
+
+      declare
+         Root_Witness  : constant HRA.Journal_Loader.Source_Observation :=
+           Obs.Sources.Element (1);
+         Child_Witness : constant HRA.Journal_Loader.Source_Observation :=
+           Obs.Sources.Element (2);
+         Grand_Witness : constant HRA.Journal_Loader.Source_Observation :=
+           Obs.Sources.Element (3);
+      begin
+         Assert
+           (Root_Witness.Kind = HRA.Journal_Loader.Supplied_Root
+            and then Simple_Name (To_String (Root_Witness.Path)) = "root.journal"
+            and then To_String (Root_Witness.Text) = Root_Source,
+            "root witness retains supplied bytes rather than rereading on-disk root");
+         Assert
+           (Child_Witness.Kind = HRA.Journal_Loader.Included_File
+            and then Simple_Name (To_String (Child_Witness.Path)) = "child.journal"
+            and then To_String (Child_Witness.Text) = Child_Source
+            and then Grand_Witness.Kind = HRA.Journal_Loader.Included_File
+            and then Simple_Name (To_String (Grand_Witness.Path)) = "grand.journal"
+            and then To_String (Grand_Witness.Text) = Grand_Source,
+            "included source witnesses retain exact bytes used by the same graph admission");
+      end;
 
       Assert
         (Natural (Obs.Evidence.Transactions.Length) = 4,
