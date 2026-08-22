@@ -31,4 +31,13 @@ package HRA.Actual_Publication is
      (Candidate : HRA.Actual_Account_Admission.Account_Qualified_Graph;
       Diag      : out Publication_Diagnostic) return Boolean;
 
+   --  The caller may add exact read-only premises whose semantic admission is
+   --  owned above the Actual graph. They join the graph include witnesses in
+   --  the same Writer commit window; this package still interprets none of
+   --  their contents.
+   function Publish_With_Guards
+     (Candidate         : HRA.Actual_Account_Admission.Account_Qualified_Graph;
+      Additional_Guards : HRA.Writer.Source_Premise_Array;
+      Diag              : out Publication_Diagnostic) return Boolean;
+
 end HRA.Actual_Publication;

@@ -6,9 +6,10 @@ package body HRA.Actual_Publication is
 
    use type HRA.Journal_Loader.Source_Kind;
 
-   function Publish
-     (Candidate : HRA.Actual_Account_Admission.Account_Qualified_Graph;
-      Diag      : out Publication_Diagnostic) return Boolean
+   function Publish_With_Guards
+     (Candidate         : HRA.Actual_Account_Admission.Account_Qualified_Graph;
+      Additional_Guards : HRA.Writer.Source_Premise_Array;
+      Diag              : out Publication_Diagnostic) return Boolean
    is
       Graph : constant HRA.Actual_Graph_Admission.Candidate_Graph :=
         HRA.Actual_Account_Admission.Graph_Of (Candidate);
@@ -16,8 +17,10 @@ package body HRA.Actual_Publication is
         HRA.Actual_Graph_Admission.Root_Of (Graph);
       Source_Count : constant Natural :=
         HRA.Actual_Graph_Admission.Source_Count (Graph);
-      Guard_Count : constant Natural :=
+      Graph_Guard_Count : constant Natural :=
         (if Source_Count = 0 then 0 else Source_Count - 1);
+      Guard_Count : constant Natural :=
+        Graph_Guard_Count + Additional_Guards'Length;
       Guards : HRA.Writer.Source_Premise_Array (1 .. Guard_Count);
       Writer_Status : HRA.Writer.Writer_Status := HRA.Writer.Success;
       Writer_Error  : Unbounded_String := Null_Unbounded_String;
@@ -69,6 +72,15 @@ package body HRA.Actual_Publication is
          end;
       end loop;
 
+      declare
+         Next_Guard : Natural := Graph_Guard_Count;
+      begin
+         for Guard_Index in Additional_Guards'Range loop
+            Next_Guard := Next_Guard + 1;
+            Guards (Next_Guard) := Additional_Guards (Guard_Index);
+         end loop;
+      end;
+
       if not HRA.Writer.Atomic_Publish_Journal_Guarded
         (Target_Path => HRA.Actual_Root_Candidate.Root_Path_Of (Root),
          Expected    => HRA.Writer.Make_Expected_Source
@@ -87,6 +99,18 @@ package body HRA.Actual_Publication is
 
       Diag.Writer_Status := Writer_Status;
       return True;
+   end Publish_With_Guards;
+
+   function Publish
+     (Candidate : HRA.Actual_Account_Admission.Account_Qualified_Graph;
+      Diag      : out Publication_Diagnostic) return Boolean
+   is
+      No_Additional_Guards : HRA.Writer.Source_Premise_Array (1 .. 0);
+   begin
+      return Publish_With_Guards
+        (Candidate,
+         No_Additional_Guards,
+         Diag);
    end Publish;
 
 end HRA.Actual_Publication;
