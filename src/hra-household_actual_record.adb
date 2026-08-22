@@ -1,4 +1,4 @@
-with HRA.Writer;
+with HRA.Household_Actual_Preparation.Publication;
 
 package body HRA.Household_Actual_Record is
 
@@ -27,13 +27,9 @@ package body HRA.Household_Actual_Record is
       Diag             : out Record_Diagnostic) return Boolean
    is
       Publication_Diag : HRA.Actual_Publication.Publication_Diagnostic;
-      Account_Guards : constant HRA.Writer.Source_Premise_Array (1 .. 1) :=
-        [1 => HRA.Household_Actual_Preparation.Account_Premise_Of (Prepared)];
    begin
-      if not HRA.Actual_Publication.Publish_With_Guards
-        (HRA.Household_Actual_Preparation.Qualified_Graph_Of (Prepared),
-         Account_Guards,
-         Publication_Diag)
+      if not HRA.Household_Actual_Preparation.Publication.Publish
+        (Prepared, Publication_Diag)
       then
          Diag :=
            (Status      => Publication_Rejected,

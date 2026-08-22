@@ -8,17 +8,6 @@ package body HRA.Household_Actual_Preparation is
    is
      (HRA.Actual_Account_Admission.Observation_Of (Prepared.Qualified));
 
-   function Qualified_Graph_Of
-     (Prepared : Prepared_Actual)
-      return HRA.Actual_Account_Admission.Account_Qualified_Graph
-   is
-     (Prepared.Qualified);
-
-   function Account_Premise_Of
-     (Prepared : Prepared_Actual) return HRA.Writer.Source_Premise
-   is
-     (Prepared.Account_Guard);
-
    function Prepare_Block
      (State          : HRA.Household.Household_State;
       Block          : HRA.Actual_Candidate.Candidate_Block;

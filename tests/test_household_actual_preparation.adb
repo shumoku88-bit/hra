@@ -12,6 +12,7 @@ with HRA.Dates;
 with HRA.Household;
 with HRA.Actual_Publication;
 with HRA.Household_Actual_Preparation;
+with HRA.Household_Actual_Preparation.Publication;
 with HRA.Ledger;
 with HRA.Money;
 with HRA.Writer;
@@ -414,19 +415,12 @@ begin
          "Successful preparation preserves exact Actual and Accounts bytes");
 
       Write_Exact (Accounts_Path, External_Accounts);
-      declare
-         Account_Guards : constant HRA.Writer.Source_Premise_Array (1 .. 1) :=
-           [1 => HRA.Household_Actual_Preparation.Account_Premise_Of (Prepared)];
-      begin
-         Assert
-           (not HRA.Actual_Publication.Publish_With_Guards
-              (HRA.Household_Actual_Preparation.Qualified_Graph_Of (Prepared),
-               Account_Guards,
-               Publication_Diag)
-            and then Publication_Diag.Writer_Status =
-              HRA.Writer.Stale_Source_Rejected,
-            "Publication uses Prepared_Actual's retained Accounts premise and fails stale");
-      end;
+      Assert
+        (not HRA.Household_Actual_Preparation.Publication.Publish
+           (Prepared, Publication_Diag)
+         and then Publication_Diag.Writer_Status =
+           HRA.Writer.Stale_Source_Rejected,
+         "Publication uses Prepared_Actual's retained Accounts premise and fails stale");
       Assert
         (Read_Exact (Actual_Path) = Actual_Before,
          "Stale retained Accounts premise leaves Actual root unchanged");

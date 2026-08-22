@@ -22,13 +22,6 @@ package HRA.Household_Actual_Preparation is
      (Prepared : Prepared_Actual)
       return HRA.Actual_Admission.Actual_Observation;
 
-   function Qualified_Graph_Of
-     (Prepared : Prepared_Actual)
-      return HRA.Actual_Account_Admission.Account_Qualified_Graph;
-
-   function Account_Premise_Of
-     (Prepared : Prepared_Actual) return HRA.Writer.Source_Premise;
-
    type Preparation_Status is
      (Success,
       Candidate_Rejected,
