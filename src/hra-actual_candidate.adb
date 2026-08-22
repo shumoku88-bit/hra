@@ -1,4 +1,3 @@
-with Ada.Characters.Handling; use Ada.Characters.Handling;
 with HRA.Account;
 with HRA.Dates;
 with HRA.Money;
@@ -20,6 +19,9 @@ package body HRA.Actual_Candidate is
       return False;
    end Contains_Line_Break;
 
+   function Is_Description_Whitespace (C : Character) return Boolean is
+     (C = ' ' or else C = ASCII.HT);
+
    function Is_Whitespace_Only (Value : String) return Boolean is
    begin
       if Value'Length = 0 then
@@ -27,7 +29,7 @@ package body HRA.Actual_Candidate is
       end if;
 
       for C of Value loop
-         if not Is_Space (C) then
+         if not Is_Description_Whitespace (C) then
             return False;
          end if;
       end loop;
@@ -38,8 +40,8 @@ package body HRA.Actual_Candidate is
    function Has_Surrounding_Whitespace (Value : String) return Boolean is
      (Value'Length > 0
       and then
-        (Is_Space (Value (Value'First))
-         or else Is_Space (Value (Value'Last))));
+        (Is_Description_Whitespace (Value (Value'First))
+         or else Is_Description_Whitespace (Value (Value'Last))));
 
    function Empty_Journal_Diagnostic return HRA.Journal.Parse_Diagnostic is
      ((File_Name   => Null_Unbounded_String,
