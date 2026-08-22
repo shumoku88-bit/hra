@@ -45,8 +45,8 @@ package HRA.Writer is
      (Value : Candidate_Source) return Ada.Strings.Unbounded.Unbounded_String;
 
    --  One read-only source premise that must remain physically unchanged while
-   --  another Journal root is published. Writer does not interpret the guarded
-   --  source. It compares only filesystem presence and exact bytes.
+   --  a target root is replaced. Writer does not interpret the guarded source.
+   --  It compares only filesystem presence and exact bytes.
    type Source_Premise is private;
 
    function Make_Source_Premise
@@ -54,12 +54,11 @@ package HRA.Writer is
       Expected : Expected_Source) return Source_Premise
      with Pre => Path'Length > 0;
 
-   --  Natural indexing permits a null array, which is how the ordinary
-   --  Atomic_Publish_Journal delegates to the guarded implementation.
+   --  Natural indexing permits a null array for an unguarded replacement.
    type Source_Premise_Array is array (Natural range <>) of Source_Premise;
 
    --  ========================================================================
-   --  Safe Writer Laws: Atomic Publication, Backup, Stale Check, Restore
+   --  Safe Writer Laws: Single-Target Rename, Backup, Stale Check, Restore
    --  ========================================================================
 
    type Writer_Status is
@@ -84,10 +83,16 @@ package HRA.Writer is
    --  Replace a single target with exact candidate bytes while the target and
    --  every guard still equal their exact filesystem premises.
    --
-   --  This operation proves only that the target still equals Expected, the
-   --  guards still equal their premises, the candidate bytes are staged
-   --  exactly, replacement is fenced, and rollback will not overwrite a later
-   --  external target change. It proves no source syntax, domain semantics, or
+   --  This operation proves only that the target is observed to equal Expected
+   --  at both stale fences, every guard is observed to equal its premise at its
+   --  fences, candidate bytes are staged exactly, one staged-candidate-to-target
+   --  filesystem rename performs the single-target replacement, and rollback
+   --  will not overwrite a later external target change. A present Expected is
+   --  preserved in a create-new, uniquely named Writer-owned recovery backup.
+   --
+   --  It does not provide a cross-process compare-and-swap across stale check
+   --  and rename, an exclusive Writer lock, multi-target atomicity, or crash/fsync
+   --  durability. It also proves no source syntax, domain semantics, or
    --  cross-source meaning. Candidate semantic admission remains the caller's
    --  or domain owner's responsibility.
    function Atomic_Replace_Exact_Guarded

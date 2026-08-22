@@ -139,33 +139,6 @@ package body HRA.Writer is
          return False;
    end Observe_Source;
 
-   function Write_File_Exact (Path : String; Content : String) return Boolean is
-      package SIO renames Ada.Streams.Stream_IO;
-      File : SIO.File_Type;
-   begin
-      SIO.Create (File, SIO.Out_File, Path);
-      if Content'Length > 0 then
-         declare
-            Bytes : Stream_Element_Array
-              (1 .. Stream_Element_Offset (Content'Length));
-         begin
-            for I in Content'Range loop
-               Bytes (Stream_Element_Offset (I - Content'First + 1)) :=
-                 Stream_Element (Character'Pos (Content (I)));
-            end loop;
-            SIO.Write (File, Bytes);
-         end;
-      end if;
-      SIO.Close (File);
-      return True;
-   exception
-      when others =>
-         if SIO.Is_Open (File) then
-            SIO.Close (File);
-         end if;
-         return False;
-   end Write_File_Exact;
-
    type Premise_Check_Result is
      (Premises_Match,
       Premise_Stale,
@@ -287,10 +260,13 @@ package body HRA.Writer is
       end if;
    end Format_Integer;
 
-   function Stage_Candidate_File
-     (Target_Path    : String;
-      Candidate_Text : String;
-      Staged_Path    : out Ada.Strings.Unbounded.Unbounded_String) return Boolean
+   --  Create an exact Writer-owned sibling without ever opening an existing
+   --  path for output. A collision advances to another unique attempt.
+   function Create_Unique_Exact_File
+     (Target_Path  : String;
+      Purpose      : String;
+      Content      : String;
+      Created_Path : out Ada.Strings.Unbounded.Unbounded_String) return Boolean
    is
       Pid_Val      : constant Integer :=
         GNAT.OS_Lib.Pid_To_Integer (GNAT.OS_Lib.Current_Process_Id);
@@ -301,23 +277,23 @@ package body HRA.Writer is
       for Attempt in 1 .. Max_Attempts loop
          declare
             Trial_Path : constant String :=
-              Target_Path & ".candidate." & Pid_Str & "_" &
+              Target_Path & "." & Purpose & "." & Pid_Str & "_" &
               Format_Natural (Attempt) & ".tmp";
             FD         : constant GNAT.OS_Lib.File_Descriptor :=
               GNAT.OS_Lib.Create_New_File (Trial_Path, GNAT.OS_Lib.Binary);
          begin
             if FD /= GNAT.OS_Lib.Invalid_FD then
-               if Candidate_Text'Length > 0 then
+               if Content'Length > 0 then
                   declare
                      Written      : constant Integer :=
                        GNAT.OS_Lib.Write
                          (FD,
-                          Candidate_Text (Candidate_Text'First)'Address,
-                          Candidate_Text'Length);
+                          Content (Content'First)'Address,
+                          Content'Length);
                      Close_Status : Boolean;
                   begin
                      GNAT.OS_Lib.Close (FD, Close_Status);
-                     if Written /= Candidate_Text'Length or else not Close_Status then
+                     if Written /= Content'Length or else not Close_Status then
                         if Exists (Trial_Path) then
                            Delete_File (Trial_Path);
                         end if;
@@ -338,19 +314,19 @@ package body HRA.Writer is
                   end;
                end if;
 
-               Staged_Path := To_Unbounded_String (Trial_Path);
+               Created_Path := To_Unbounded_String (Trial_Path);
                return True;
             end if;
          end;
       end loop;
 
-      Staged_Path := Null_Unbounded_String;
+      Created_Path := Null_Unbounded_String;
       return False;
    exception
       when others =>
-         Staged_Path := Null_Unbounded_String;
+         Created_Path := Null_Unbounded_String;
          return False;
-   end Stage_Candidate_File;
+   end Create_Unique_Exact_File;
 
    function Atomic_Publish_Journal
      (Target_Path : String;
@@ -403,7 +379,7 @@ package body HRA.Writer is
       Guard_Error      : Unbounded_String;
       Rollback_Error   : Unbounded_String;
       Staged_Path      : Unbounded_String := Null_Unbounded_String;
-      Bak_Path         : constant String := Target_Path & ".bak";
+      Backup_Path      : Unbounded_String := Null_Unbounded_String;
       Admission_Err    : Unbounded_String;
       Confirmation_Err : Unbounded_String;
       Expected_Text    : constant String := Source_Text (Expected);
@@ -415,6 +391,18 @@ package body HRA.Writer is
             Delete_File (To_String (Staged_Path));
          end if;
       end Clean_Staged;
+
+      procedure Clean_Own_Backup is
+      begin
+         if Length (Backup_Path) > 0 and then Exists (To_String (Backup_Path)) then
+            Delete_File (To_String (Backup_Path));
+         end if;
+      end Clean_Own_Backup;
+
+      function Recovery_Backup_Note return String is
+        (if Length (Backup_Path) > 0
+         then "; recovery backup preserved at: " & To_String (Backup_Path)
+         else "");
 
       function Check_Guards_Before_Mutation
         (Phase : String) return Boolean
@@ -477,7 +465,9 @@ package body HRA.Writer is
       end if;
 
       --  4. Unique candidate staging.
-      if not Stage_Candidate_File (Target_Path, Candidate_Text, Staged_Path) then
+      if not Create_Unique_Exact_File
+        (Target_Path, "candidate", Candidate_Text, Staged_Path)
+      then
          Status := File_Write_Failed;
          Error_Msg := To_Unbounded_String
            ("Failed to stage candidate to unique temporary file");
@@ -515,12 +505,13 @@ package body HRA.Writer is
       --  8. Keep an exact target recovery copy until all post-publication
       --  checks succeed.
       if Expected.State = Present
-        and then not Write_File_Exact (Bak_Path, Expected_Text)
+        and then not Create_Unique_Exact_File
+          (Target_Path, "backup", Expected_Text, Backup_Path)
       then
          Clean_Staged;
          Status := Backup_Failed;
          Error_Msg := To_Unbounded_String
-           ("Failed to create backup file: " & Bak_Path);
+           ("Failed to create a unique exact recovery backup");
          return False;
       end if;
 
@@ -535,9 +526,7 @@ package body HRA.Writer is
               ("Failed atomic rename from " & To_String (Staged_Path) &
                " to " & Target_Path);
             Clean_Staged;
-            if Expected.State = Present and then Exists (Bak_Path) then
-               Delete_File (Bak_Path);
-            end if;
+            Clean_Own_Backup;
             return False;
          end if;
       end;
@@ -559,7 +548,7 @@ package body HRA.Writer is
               (Target_Path,
                Expected,
                Candidate_Text,
-               Bak_Path,
+               To_String (Backup_Path),
                Rollback_Error)
             then
                Status :=
@@ -575,7 +564,8 @@ package body HRA.Writer is
                Status := File_Write_Failed;
                Error_Msg := To_Unbounded_String
                  ("Guarded source fence failed after root publication and safe rollback was refused or failed: " &
-                  To_String (Guard_Error) & "; " & To_String (Rollback_Error));
+                  To_String (Guard_Error) & "; " & To_String (Rollback_Error) &
+                  Recovery_Backup_Note);
             end if;
             return False;
          end if;
@@ -590,7 +580,7 @@ package body HRA.Writer is
            (Target_Path,
             Expected,
             Candidate_Text,
-            Bak_Path,
+            To_String (Backup_Path),
             Rollback_Error)
          then
             Status := Confirmation_Failure_Status;
@@ -604,16 +594,14 @@ package body HRA.Writer is
               (Confirmation_Failure_Prefix &
                " and safe rollback was refused or failed: " &
                To_String (Confirmation_Err) & "; " &
-               To_String (Rollback_Error));
+               To_String (Rollback_Error) & Recovery_Backup_Note);
          end if;
          return False;
       end if;
 
       --  12. Success: remove any remaining backup/staging files.
       Clean_Staged;
-      if Expected.State = Present and then Exists (Bak_Path) then
-         Delete_File (Bak_Path);
-      end if;
+      Clean_Own_Backup;
 
       Status := Success;
       Error_Msg := Null_Unbounded_String;

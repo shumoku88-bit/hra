@@ -2,6 +2,7 @@ with Ada.Command_Line;
 with Ada.Directories; use Ada.Directories;
 with Ada.Streams; use Ada.Streams;
 with Ada.Streams.Stream_IO;
+with Ada.Strings.Fixed; use Ada.Strings.Fixed;
 with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
 with Ada.Text_IO; use Ada.Text_IO;
 with HRA.Writer; use HRA.Writer;
@@ -20,8 +21,11 @@ procedure Test_Writer_Exact_Replacement is
    Failed : Natural := 0;
    Status : Writer_Status;
    Error  : Unbounded_String;
-   Staged : Unbounded_String;
+   Staged   : Unbounded_String;
+   Recovery : Unbounded_String;
    Hook_Called : Boolean := False;
+
+   Recovery_Marker : constant String := "recovery backup preserved at: ";
 
    procedure Assert (Condition : Boolean; Name : String) is
    begin
@@ -84,6 +88,36 @@ procedure Test_Writer_Exact_Replacement is
       end;
    end Read_Exact;
 
+   function Recovery_Path (Message : String) return String is
+      Position : constant Natural := Index (Message, Recovery_Marker);
+   begin
+      if Position = 0 then
+         return "";
+      end if;
+      return Message
+        (Position + Recovery_Marker'Length .. Message'Last);
+   end Recovery_Path;
+
+   function Backup_File_Count return Natural is
+      Search : Search_Type;
+      Item   : Directory_Entry_Type;
+      Count  : Natural := 0;
+      Filter : constant Filter_Type :=
+        [Directory => False, Ordinary_File => True, Special_File => False];
+   begin
+      Start_Search
+        (Search,
+         "/tmp",
+         "hra_writer_exact_replacement.tsv.backup.*.tmp",
+         Filter);
+      while More_Entries (Search) loop
+         Get_Next_Entry (Search, Item);
+         Count := Count + 1;
+      end loop;
+      End_Search (Search);
+      return Count;
+   end Backup_File_Count;
+
    procedure Clean is
    begin
       HRA.Writer.Test_Hooks.Clear_After_Stage_Hook;
@@ -91,10 +125,14 @@ procedure Test_Writer_Exact_Replacement is
       if Exists (Target) then Delete_File (Target); end if;
       if Exists (Guard) then Delete_File (Guard); end if;
       if Exists (Target & ".bak") then Delete_File (Target & ".bak"); end if;
+      if Length (Recovery) > 0 and then Exists (To_String (Recovery)) then
+         Delete_File (To_String (Recovery));
+      end if;
       if Length (Staged) > 0 and then Exists (To_String (Staged)) then
          Delete_File (To_String (Staged));
       end if;
       Staged := Null_Unbounded_String;
+      Recovery := Null_Unbounded_String;
       Hook_Called := False;
    end Clean;
 
@@ -129,6 +167,7 @@ begin
    --  Present -> Present, arbitrary non-Journal TSV-like bytes, and successful
    --  staging/backup cleanup are covered by one exact replacement.
    Write_Exact (Target, Old_Bytes);
+   Write_Exact (Target & ".bak", "operator-owned sentinel" & ASCII.LF);
    declare
       Expected : Expected_Source;
       Empty_Guards : Source_Premise_Array (1 .. 0);
@@ -144,8 +183,11 @@ begin
       HRA.Writer.Test_Hooks.Clear_After_Stage_Hook;
       Assert (Hook_Called and then not Exists (To_String (Staged)),
               "Successful replacement cleans its unique staging path");
-      Assert (not Exists (Target & ".bak"),
-              "Successful replacement cleans its exact backup");
+      Assert (Backup_File_Count = 0,
+              "Successful replacement cleans its own unique recovery backup");
+      Assert
+        (Read_Exact (Target & ".bak") = "operator-owned sentinel" & ASCII.LF,
+         "Successful replacement does not alter a pre-existing .bak file");
       Assert (Read_Exact (Target) = TSV_Bytes,
               "Exact primitive requires no Journal semantic parser");
    end;
@@ -280,11 +322,41 @@ begin
            (Target, Expected, Make_Candidate_Source (TSV_Bytes), Guards,
             Status, Error)
          and then Status = File_Write_Failed
-         and then Read_Exact (Target) = External_Bytes
-         and then Exists (Target & ".bak")
-         and then Read_Exact (Target & ".bak") = Old_Bytes,
+         and then Read_Exact (Target) = External_Bytes,
          "Rollback refuses to overwrite a later external target change");
       HRA.Writer.Test_Hooks.Clear_After_Publish_Hook;
+
+      Recovery := To_Unbounded_String (Recovery_Path (To_String (Error)));
+      Assert
+        (Length (Recovery) > 0
+         and then Index (To_String (Error), Recovery_Marker) > 0,
+         "Rollback-refused diagnostic identifies the recovery backup path");
+      Assert
+        (Exists (To_String (Recovery))
+         and then Read_Exact (To_String (Recovery)) = Old_Bytes,
+         "Rollback refusal retains exact old Expected bytes in a unique backup");
+   end;
+
+   --  A later successful publication owns another unique backup and cannot
+   --  overwrite or clean the retained evidence from the refused rollback.
+   declare
+      Retained_Path  : constant String := To_String (Recovery);
+      Expected_Now   : Expected_Source;
+      Empty_Guards   : Source_Premise_Array (1 .. 0);
+      Next_Candidate : constant String := "next" & ASCII.HT & "publication";
+   begin
+      Assert
+        (Observe_Source (Target, Expected_Now, Error)
+         and then Atomic_Replace_Exact_Guarded
+           (Target, Expected_Now, Make_Candidate_Source (Next_Candidate),
+            Empty_Guards, Status, Error)
+         and then Status = Success
+         and then Read_Exact (Target) = Next_Candidate,
+         "Later exact publication succeeds from newly observed target bytes");
+      Assert
+        (Exists (Retained_Path)
+         and then Read_Exact (Retained_Path) = Old_Bytes,
+         "Later publication preserves prior recovery evidence byte-for-byte");
    end;
 
    Clean;
