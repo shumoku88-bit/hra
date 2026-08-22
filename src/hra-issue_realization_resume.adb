@@ -49,6 +49,8 @@ package body HRA.Issue_Realization_Resume is
              (State.Sources, HRA.Canonical_Source.Actual_Source);
          Actual_Obs  : HRA.Journal_Loader.Journal_Observation;
          Load_Error  : Unbounded_String;
+         Fresh_Actual : HRA.Actual_Admission.Actual_Observation;
+         Actual_Diag  : HRA.Actual_Admission.Admission_Diagnostic;
       begin
          if not HRA.Journal_Loader.Load_From_Root_Source
            (Actual_Path, Actual_Text, Actual_Obs, Load_Error)
@@ -57,6 +59,33 @@ package body HRA.Issue_Realization_Resume is
               (Actual_Graph_Load_Failed,
                "failed to load Actual journal graph premises: " &
                To_String (Load_Error));
+            return False;
+         end if;
+
+         --  Admit the freshly loaded Actual graph and verify that it represents
+         --  the exact same authority as the reconciled State.Actual_Identity.
+         if not HRA.Actual_Admission.Admit
+           (Actual_Ledger   => Actual_Obs.Value,
+            Actual_Evidence => Actual_Obs.Evidence,
+            Result          => Fresh_Actual,
+            Diag            => Actual_Diag)
+         then
+            Set_Diagnostic
+              (Actual_Graph_Load_Failed,
+               "freshly loaded Actual graph failed durable identity admission: " &
+               HRA.Actual_Admission.Admission_Status'Image (Actual_Diag.Status) &
+               (if Length (Actual_Diag.Message) > 0
+                then ": " & To_String (Actual_Diag.Message)
+                else ""));
+            return False;
+         end if;
+
+         if not HRA.Actual_Admission.Same_Observation
+           (Fresh_Actual, State.Actual_Identity)
+         then
+            Set_Diagnostic
+              (Actual_Graph_Load_Failed,
+               "freshly loaded Actual graph authority does not match reconciled Household state");
             return False;
          end if;
 

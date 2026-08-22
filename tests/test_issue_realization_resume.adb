@@ -589,6 +589,112 @@ begin
          "semantic mismatch rejects preparation with no publication authority");
    end;
 
+   --  Test 10: Included Actual Meaning Drift Fails Preparation
+   declare
+      Child_Path : constant String := Compose (Root, "child.journal");
+      Root_With_Include : constant String :=
+        "include child.journal" & ASCII.LF &
+        "2026-08-20 Realized purchase" & ASCII.LF &
+        "    ; event-id: new-actual" & ASCII.LF &
+        "    assets:wallet         -700 JPY" & ASCII.LF &
+        "    expenses:chair         700 JPY" & ASCII.LF;
+      Child_Original : constant String :=
+        "2026-08-13 Existing" & ASCII.LF &
+        "    ; event-id: existing-actual" & ASCII.LF &
+        "    expenses:chair         500 JPY" & ASCII.LF &
+        "    assets:wallet         -500 JPY" & ASCII.LF;
+      Child_Drifted_Meaning : constant String :=
+        "2026-08-13 Existing" & ASCII.LF &
+        "    ; event-id: existing-actual" & ASCII.LF &
+        "    expenses:chair         600 JPY" & ASCII.LF &
+        "    assets:wallet         -600 JPY" & ASCII.LF;
+
+      Prepared : HRA.Issue_Realization_Resume.Prepared_Resume;
+      Diag     : HRA.Issue_Realization_Resume.Resume_Diagnostic;
+      State    : HRA.Household.Household_State;
+      Error    : Unbounded_String;
+   begin
+      Reset (Root_With_Include, Issues_Open_Text);
+      Write_Exact (Child_Path, Child_Original);
+
+      if not HRA.Household.Load_Canonical_Household (Root, State, Error) then
+         raise Program_Error with To_String (Error);
+      end if;
+
+      --  Mutate included source on disk after State was admitted
+      Write_Exact (Child_Path, Child_Drifted_Meaning);
+
+      Assert
+        (not HRA.Issue_Realization_Resume.Prepare_Resume
+           (State                => State,
+            Tx                   => Tx,
+            Issue_ID             => HRA.Issues.Make_Issue_Id ("ISSUE-OPEN"),
+            Actual_ID            => AID ("new-actual"),
+            Relation_Event_ID    => RID ("rel-new"),
+            Relation_Recorded_On => D ("2026-08-21"),
+            Closed_On            => D ("2026-08-22"),
+            Relation_Details     => "selected chair",
+            Relation_Observation => Observe_Relation,
+            Prepared             => Prepared,
+            Diag                 => Diag)
+         and then Diag.Status =
+           HRA.Issue_Realization_Resume.Actual_Graph_Load_Failed,
+         "included Actual meaning drift fails resume preparation closed");
+   end;
+
+   --  Test 11: Included Actual Identity Drift Fails Preparation
+   declare
+      Child_Path : constant String := Compose (Root, "child.journal");
+      Root_With_Include : constant String :=
+        "include child.journal" & ASCII.LF &
+        "2026-08-20 Realized purchase" & ASCII.LF &
+        "    ; event-id: new-actual" & ASCII.LF &
+        "    assets:wallet         -700 JPY" & ASCII.LF &
+        "    expenses:chair         700 JPY" & ASCII.LF;
+      Child_Original : constant String :=
+        "2026-08-13 Existing" & ASCII.LF &
+        "    ; event-id: existing-actual" & ASCII.LF &
+        "    expenses:chair         500 JPY" & ASCII.LF &
+        "    assets:wallet         -500 JPY" & ASCII.LF;
+      Child_Drifted_Identity : constant String :=
+        "2026-08-13 Existing" & ASCII.LF &
+        "    ; event-id: changed-actual" & ASCII.LF &
+        "    expenses:chair         500 JPY" & ASCII.LF &
+        "    assets:wallet         -500 JPY" & ASCII.LF;
+
+      Prepared : HRA.Issue_Realization_Resume.Prepared_Resume;
+      Diag     : HRA.Issue_Realization_Resume.Resume_Diagnostic;
+      State    : HRA.Household.Household_State;
+      Error    : Unbounded_String;
+   begin
+      Reset (Root_With_Include, Issues_Open_Text);
+      Write_Exact (Child_Path, Child_Original);
+
+      if not HRA.Household.Load_Canonical_Household (Root, State, Error) then
+         raise Program_Error with To_String (Error);
+      end if;
+
+      --  Mutate included source identity on disk after State was admitted
+      Write_Exact (Child_Path, Child_Drifted_Identity);
+
+      Assert
+        (not HRA.Issue_Realization_Resume.Prepare_Resume
+           (State                => State,
+            Tx                   => Tx,
+            Issue_ID             => HRA.Issues.Make_Issue_Id ("ISSUE-OPEN"),
+            Actual_ID            => AID ("new-actual"),
+            Relation_Event_ID    => RID ("rel-new"),
+            Relation_Recorded_On => D ("2026-08-21"),
+            Closed_On            => D ("2026-08-22"),
+            Relation_Details     => "selected chair",
+            Relation_Observation => Observe_Relation,
+            Prepared             => Prepared,
+            Diag                 => Diag)
+         and then Diag.Status =
+           HRA.Issue_Realization_Resume.Actual_Graph_Load_Failed,
+         "included Actual identity drift fails resume preparation closed");
+   end;
+
    if Exists (Root) then
       Delete_Tree (Root);
    end if;

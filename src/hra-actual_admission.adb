@@ -8,6 +8,7 @@ with HRA.Journal_Evidence; use HRA.Journal_Evidence;
 package body HRA.Actual_Admission is
 
    use type HRA.Dates.Date;
+   use type HRA.Ledger.Transaction;
 
    package Actual_Id_Vectors is new Ada.Containers.Indefinite_Vectors
      (Index_Type   => Positive,
@@ -521,5 +522,96 @@ package body HRA.Actual_Admission is
       Result := Output;
       return True;
    end Admit;
+
+   function Same_Identity
+     (Left  : Actual_Id_Option;
+      Right : Actual_Id_Option) return Boolean
+   is
+   begin
+      if Left.Present /= Right.Present then
+         return False;
+      elsif not Left.Present then
+         return True;
+      else
+         return Left.Value = Right.Value;
+      end if;
+   end Same_Identity;
+
+   function Same_Source
+     (Left  : HRA.Journal_Evidence.Transaction_Source;
+      Right : HRA.Journal_Evidence.Transaction_Source) return Boolean
+   is
+      Left_Metadata_Count  : constant Natural := Natural (Left.Metadata.Length);
+      Right_Metadata_Count : constant Natural := Natural (Right.Metadata.Length);
+   begin
+      if To_String (Left.Source_Path) /= To_String (Right.Source_Path)
+        or else Left.Header_Line /= Right.Header_Line
+        or else To_String (Left.Date_Text) /= To_String (Right.Date_Text)
+        or else To_String (Left.Description) /= To_String (Right.Description)
+        or else Left_Metadata_Count /= Right_Metadata_Count
+      then
+         return False;
+      end if;
+
+      for I in 1 .. Left_Metadata_Count loop
+         declare
+            Left_Entry  : constant HRA.Journal_Evidence.Metadata_Entry :=
+              Left.Metadata.Element (I);
+            Right_Entry : constant HRA.Journal_Evidence.Metadata_Entry :=
+              Right.Metadata.Element (I);
+         begin
+            if To_String (Left_Entry.Key) /= To_String (Right_Entry.Key)
+              or else To_String (Left_Entry.Value) /= To_String (Right_Entry.Value)
+              or else Left_Entry.Line_Number /= Right_Entry.Line_Number
+            then
+               return False;
+            end if;
+         end;
+      end loop;
+
+      return True;
+   end Same_Source;
+
+   function Same_Entry
+     (Left  : Actual_Transaction_Entry;
+      Right : Actual_Transaction_Entry) return Boolean is
+     (Left.Tx = Right.Tx
+      and then Same_Identity (Left.Identity, Right.Identity)
+      and then Same_Identity
+        (Left.Source_Durable_Identity, Right.Source_Durable_Identity)
+      and then Same_Source (Left.Source, Right.Source));
+
+   function Same_Reversal
+     (Left  : Reversal_Relation;
+      Right : Reversal_Relation) return Boolean is
+     (Left.Reversal_ID = Right.Reversal_ID
+      and then Left.Target_ID = Right.Target_ID);
+
+   function Same_Observation
+     (Left, Right : Actual_Observation) return Boolean
+   is
+      Left_Count  : constant Natural := Natural (Left.In_Order.Length);
+      Right_Count : constant Natural := Natural (Right.In_Order.Length);
+      Left_Rev    : constant Natural := Natural (Left.Reversals.Length);
+      Right_Rev   : constant Natural := Natural (Right.Reversals.Length);
+   begin
+      if Left_Count /= Right_Count or else Left_Rev /= Right_Rev then
+         return False;
+      end if;
+
+      for I in 1 .. Left_Count loop
+         if not Same_Entry (Left.In_Order.Element (I), Right.In_Order.Element (I)) then
+            return False;
+         end if;
+      end loop;
+
+      for I in 1 .. Left_Rev loop
+         if not Same_Reversal (Left.Reversals.Element (I), Right.Reversals.Element (I)) then
+            return False;
+         end if;
+      end loop;
+
+      return True;
+   end Same_Observation;
 
 end HRA.Actual_Admission;

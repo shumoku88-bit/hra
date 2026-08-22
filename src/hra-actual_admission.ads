@@ -98,6 +98,21 @@ package HRA.Actual_Admission is
       Index       : Positive) return Reversal_Relation
      with Pre => Index <= Reversal_Count (Observation);
 
+   function Same_Entry
+     (Left  : Actual_Transaction_Entry;
+      Right : Actual_Transaction_Entry) return Boolean;
+
+   function Same_Reversal
+     (Left  : Reversal_Relation;
+      Right : Reversal_Relation) return Boolean;
+
+   --  Confirm that two admitted Actual observations represent the exact same
+   --  authority: identical transaction count, identical typed transaction meaning,
+   --  identical effective and source-durable identities, identical source provenance
+   --  and metadata coordinates, and identical reversal relations in identical order.
+   function Same_Observation
+     (Left, Right : Actual_Observation) return Boolean;
+
    type Admission_Status is
      (Success,
       Source_Evidence_Error,
