@@ -9,6 +9,11 @@ package body HRA.Actual_Account_Admission is
       return HRA.Actual_Admission.Actual_Observation is
      (HRA.Actual_Graph_Admission.Observation_Of (Candidate.Graph_Value));
 
+   function Graph_Of
+     (Candidate : Account_Qualified_Graph)
+      return HRA.Actual_Graph_Admission.Candidate_Graph is
+     (Candidate.Graph_Value);
+
    function Admit
      (Registry  : HRA.Account.Account_Registry;
       Graph     : HRA.Actual_Graph_Admission.Candidate_Graph;
