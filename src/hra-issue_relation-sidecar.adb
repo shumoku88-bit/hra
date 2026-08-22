@@ -7,11 +7,19 @@ package body HRA.Issue_Relation.Sidecar is
 
    Sidecar_Basename : constant String := "issue-relations.tsv";
 
+   function Coordinate_For (Root_Coordinate : String) return String is
+     (Compose (Root_Coordinate, Sidecar_Basename));
+
    function State_Of (Value : Observation) return Presence is
      (Value.State);
 
    function Path_Of (Value : Observation) return String is
      (To_String (Value.Path));
+
+   function Is_For_Root
+     (Value    : Observation;
+      Root_Dir : String) return Boolean is
+     (To_String (Value.Path) = Coordinate_For (Root_Dir));
 
    function Text_Of (Value : Observation) return String is
      (To_String (Value.Text));
@@ -24,8 +32,7 @@ package body HRA.Issue_Relation.Sidecar is
       package SIO renames Ada.Streams.Stream_IO;
       use type SIO.Count;
 
-      Normalized_Root : Unbounded_String := Null_Unbounded_String;
-      Sidecar_Path    : Unbounded_String := Null_Unbounded_String;
+      Sidecar_Path : Unbounded_String := Null_Unbounded_String;
       File            : SIO.File_Type;
    begin
       Result := (State => Absent, Path => Null_Unbounded_String);
@@ -39,9 +46,8 @@ package body HRA.Issue_Relation.Sidecar is
          return False;
       end if;
 
-      Normalized_Root := To_Unbounded_String (Full_Name (Root_Dir));
       Sidecar_Path := To_Unbounded_String
-        (Compose (To_String (Normalized_Root), Sidecar_Basename));
+        (Coordinate_For (Full_Name (Root_Dir)));
 
       if not Exists (To_String (Sidecar_Path)) then
          Result :=

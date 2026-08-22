@@ -52,7 +52,11 @@ procedure Test_Issue_Realization_Preparation is
    end Assert;
 
    Temp_Root : constant String := ".hra-test-issue-realization-preparation";
+   Other_Root : constant String :=
+     ".hra-test-issue-realization-preparation-other";
    Sidecar_Path : constant String := Compose (Temp_Root, "issue-relations.tsv");
+   Other_Sidecar_Path : constant String :=
+     Compose (Other_Root, "issue-relations.tsv");
 
    procedure Write_Exact (Path : String; Text : String) is
       package SIO renames Ada.Streams.Stream_IO;
@@ -401,6 +405,68 @@ begin
       end;
    end;
 
+   --  A sidecar observation from another root cannot be recombined with this
+   --  admitted Household, even though both values are independently valid.
+   Reset_Files;
+   if Exists (Other_Root) then
+      Delete_Tree (Other_Root);
+   end if;
+   Create_Directory (Other_Root);
+   declare
+      Other_Sidecar_Text : constant String :=
+        Relation_Header & ASCII.LF &
+        "rel-other" & ASCII.HT & "2026-08-19" & ASCII.HT &
+        "ISSUE-OPEN" & ASCII.HT & "realized-as" & ASCII.HT &
+        "existing-actual" & ASCII.HT & "other root" & ASCII.LF;
+      State_A : constant HRA.Household.Household_State := Load_State;
+      Actual_Path : constant String :=
+        Path_For (State_A.Sources.Paths, Actual_Source);
+      Issues_Path : constant String :=
+        Path_For (State_A.Sources.Paths, Issues_Source);
+      Actual_Before : constant String := Read_Exact (Actual_Path);
+      Issues_Before : constant String := Read_Exact (Issues_Path);
+      Observation_B : HRA.Issue_Relation.Sidecar.Observation;
+      Observation_Diag : HRA.Issue_Relation.Sidecar.Observation_Diagnostic;
+      Prepared : HRA.Issue_Realization_Preparation.Prepared_Realization;
+      Diag : HRA.Issue_Realization_Preparation.Preparation_Diagnostic;
+   begin
+      Write_Exact (Other_Sidecar_Path, Other_Sidecar_Text);
+      if not HRA.Issue_Relation.Sidecar.Observe
+        (Other_Root, Observation_B, Observation_Diag)
+      then
+         raise Program_Error with "failed to observe second Household root";
+      end if;
+
+      Assert
+        (not HRA.Issue_Realization_Preparation.Prepare
+           (State                => State_A,
+            Tx                   => Tx_For ("expenses:chair"),
+            Issue_ID             => Open_ID,
+            Actual_ID            => New_Actual,
+            Relation_Event_ID    => RID ("rel-cross-root"),
+            Relation_Recorded_On => D ("2026-08-21"),
+            Closed_On            => D ("2026-08-22"),
+            Relation_Details     => "selected chair",
+            Relation_Observation => Observation_B,
+            Prepared             => Prepared,
+            Diag                 => Diag)
+         and then Diag.Status =
+           HRA.Issue_Realization_Preparation.Relation_Observation_Root_Mismatch
+         and then Diag.Actual.Status =
+           HRA.Household_Actual_Preparation.Success,
+         "relation observation from Household B rejects against Household A");
+      Assert
+        (Read_Exact (Actual_Path) = Actual_Before
+         and then Read_Exact (Issues_Path) = Issues_Before
+         and then Canonical_Unchanged,
+         "cross-root rejection leaves Actual, Issues, and canonical sources unchanged");
+      Assert
+        (not Exists (Sidecar_Path)
+         and then Read_Exact (Other_Sidecar_Path) = Other_Sidecar_Text,
+         "cross-root rejection leaves sidecars A and B unchanged");
+   end;
+   Delete_Tree (Other_Root);
+
    Reset_Files
      (Relation_Header & ASCII.LF &
       "rel-duplicate" & ASCII.HT & "2026-08-15" & ASCII.HT &
@@ -489,6 +555,9 @@ begin
    end;
 
    Delete_Tree (Temp_Root);
+   if Exists (Other_Root) then
+      Delete_Tree (Other_Root);
+   end if;
    Put_Line
      ("Summary: Passed =" & Natural'Image (Passed_Count) &
       ", Failed =" & Natural'Image (Failed_Count));
@@ -501,6 +570,9 @@ exception
    when others =>
       if Exists (Temp_Root) then
          Delete_Tree (Temp_Root);
+      end if;
+      if Exists (Other_Root) then
+         Delete_Tree (Other_Root);
       end if;
       raise;
 end Test_Issue_Realization_Preparation;

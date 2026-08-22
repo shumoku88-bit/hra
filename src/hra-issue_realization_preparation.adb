@@ -64,6 +64,15 @@ package body HRA.Issue_Realization_Preparation is
          return False;
       end if;
 
+      if not HRA.Issue_Relation.Sidecar.Is_For_Root
+        (Relation_Observation, To_String (State.Root_Path))
+      then
+         Set_Diagnostic
+           (Relation_Observation_Root_Mismatch,
+            "Issue relation observation belongs to a different Household root");
+         return False;
+      end if;
+
       if not HRA.Issue_Relation.Create_Realized_As
         (Event_ID    => Relation_Event_ID,
          Recorded_On => Relation_Recorded_On,

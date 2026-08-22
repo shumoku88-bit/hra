@@ -15,6 +15,14 @@ package HRA.Issue_Relation.Sidecar is
    function State_Of (Value : Observation) return Presence;
    function Path_Of (Value : Observation) return String;
 
+   --  Confirm that Value observes this owner's one sidecar coordinate under
+   --  Root_Dir. This compares retained coordinates only: it performs no
+   --  filesystem observation and constructs no replacement witness.
+   function Is_For_Root
+     (Value    : Observation;
+      Root_Dir : String) return Boolean
+     with Pre => Root_Dir'Length > 0;
+
    function Text_Of (Value : Observation) return String
      with Pre => State_Of (Value) = Present;
 

@@ -33,6 +33,7 @@ package HRA.Issue_Realization_Preparation is
    type Preparation_Status is
      (Success,
       Actual_Preparation_Rejected,
+      Relation_Observation_Root_Mismatch,
       Relation_Creation_Rejected,
       Relation_Candidate_Rejected,
       Relation_Reference_Admission_Rejected,

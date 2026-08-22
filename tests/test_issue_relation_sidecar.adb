@@ -86,6 +86,16 @@ begin
       "Missing sidecar is an explicit successful Absent observation");
 
    declare
+      Root_Coordinate : constant String := Full_Name (Root);
+   begin
+      Assert
+        (HRA.Issue_Relation.Sidecar.Is_For_Root (Result, Root_Coordinate)
+         and then not HRA.Issue_Relation.Sidecar.Is_For_Root
+           (Result, Root_Coordinate & "-other"),
+         "Retained sidecar coordinate identifies its exact Household root");
+   end;
+
+   declare
       Absent_Path : constant String :=
         HRA.Issue_Relation.Sidecar.Path_Of (Result);
    begin
