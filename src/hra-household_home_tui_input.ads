@@ -10,6 +10,7 @@ package HRA.Household_Home_TUI_Input is
      (Navigate,
       Open_Record,
       Open_Plan,
+      Open_Issue,
       Quit,
       Redraw,
       Ignored);
@@ -18,7 +19,7 @@ package HRA.Household_Home_TUI_Input is
       case Kind is
          when Navigate =>
             Intent : HRA.Household_Home_Interaction.Home_Intent;
-         when Open_Record | Open_Plan | Quit | Redraw | Ignored =>
+         when Open_Record | Open_Plan | Open_Issue | Quit | Redraw | Ignored =>
             null;
       end case;
    end record;
