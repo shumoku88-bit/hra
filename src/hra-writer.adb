@@ -173,6 +173,24 @@ package body HRA.Writer is
       return Premises_Match;
    end Check_Source_Premises;
 
+   function Verify_Source_Premises
+     (Premises  : Source_Premise_Array;
+      Status    : out Writer_Status;
+      Error_Msg : out Unbounded_String) return Boolean
+   is
+      Check : constant Premise_Check_Result :=
+        Check_Source_Premises (Premises, Error_Msg);
+   begin
+      case Check is
+         when Premises_Match =>
+            Status := Success;
+            return True;
+         when Premise_Stale | Premise_Read_Failed =>
+            Status := Stale_Source_Rejected;
+            return False;
+      end case;
+   end Verify_Source_Premises;
+
    function Restore_Target_If_Own_Candidate
      (Target_Path    : String;
       Expected       : Expected_Source;

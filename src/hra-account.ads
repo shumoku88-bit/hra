@@ -109,6 +109,9 @@ package HRA.Account is
 
    function Declarations (Reg : Account_Registry) return Declaration_Array;
 
+   function Same_Declaration (Left, Right : Account_Declaration) return Boolean;
+   function Same_Registry (Left, Right : Account_Registry) return Boolean;
+
 private
 
    type Account is record

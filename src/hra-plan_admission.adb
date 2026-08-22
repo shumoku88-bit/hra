@@ -354,4 +354,91 @@ package body HRA.Plan_Admission is
       return True;
    end Admit;
 
+   function Same_Source
+     (Left, Right : HRA.Journal_Evidence.Transaction_Source) return Boolean
+   is
+      Left_Metadata_Count  : constant Natural :=
+        Natural (Left.Metadata.Length);
+      Right_Metadata_Count : constant Natural :=
+        Natural (Right.Metadata.Length);
+   begin
+      if To_String (Left.Source_Path) /= To_String (Right.Source_Path)
+        or else Left.Header_Line /= Right.Header_Line
+        or else To_String (Left.Date_Text) /= To_String (Right.Date_Text)
+        or else To_String (Left.Description) /= To_String (Right.Description)
+        or else Left_Metadata_Count /= Right_Metadata_Count
+      then
+         return False;
+      end if;
+
+      for I in 1 .. Left_Metadata_Count loop
+         declare
+            Left_Entry  : constant HRA.Journal_Evidence.Metadata_Entry :=
+              Left.Metadata.Element (I);
+            Right_Entry : constant HRA.Journal_Evidence.Metadata_Entry :=
+              Right.Metadata.Element (I);
+         begin
+            if To_String (Left_Entry.Key) /= To_String (Right_Entry.Key)
+              or else To_String (Left_Entry.Value) /= To_String (Right_Entry.Value)
+              or else Left_Entry.Line_Number /= Right_Entry.Line_Number
+            then
+               return False;
+            end if;
+         end;
+      end loop;
+
+      return True;
+   end Same_Source;
+
+   function Same_Retirement
+     (Left, Right : Plan_Retirement) return Boolean
+   is
+      use type HRA.Dates.Date;
+   begin
+      if Left.Kind /= Right.Kind then
+         return False;
+      end if;
+      case Left.Kind is
+         when No_Retirement =>
+            return True;
+         when Cancellation =>
+            return Left.Canceled_On = Right.Canceled_On;
+         when Supersession =>
+            return Left.Superseded_On = Right.Superseded_On
+              and then Left.Successor = Right.Successor;
+      end case;
+   end Same_Retirement;
+
+   function Same_Entry
+     (Left, Right : Plan_Transaction_Entry) return Boolean
+   is
+      use type HRA.Ledger.Transaction;
+   begin
+      return Left.ID = Right.ID
+        and then Left.Tx = Right.Tx
+        and then Same_Retirement (Left.Retirement, Right.Retirement)
+        and then Same_Source (Left.Source, Right.Source);
+   end Same_Entry;
+
+   function Same_Journal
+     (Left, Right : Plan_Journal) return Boolean
+   is
+      Left_Count  : constant Natural := Natural (Left.In_Order.Length);
+      Right_Count : constant Natural := Natural (Right.In_Order.Length);
+   begin
+      if Left_Count /= Right_Count then
+         return False;
+      end if;
+
+      for I in 1 .. Left_Count loop
+         if not Same_Entry
+           (Left.In_Order.Element (I), Right.In_Order.Element (I))
+         then
+            return False;
+         end if;
+      end loop;
+
+      return True;
+   end Same_Journal;
+
 end HRA.Plan_Admission;
