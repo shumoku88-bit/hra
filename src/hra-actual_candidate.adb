@@ -1,3 +1,4 @@
+with Ada.Strings.Fixed; use Ada.Strings.Fixed;
 with HRA.Account;
 with HRA.Dates;
 with HRA.Money;
@@ -92,10 +93,15 @@ package body HRA.Actual_Candidate is
       end loop;
 
       Append (Rendered, HRA.Dates.Image (Tx.Date));
-      if Length (Tx.Code_Or_Payee) > 0 then
-         Append (Rendered, " ");
-         Append (Rendered, Tx.Code_Or_Payee);
-      end if;
+      declare
+         Desc : constant String :=
+           Trim (To_String (Tx.Code_Or_Payee), Ada.Strings.Both);
+      begin
+         if Desc'Length > 0 then
+            Append (Rendered, " ");
+            Append (Rendered, Desc);
+         end if;
+      end;
       Append (Rendered, ASCII.LF);
       Append
         (Rendered,
@@ -105,7 +111,7 @@ package body HRA.Actual_Candidate is
          Append (Rendered, "    ");
          Append (Rendered, HRA.Account.Name (Posting.Acc));
          Append (Rendered, ASCII.HT);
-         Append (Rendered, HRA.Money.Render_Quantity (Posting.Amt.Val));
+         Append (Rendered, HRA.Money.Render_Source_Quantity (Posting.Amt.Val));
          Append (Rendered, " ");
          Append (Rendered, HRA.Money.Code (Posting.Amt.Comm));
          Append (Rendered, ASCII.LF);
@@ -162,6 +168,9 @@ package body HRA.Actual_Candidate is
       begin
          Expected.Event_ID :=
            To_Unbounded_String (HRA.Actual_Admission.Text (Actual_ID));
+         Expected.Code_Or_Payee :=
+           To_Unbounded_String
+             (Trim (To_String (Tx.Code_Or_Payee), Ada.Strings.Both));
          if Actual_Entry.Tx /= Expected then
             Diag.Status := Semantic_Roundtrip_Failed;
             Diag.Message := To_Unbounded_String

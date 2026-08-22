@@ -37,6 +37,7 @@ package HRA.Money is
 
    function Parse_Quantity (Input : String; Value : out Quantity) return Boolean;
    function Render_Quantity (Q : Quantity) return String;
+   function Render_Source_Quantity (Q : Quantity) return String;
    function Is_Zero (Q : Quantity) return Boolean
      with Post => Is_Zero'Result = (Q = Zero_Quantity);
 

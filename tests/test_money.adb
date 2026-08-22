@@ -46,8 +46,31 @@ begin
 
    Assert (Parse_Quantity ("1000", Q1), "integer Quantity parses exactly");
    Assert (Parse_Quantity ("-500.50", Q2), "signed decimal Quantity parses exactly");
-   Assert (Render_Quantity (Q1) = "1,000", "integer Quantity renders canonically");
-   Assert (Render_Quantity (Q2) = "-500.5", "decimal Quantity renders canonically");
+   Assert (Render_Quantity (Q1) = "1,000", "integer Quantity renders canonically for presentation");
+   Assert (Render_Quantity (Q2) = "-500.5", "decimal Quantity renders canonically for presentation");
+
+   declare
+      Q_Zero   : Quantity;
+      Q_999    : Quantity;
+      Q_1000   : Quantity;
+      Q_Neg20k : Quantity;
+      Q_Dec    : Quantity;
+      Q_Tiny   : Quantity;
+   begin
+      Assert (Parse_Quantity ("0", Q_Zero), "Parse 0");
+      Assert (Parse_Quantity ("999", Q_999), "Parse 999");
+      Assert (Parse_Quantity ("1000", Q_1000), "Parse 1000");
+      Assert (Parse_Quantity ("-20000", Q_Neg20k), "Parse -20000");
+      Assert (Parse_Quantity ("1000.25", Q_Dec), "Parse 1000.25");
+      Assert (Parse_Quantity ("0.00000001", Q_Tiny), "Parse 0.00000001");
+
+      Assert (Render_Source_Quantity (Q_Zero) = "0", "Source quantity 0 renders without decimals or exponent");
+      Assert (Render_Source_Quantity (Q_999) = "999", "Source quantity 999 renders exact");
+      Assert (Render_Source_Quantity (Q_1000) = "1000", "Source quantity 1000 renders without comma");
+      Assert (Render_Source_Quantity (Q_Neg20k) = "-20000", "Source quantity -20000 renders without comma");
+      Assert (Render_Source_Quantity (Q_Dec) = "1000.25", "Source quantity 1000.25 renders exact decimal without comma");
+      Assert (Render_Source_Quantity (Q_Tiny) = "0.00000001", "Source quantity 0.00000001 renders exact small fraction");
+   end;
 
    B1 := Singleton_Balance (Make_Amount (JPY, Q1));
    B2 := Singleton_Balance (Make_Amount (JPY, Q2));

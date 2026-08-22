@@ -81,15 +81,40 @@ begin
       Expected : constant String :=
         "2026-08-20 Chair" & ASCII.LF &
         "    ; event-id: chair-actual" & ASCII.LF &
-        "    assets:cash" & ASCII.HT & "-20,000 JPY" & ASCII.LF &
-        "    expenses:household" & ASCII.HT & "20,000 JPY" & ASCII.LF;
+        "    assets:cash" & ASCII.HT & "-20000 JPY" & ASCII.LF &
+        "    expenses:household" & ASCII.HT & "20000 JPY" & ASCII.LF;
    begin
       Assert
         (HRA.Actual_Candidate.Prepare (Tx, ID, Candidate, Diag),
          "Balanced transaction prepares a source-durable Actual block");
       Assert
         (HRA.Actual_Candidate.Text (Candidate) = Expected,
-         "Candidate uses one canonical event-id metadata and exact posting order");
+         "Candidate uses one canonical event-id metadata, comma-free amount, and exact posting order");
+   end;
+
+   declare
+      Tx : HRA.Ledger.Transaction := Balanced_Transaction;
+      Expected : constant String :=
+        "2026-08-20" & ASCII.LF &
+        "    ; event-id: chair-actual" & ASCII.LF &
+        "    assets:cash" & ASCII.HT & "-20000 JPY" & ASCII.LF &
+        "    expenses:household" & ASCII.HT & "20000 JPY" & ASCII.LF;
+   begin
+      Tx.Code_Or_Payee := Null_Unbounded_String;
+      Assert
+        (HRA.Actual_Candidate.Prepare (Tx, ID, Candidate, Diag),
+         "Empty description prepares valid date-only header block");
+      Assert
+        (HRA.Actual_Candidate.Text (Candidate) = Expected,
+         "Empty description candidate emits date-only header with no trailing whitespace");
+
+      Tx.Code_Or_Payee := To_Unbounded_String ("   ");
+      Assert
+        (HRA.Actual_Candidate.Prepare (Tx, ID, Candidate, Diag),
+         "Whitespace-only description prepares valid date-only header block");
+      Assert
+        (HRA.Actual_Candidate.Text (Candidate) = Expected,
+         "Whitespace-only description candidate emits date-only header with no trailing whitespace");
    end;
 
    declare

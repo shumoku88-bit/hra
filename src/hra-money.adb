@@ -132,6 +132,30 @@ package body HRA.Money is
       end if;
    end Render_Quantity;
 
+   function Render_Source_Quantity (Q : Quantity) return String is
+      Img     : constant String := Quantity'Image (Q);
+      Trimmed : constant String := Trim (Img, Ada.Strings.Both);
+      Dot_Idx : constant Natural := Index (Trimmed, ".");
+   begin
+      if Dot_Idx > 0 then
+         declare
+            Last_NZ : Natural := Trimmed'Last;
+         begin
+            while Last_NZ > Dot_Idx and then Trimmed (Last_NZ) = '0' loop
+               Last_NZ := Last_NZ - 1;
+            end loop;
+
+            if Trimmed (Last_NZ) = '.' then
+               return Trimmed (Trimmed'First .. Dot_Idx - 1);
+            else
+               return Trimmed (Trimmed'First .. Last_NZ);
+            end if;
+         end;
+      else
+         return Trimmed;
+      end if;
+   end Render_Source_Quantity;
+
    function Is_Zero (Q : Quantity) return Boolean is
    begin
       return Q = Zero_Quantity;
