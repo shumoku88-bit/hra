@@ -77,9 +77,11 @@ package body HRA.Issue_Realization_Reconciliation is
 
       function Is_Requested_Resolved_Issue
         (Issue : HRA.Issues.Household_Issue) return Boolean is
-        (Issue.Status = HRA.Issues.Resolved
-         and then Issue.Closed.Kind = HRA.Issues.Closed_On
-         and then Issue.Closed.Closed_Date = Closed_On);
+      begin
+         return Issue.Status = HRA.Issues.Resolved
+           and then Issue.Closed.Kind = HRA.Issues.Closed_On
+           and then Issue.Closed.Closed_Date = Closed_On;
+      end Is_Requested_Resolved_Issue;
    begin
       World := W0;
 

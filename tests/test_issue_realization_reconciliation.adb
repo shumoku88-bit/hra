@@ -165,7 +165,7 @@ procedure Test_Issue_Realization_Reconciliation is
    is
       Result : Source_Observation;
    begin
-      Result.Root_Path := To_Unbounded_String (Root);
+      Result.Root_Path := To_Unbounded_String (Full_Name (Root));
       Result.Paths := HRA.Household.Resolve_Source_Paths (Root);
       Result.Texts (Accounts_Source) := To_Unbounded_String
         ("account assets:wallet" & ASCII.LF & "  ; type: Asset" & ASCII.LF &
