@@ -1,4 +1,8 @@
+with HRA.Household_Plan_Preparation.Publication;
+
 package body HRA.Household_Plan_Record is
+
+   use type HRA.Household_Plan_Preparation.Publication.Completion_Kind;
 
    function Record_Status_For
      (Status : HRA.Household_Plan_Preparation.Preparation_Status)
