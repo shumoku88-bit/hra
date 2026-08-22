@@ -8,7 +8,9 @@ project HRA_Proof is
       "hra-dates.ads",
       "hra-dates.adb",
       "hra-household_home_interaction.ads",
-      "hra-household_home_interaction.adb");
+      "hra-household_home_interaction.adb",
+      "hra-household_actual_record_interaction.ads",
+      "hra-household_actual_record_interaction.adb");
    for Object_Dir use "obj";
 
    package Compiler is

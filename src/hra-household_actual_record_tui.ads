@@ -2,7 +2,7 @@ with HRA.Dates;
 with HRA.Household;
 with HRA.Ledger;
 
---  Curses delivery adapter for editing one ordinary two-posting Actual draft.
+--  Curses delivery adapter for editing one general Actual draft.
 --
 --  The editor owns only screen focus, UTF-8 text editing, preview, and terminal
 --  keys. It lowers through HRA.Household_Actual_Draft and returns a typed
