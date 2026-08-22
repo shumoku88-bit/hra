@@ -2,9 +2,15 @@ name: Ada qualification
 
 on:
   pull_request:
+    paths-ignore:
+      - "*.md"
+      - "**/*.md"
   push:
     branches:
       - main
+    paths-ignore:
+      - "*.md"
+      - "**/*.md"
 
 permissions:
   contents: read
