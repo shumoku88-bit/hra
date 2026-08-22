@@ -1,21 +1,16 @@
 with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
 with HRA.Actual_Admission;
-with HRA.Actual_Account_Admission;
-with HRA.Actual_Candidate;
-with HRA.Actual_Graph_Admission;
 with HRA.Actual_Publication;
-with HRA.Actual_Root_Candidate;
 with HRA.Household;
+with HRA.Household_Actual_Preparation;
 with HRA.Ledger;
 
---  UI-neutral application boundary for recording an Actual transaction from an
---  already-admitted Household.
+--  UI-neutral application boundary for preparing and then publishing one
+--  Actual from an already-admitted Household.
 --
---  The Household owns the current canonical Account universe, admitted Actual
---  authority, root coordinate, and exact root source premise. This package
---  threads those existing premises through the typed Actual preparation and
---  publication layers. It does not interpret terminal keys, collect form input,
---  infer a domain date, generate an Actual_Id, close Issues, or refresh UI state.
+--  Candidate construction and semantic admission belong entirely to
+--  Household_Actual_Preparation. This package only preserves the existing
+--  record operations by delegating preparation and explicit publication.
 package HRA.Household_Actual_Record is
 
    type Record_Status is
@@ -28,30 +23,19 @@ package HRA.Household_Actual_Record is
 
    type Record_Diagnostic is record
       Status      : Record_Status := Success;
-      Candidate   : HRA.Actual_Candidate.Candidate_Diagnostic;
-      Root        : HRA.Actual_Root_Candidate.Candidate_Diagnostic;
-      Graph       : HRA.Actual_Graph_Admission.Admission_Diagnostic;
-      Account     : HRA.Actual_Account_Admission.Admission_Diagnostic;
+      Preparation : HRA.Household_Actual_Preparation.Preparation_Diagnostic;
       Publication : HRA.Actual_Publication.Publication_Diagnostic;
       Message     : Unbounded_String;
    end record;
 
-   --  Record one explicit typed transaction through the complete ordinary
-   --  identity-free Actual path:
-   --
-   --    source-local candidate -> root candidate -> complete graph admission
-   --    -> canonical Account qualification -> exact guarded publication
-   --
-   --  State is observation-only here. On success it still describes the
-   --  pre-publication Household; an interactive shell may re-admit the
-   --  Household afterwards before accepting another mutation.
+   --  Prepare one identity-free Actual and explicitly publish it. State remains
+   --  the pre-publication observation and must be re-admitted after mutation.
    function Record_Ordinary
      (State : HRA.Household.Household_State;
       Tx    : HRA.Ledger.Transaction;
       Diag  : out Record_Diagnostic) return Boolean;
 
-   --  Record one explicit typed transaction as a source-durable identified Actual
-   --  through the complete publication path:
+   --  Prepare one explicitly source-durable Actual and publish it.
    function Record_Identified
      (State     : HRA.Household.Household_State;
       Tx        : HRA.Ledger.Transaction;
