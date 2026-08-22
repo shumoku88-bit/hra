@@ -7,6 +7,7 @@ project HRA_Tests is
    for Exec_Dir use "bin";
    for Main use
      ("test_actual_admission.adb",
+      "test_actual_id_selection.adb",
       "test_actual_candidate.adb",
       "test_actual_root_candidate.adb",
       "test_actual_graph_admission.adb",
@@ -82,6 +83,7 @@ project HRA_Tests is
 
    package Builder is
       for Executable ("test_actual_admission.adb") use "test_actual_admission";
+      for Executable ("test_actual_id_selection.adb") use "test_actual_id_selection";
       for Executable ("test_actual_candidate.adb") use "test_actual_candidate";
       for Executable ("test_actual_root_candidate.adb") use "test_actual_root_candidate";
       for Executable ("test_actual_graph_admission.adb") use "test_actual_graph_admission";
