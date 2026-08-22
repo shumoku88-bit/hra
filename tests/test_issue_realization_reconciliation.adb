@@ -20,6 +20,7 @@ with HRA.Money;
 procedure Test_Issue_Realization_Reconciliation is
    use type HRA.Issue_Realization_Reconciliation.Recognized_World;
    use type HRA.Issue_Realization_Reconciliation.Reconciliation_Status;
+   use type HRA.Money.Quantity;
 
    Passed : Natural := 0;
    Failed : Natural := 0;
