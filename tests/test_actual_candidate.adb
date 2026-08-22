@@ -94,27 +94,32 @@ begin
 
    declare
       Tx : HRA.Ledger.Transaction := Balanced_Transaction;
-      Expected : constant String :=
-        "2026-08-20" & ASCII.LF &
-        "    ; event-id: chair-actual" & ASCII.LF &
-        "    assets:cash" & ASCII.HT & "-20000 JPY" & ASCII.LF &
-        "    expenses:household" & ASCII.HT & "20000 JPY" & ASCII.LF;
    begin
       Tx.Code_Or_Payee := Null_Unbounded_String;
       Assert
-        (HRA.Actual_Candidate.Prepare (Tx, ID, Candidate, Diag),
-         "Empty description prepares valid date-only header block");
-      Assert
-        (HRA.Actual_Candidate.Text (Candidate) = Expected,
-         "Empty description candidate emits date-only header with no trailing whitespace");
+        (not HRA.Actual_Candidate.Prepare (Tx, ID, Candidate, Diag)
+           and then Diag.Status = HRA.Actual_Candidate.Description_Required,
+         "Empty description is rejected instead of emitting a date-only header");
 
       Tx.Code_Or_Payee := To_Unbounded_String ("   ");
       Assert
-        (HRA.Actual_Candidate.Prepare (Tx, ID, Candidate, Diag),
-         "Whitespace-only description prepares valid date-only header block");
+        (not HRA.Actual_Candidate.Prepare (Tx, ID, Candidate, Diag)
+           and then Diag.Status = HRA.Actual_Candidate.Description_Required,
+         "Whitespace-only description is rejected instead of being normalized away");
+
+      Tx.Code_Or_Payee := To_Unbounded_String (" Chair");
       Assert
-        (HRA.Actual_Candidate.Text (Candidate) = Expected,
-         "Whitespace-only description candidate emits date-only header with no trailing whitespace");
+        (not HRA.Actual_Candidate.Prepare (Tx, ID, Candidate, Diag)
+           and then Diag.Status =
+             HRA.Actual_Candidate.Description_Has_Surrounding_Whitespace,
+         "Leading description whitespace is rejected instead of silently trimmed");
+
+      Tx.Code_Or_Payee := To_Unbounded_String ("Chair ");
+      Assert
+        (not HRA.Actual_Candidate.Prepare (Tx, ID, Candidate, Diag)
+           and then Diag.Status =
+             HRA.Actual_Candidate.Description_Has_Surrounding_Whitespace,
+         "Trailing description whitespace is rejected instead of silently trimmed");
    end;
 
    declare
