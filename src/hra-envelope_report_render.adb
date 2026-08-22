@@ -7,6 +7,7 @@ with HRA.Envelope_Consumption;
 with HRA.Envelope_Fulfillment;
 with HRA.Household_Envelope_Cycle_Comparison;
 with HRA.Money; use HRA.Money;
+with HRA.Terminal_Layout;
 
 package body HRA.Envelope_Report_Render is
 
@@ -62,8 +63,68 @@ package body HRA.Envelope_Report_Render is
         HRA.Household_Report_Observation.Envelope_Report_Observation)
       return String
    is
-      Buf : Unbounded_String;
+      Buf               : Unbounded_String;
+      Envelope_Width    : Natural := HRA.Terminal_Layout.Display_Width ("Envelope");
+      Entitlement_Width : Natural := HRA.Terminal_Layout.Display_Width ("Entitlement");
+      Consumption_Width : Natural := HRA.Terminal_Layout.Display_Width ("Consumption");
+      Refunds_Width     : Natural := HRA.Terminal_Layout.Display_Width ("Refunds");
+      Fulfillment_Width : Natural := HRA.Terminal_Layout.Display_Width ("Fulfillment");
+      Remaining_Width   : Natural := HRA.Terminal_Layout.Display_Width ("Remaining");
+      Reserve_Width     : Natural := HRA.Terminal_Layout.Display_Width ("Plan reserve");
+      Headroom_Width    : Natural := HRA.Terminal_Layout.Display_Width ("Headroom");
+
+      procedure Append_Envelope_Row
+        (Envelope, Entitlement, Consumption, Refunds, Fulfillment, Remaining,
+         Reserve, Headroom : String)
+      is
+      begin
+         Append
+           (Buf,
+            HRA.Terminal_Layout.Pad_Right (Envelope, Envelope_Width) & " | " &
+            HRA.Terminal_Layout.Pad_Left (Entitlement, Entitlement_Width) & " | " &
+            HRA.Terminal_Layout.Pad_Left (Consumption, Consumption_Width) & " | " &
+            HRA.Terminal_Layout.Pad_Left (Refunds, Refunds_Width) & " | " &
+            HRA.Terminal_Layout.Pad_Left (Fulfillment, Fulfillment_Width) & " | " &
+            HRA.Terminal_Layout.Pad_Left (Remaining, Remaining_Width) & " | " &
+            HRA.Terminal_Layout.Pad_Left (Reserve, Reserve_Width) & " | " &
+            HRA.Terminal_Layout.Pad_Left (Headroom, Headroom_Width) & ASCII.LF);
+      end Append_Envelope_Row;
    begin
+      for Line of Observation.Lines loop
+         Envelope_Width := Natural'Max
+           (Envelope_Width,
+            HRA.Terminal_Layout.Display_Width
+              (HRA.Envelope.Image (Line.Env_Id)));
+         Entitlement_Width := Natural'Max
+           (Entitlement_Width,
+            HRA.Terminal_Layout.Display_Width
+              (Render_Balance (Line.Entitlement)));
+         Consumption_Width := Natural'Max
+           (Consumption_Width,
+            HRA.Terminal_Layout.Display_Width
+              (Render_Balance (Line.Consumption_Charges)));
+         Refunds_Width := Natural'Max
+           (Refunds_Width,
+            HRA.Terminal_Layout.Display_Width
+              (Render_Balance (Line.Consumption_Refunds)));
+         Fulfillment_Width := Natural'Max
+           (Fulfillment_Width,
+            HRA.Terminal_Layout.Display_Width
+              (Render_Balance (Line.Net_Fulfillment)));
+         Remaining_Width := Natural'Max
+           (Remaining_Width,
+            HRA.Terminal_Layout.Display_Width
+              (Render_Balance (Line.Remaining)));
+         Reserve_Width := Natural'Max
+           (Reserve_Width,
+            HRA.Terminal_Layout.Display_Width
+              (Render_Balance (Line.Plan_Commitment)));
+         Headroom_Width := Natural'Max
+           (Headroom_Width,
+            HRA.Terminal_Layout.Display_Width
+              (Render_Balance (Line.Headroom)));
+      end loop;
+
       Append (Buf, "== Envelope & Backing ==" & ASCII.LF);
       Append
         (Buf,
@@ -72,24 +133,25 @@ package body HRA.Envelope_Report_Render is
       Append_Window (Buf, "Current cycle", Observation.Current_Cycle);
       Append (Buf, ASCII.LF);
 
+      Append_Envelope_Row
+        ("Envelope", "Entitlement", "Consumption", "Refunds", "Fulfillment",
+         "Remaining", "Plan reserve", "Headroom");
       Append
         (Buf,
-         "Envelope | Entitlement | Consumption | Refunds | Fulfillment | Remaining | Plan reserve | Headroom" &
-         ASCII.LF);
-      Append
-        (Buf,
-         "------------------------------------------------------------------------------------------------" &
-         ASCII.LF);
+         [1 .. Envelope_Width + Entitlement_Width + Consumption_Width +
+                Refunds_Width + Fulfillment_Width + Remaining_Width +
+                Reserve_Width + Headroom_Width + 21 => '-'] & ASCII.LF);
 
       for Line of Observation.Lines loop
-         Append (Buf, HRA.Envelope.Image (Line.Env_Id) & " | ");
-         Append (Buf, Render_Balance (Line.Entitlement) & " | ");
-         Append (Buf, Render_Balance (Line.Consumption_Charges) & " | ");
-         Append (Buf, Render_Balance (Line.Consumption_Refunds) & " | ");
-         Append (Buf, Render_Balance (Line.Net_Fulfillment) & " | ");
-         Append (Buf, Render_Balance (Line.Remaining) & " | ");
-         Append (Buf, Render_Balance (Line.Plan_Commitment) & " | ");
-         Append (Buf, Render_Balance (Line.Headroom) & ASCII.LF);
+         Append_Envelope_Row
+           (HRA.Envelope.Image (Line.Env_Id),
+            Render_Balance (Line.Entitlement),
+            Render_Balance (Line.Consumption_Charges),
+            Render_Balance (Line.Consumption_Refunds),
+            Render_Balance (Line.Net_Fulfillment),
+            Render_Balance (Line.Remaining),
+            Render_Balance (Line.Plan_Commitment),
+            Render_Balance (Line.Headroom));
       end loop;
 
       if not Observation.Unmanaged_Consumption.Is_Empty
@@ -221,26 +283,30 @@ package body HRA.Envelope_Report_Render is
          Append
            (Buf,
             "Envelope: " & HRA.Envelope.Image (Line.Env_Id) & ASCII.LF &
-            "  Entitlement change       : " &
-            Render_Balance (Line.Entitlement) & ASCII.LF &
-            "  Consumption charges change: " &
-            Render_Balance (Line.Consumption_Charges) & ASCII.LF &
-            "  Consumption refunds change: " &
-            Render_Balance (Line.Consumption_Refunds) & ASCII.LF &
-            "  Net consumption change   : " &
-            Render_Balance (Line.Net_Consumption) & ASCII.LF &
-            "  Fulfillment applied change: " &
-            Render_Balance (Line.Fulfillment_Applied) & ASCII.LF &
-            "  Fulfillment reversed change: " &
-            Render_Balance (Line.Fulfillment_Reversed) & ASCII.LF &
-            "  Net fulfillment change   : " &
-            Render_Balance (Line.Net_Fulfillment) & ASCII.LF &
-            "  Remaining change         : " &
-            Render_Balance (Line.Remaining) & ASCII.LF &
-            "  Plan commitment change   : " &
-            Render_Balance (Line.Plan_Commitment) & ASCII.LF &
-            "  Headroom change          : " &
-            Render_Balance (Line.Headroom) & ASCII.LF & ASCII.LF);
+            "  " & HRA.Terminal_Layout.Pad_Right ("Entitlement change", 27) &
+            ": " & Render_Balance (Line.Entitlement) & ASCII.LF &
+            "  " & HRA.Terminal_Layout.Pad_Right
+              ("Consumption charges change", 27) &
+            ": " & Render_Balance (Line.Consumption_Charges) & ASCII.LF &
+            "  " & HRA.Terminal_Layout.Pad_Right
+              ("Consumption refunds change", 27) &
+            ": " & Render_Balance (Line.Consumption_Refunds) & ASCII.LF &
+            "  " & HRA.Terminal_Layout.Pad_Right ("Net consumption change", 27) &
+            ": " & Render_Balance (Line.Net_Consumption) & ASCII.LF &
+            "  " & HRA.Terminal_Layout.Pad_Right
+              ("Fulfillment applied change", 27) &
+            ": " & Render_Balance (Line.Fulfillment_Applied) & ASCII.LF &
+            "  " & HRA.Terminal_Layout.Pad_Right
+              ("Fulfillment reversed change", 27) &
+            ": " & Render_Balance (Line.Fulfillment_Reversed) & ASCII.LF &
+            "  " & HRA.Terminal_Layout.Pad_Right ("Net fulfillment change", 27) &
+            ": " & Render_Balance (Line.Net_Fulfillment) & ASCII.LF &
+            "  " & HRA.Terminal_Layout.Pad_Right ("Remaining change", 27) &
+            ": " & Render_Balance (Line.Remaining) & ASCII.LF &
+            "  " & HRA.Terminal_Layout.Pad_Right ("Plan commitment change", 27) &
+            ": " & Render_Balance (Line.Plan_Commitment) & ASCII.LF &
+            "  " & HRA.Terminal_Layout.Pad_Right ("Headroom change", 27) &
+            ": " & Render_Balance (Line.Headroom) & ASCII.LF & ASCII.LF);
       end loop;
 
       return To_String (Buf);

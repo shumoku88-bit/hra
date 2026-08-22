@@ -4,6 +4,7 @@ with HRA.Cycle_Accounts_Observation;
 with HRA.Cycle_Observation;
 with HRA.Dates;
 with HRA.Money; use HRA.Money;
+with HRA.Terminal_Layout;
 
 package body HRA.Cycle_Accounts_Render is
 
@@ -46,8 +47,77 @@ package body HRA.Cycle_Accounts_Render is
    function Render_Current
      (Value : HRA.Cycle_Accounts_Observation.Observation) return String
    is
-      Buf : Unbounded_String;
+      Buf            : Unbounded_String;
+      Account_Width  : Natural := HRA.Terminal_Layout.Display_Width ("Account");
+      Opening_Width  : Natural := HRA.Terminal_Layout.Display_Width ("Opening");
+      Debit_Width    : Natural := HRA.Terminal_Layout.Display_Width ("Debit");
+      Credit_Width   : Natural := HRA.Terminal_Layout.Display_Width ("Credit");
+      Movement_Width : Natural := HRA.Terminal_Layout.Display_Width ("Movement");
+      Closing_Width  : Natural := HRA.Terminal_Layout.Display_Width ("Closing");
+
+      procedure Append_Row
+        (Account, Opening, Debit, Credit, Movement, Closing : String)
+      is
+      begin
+         Append
+           (Buf,
+            HRA.Terminal_Layout.Pad_Right (Account, Account_Width) & " | " &
+            HRA.Terminal_Layout.Pad_Left (Opening, Opening_Width) & " | " &
+            HRA.Terminal_Layout.Pad_Left (Debit, Debit_Width) & " | " &
+            HRA.Terminal_Layout.Pad_Left (Credit, Credit_Width) & " | " &
+            HRA.Terminal_Layout.Pad_Left (Movement, Movement_Width) & " | " &
+            HRA.Terminal_Layout.Pad_Left (Closing, Closing_Width) & ASCII.LF);
+      end Append_Row;
    begin
+      for Row of Value.Rows loop
+         Account_Width := Natural'Max
+           (Account_Width,
+            HRA.Terminal_Layout.Display_Width (HRA.Account.Name (Row.Acc)));
+         Opening_Width := Natural'Max
+           (Opening_Width,
+            HRA.Terminal_Layout.Display_Width (Render_Balance (Row.Opening)));
+         Debit_Width := Natural'Max
+           (Debit_Width,
+            HRA.Terminal_Layout.Display_Width (Render_Balance (Row.Debit)));
+         Credit_Width := Natural'Max
+           (Credit_Width,
+            HRA.Terminal_Layout.Display_Width (Render_Balance (Row.Credit)));
+         Movement_Width := Natural'Max
+           (Movement_Width,
+            HRA.Terminal_Layout.Display_Width
+              (Render_Balance
+                 (HRA.Cycle_Accounts_Observation.Movement (Row))));
+         Closing_Width := Natural'Max
+           (Closing_Width,
+            HRA.Terminal_Layout.Display_Width
+              (Render_Balance (HRA.Cycle_Accounts_Observation.Closing (Row))));
+      end loop;
+      Opening_Width := Natural'Max
+        (Opening_Width,
+         HRA.Terminal_Layout.Display_Width
+           (Render_Balance
+              (HRA.Cycle_Accounts_Observation.Opening_Total (Value))));
+      Debit_Width := Natural'Max
+        (Debit_Width,
+         HRA.Terminal_Layout.Display_Width
+           (Render_Balance
+              (HRA.Cycle_Accounts_Observation.Debit_Total (Value))));
+      Credit_Width := Natural'Max
+        (Credit_Width,
+         HRA.Terminal_Layout.Display_Width
+           (Render_Balance
+              (HRA.Cycle_Accounts_Observation.Credit_Total (Value))));
+      Movement_Width := Natural'Max
+        (Movement_Width,
+         HRA.Terminal_Layout.Display_Width
+           (Render_Balance
+              (HRA.Cycle_Accounts_Observation.Movement_Total (Value))));
+      Closing_Width := Natural'Max
+        (Closing_Width,
+         HRA.Terminal_Layout.Display_Width
+           (Render_Balance
+              (HRA.Cycle_Accounts_Observation.Closing_Total (Value))));
+
       Append (Buf, "== Current Cycle Accounts ==" & ASCII.LF);
       Append
         (Buf,
@@ -57,36 +127,30 @@ package body HRA.Cycle_Accounts_Render is
          HRA.Dates.Image (HRA.Cycle_Observation.End_Exclusive (Value.Window)) &
          " (end exclusive) | Observed through: " &
          HRA.Dates.Image (Value.Observed_Through) & ASCII.LF & ASCII.LF);
+      Append_Row
+        ("Account", "Opening", "Debit", "Credit", "Movement", "Closing");
       Append
         (Buf,
-         "Account | Opening | Debit | Credit | Movement | Closing" &
-         ASCII.LF);
-      Append
-        (Buf,
-         "--------------------------------------------------------" &
-         ASCII.LF);
+         [1 .. Account_Width + Opening_Width + Debit_Width + Credit_Width +
+                Movement_Width + Closing_Width + 15 => '-'] & ASCII.LF);
 
       for Row of Value.Rows loop
-         Append
-           (Buf,
-            HRA.Account.Name (Row.Acc) & " | " &
-            Render_Balance (Row.Opening) & " | " &
-            Render_Balance (Row.Debit) & " | " &
-            Render_Balance (Row.Credit) & " | " &
-            Render_Balance (HRA.Cycle_Accounts_Observation.Movement (Row)) & " | " &
-            Render_Balance (HRA.Cycle_Accounts_Observation.Closing (Row)) &
-            ASCII.LF);
+         Append_Row
+           (HRA.Account.Name (Row.Acc),
+            Render_Balance (Row.Opening),
+            Render_Balance (Row.Debit),
+            Render_Balance (Row.Credit),
+            Render_Balance (HRA.Cycle_Accounts_Observation.Movement (Row)),
+            Render_Balance (HRA.Cycle_Accounts_Observation.Closing (Row)));
       end loop;
 
-      Append
-        (Buf,
-         "Total | " &
-         Render_Balance (HRA.Cycle_Accounts_Observation.Opening_Total (Value)) & " | " &
-         Render_Balance (HRA.Cycle_Accounts_Observation.Debit_Total (Value)) & " | " &
-         Render_Balance (HRA.Cycle_Accounts_Observation.Credit_Total (Value)) & " | " &
-         Render_Balance (HRA.Cycle_Accounts_Observation.Movement_Total (Value)) & " | " &
-         Render_Balance (HRA.Cycle_Accounts_Observation.Closing_Total (Value)) &
-         ASCII.LF);
+      Append_Row
+        ("Total",
+         Render_Balance (HRA.Cycle_Accounts_Observation.Opening_Total (Value)),
+         Render_Balance (HRA.Cycle_Accounts_Observation.Debit_Total (Value)),
+         Render_Balance (HRA.Cycle_Accounts_Observation.Credit_Total (Value)),
+         Render_Balance (HRA.Cycle_Accounts_Observation.Movement_Total (Value)),
+         Render_Balance (HRA.Cycle_Accounts_Observation.Closing_Total (Value)));
       Append
         (Buf,
          "Double-entry balanced: " &
@@ -99,8 +163,62 @@ package body HRA.Cycle_Accounts_Render is
      (Value : HRA.Report_Cycle_Accounts.Cycle_Comparison_Observation)
       return String
    is
-      Buf : Unbounded_String;
+      Buf              : Unbounded_String;
+      Account_Width    : Natural := HRA.Terminal_Layout.Display_Width ("Account");
+      Current_Width    : Natural :=
+        HRA.Terminal_Layout.Display_Width ("Current movement");
+      Previous_Width   : Natural :=
+        HRA.Terminal_Layout.Display_Width ("Previous same-day");
+      Difference_Width : Natural :=
+        HRA.Terminal_Layout.Display_Width ("Difference");
+
+      procedure Append_Row
+        (Account, Current, Previous, Difference : String)
+      is
+      begin
+         Append
+           (Buf,
+            HRA.Terminal_Layout.Pad_Right (Account, Account_Width) & " | " &
+            HRA.Terminal_Layout.Pad_Left (Current, Current_Width) & " | " &
+            HRA.Terminal_Layout.Pad_Left (Previous, Previous_Width) & " | " &
+            HRA.Terminal_Layout.Pad_Left (Difference, Difference_Width) &
+            ASCII.LF);
+      end Append_Row;
    begin
+      for Row of Value.Rows loop
+         Account_Width := Natural'Max
+           (Account_Width,
+            HRA.Terminal_Layout.Display_Width (HRA.Account.Name (Row.Acc)));
+         Current_Width := Natural'Max
+           (Current_Width,
+            HRA.Terminal_Layout.Display_Width
+              (Render_Balance (Row.Current_Movement)));
+         Previous_Width := Natural'Max
+           (Previous_Width,
+            HRA.Terminal_Layout.Display_Width
+              (Render_Balance (Row.Baseline_Movement)));
+         Difference_Width := Natural'Max
+           (Difference_Width,
+            HRA.Terminal_Layout.Display_Width
+              (Render_Balance
+                 (HRA.Report_Cycle_Accounts.Difference (Row))));
+      end loop;
+      Current_Width := Natural'Max
+        (Current_Width,
+         HRA.Terminal_Layout.Display_Width
+           (Render_Balance
+              (HRA.Report_Cycle_Accounts.Current_Total (Value))));
+      Previous_Width := Natural'Max
+        (Previous_Width,
+         HRA.Terminal_Layout.Display_Width
+           (Render_Balance
+              (HRA.Report_Cycle_Accounts.Baseline_Total (Value))));
+      Difference_Width := Natural'Max
+        (Difference_Width,
+         HRA.Terminal_Layout.Display_Width
+           (Render_Balance
+              (HRA.Report_Cycle_Accounts.Difference_Total (Value))));
+
       Append (Buf, "== Cycle Comparison (Aligned Elapsed) ==" & ASCII.LF);
       Append
         (Buf,
@@ -119,32 +237,26 @@ package body HRA.Cycle_Accounts_Render is
            (HRA.Cycle_Observation.End_Exclusive (Value.Baseline.Window)) &
          " through " & HRA.Dates.Image (Value.Baseline.Observed_Through) &
          ASCII.LF & ASCII.LF);
+      Append_Row
+        ("Account", "Current movement", "Previous same-day", "Difference");
       Append
         (Buf,
-         "Account | Current movement | Previous same-day | Difference" &
-         ASCII.LF);
-      Append
-        (Buf,
-         "------------------------------------------------------------" &
-         ASCII.LF);
+         [1 .. Account_Width + Current_Width + Previous_Width +
+                Difference_Width + 9 => '-'] & ASCII.LF);
 
       for Row of Value.Rows loop
-         Append
-           (Buf,
-            HRA.Account.Name (Row.Acc) & " | " &
-            Render_Balance (Row.Current_Movement) & " | " &
-            Render_Balance (Row.Baseline_Movement) & " | " &
-            Render_Balance (HRA.Report_Cycle_Accounts.Difference (Row)) &
-            ASCII.LF);
+         Append_Row
+           (HRA.Account.Name (Row.Acc),
+            Render_Balance (Row.Current_Movement),
+            Render_Balance (Row.Baseline_Movement),
+            Render_Balance (HRA.Report_Cycle_Accounts.Difference (Row)));
       end loop;
 
-      Append
-        (Buf,
-         "Total | " &
-         Render_Balance (HRA.Report_Cycle_Accounts.Current_Total (Value)) & " | " &
-         Render_Balance (HRA.Report_Cycle_Accounts.Baseline_Total (Value)) & " | " &
-         Render_Balance (HRA.Report_Cycle_Accounts.Difference_Total (Value)) &
-         ASCII.LF);
+      Append_Row
+        ("Total",
+         Render_Balance (HRA.Report_Cycle_Accounts.Current_Total (Value)),
+         Render_Balance (HRA.Report_Cycle_Accounts.Baseline_Total (Value)),
+         Render_Balance (HRA.Report_Cycle_Accounts.Difference_Total (Value)));
       Append
         (Buf,
          "Double-entry balanced: " &

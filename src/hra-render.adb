@@ -6,6 +6,7 @@ with HRA.Dates;
 with HRA.Issues;
 with HRA.Money;             use HRA.Money;
 with HRA.Report_Flow;
+with HRA.Terminal_Layout;
 
 package body HRA.Render is
 
@@ -53,12 +54,18 @@ package body HRA.Render is
       Append (Buf, "== Account Balances (hra Engine) ==" & ASCII.LF);
       Append (Buf, "As of: " & HRA.Dates.Image (Value.As_Of) & ASCII.LF);
       Append (Buf, ASCII.LF);
-      Append (Buf, "Account         |      Balance" & ASCII.LF);
+      Append
+        (Buf,
+         HRA.Terminal_Layout.Pad_Right ("Account", 15) & " | " &
+         HRA.Terminal_Layout.Pad_Left ("Balance", 12) & ASCII.LF);
       Append (Buf, "------------------------------" & ASCII.LF);
 
       for Line of Value.Display_Lines loop
-         Append (Buf, Name (Line.Acc) & " | ");
-         Append (Buf, Render_Multi_Balance (Line.Bal) & ASCII.LF);
+         Append
+           (Buf,
+            HRA.Terminal_Layout.Pad_Right (Name (Line.Acc), 15) & " | " &
+            HRA.Terminal_Layout.Pad_Left
+              (Render_Multi_Balance (Line.Bal), 12) & ASCII.LF);
       end loop;
 
       Append (Buf, ASCII.LF);
@@ -78,50 +85,70 @@ package body HRA.Render is
       Append (Buf, "== Balance Sheet (hra Engine) ==" & ASCII.LF);
       Append (Buf, "As of: " & HRA.Dates.Image (Value.As_Of) & ASCII.LF);
       Append (Buf, ASCII.LF & "Assets" & ASCII.LF);
-      Append (Buf, "Account      |    Balance" & ASCII.LF);
+      Append
+        (Buf,
+         HRA.Terminal_Layout.Pad_Right ("Account", 12) & " | " &
+         HRA.Terminal_Layout.Pad_Left ("Balance", 10) & ASCII.LF);
       Append (Buf, "-------------------------" & ASCII.LF);
       for Line of Value.Value.Asset_Lines loop
          Append
            (Buf,
-            Name (Line.Acc) & " | " & Render_Multi_Balance (Line.Bal) &
-            ASCII.LF);
+            HRA.Terminal_Layout.Pad_Right (Name (Line.Acc), 12) & " | " &
+            HRA.Terminal_Layout.Pad_Left
+              (Render_Multi_Balance (Line.Bal), 10) & ASCII.LF);
       end loop;
       Append
         (Buf,
-         "Total assets | " & Render_Multi_Balance (Value.Value.Total_Assets) &
+         HRA.Terminal_Layout.Pad_Right ("Total assets", 12) & " | " &
+         HRA.Terminal_Layout.Pad_Left
+           (Render_Multi_Balance (Value.Value.Total_Assets), 10) &
          ASCII.LF & ASCII.LF);
 
       Append (Buf, "Liabilities" & ASCII.LF);
-      Append (Buf, "Account           | Balance" & ASCII.LF);
+      Append
+        (Buf,
+         HRA.Terminal_Layout.Pad_Right ("Account", 17) & " | " &
+         HRA.Terminal_Layout.Pad_Left ("Balance", 7) & ASCII.LF);
       Append (Buf, "---------------------------" & ASCII.LF);
       for Line of Value.Value.Liability_Lines loop
          Append
            (Buf,
-            Name (Line.Acc) & " | " & Render_Multi_Balance (Line.Bal) &
-            ASCII.LF);
+            HRA.Terminal_Layout.Pad_Right (Name (Line.Acc), 17) & " | " &
+            HRA.Terminal_Layout.Pad_Left
+              (Render_Multi_Balance (Line.Bal), 7) & ASCII.LF);
       end loop;
       Append
         (Buf,
-         "Total liabilities | " &
-         Render_Multi_Balance (Value.Value.Total_Liabilities) & ASCII.LF & ASCII.LF);
+         HRA.Terminal_Layout.Pad_Right ("Total liabilities", 17) & " | " &
+         HRA.Terminal_Layout.Pad_Left
+           (Render_Multi_Balance (Value.Value.Total_Liabilities), 7) &
+         ASCII.LF & ASCII.LF);
 
       Append (Buf, "Equity" & ASCII.LF);
-      Append (Buf, "Account          |    Balance" & ASCII.LF);
+      Append
+        (Buf,
+         HRA.Terminal_Layout.Pad_Right ("Account", 16) & " | " &
+         HRA.Terminal_Layout.Pad_Left ("Balance", 10) & ASCII.LF);
       Append (Buf, "-----------------------------" & ASCII.LF);
       for Line of Value.Value.Equity_Lines loop
          Append
            (Buf,
-            Name (Line.Acc) & " | " & Render_Multi_Balance (Line.Bal) &
-            ASCII.LF);
+            HRA.Terminal_Layout.Pad_Right (Name (Line.Acc), 16) & " | " &
+            HRA.Terminal_Layout.Pad_Left
+              (Render_Multi_Balance (Line.Bal), 10) & ASCII.LF);
       end loop;
       Append
         (Buf,
-         "Total equity     | " & Render_Multi_Balance (Value.Value.Total_Equity) &
+         HRA.Terminal_Layout.Pad_Right ("Total equity", 16) & " | " &
+         HRA.Terminal_Layout.Pad_Left
+           (Render_Multi_Balance (Value.Value.Total_Equity), 10) &
          ASCII.LF & ASCII.LF);
       Append
         (Buf,
-         "Current earnings | " &
-         Render_Multi_Balance (Value.Value.Current_Earnings) & ASCII.LF);
+         HRA.Terminal_Layout.Pad_Right ("Current earnings", 16) & " | " &
+         HRA.Terminal_Layout.Pad_Left
+           (Render_Multi_Balance (Value.Value.Current_Earnings), 10) &
+         ASCII.LF);
       Append
         (Buf,
          "Accounting Equation delta (Assets - Liabilities - Equity): " &
@@ -144,67 +171,125 @@ package body HRA.Render is
          HRA.Dates.Image (HRA.Dates.Last (Value.Period)) & ASCII.LF & ASCII.LF);
 
       Append (Buf, "Income" & ASCII.LF);
-      Append (Buf, "Account       |    Amount" & ASCII.LF);
+      Append
+        (Buf,
+         HRA.Terminal_Layout.Pad_Right ("Account", 13) & " | " &
+         HRA.Terminal_Layout.Pad_Left ("Amount", 9) & ASCII.LF);
       Append (Buf, "-------------------------" & ASCII.LF);
       for Line of Value.Value.Income_Lines loop
          Append
            (Buf,
-            Name (Line.Acc) & " | " & Render_Multi_Balance (Line.Bal) &
-            ASCII.LF);
+            HRA.Terminal_Layout.Pad_Right (Name (Line.Acc), 13) & " | " &
+            HRA.Terminal_Layout.Pad_Left
+              (Render_Multi_Balance (Line.Bal), 9) & ASCII.LF);
       end loop;
       Append
         (Buf,
-         "Total Income  | " & Render_Multi_Balance (Value.Value.Total_Income) &
+         HRA.Terminal_Layout.Pad_Right ("Total Income", 13) & " | " &
+         HRA.Terminal_Layout.Pad_Left
+           (Render_Multi_Balance (Value.Value.Total_Income), 9) &
          ASCII.LF & ASCII.LF);
 
       Append (Buf, "Expenses" & ASCII.LF);
-      Append (Buf, "Account                        |    Amount" & ASCII.LF);
+      Append
+        (Buf,
+         HRA.Terminal_Layout.Pad_Right ("Account", 30) & " | " &
+         HRA.Terminal_Layout.Pad_Left ("Amount", 9) & ASCII.LF);
       Append (Buf, "------------------------------------------" & ASCII.LF);
       for Line of Value.Value.Expense_Lines loop
          Append
            (Buf,
-            Name (Line.Acc) & " | " & Render_Multi_Balance (Line.Bal) &
-            ASCII.LF);
+            HRA.Terminal_Layout.Pad_Right (Name (Line.Acc), 30) & " | " &
+            HRA.Terminal_Layout.Pad_Left
+              (Render_Multi_Balance (Line.Bal), 9) & ASCII.LF);
       end loop;
       Append
         (Buf,
-         "Total Expenses                 | " &
-         Render_Multi_Balance (Value.Value.Total_Expenses) & ASCII.LF);
+         HRA.Terminal_Layout.Pad_Right ("Total Expenses", 30) & " | " &
+         HRA.Terminal_Layout.Pad_Left
+           (Render_Multi_Balance (Value.Value.Total_Expenses), 9) & ASCII.LF);
       Append (Buf, "------------------------------------------" & ASCII.LF);
       Append
         (Buf,
-         "Net Profit (Income - Expenses) | " &
-         Render_Multi_Balance (Value.Value.Net_Income) & ASCII.LF);
+         HRA.Terminal_Layout.Pad_Right
+           ("Net Profit (Income - Expenses)", 30) & " | " &
+         HRA.Terminal_Layout.Pad_Left
+           (Render_Multi_Balance (Value.Value.Net_Income), 9) & ASCII.LF);
       return To_String (Buf);
    end Render_Profit_And_Loss;
 
    function Render_Daily_Flow
      (Value : HRA.Report_Flow.Daily_Flow_Observation) return String
    is
-      Buf : Unbounded_String;
+      Buf            : Unbounded_String;
+      Date_Width     : Natural := HRA.Terminal_Layout.Display_Width ("Date");
+      Income_Width   : Natural := HRA.Terminal_Layout.Display_Width ("Income");
+      Expenses_Width : Natural := HRA.Terminal_Layout.Display_Width ("Expenses");
+      Net_Width      : Natural := HRA.Terminal_Layout.Display_Width ("Net");
+
+      procedure Append_Row (Date, Income, Expenses, Net : String) is
+      begin
+         Append
+           (Buf,
+            HRA.Terminal_Layout.Pad_Right (Date, Date_Width) & " | " &
+            HRA.Terminal_Layout.Pad_Left (Income, Income_Width) & " | " &
+            HRA.Terminal_Layout.Pad_Left (Expenses, Expenses_Width) & " | " &
+            HRA.Terminal_Layout.Pad_Left (Net, Net_Width) & ASCII.LF);
+      end Append_Row;
    begin
+      for Line of Value.Lines loop
+         Date_Width := Natural'Max
+           (Date_Width,
+            HRA.Terminal_Layout.Display_Width (HRA.Dates.Image (Line.Day)));
+         Income_Width := Natural'Max
+           (Income_Width,
+            HRA.Terminal_Layout.Display_Width
+              (Render_Multi_Balance (Line.Income)));
+         Expenses_Width := Natural'Max
+           (Expenses_Width,
+            HRA.Terminal_Layout.Display_Width
+              (Render_Multi_Balance (Line.Expenses)));
+         Net_Width := Natural'Max
+           (Net_Width,
+            HRA.Terminal_Layout.Display_Width
+              (Render_Multi_Balance (HRA.Report_Flow.Net (Line))));
+      end loop;
+      Income_Width := Natural'Max
+        (Income_Width,
+         HRA.Terminal_Layout.Display_Width
+           (Render_Multi_Balance (HRA.Report_Flow.Total_Income (Value))));
+      Expenses_Width := Natural'Max
+        (Expenses_Width,
+         HRA.Terminal_Layout.Display_Width
+           (Render_Multi_Balance (HRA.Report_Flow.Total_Expenses (Value))));
+      Net_Width := Natural'Max
+        (Net_Width,
+         HRA.Terminal_Layout.Display_Width
+           (Render_Multi_Balance (HRA.Report_Flow.Total_Net (Value))));
+
       Append (Buf, "== Daily Flow (Account x Day) ==" & ASCII.LF);
       Append
         (Buf,
          "Period: " & HRA.Dates.Image (HRA.Dates.First (Value.Period)) &
          ".." & HRA.Dates.Image (HRA.Dates.Last (Value.Period)) &
          ASCII.LF & ASCII.LF);
-      Append (Buf, "Date | Income | Expenses | Net" & ASCII.LF);
-      Append (Buf, "------------------------------" & ASCII.LF);
-      for Line of Value.Lines loop
-         Append
-           (Buf,
-            HRA.Dates.Image (Line.Day) & " | " &
-            Render_Multi_Balance (Line.Income) & " | " &
-            Render_Multi_Balance (Line.Expenses) & " | " &
-            Render_Multi_Balance (HRA.Report_Flow.Net (Line)) & ASCII.LF);
-      end loop;
+      Append_Row ("Date", "Income", "Expenses", "Net");
       Append
         (Buf,
-         "Total | " & Render_Multi_Balance (HRA.Report_Flow.Total_Income (Value)) &
-         " | " & Render_Multi_Balance (HRA.Report_Flow.Total_Expenses (Value)) &
-         " | " & Render_Multi_Balance (HRA.Report_Flow.Total_Net (Value)) &
+         [1 .. Date_Width + Income_Width + Expenses_Width + Net_Width + 9 => '-'] &
          ASCII.LF);
+      for Line of Value.Lines loop
+         Append_Row
+           (HRA.Dates.Image (Line.Day),
+            Render_Multi_Balance (Line.Income),
+            Render_Multi_Balance (Line.Expenses),
+            Render_Multi_Balance (HRA.Report_Flow.Net (Line)));
+      end loop;
+      Append_Row
+        ("Total",
+         Render_Multi_Balance (HRA.Report_Flow.Total_Income (Value)),
+         Render_Multi_Balance (HRA.Report_Flow.Total_Expenses (Value)),
+         Render_Multi_Balance (HRA.Report_Flow.Total_Net (Value)));
 
       if not Value.Expense_Rows.Is_Empty then
          Append (Buf, ASCII.LF & "Expense accounts by day" & ASCII.LF);
@@ -225,7 +310,21 @@ package body HRA.Render is
    function Render_Monthly_Accounts
      (Value : HRA.Report_Flow.Monthly_Accounts_Observation) return String
    is
-      Buf : Unbounded_String;
+      Buf            : Unbounded_String;
+      Month_Width    : Natural := HRA.Terminal_Layout.Display_Width ("Month");
+      Income_Width   : Natural := HRA.Terminal_Layout.Display_Width ("Income");
+      Expenses_Width : Natural := HRA.Terminal_Layout.Display_Width ("Expenses");
+      Net_Width      : Natural := HRA.Terminal_Layout.Display_Width ("Net");
+
+      procedure Append_Summary_Row (Month, Income, Expenses, Net : String) is
+      begin
+         Append
+           (Buf,
+            HRA.Terminal_Layout.Pad_Right (Month, Month_Width) & " | " &
+            HRA.Terminal_Layout.Pad_Left (Income, Income_Width) & " | " &
+            HRA.Terminal_Layout.Pad_Left (Expenses, Expenses_Width) & " | " &
+            HRA.Terminal_Layout.Pad_Left (Net, Net_Width) & ASCII.LF);
+      end Append_Summary_Row;
 
       procedure Render_Rows
         (Label : String;
@@ -250,6 +349,28 @@ package body HRA.Render is
          end loop;
       end Render_Rows;
    begin
+      for Month of Value.Months loop
+         Month_Width := Natural'Max
+           (Month_Width,
+            HRA.Terminal_Layout.Display_Width
+              (HRA.Report_Flow.Image (Month)));
+         Income_Width := Natural'Max
+           (Income_Width,
+            HRA.Terminal_Layout.Display_Width
+              (Render_Multi_Balance
+                 (HRA.Report_Flow.Income_For (Value, Month))));
+         Expenses_Width := Natural'Max
+           (Expenses_Width,
+            HRA.Terminal_Layout.Display_Width
+              (Render_Multi_Balance
+                 (HRA.Report_Flow.Expenses_For (Value, Month))));
+         Net_Width := Natural'Max
+           (Net_Width,
+            HRA.Terminal_Layout.Display_Width
+              (Render_Multi_Balance
+                 (HRA.Report_Flow.Net_For (Value, Month))));
+      end loop;
+
       Append (Buf, "== Monthly Accounts (Account x Month) ==" & ASCII.LF);
       Append
         (Buf,
@@ -258,18 +379,17 @@ package body HRA.Render is
          " | Displayed months: " &
          Trim (Natural'Image (Natural (Value.Months.Length)), Both) &
          ASCII.LF & ASCII.LF);
-      Append (Buf, "Month | Income | Expenses | Net" & ASCII.LF);
-      Append (Buf, "-------------------------------" & ASCII.LF);
+      Append_Summary_Row ("Month", "Income", "Expenses", "Net");
+      Append
+        (Buf,
+         [1 .. Month_Width + Income_Width + Expenses_Width + Net_Width + 9 => '-'] &
+         ASCII.LF);
       for Month of Value.Months loop
-         Append
-           (Buf,
-            HRA.Report_Flow.Image (Month) & " | " &
-            Render_Multi_Balance (HRA.Report_Flow.Income_For (Value, Month)) &
-            " | " &
-            Render_Multi_Balance (HRA.Report_Flow.Expenses_For (Value, Month)) &
-            " | " &
-            Render_Multi_Balance (HRA.Report_Flow.Net_For (Value, Month)) &
-            ASCII.LF);
+         Append_Summary_Row
+           (HRA.Report_Flow.Image (Month),
+            Render_Multi_Balance (HRA.Report_Flow.Income_For (Value, Month)),
+            Render_Multi_Balance (HRA.Report_Flow.Expenses_For (Value, Month)),
+            Render_Multi_Balance (HRA.Report_Flow.Net_For (Value, Month)));
       end loop;
 
       Render_Rows ("Income accounts", Value.Income_Rows);
