@@ -1,4 +1,6 @@
 with Ada.Directories;       use Ada.Directories;
+with Ada.Streams;           use Ada.Streams;
+with Ada.Streams.Stream_IO;
 with Ada.Strings.Fixed;     use Ada.Strings.Fixed;
 with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
 with Ada.Text_IO;           use Ada.Text_IO;
@@ -7,6 +9,8 @@ with HRA.Ledger;        use HRA.Ledger;
 with HRA.Plan_Admission;
 
 procedure Test_Journal_Loader is
+   use type HRA.Journal_Loader.Source_Kind;
+
    Passed_Count : Natural := 0;
    Failed_Count : Natural := 0;
 
@@ -21,13 +25,31 @@ procedure Test_Journal_Loader is
       end if;
    end Assert;
 
-   procedure Write_Text (Path : String; Text : String) is
-      File : File_Type;
+   procedure Write_Exact (Path : String; Text : String) is
+      package SIO renames Ada.Streams.Stream_IO;
+      File : SIO.File_Type;
    begin
-      Create (File, Out_File, Path);
-      Put (File, Text);
-      Close (File);
-   end Write_Text;
+      SIO.Create (File, SIO.Out_File, Path);
+      if Text'Length > 0 then
+         declare
+            Bytes : Stream_Element_Array
+              (1 .. Stream_Element_Offset (Text'Length));
+         begin
+            for I in Text'Range loop
+               Bytes (Stream_Element_Offset (I - Text'First + 1)) :=
+                 Stream_Element (Character'Pos (Text (I)));
+            end loop;
+            SIO.Write (File, Bytes);
+         end;
+      end if;
+      SIO.Close (File);
+   exception
+      when others =>
+         if SIO.Is_Open (File) then
+            SIO.Close (File);
+         end if;
+         raise;
+   end Write_Exact;
 
    Temp_Dir   : constant String := ".hra-test-journal-loader";
    Sub_Dir    : constant String := Compose (Temp_Dir, "sub");
@@ -76,11 +98,11 @@ begin
    Create_Directory (Temp_Dir);
    Create_Directory (Sub_Dir);
 
-   --  The root path must exist so it can be normalized, but these bytes must
-   --  never replace the already-observed Root_Source supplied by the caller.
-   Write_Text (Root_Path, "THIS ON-DISK ROOT MUST NOT BE READ" & ASCII.LF);
-   Write_Text (Child_Path, Child_Source);
-   Write_Text (Grand_Path, Grand_Source);
+   --  Exact-source assertions use exact binary fixtures. The root file keeps a
+   --  sentinel because its bytes must never replace the caller-supplied source.
+   Write_Exact (Root_Path, "THIS ON-DISK ROOT MUST NOT BE READ" & ASCII.LF);
+   Write_Exact (Child_Path, Child_Source);
+   Write_Exact (Grand_Path, Grand_Source);
 
    declare
       Obs : HRA.Journal_Loader.Journal_Observation;
@@ -100,6 +122,33 @@ begin
            and then To_String (L.Transactions.Element (3).Code_Or_Payee) = "Grand"
            and then To_String (L.Transactions.Element (4).Code_Or_Payee) = "Root After",
          "include substitution preserves source order");
+
+      Assert
+        (Natural (Obs.Sources.Length) = 3,
+         "graph observation retains one exact source witness per physical document");
+
+      declare
+         Root_Witness  : constant HRA.Journal_Loader.Source_Observation :=
+           Obs.Sources.Element (1);
+         Child_Witness : constant HRA.Journal_Loader.Source_Observation :=
+           Obs.Sources.Element (2);
+         Grand_Witness : constant HRA.Journal_Loader.Source_Observation :=
+           Obs.Sources.Element (3);
+      begin
+         Assert
+           (Root_Witness.Kind = HRA.Journal_Loader.Supplied_Root
+            and then Simple_Name (To_String (Root_Witness.Path)) = "root.journal"
+            and then To_String (Root_Witness.Text) = Root_Source,
+            "root witness retains supplied bytes rather than rereading on-disk root");
+         Assert
+           (Child_Witness.Kind = HRA.Journal_Loader.Included_File
+            and then Simple_Name (To_String (Child_Witness.Path)) = "child.journal"
+            and then To_String (Child_Witness.Text) = Child_Source
+            and then Grand_Witness.Kind = HRA.Journal_Loader.Included_File
+            and then Simple_Name (To_String (Grand_Witness.Path)) = "grand.journal"
+            and then To_String (Grand_Witness.Text) = Grand_Source,
+            "included source witnesses retain exact bytes used by the same graph admission");
+      end;
 
       Assert
         (Natural (Obs.Evidence.Transactions.Length) = 4,
@@ -162,8 +211,8 @@ begin
       Cycle_Root  : constant String := "include sub/cycle.journal" & ASCII.LF;
       Cycle_Child : constant String := "include ../root.journal" & ASCII.LF;
    begin
-      Write_Text (Root_Path, Cycle_Root);
-      Write_Text (Cycle_Path, Cycle_Child);
+      Write_Exact (Root_Path, Cycle_Root);
+      Write_Exact (Cycle_Path, Cycle_Child);
       Assert
         (not HRA.Journal_Loader.Load_From_Root_Source
            (Root_Path, Cycle_Root, L, Err)
@@ -189,7 +238,7 @@ begin
         "    assets:cash         -50 JPY" & ASCII.LF;
       Root_With_Bad : constant String := "include sub/bad.journal" & ASCII.LF;
    begin
-      Write_Text (Bad_Path, Bad_Source);
+      Write_Exact (Bad_Path, Bad_Source);
       Assert
         (not HRA.Journal_Loader.Load_From_Root_Source
            (Root_Path, Root_With_Bad, L, Err)

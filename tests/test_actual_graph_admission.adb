@@ -1,5 +1,7 @@
 with Ada.Command_Line;
 with Ada.Directories; use Ada.Directories;
+with Ada.Streams; use Ada.Streams;
+with Ada.Streams.Stream_IO;
 with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
 with Ada.Text_IO; use Ada.Text_IO;
 with HRA.Account;
@@ -15,6 +17,7 @@ with HRA.Money;
 procedure Test_Actual_Graph_Admission is
    use type HRA.Actual_Admission.Admission_Status;
    use type HRA.Actual_Graph_Admission.Admission_Status;
+   use type HRA.Journal_Loader.Source_Kind;
    use type HRA.Money.Quantity;
 
    Passed_Count : Natural := 0;
@@ -31,13 +34,31 @@ procedure Test_Actual_Graph_Admission is
       end if;
    end Assert;
 
-   procedure Write_Text (Path : String; Text : String) is
-      File : File_Type;
+   procedure Write_Exact (Path : String; Text : String) is
+      package SIO renames Ada.Streams.Stream_IO;
+      File : SIO.File_Type;
    begin
-      Create (File, Out_File, Path);
-      Put (File, Text);
-      Close (File);
-   end Write_Text;
+      SIO.Create (File, SIO.Out_File, Path);
+      if Text'Length > 0 then
+         declare
+            Bytes : Stream_Element_Array
+              (1 .. Stream_Element_Offset (Text'Length));
+         begin
+            for I in Text'Range loop
+               Bytes (Stream_Element_Offset (I - Text'First + 1)) :=
+                 Stream_Element (Character'Pos (Text (I)));
+            end loop;
+            SIO.Write (File, Bytes);
+         end;
+      end if;
+      SIO.Close (File);
+   exception
+      when others =>
+         if SIO.Is_Open (File) then
+            SIO.Close (File);
+         end if;
+         raise;
+   end Write_Exact;
 
    function D (Value : String) return HRA.Dates.Date is
       Result : HRA.Dates.Date;
@@ -147,9 +168,10 @@ begin
    end if;
    Create_Directory (Temp_Dir);
 
-   --  Root bytes are supplied by the typed candidate and must not be reread.
-   Write_Text (Root_Path, "THIS ON-DISK ROOT MUST NOT BE READ" & ASCII.LF);
-   Write_Text (Child_Path, Child_Source);
+   --  Exact-source tests must create exact source bytes. The root still carries
+   --  sentinel bytes because the typed candidate, not the file, owns root input.
+   Write_Exact (Root_Path, "THIS ON-DISK ROOT MUST NOT BE READ" & ASCII.LF);
+   Write_Exact (Child_Path, Child_Source);
 
    declare
       Graph       : HRA.Journal_Loader.Journal_Observation;
@@ -183,11 +205,43 @@ begin
       Assert
         (HRA.Actual_Graph_Admission.Admit_Candidate_Root
            (Existing,
-            Root_Path,
             Root_Candidate,
             Graph_Candidate,
             Diag),
-         "Candidate graph resolves includes from supplied root bytes and admits one new Actual");
+         "Candidate graph resolves includes from its bound root source and admits one new Actual");
+
+      declare
+         Bound_Root : constant HRA.Actual_Root_Candidate.Candidate_Root :=
+           HRA.Actual_Graph_Admission.Root_Of (Graph_Candidate);
+      begin
+         Assert
+           (HRA.Actual_Root_Candidate.Root_Path_Of (Bound_Root) = Root_Path
+            and then HRA.Actual_Root_Candidate.Observed_Text (Bound_Root) = Root_Source
+            and then HRA.Actual_Root_Candidate.Text (Bound_Root) =
+              HRA.Actual_Root_Candidate.Text (Root_Candidate),
+            "Candidate graph retains the root path, observed bytes, and candidate bytes that produced it");
+      end;
+
+      Assert
+        (HRA.Actual_Graph_Admission.Source_Count (Graph_Candidate) = 2,
+         "Candidate graph retains one supplied root witness and one included-file witness");
+
+      declare
+         Root_Witness : constant HRA.Journal_Loader.Source_Observation :=
+           HRA.Actual_Graph_Admission.Source_At (Graph_Candidate, 1);
+         Child_Witness : constant HRA.Journal_Loader.Source_Observation :=
+           HRA.Actual_Graph_Admission.Source_At (Graph_Candidate, 2);
+      begin
+         Assert
+           (Root_Witness.Kind = HRA.Journal_Loader.Supplied_Root
+            and then To_String (Root_Witness.Path) = Full_Name (Root_Path)
+            and then To_String (Root_Witness.Text) =
+              HRA.Actual_Root_Candidate.Text (Root_Candidate)
+            and then Child_Witness.Kind = HRA.Journal_Loader.Included_File
+            and then To_String (Child_Witness.Path) = Full_Name (Child_Path)
+            and then To_String (Child_Witness.Text) = Child_Source,
+            "Graph source witness uses supplied candidate root bytes and exact included bytes from the same admission");
+      end;
 
       declare
          Observation : constant HRA.Actual_Admission.Actual_Observation :=
@@ -218,13 +272,10 @@ begin
       Graph_Candidate : HRA.Actual_Graph_Admission.Candidate_Graph;
       Diag            : HRA.Actual_Graph_Admission.Admission_Diagnostic;
    begin
-      --  Local root preparation cannot see the included identity. The graph
-      --  boundary must reject the collision once the include is resolved.
       Build_Root_Candidate ("child-existing", "Duplicate", Root_Candidate);
       Assert
         (not HRA.Actual_Graph_Admission.Admit_Candidate_Root
            (Existing,
-            Root_Path,
             Root_Candidate,
             Graph_Candidate,
             Diag)
@@ -239,12 +290,11 @@ begin
       Graph_Candidate : HRA.Actual_Graph_Admission.Candidate_Graph;
       Diag            : HRA.Actual_Graph_Admission.Admission_Diagnostic;
    begin
-      Write_Text (Child_Path, Changed_Child_Source);
+      Write_Exact (Child_Path, Changed_Child_Source);
       Build_Root_Candidate ("after-drift", "After Drift", Root_Candidate);
       Assert
         (not HRA.Actual_Graph_Admission.Admit_Candidate_Root
            (Existing,
-            Root_Path,
             Root_Candidate,
             Graph_Candidate,
             Diag)
@@ -262,7 +312,6 @@ begin
       Assert
         (not HRA.Actual_Graph_Admission.Admit_Candidate_Root
            (Existing,
-            Root_Path,
             Root_Candidate,
             Graph_Candidate,
             Diag)

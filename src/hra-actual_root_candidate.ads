@@ -6,12 +6,18 @@ with HRA.Journal_Evidence;
 --  Pure placement of one already-admitted Actual source block into the observed
 --  root Journal bytes.
 --
+--  Candidate_Root keeps the physical root coordinate together with both the
+--  exact bytes observed before mutation and the exact candidate bytes produced
+--  from them. Later graph admission therefore cannot pair the candidate text
+--  with a different root path or reconstruct its publication premise.
+--
 --  This package does not read the filesystem or resolve include directives.
---  Includes remain root source text for the later Journal_Loader boundary.
 package HRA.Actual_Root_Candidate is
 
    type Candidate_Root is private;
 
+   function Root_Path_Of (Candidate : Candidate_Root) return String;
+   function Observed_Text (Candidate : Candidate_Root) return String;
    function Text (Candidate : Candidate_Root) return String;
 
    type Candidate_Status is
@@ -29,9 +35,9 @@ package HRA.Actual_Root_Candidate is
       Message  : Unbounded_String;
    end record;
 
-   --  Preserve Root_Text byte-for-byte, adding only one LF when the observed
-   --  root lacks a trailing LF, then append Block exactly. Root_Path is source
-   --  provenance for root-local Journal/Evidence admission only; it is never
+   --  Preserve Root_Text byte-for-byte as the observed premise, adding only one
+   --  LF to the candidate when the non-empty root lacks a trailing LF, then
+   --  append Block exactly. Root_Path is retained as provenance and is never
    --  opened here.
    function Prepare
      (Root_Path : String;
@@ -44,7 +50,9 @@ package HRA.Actual_Root_Candidate is
 private
 
    type Candidate_Root is record
-      Source_Text : Unbounded_String;
+      Root_Path            : Unbounded_String;
+      Observed_Source_Text : Unbounded_String;
+      Candidate_Source_Text : Unbounded_String;
    end record;
 
 end HRA.Actual_Root_Candidate;
