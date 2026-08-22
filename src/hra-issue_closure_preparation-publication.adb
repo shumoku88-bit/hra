@@ -33,24 +33,29 @@ package body HRA.Issue_Closure_Preparation.Publication is
          return True;
       end if;
 
-      --  Single-target atomic guarded replacement of issues.tsv
-      if not HRA.Writer.Atomic_Replace_Exact_Guarded
-        (Target_Path => To_String (Prepared.Target_Path),
-         Expected    => HRA.Writer.Make_Expected_Source
-           (To_String (Prepared.Expected_Text)),
-         Candidate   => HRA.Writer.Make_Candidate_Source
-           (HRA.Issue_Close.Text (Prepared.Candidate)),
-         Guards      => HRA.Writer.No_Premises,
-         Status      => Writer_Status,
-         Error_Msg   => Writer_Error)
-      then
-         Result :=
-           (Kind          => Failed,
-            Writer_Status => Writer_Status,
-            Message       => Writer_Error,
-            Failure       => Writer_Failure);
-         return False;
-      end if;
+      declare
+         Guards : constant HRA.Writer.Source_Premise_Array (1 .. 0) :=
+           [others => <>];
+      begin
+         --  Single-target atomic guarded replacement of issues.tsv
+         if not HRA.Writer.Atomic_Replace_Exact_Guarded
+           (Target_Path => To_String (Prepared.Target_Path),
+            Expected    => HRA.Writer.Make_Expected_Source
+              (To_String (Prepared.Expected_Text)),
+            Candidate   => HRA.Writer.Make_Candidate_Source
+              (HRA.Issue_Close.Text (Prepared.Candidate)),
+            Guards      => Guards,
+            Status      => Writer_Status,
+            Error_Msg   => Writer_Error)
+         then
+            Result :=
+              (Kind          => Failed,
+               Writer_Status => Writer_Status,
+               Message       => Writer_Error,
+               Failure       => Writer_Failure);
+            return False;
+         end if;
+      end;
 
       --  Post-publication domain validation
       if not HRA.Issues.Admit_Issues_TSV

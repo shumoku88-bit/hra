@@ -3,7 +3,6 @@ with HRA.Dates;
 with HRA.Household;
 with HRA.Issue_Close;
 with HRA.Issues;
-with HRA.Writer;
 
 --  Publication-free preparation of one Issue lifecycle close without financial
 --  fact (Resolve_Issue or Drop_Issue).
