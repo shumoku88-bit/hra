@@ -5,6 +5,7 @@ with HRA.Daily_Target_Observation;
 with HRA.Daily_Target_Rate;
 with HRA.Daily_Target_Scope;
 with HRA.Money; use HRA.Money;
+with HRA.Terminal_Layout;
 
 package body HRA.Daily_Target_Render is
 
@@ -155,32 +156,32 @@ package body HRA.Daily_Target_Render is
       Append (Result, "  Breakdown:" & ASCII.LF);
       Append
         (Result,
-         "    Eligible assets:       " &
+         "    " & HRA.Terminal_Layout.Pad_Right ("Eligible assets:", 23) &
          Render_Balance (HRA.Daily_Target_Observation.Eligible_Assets (Value)) &
          ASCII.LF);
       Append
         (Result,
-         "    Open obligations:      " &
+         "    " & HRA.Terminal_Layout.Pad_Right ("Open obligations:", 23) &
          Render_Balance (HRA.Daily_Target_Observation.Open_Obligations (Value)) &
          ASCII.LF);
       Append
         (Result,
-         "    Excluded reservations: " &
+         "    " & HRA.Terminal_Layout.Pad_Right ("Excluded reservations:", 23) &
          Render_Balance (HRA.Daily_Target_Observation.Already_Excluded (Value)) &
          ASCII.LF);
       Append
         (Result,
-         "    Net obligations:       " &
+         "    " & HRA.Terminal_Layout.Pad_Right ("Net obligations:", 23) &
          Render_Balance (HRA.Daily_Target_Observation.Net_Obligations (Value)) &
          ASCII.LF);
       Append
         (Result,
-         "    Capacity:              " &
+         "    " & HRA.Terminal_Layout.Pad_Right ("Capacity:", 23) &
          Render_Balance (HRA.Daily_Target_Observation.Capacity (Value)) &
          ASCII.LF);
       Append
         (Result,
-         "    Remaining days:        " &
+         "    " & HRA.Terminal_Layout.Pad_Right ("Remaining days:", 23) &
          Days'Image (2 .. Days'Image'Last) & ASCII.LF);
       return To_String (Result);
    end Render_Observation;

@@ -8,6 +8,7 @@ with HRA.Journal_Evidence;
 with HRA.Ledger;
 with HRA.Recent_Journal;
 with HRA.Recent_Journal_Render;
+with HRA.Terminal_UTF8;
 
 procedure Test_Recent_Journal is
    Passed_Count : Natural := 0;
@@ -57,6 +58,7 @@ procedure Test_Recent_Journal is
    Result        : HRA.Recent_Journal.Observation;
 
 begin
+   HRA.Terminal_UTF8.Initialize;
    Put_Line ("--- Testing HRA.Recent_Journal ---");
 
    Assert
