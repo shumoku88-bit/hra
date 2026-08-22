@@ -75,6 +75,23 @@ source topology / meaningへ触れる作業では、HRA内の文書や過去実�
 - Editor/TUIへuse-case compositionを積まず、Application境界を先に置く
 - 8-source observationにwriter concurrencyが入る段階で途中変更検出を追加する
 
+## 最短feedback / PR flow
+
+安全gateを減らさず、同じ証拠を得る高コストcommandの重複だけを避ける。
+
+- 作業開始時にactual `main`、対象PR/head、latest CI、working treeを確認し、cleanな`main`からsmall branchを切る
+- development中は変更箇所に対応する最小のbuild / focused test / proofを先に使い、同じheadへ`qualify`を繰り返さない
+- branchは最初のreviewable commitでpushしてDraft PRを作り、long-running repository qualificationをGitHub CIと並行させる
+- latest successful `main` CIや同条件の信頼できるbenchmarkがある場合、変更前baselineをローカルで再実行しない
+- benchmarkは比較条件を固定し、各候補に必要な最小回数だけ実行する。全候補後の重複`qualify`は行わない
+- PR latest headのGitHub `qualify`をrepository-only full qualificationの正本とする。Ready / mergeのgateはlatest head CI success、mergeable、未解決blockerなしである
+- local `qualify`はPR CIを使えない場合、CI failureの診断、またはlocal固有の証拠が必要な場合だけ実行する。private canonical root、platform固有動作、resource計測は必要な対象commandだけを使う
+- taskがmergeまでを含む場合、gate通過後は待たずにReady、squash merge、branch delete、local `main` syncまで進める。明示されたreview checkpointやDraft維持指示は優先する
+- successful PR CI後に起動するpost-merge `main` CIは結果を追跡するが、merge完了報告や次の独立作業を待たせるgateにはしない
+- source mutation、CI/compiler failure、writer/domain correctnessでは速度よりexact evidenceを優先し、必要ならraw outputへ戻る
+
+このflowはtest数、SPARK checks、proof level、full CI qualificationを減らす許可ではない。
+
 ## 検証
 
 Repository-only qualification:
