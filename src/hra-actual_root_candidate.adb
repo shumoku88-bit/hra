@@ -18,6 +18,41 @@ package body HRA.Actual_Root_Candidate is
      ((Line_Number => 0,
        Message     => Null_Unbounded_String));
 
+   --  Compare source meaning while intentionally ignoring physical placement.
+   --  Root placement changes Source_Path, Header_Line, and metadata line numbers,
+   --  but it must not change the transaction text or metadata key/value meaning.
+   function Same_Evidence_Meaning
+     (Left  : HRA.Journal_Evidence.Transaction_Source;
+      Right : HRA.Journal_Evidence.Transaction_Source) return Boolean
+   is
+      Left_Metadata_Count  : constant Natural := Natural (Left.Metadata.Length);
+      Right_Metadata_Count : constant Natural := Natural (Right.Metadata.Length);
+   begin
+      if To_String (Left.Date_Text) /= To_String (Right.Date_Text)
+        or else To_String (Left.Description) /= To_String (Right.Description)
+        or else Left_Metadata_Count /= Right_Metadata_Count
+      then
+         return False;
+      end if;
+
+      for I in 1 .. Left_Metadata_Count loop
+         declare
+            Left_Entry  : constant HRA.Journal_Evidence.Metadata_Entry :=
+              Left.Metadata.Element (I);
+            Right_Entry : constant HRA.Journal_Evidence.Metadata_Entry :=
+              Right.Metadata.Element (I);
+         begin
+            if To_String (Left_Entry.Key) /= To_String (Right_Entry.Key)
+              or else To_String (Left_Entry.Value) /= To_String (Right_Entry.Value)
+            then
+               return False;
+            end if;
+         end;
+      end loop;
+
+      return True;
+   end Same_Evidence_Meaning;
+
    function Prepare
      (Root_Path : String;
       Root_Text : String;
@@ -172,7 +207,17 @@ package body HRA.Actual_Root_Candidate is
          then
             Diag.Status := Semantic_Roundtrip_Failed;
             Diag.Message := To_Unbounded_String
-              ("Actual root candidate changed appended block meaning");
+              ("Actual root candidate changed appended block transaction meaning");
+            return False;
+         end if;
+
+         if not Same_Evidence_Meaning
+           (Candidate_Evidence.Transactions.Element (Candidate_Evidence_Count),
+            Block_Evidence.Transactions.Element (1))
+         then
+            Diag.Status := Semantic_Roundtrip_Failed;
+            Diag.Message := To_Unbounded_String
+              ("Actual root candidate changed appended block evidence meaning");
             return False;
          end if;
       end;
