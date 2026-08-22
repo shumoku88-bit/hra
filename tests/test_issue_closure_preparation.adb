@@ -157,9 +157,10 @@ procedure Test_Issue_Closure_Preparation is
      Closed_Old_Row & ASCII.LF;
 
    Accounts_Text : constant String :=
-     "account assets:wallet" & ASCII.LF &
-     "account expenses:chair" & ASCII.LF &
-     "account expenses:desk" & ASCII.LF;
+     "account assets:wallet" & ASCII.LF & "  ; type: Asset" & ASCII.LF &
+     "account expenses:chair" & ASCII.LF & "  ; type: Expense" & ASCII.LF &
+     "account expenses:desk" & ASCII.LF & "  ; type: Expense" & ASCII.LF &
+     "account income:salary" & ASCII.LF & "  ; type: Income" & ASCII.LF;
 
    Actual_Text : constant String :=
      "2026-08-15 Base fact" & ASCII.LF &
@@ -167,26 +168,41 @@ procedure Test_Issue_Closure_Preparation is
      "    assets:wallet         -1000 JPY" & ASCII.LF &
      "    expenses:chair         1000 JPY" & ASCII.LF;
 
-   Plan_Text : constant String :=
-     "2026-08-25 Planned item" & ASCII.LF &
-     "    ; plan-id: plan-1" & ASCII.LF &
-     "    expenses:desk          5000 JPY" & ASCII.LF &
-     "    assets:wallet" & ASCII.LF;
+   Plan_Text : constant String := "";
 
    Entitlement_Text : constant String :=
-     "2026-08-01 origin 10000 JPY" & ASCII.LF &
-     "    wallet" & ASCII.LF;
+     "2026-08-01 origin JPY ; epoch" & ASCII.LF &
+     "2026-08-01 transfer unallocated -> chair 1000 JPY" & ASCII.LF;
 
    Envelope_Text : constant String :=
-     "[envelope]" & ASCII.LF;
+     "[[backing-pools]]" & ASCII.LF & "id = ""liquid""" & ASCII.LF &
+     "asset-accounts = [""assets:wallet""]" & ASCII.LF &
+     "[[envelopes]]" & ASCII.LF & "id = ""chair""" & ASCII.LF &
+     "label = ""Chair""" & ASCII.LF & "pacing = ""daily""" & ASCII.LF &
+     "backing-pool = ""liquid""" & ASCII.LF;
 
    Household_Text : constant String :=
-     "name = ""Test""" & ASCII.LF &
-     "base_currency = ""JPY""" & ASCII.LF &
-     "cycle_start_day = 1" & ASCII.LF;
+     "[cycle]" & ASCII.LF & "mode = ""income-anchor""" & ASCII.LF &
+     "income-account = ""income:salary""" & ASCII.LF & "[money]" & ASCII.LF &
+     "primary-commodity = ""JPY""" & ASCII.LF & "[envelope-history]" & ASCII.LF &
+     "identities = [""chair""]" & ASCII.LF &
+     "[[envelope-history.expense-routing]]" & ASCII.LF &
+     "effective-from = ""initial""" & ASCII.LF &
+     "expense-account = ""expenses:chair""" & ASCII.LF &
+     "route = ""managed""" & ASCII.LF & "target = ""chair""" & ASCII.LF &
+     "note = ""fixture""" & ASCII.LF;
 
    Report_Text : constant String :=
-     "[report]" & ASCII.LF;
+     "[presentation.amounts]" & ASCII.LF & "negative-style = ""parentheses""" & ASCII.LF &
+     "[reports.trial-balance]" & ASCII.LF & "as-of = ""latest""" & ASCII.LF &
+     "[reports.balance-sheet]" & ASCII.LF & "as-of = ""latest""" & ASCII.LF &
+     "[reports.profit-and-loss]" & ASCII.LF & "from = ""beginning""" & ASCII.LF &
+     "through = ""latest""" & ASCII.LF & "[reports.daily-flow]" & ASCII.LF &
+     "from = ""beginning""" & ASCII.LF & "through = ""latest""" & ASCII.LF &
+     "max-date-columns = 7" & ASCII.LF & "[reports.monthly-accounts]" & ASCII.LF &
+     "from = ""beginning""" & ASCII.LF & "through = ""latest""" & ASCII.LF &
+     "[reports.recent-transactions]" & ASCII.LF & "through = ""latest""" & ASCII.LF &
+     "count = 10" & ASCII.LF;
 
    procedure Reset (Issues_Content : String := Initial_Issues_Text) is
    begin
