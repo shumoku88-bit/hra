@@ -1,4 +1,5 @@
 with Ada.Command_Line;
+with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
 with Ada.Text_IO; use Ada.Text_IO;
 with HRA.Account;
 with HRA.Dates;
