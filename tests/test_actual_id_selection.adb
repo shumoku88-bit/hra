@@ -131,12 +131,12 @@ begin
    declare
       Observation : constant HRA.Actual_Admission.Actual_Observation :=
         Admit_Source (Plan_Derived_Source);
-      Entry : constant HRA.Actual_Admission.Actual_Transaction_Entry :=
+      Actual_Item : constant HRA.Actual_Admission.Actual_Transaction_Entry :=
         HRA.Actual_Admission.Transaction_At (Observation, 1);
    begin
       Assert
-        (Entry.Identity.Present
-         and then HRA.Actual_Admission.Text (Entry.Identity.Value) =
+        (Actual_Item.Identity.Present
+         and then HRA.Actual_Admission.Text (Actual_Item.Identity.Value) =
            "plan-completion-plan-a"
          and then Selected_Text (Observation) = "hra-actual-1",
          "Selector observes the effective identity universe without confusing Plan-derived identity with generated namespace");
