@@ -7,6 +7,7 @@ with HRA.Actual_Candidate;
 with HRA.Actual_Root_Candidate;
 with HRA.Dates;
 with HRA.Journal;
+with HRA.Journal_Evidence;
 with HRA.Ledger;
 with HRA.Money;
 
@@ -105,8 +106,12 @@ begin
         "    expenses:household" & ASCII.HT & "100 JPY";
       Expected : constant String :=
         Existing & ASCII.LF & HRA.Actual_Candidate.Text (Block);
-      Parsed   : HRA.Ledger.Ledger;
-      Parse_Diag : HRA.Journal.Parse_Diagnostic;
+      Parsed        : HRA.Ledger.Ledger;
+      Parse_Diag    : HRA.Journal.Parse_Diagnostic;
+      Evidence      : HRA.Journal_Evidence.Journal_Evidence;
+      Evidence_Diag : HRA.Journal_Evidence.Evidence_Diagnostic;
+      Parse_OK      : Boolean;
+      Evidence_OK   : Boolean := False;
    begin
       Assert
         (HRA.Actual_Root_Candidate.Prepare
@@ -115,16 +120,38 @@ begin
       Assert
         (HRA.Actual_Root_Candidate.Text (Candidate) = Expected,
          "Existing CRLF root bytes are preserved and only one LF boundary is appended");
+
+      Parse_OK := HRA.Journal.Parse_Journal_Text
+        (HRA.Actual_Root_Candidate.Text (Candidate),
+         Root_Path,
+         Parsed,
+         Parse_Diag);
       Assert
-        (HRA.Journal.Parse_Journal_Text
+        (Parse_OK
+         and then Natural (Parsed.Transactions.Length) = 2
+         and then Length (Parsed.Transactions.Element (2).Event_ID) = 0,
+         "Root-local Journal retains two direct transactions without inventing Ledger identity ownership");
+
+      if Parse_OK then
+         Evidence_OK := HRA.Journal_Evidence.Extract
            (HRA.Actual_Root_Candidate.Text (Candidate),
             Root_Path,
             Parsed,
-            Parse_Diag)
-         and then Natural (Parsed.Transactions.Length) = 2
-         and then To_String (Parsed.Transactions.Element (2).Event_ID) =
-           "chair-actual",
-         "Complete root candidate retains existing direct meaning and appended durable identity");
+            Evidence,
+            Evidence_Diag);
+      end if;
+      Assert
+        (Evidence_OK
+         and then Natural (Evidence.Transactions.Length) = 2
+         and then Natural
+           (Evidence.Transactions.Element (2).Metadata.Length) = 1
+         and then To_String
+           (Evidence.Transactions.Element (2).Metadata.Element (1).Key) =
+             "event-id"
+         and then To_String
+           (Evidence.Transactions.Element (2).Metadata.Element (1).Value) =
+             "chair-actual",
+         "Appended durable identity remains owned by Journal Evidence before Actual admission");
    end;
 
    declare
