@@ -15,6 +15,7 @@ with HRA.Money;
 procedure Test_Actual_Graph_Admission is
    use type HRA.Actual_Admission.Admission_Status;
    use type HRA.Actual_Graph_Admission.Admission_Status;
+   use type HRA.Journal_Loader.Source_Kind;
    use type HRA.Money.Quantity;
 
    Passed_Count : Natural := 0;
@@ -183,11 +184,43 @@ begin
       Assert
         (HRA.Actual_Graph_Admission.Admit_Candidate_Root
            (Existing,
-            Root_Path,
             Root_Candidate,
             Graph_Candidate,
             Diag),
-         "Candidate graph resolves includes from supplied root bytes and admits one new Actual");
+         "Candidate graph resolves includes from its bound root source and admits one new Actual");
+
+      declare
+         Bound_Root : constant HRA.Actual_Root_Candidate.Candidate_Root :=
+           HRA.Actual_Graph_Admission.Root_Of (Graph_Candidate);
+      begin
+         Assert
+           (HRA.Actual_Root_Candidate.Root_Path_Of (Bound_Root) = Root_Path
+            and then HRA.Actual_Root_Candidate.Observed_Text (Bound_Root) = Root_Source
+            and then HRA.Actual_Root_Candidate.Text (Bound_Root) =
+              HRA.Actual_Root_Candidate.Text (Root_Candidate),
+            "Candidate graph retains the root path, observed bytes, and candidate bytes that produced it");
+      end;
+
+      Assert
+        (HRA.Actual_Graph_Admission.Source_Count (Graph_Candidate) = 2,
+         "Candidate graph retains one supplied root witness and one included-file witness");
+
+      declare
+         Root_Witness : constant HRA.Journal_Loader.Source_Observation :=
+           HRA.Actual_Graph_Admission.Source_At (Graph_Candidate, 1);
+         Child_Witness : constant HRA.Journal_Loader.Source_Observation :=
+           HRA.Actual_Graph_Admission.Source_At (Graph_Candidate, 2);
+      begin
+         Assert
+           (Root_Witness.Kind = HRA.Journal_Loader.Supplied_Root
+            and then To_String (Root_Witness.Path) = Full_Name (Root_Path)
+            and then To_String (Root_Witness.Text) =
+              HRA.Actual_Root_Candidate.Text (Root_Candidate)
+            and then Child_Witness.Kind = HRA.Journal_Loader.Included_File
+            and then To_String (Child_Witness.Path) = Full_Name (Child_Path)
+            and then To_String (Child_Witness.Text) = Child_Source,
+            "Graph source witness uses supplied candidate root bytes and exact included bytes from the same admission");
+      end;
 
       declare
          Observation : constant HRA.Actual_Admission.Actual_Observation :=
@@ -224,7 +257,6 @@ begin
       Assert
         (not HRA.Actual_Graph_Admission.Admit_Candidate_Root
            (Existing,
-            Root_Path,
             Root_Candidate,
             Graph_Candidate,
             Diag)
@@ -244,7 +276,6 @@ begin
       Assert
         (not HRA.Actual_Graph_Admission.Admit_Candidate_Root
            (Existing,
-            Root_Path,
             Root_Candidate,
             Graph_Candidate,
             Diag)
@@ -262,7 +293,6 @@ begin
       Assert
         (not HRA.Actual_Graph_Admission.Admit_Candidate_Root
            (Existing,
-            Root_Path,
             Root_Candidate,
             Graph_Candidate,
             Diag)
