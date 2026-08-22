@@ -1,3 +1,5 @@
+with Ada.Strings;
+with Ada.Strings.Fixed;
 with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
 with HRA.Household_Actual_Record;
 with HRA.Household_Actual_Record_TUI;
@@ -5,6 +7,8 @@ with HRA.Household_Home_Command;
 with HRA.Household_Home_Interaction;
 with HRA.Household_Home_Observation;
 with HRA.Household_Home_TUI_Input;
+with HRA.Household_Plan_Record;
+with HRA.Plan;
 with HRA.Terminal_UTF8;
 with Terminal_Interface.Curses;
 
@@ -16,6 +20,7 @@ package body HRA.Household_Home_TUI is
    package Curses renames Terminal_Interface.Curses;
    package Record_TUI renames HRA.Household_Actual_Record_TUI;
    use type HRA.Dates.Date;
+   use type HRA.Household_Plan_Record.Record_Status;
 
    procedure Draw
      (State       : HRA.Household.Household_State;
@@ -76,7 +81,8 @@ package body HRA.Household_Home_TUI is
            (Line        => Max_Rows - 1,
             Column      => 0,
             Max_Columns => Writable_Columns,
-            Text        => "[h/l] day  [k/j] week  [g] known  [r] record  [q] quit");
+            Text        =>
+              "[h/l] day  [k/j] week  [g] known  [r] actual  [p] plan  [q] quit");
       end if;
 
       Curses.Refresh;
@@ -105,7 +111,7 @@ package body HRA.Household_Home_TUI is
            (To_String (Current_State.Root_Path), Fresh, Error)
          then
             raise Program_Error with
-              "unable to reload canonical Household after Actual mutation attempt: " &
+              "unable to reload canonical Household after mutation attempt: " &
               To_String (Error);
          end if;
          Current_State := Fresh;
@@ -147,6 +153,94 @@ package body HRA.Household_Home_TUI is
          end case;
       end Record_Selected_Day;
 
+      function Prompt_Plan_Id (Plan_ID : out HRA.Plan.Plan_Id) return Boolean is
+         Buffer : String (1 .. 128) := (others => ' ');
+         Status : HRA.Plan.Plan_Id_Status;
+         Max_Columns : constant Natural := Natural (Curses.Columns);
+         Writable_Columns : constant Natural :=
+           (if Max_Columns > 1 then Max_Columns - 1 else 0);
+      begin
+         Curses.Clear;
+         if Writable_Columns > 0 then
+            HRA.Terminal_UTF8.Add_Line
+              (Line        => 0,
+               Column      => 0,
+               Max_Columns => Writable_Columns,
+               Text        => "Plan ID (blank cancels):");
+         end if;
+         Curses.Move_Cursor (Line => 1, Column => 0);
+         Curses.Refresh;
+         Curses.Set_Echo_Mode (True);
+         begin
+            Curses.Get (Str => Buffer, Len => Buffer'Length);
+         exception
+            when others =>
+               Curses.Set_Echo_Mode (False);
+               raise;
+         end;
+         Curses.Set_Echo_Mode (False);
+
+         declare
+            Value : constant String :=
+              Ada.Strings.Fixed.Trim (Buffer, Ada.Strings.Right);
+         begin
+            if Value'Length = 0 then
+               Notice := To_Unbounded_String ("Plan cancelled.");
+               return False;
+            end if;
+
+            if not HRA.Plan.Create_Plan_Id (Value, Plan_ID, Status) then
+               Notice := To_Unbounded_String
+                 ("Plan ID rejected: " & HRA.Plan.Plan_Id_Status'Image (Status));
+               return False;
+            end if;
+         end;
+
+         return True;
+      end Prompt_Plan_Id;
+
+      procedure Plan_Selected_Day is
+         Plan_ID : HRA.Plan.Plan_Id;
+      begin
+         if not Prompt_Plan_Id (Plan_ID) then
+            return;
+         end if;
+
+         declare
+            Edited : constant Record_TUI.Edit_Result :=
+              Record_TUI.Edit (Current_State, Coordinates.Selected_Day);
+         begin
+            case Edited.Kind is
+               when Record_TUI.Cancelled =>
+                  Notice := To_Unbounded_String ("Plan cancelled.");
+
+               when Record_TUI.Accepted =>
+                  declare
+                     Plan_Diag : HRA.Household_Plan_Record.Record_Diagnostic;
+                     Recorded  : constant Boolean :=
+                       HRA.Household_Plan_Record.Record_Pending
+                         (Current_State, Plan_ID, Edited.Tx, Plan_Diag);
+                  begin
+                     Reload_Household;
+                     if Recorded then
+                        if Plan_Diag.Status = HRA.Household_Plan_Record.Already_Present then
+                           Notice := To_Unbounded_String ("Plan already present.");
+                        else
+                           Notice := To_Unbounded_String ("Recorded Plan.");
+                        end if;
+                     else
+                        Notice := To_Unbounded_String
+                          (if Length (Plan_Diag.Message) > 0
+                           then "Plan rejected: " & To_String (Plan_Diag.Message)
+                           else "Plan rejected: " &
+                             HRA.Household_Plan_Record.Record_Status'Image
+                               (Plan_Diag.Status));
+                     end if;
+                  end;
+            end case;
+         end;
+      end Plan_Selected_Day;
+
    begin
       HRA.Terminal_UTF8.Initialize;
       Curses.Init_Screen;
@@ -185,6 +279,9 @@ package body HRA.Household_Home_TUI is
 
                when Input.Open_Record =>
                   Record_Selected_Day;
+
+               when Input.Open_Plan =>
+                  Plan_Selected_Day;
 
                when Input.Quit =>
                   Running := False;
