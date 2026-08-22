@@ -1,7 +1,8 @@
 package HRA.Terminal_UTF8 is
 
-   --  Establish the process locale required by curses before Init_Screen.
-   --  Raises Program_Error if the host locale cannot be activated.
+   --  Activate the process locale for terminal UTF-8 operations. Call once at
+   --  an explicit application or test boundary before terminal cell layout or
+   --  Init_Screen. Raises Program_Error if the host locale cannot be activated.
    procedure Initialize;
 
    --  Draw one UTF-8 line on the standard curses window without splitting a

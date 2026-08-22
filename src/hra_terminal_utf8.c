@@ -42,8 +42,7 @@ int hra_terminal_utf8_display_width(const char *text)
     size_t remaining;
     int columns = 0;
 
-    /* Pure text layout needs wchar_t policy, but never initializes curses. */
-    if (text == NULL || setlocale(LC_CTYPE, "") == NULL) {
+    if (text == NULL) {
         return -1;
     }
 

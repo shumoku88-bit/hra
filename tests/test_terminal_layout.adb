@@ -51,21 +51,23 @@ procedure Test_Terminal_Layout is
       raise Program_Error with "missing test separator";
    end Separator_Column;
 
-   Header : constant String :=
-     "| " & Pad_Right (Date_JA, 10) &
-     " | " & Pad_Right (Content_JA, 16) &
-     " | " & Pad_Left (Amount_JA, 10) & " |";
-   Japanese_Row : constant String :=
-     "| " & Pad_Right ("2026-08-22", 10) &
-     " | " & Pad_Right (Grocery_JA, 16) &
-     " | " & Pad_Left ("1,280", 10) & " |";
-   Mixed_Row : constant String :=
-     "| " & Pad_Right ("2026-08-22", 10) &
-     " | " & Pad_Right ("A Case of You " & Book_JA, 16) &
-     " | " & Pad_Left ("3,200", 10) & " |";
-
 begin
-   Put_Line ("--- Testing terminal cell layout primitives ---");
+   HRA.Terminal_UTF8.Initialize;
+   declare
+      Header : constant String :=
+        "| " & Pad_Right (Date_JA, 10) &
+        " | " & Pad_Right (Content_JA, 16) &
+        " | " & Pad_Left (Amount_JA, 10) & " |";
+      Japanese_Row : constant String :=
+        "| " & Pad_Right ("2026-08-22", 10) &
+        " | " & Pad_Right (Grocery_JA, 16) &
+        " | " & Pad_Left ("1,280", 10) & " |";
+      Mixed_Row : constant String :=
+        "| " & Pad_Right ("2026-08-22", 10) &
+        " | " & Pad_Right ("A Case of You " & Book_JA, 16) &
+        " | " & Pad_Left ("3,200", 10) & " |";
+   begin
+      Put_Line ("--- Testing terminal cell layout primitives ---");
 
    Assert (Display_Width ("ASCII") = 5, "ASCII width is measured in cells");
    Assert
@@ -116,4 +118,5 @@ begin
    else
       Put_Line ("RESULT: SUCCESS");
    end if;
+   end;
 end Test_Terminal_Layout;

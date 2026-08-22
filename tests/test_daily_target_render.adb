@@ -18,6 +18,7 @@ with HRA.Ledger;
 with HRA.Plan_Admission;
 with HRA.Plan_Completion;
 with HRA.Plan_Temporal_Observation;
+with HRA.Terminal_UTF8;
 
 procedure Test_Daily_Target_Render is
    Passed_Count : Natural := 0;
@@ -62,6 +63,7 @@ procedure Test_Daily_Target_Render is
    end Register;
 
 begin
+   HRA.Terminal_UTF8.Initialize;
    Put_Line ("--- Testing HRA.Daily_Target_Render ---");
 
    --  1. Unconfigured render

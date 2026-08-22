@@ -22,6 +22,7 @@ with HRA.Recent_Journal_Render;
 with HRA.Planned_Payments_Render;
 with HRA.Envelope_Report_Render;
 with HRA.Output;             use HRA.Output;
+with HRA.Terminal_UTF8;
 
 procedure HRA_Main is
 
@@ -249,6 +250,13 @@ begin
                Put_Line ("Error: --from is valid only for report envelope-change");
                Set_Exit_Status (Failure);
                return;
+            end if;
+
+            if Cmd = "report" then
+               --  Report rendering may measure UTF-8 terminal cells. Locale
+               --  activation belongs to this explicit application boundary,
+               --  not to the observational layout functions.
+               HRA.Terminal_UTF8.Initialize;
             end if;
 
             declare
