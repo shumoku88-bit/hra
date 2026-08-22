@@ -180,14 +180,17 @@ package body HRA.Journal_Loader is
       Expanded           : Unbounded_String := Null_Unbounded_String;
       Graph_Evidence     : HRA.Journal_Evidence.Journal_Evidence;
       Graph_Transactions : HRA.Ledger.Transaction_Vectors.Vector;
+      Graph_Sources      : Source_Observation_Vectors.Vector;
 
       function Expand_Document
-        (Path : String;
-         Text : String) return Boolean;
+        (Path        : String;
+         Text        : String;
+         Source_Type : Source_Kind) return Boolean;
 
       function Expand_Document
-        (Path : String;
-         Text : String) return Boolean
+        (Path        : String;
+         Text        : String;
+         Source_Type : Source_Kind) return Boolean
       is
          Canonical_Path : Unbounded_String;
          Existing       : Natural;
@@ -229,6 +232,11 @@ package body HRA.Journal_Loader is
          Trace.Append (To_String (Canonical_Path));
          Loaded_Paths.Append (To_String (Canonical_Path));
          Loaded_Traces.Append (Trace_Image (Trace));
+         Graph_Sources.Append
+           (Source_Observation'
+              (Kind => Source_Type,
+               Path => Canonical_Path,
+               Text => To_Unbounded_String (Text)));
 
          --  Journal syntax owns both include recognition and transaction source
          --  coordinates. The loader consumes only that typed structure and
@@ -342,7 +350,9 @@ package body HRA.Journal_Loader is
                      end if;
 
                      if not Expand_Document
-                       (To_String (Child_Path), To_String (Child_Text))
+                       (To_String (Child_Path),
+                        To_String (Child_Text),
+                        Included_File)
                      then
                         Trace.Delete_Last;
                         return False;
@@ -381,9 +391,10 @@ package body HRA.Journal_Loader is
    begin
       Observation.Value := HRA.Ledger.Empty_Ledger;
       Observation.Evidence.Transactions.Clear;
+      Observation.Sources.Clear;
       Error_Msg := Null_Unbounded_String;
 
-      if not Expand_Document (Root_Path, Root_Text) then
+      if not Expand_Document (Root_Path, Root_Text, Supplied_Root) then
          return False;
       end if;
 
@@ -424,6 +435,7 @@ package body HRA.Journal_Loader is
       end loop;
 
       Observation.Evidence := Graph_Evidence;
+      Observation.Sources := Graph_Sources;
       return True;
    end Load_From_Root_Source;
 
