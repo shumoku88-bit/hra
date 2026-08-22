@@ -267,6 +267,31 @@ begin
          "reject malformed include token boundary");
    end;
 
+   declare
+      Date_Only_Source : constant String :=
+        "2026-08-06" & ASCII.LF &
+        "    expenses:household  12345 JPY" & ASCII.LF &
+        "    assets:cash        -12345 JPY" & ASCII.LF;
+   begin
+      Assert
+        (not HRA.Journal_Loader.Load_From_Root_Source
+           (Root_Path, Date_Only_Source, L, Err)
+           and then Index (To_String (Err), "description is required") > 0,
+         "reject date-only transaction header in canonical Journal source");
+   end;
+
+   declare
+      Comma_Source : constant String :=
+        "2026-08-06 Comma Amount" & ASCII.LF &
+        "    expenses:household  12,345 JPY" & ASCII.LF &
+        "    assets:cash        -12,345 JPY" & ASCII.LF;
+   begin
+      Assert
+        (not HRA.Journal_Loader.Load_From_Root_Source
+           (Root_Path, Comma_Source, L, Err),
+         "reject thousands grouping comma in canonical Journal amounts");
+   end;
+
    Delete_Tree (Temp_Dir);
 
    Put_Line

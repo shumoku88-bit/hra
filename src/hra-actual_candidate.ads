@@ -21,6 +21,8 @@ package HRA.Actual_Candidate is
      (Success,
       Unbalanced_Transaction,
       Transaction_Already_Owns_Identity,
+      Description_Required,
+      Description_Has_Surrounding_Whitespace,
       Description_Contains_Line_Break,
       Posting_Memo_Not_Representable,
       Journal_Admission_Failed,
@@ -41,6 +43,8 @@ package HRA.Actual_Candidate is
    --
    --  Tx.Event_ID and Tx.Reverses_ID must be empty. Reversal preparation is a
    --  separate semantic operation and source identity must not have two owners.
+   --  Description is required and must not carry surrounding whitespace, so
+   --  source generation never invents or silently normalizes semantic text.
    --  Posting memo is rejected until the Journal grammar has a lossless posting
    --  memo representation.
    function Prepare

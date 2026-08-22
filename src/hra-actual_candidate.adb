@@ -19,6 +19,30 @@ package body HRA.Actual_Candidate is
       return False;
    end Contains_Line_Break;
 
+   function Is_Description_Whitespace (C : Character) return Boolean is
+     (C = ' ' or else C = ASCII.HT);
+
+   function Is_Whitespace_Only (Value : String) return Boolean is
+   begin
+      if Value'Length = 0 then
+         return True;
+      end if;
+
+      for C of Value loop
+         if not Is_Description_Whitespace (C) then
+            return False;
+         end if;
+      end loop;
+
+      return True;
+   end Is_Whitespace_Only;
+
+   function Has_Surrounding_Whitespace (Value : String) return Boolean is
+     (Value'Length > 0
+      and then
+        (Is_Description_Whitespace (Value (Value'First))
+         or else Is_Description_Whitespace (Value (Value'Last))));
+
    function Empty_Journal_Diagnostic return HRA.Journal.Parse_Diagnostic is
      ((File_Name   => Null_Unbounded_String,
        Line_Number => 0,
@@ -75,12 +99,26 @@ package body HRA.Actual_Candidate is
          return False;
       end if;
 
-      if Contains_Line_Break (To_String (Tx.Code_Or_Payee)) then
-         Diag.Status := Description_Contains_Line_Break;
-         Diag.Message := To_Unbounded_String
-           ("Actual transaction description cannot contain a line break");
-         return False;
-      end if;
+      declare
+         Description : constant String := To_String (Tx.Code_Or_Payee);
+      begin
+         if Is_Whitespace_Only (Description) then
+            Diag.Status := Description_Required;
+            Diag.Message := To_Unbounded_String
+              ("Actual transaction description is required by canonical Journal syntax");
+            return False;
+         elsif Has_Surrounding_Whitespace (Description) then
+            Diag.Status := Description_Has_Surrounding_Whitespace;
+            Diag.Message := To_Unbounded_String
+              ("Actual transaction description cannot have surrounding whitespace");
+            return False;
+         elsif Contains_Line_Break (Description) then
+            Diag.Status := Description_Contains_Line_Break;
+            Diag.Message := To_Unbounded_String
+              ("Actual transaction description cannot contain a line break");
+            return False;
+         end if;
+      end;
 
       for Posting of Tx.Postings loop
          if Posting.Memo.Present then
@@ -92,10 +130,8 @@ package body HRA.Actual_Candidate is
       end loop;
 
       Append (Rendered, HRA.Dates.Image (Tx.Date));
-      if Length (Tx.Code_Or_Payee) > 0 then
-         Append (Rendered, " ");
-         Append (Rendered, Tx.Code_Or_Payee);
-      end if;
+      Append (Rendered, " ");
+      Append (Rendered, Tx.Code_Or_Payee);
       Append (Rendered, ASCII.LF);
       Append
         (Rendered,
@@ -105,7 +141,7 @@ package body HRA.Actual_Candidate is
          Append (Rendered, "    ");
          Append (Rendered, HRA.Account.Name (Posting.Acc));
          Append (Rendered, ASCII.HT);
-         Append (Rendered, HRA.Money.Render_Quantity (Posting.Amt.Val));
+         Append (Rendered, HRA.Money.Render_Source_Quantity (Posting.Amt.Val));
          Append (Rendered, " ");
          Append (Rendered, HRA.Money.Code (Posting.Amt.Comm));
          Append (Rendered, ASCII.LF);

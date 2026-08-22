@@ -81,15 +81,51 @@ begin
       Expected : constant String :=
         "2026-08-20 Chair" & ASCII.LF &
         "    ; event-id: chair-actual" & ASCII.LF &
-        "    assets:cash" & ASCII.HT & "-20,000 JPY" & ASCII.LF &
-        "    expenses:household" & ASCII.HT & "20,000 JPY" & ASCII.LF;
+        "    assets:cash" & ASCII.HT & "-20000 JPY" & ASCII.LF &
+        "    expenses:household" & ASCII.HT & "20000 JPY" & ASCII.LF;
    begin
       Assert
         (HRA.Actual_Candidate.Prepare (Tx, ID, Candidate, Diag),
          "Balanced transaction prepares a source-durable Actual block");
       Assert
         (HRA.Actual_Candidate.Text (Candidate) = Expected,
-         "Candidate uses one canonical event-id metadata and exact posting order");
+         "Candidate uses one canonical event-id metadata, comma-free amount, and exact posting order");
+   end;
+
+   declare
+      Tx : HRA.Ledger.Transaction := Balanced_Transaction;
+   begin
+      Tx.Code_Or_Payee := Null_Unbounded_String;
+      Assert
+        (not HRA.Actual_Candidate.Prepare (Tx, ID, Candidate, Diag)
+           and then Diag.Status = HRA.Actual_Candidate.Description_Required,
+         "Empty description is rejected instead of emitting a date-only header");
+
+      Tx.Code_Or_Payee := To_Unbounded_String ("   ");
+      Assert
+        (not HRA.Actual_Candidate.Prepare (Tx, ID, Candidate, Diag)
+           and then Diag.Status = HRA.Actual_Candidate.Description_Required,
+         "Space-only description is rejected instead of being normalized away");
+
+      Tx.Code_Or_Payee := To_Unbounded_String (ASCII.HT & ASCII.HT);
+      Assert
+        (not HRA.Actual_Candidate.Prepare (Tx, ID, Candidate, Diag)
+           and then Diag.Status = HRA.Actual_Candidate.Description_Required,
+         "Tab-only description is rejected by the same canonical description law");
+
+      Tx.Code_Or_Payee := To_Unbounded_String (" Chair");
+      Assert
+        (not HRA.Actual_Candidate.Prepare (Tx, ID, Candidate, Diag)
+           and then Diag.Status =
+             HRA.Actual_Candidate.Description_Has_Surrounding_Whitespace,
+         "Leading description whitespace is rejected instead of silently trimmed");
+
+      Tx.Code_Or_Payee := To_Unbounded_String ("Chair ");
+      Assert
+        (not HRA.Actual_Candidate.Prepare (Tx, ID, Candidate, Diag)
+           and then Diag.Status =
+             HRA.Actual_Candidate.Description_Has_Surrounding_Whitespace,
+         "Trailing description whitespace is rejected instead of silently trimmed");
    end;
 
    declare

@@ -77,17 +77,23 @@ package body HRA.Journal is
          declare
             C : constant Character := Trimmed (I);
          begin
-            if C = ',' then
-               null;  -- Skip thousands separators
-            elsif Is_Digit (C) or else C = '.' or else C = '-' or else C = '+' then
+            if Is_Digit (C) or else C = '.' or else C = '-' or else C = '+' then
                Append (Clean, C);
             elsif (C in 'A' .. 'Z') or else (C in 'a' .. 'z') then
                Append (Comm_Code, C);
             elsif C = '$' then
                Append (Comm_Code, "USD");
+            elsif C = ' ' or else C = ASCII.HT then
+               null;
+            else
+               return False;
             end if;
          end;
       end loop;
+
+      if Length (Clean) = 0 then
+         return False;
+      end if;
 
       if Length (Comm_Code) = 0 then
          Comm_Code := To_Unbounded_String ("JPY");
@@ -434,7 +440,12 @@ package body HRA.Journal is
                               else
                                  Tx_Payee := Null_Unbounded_String;
                               end if;
-                              In_Tx := True;
+
+                              if Length (Tx_Payee) = 0 then
+                                 Set_Error ("Transaction description is required");
+                              else
+                                 In_Tx := True;
+                              end if;
                            end if;
                         end;
                      else
