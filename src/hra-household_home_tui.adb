@@ -1,6 +1,7 @@
 with Ada.Strings;
 with Ada.Strings.Fixed;
 with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
+with HRA.Actual_Admission;
 with HRA.Dates;
 with HRA.Household_Actual_Record;
 with HRA.Household_Actual_Record_TUI;
@@ -12,6 +13,10 @@ with HRA.Household_Plan_Record;
 with HRA.Issue_Close;
 with HRA.Issue_Closure_Preparation;
 with HRA.Issue_Closure_Preparation.Publication;
+with HRA.Issue_Realization_Resume;
+with HRA.Issue_Realization_Resume.Publication;
+with HRA.Issue_Relation;
+with HRA.Issue_Relation.Sidecar;
 with HRA.Issues;
 with HRA.Plan;
 with HRA.Terminal_UTF8;
@@ -87,7 +92,7 @@ package body HRA.Household_Home_TUI is
             Column      => 0,
             Max_Columns => Writable_Columns,
             Text        =>
-              "[h/l] day  [k/j] week  [g] known  [r] actual  [p] plan  [i] close issue  [q] quit");
+              "[h/l] day  [k/j] week  [g] known  [r] actual  [p] plan  [i] issue  [q] quit");
       end if;
 
       Curses.Refresh;
@@ -143,9 +148,6 @@ package body HRA.Household_Home_TUI is
                      Reload_Household;
                      Notice := To_Unbounded_String ("Recorded Actual.");
                   else
-                     --  Publication can fail because the source premise became
-                     --  stale. Never continue with the pre-attempt Household;
-                     --  reload canonical authority before another mutation.
                      Reload_Household;
                      Notice := To_Unbounded_String
                        (if Length (Record_Diag.Message) > 0
@@ -199,6 +201,34 @@ package body HRA.Household_Home_TUI is
             return True;
          end;
       end Prompt_Line;
+
+      function Prompt_Selected_Date
+        (Label : String;
+         Value : out HRA.Dates.Date) return Boolean
+      is
+         Text   : Unbounded_String;
+         Status : HRA.Dates.Date_Status;
+      begin
+         if not Prompt_Line
+           (Label & " [.] selected " & HRA.Dates.Image (Coordinates.Selected_Day) &
+            " or YYYY-MM-DD (blank cancels):",
+            Text)
+         then
+            return False;
+         end if;
+
+         if To_String (Text) = "." then
+            Value := Coordinates.Selected_Day;
+            return True;
+         end if;
+
+         if not HRA.Dates.Parse (To_String (Text), Value, Status) then
+            Notice := To_Unbounded_String
+              ("Date rejected: " & HRA.Dates.Date_Status'Image (Status));
+            return False;
+         end if;
+         return True;
+      end Prompt_Selected_Date;
 
       function Prompt_Plan_Id (Plan_ID : out HRA.Plan.Plan_Id) return Boolean is
          Value  : Unbounded_String;
@@ -266,7 +296,7 @@ package body HRA.Household_Home_TUI is
          Status : HRA.Issues.Issue_Id_Status;
       begin
          if not Prompt_Line ("Issue ID (blank cancels):", Value) then
-            Notice := To_Unbounded_String ("Issue close cancelled.");
+            Notice := To_Unbounded_String ("Issue action cancelled.");
             return False;
          end if;
 
@@ -313,43 +343,14 @@ package body HRA.Household_Home_TUI is
          return False;
       end Prompt_Issue_Disposition;
 
-      function Prompt_Issue_Closed_On
-        (Closed_On : out HRA.Dates.Date) return Boolean
-      is
-         Value  : Unbounded_String;
-         Status : HRA.Dates.Date_Status;
-      begin
-         if not Prompt_Line
-           ("Closed on: [.] selected " & HRA.Dates.Image (Coordinates.Selected_Day) &
-            " or YYYY-MM-DD (blank cancels):",
-            Value)
-         then
-            Notice := To_Unbounded_String ("Issue close cancelled.");
-            return False;
-         end if;
-
-         if To_String (Value) = "." then
-            Closed_On := Coordinates.Selected_Day;
-            return True;
-         end if;
-
-         if not HRA.Dates.Parse (To_String (Value), Closed_On, Status) then
-            Notice := To_Unbounded_String
-              ("Issue close date rejected: " & HRA.Dates.Date_Status'Image (Status));
-            return False;
-         end if;
-         return True;
-      end Prompt_Issue_Closed_On;
-
-      procedure Close_Issue is
-         Issue_ID    : HRA.Issues.Issue_Id;
+      procedure Close_Issue (Issue_ID : HRA.Issues.Issue_Id) is
          Disposition : HRA.Issue_Close.Close_Disposition;
          Closed_On   : HRA.Dates.Date;
       begin
-         if not Prompt_Issue_Id (Issue_ID)
-           or else not Prompt_Issue_Disposition (Disposition)
-           or else not Prompt_Issue_Closed_On (Closed_On)
+         if not Prompt_Issue_Disposition (Disposition)
+           or else not Prompt_Selected_Date ("Closed on:", Closed_On)
          then
+            Notice := To_Unbounded_String ("Issue close cancelled.");
             return;
          end if;
 
@@ -395,6 +396,189 @@ package body HRA.Household_Home_TUI is
          end;
       end Close_Issue;
 
+      function Prompt_Actual_Id
+        (Actual_ID : out HRA.Actual_Admission.Actual_Id) return Boolean
+      is
+         Value  : Unbounded_String;
+         Status : HRA.Actual_Admission.Actual_Id_Status;
+      begin
+         if not Prompt_Line
+           ("Durable Actual ID (reuse exactly when resuming):", Value)
+         then
+            Notice := To_Unbounded_String ("Issue realization cancelled.");
+            return False;
+         end if;
+
+         if not HRA.Actual_Admission.Create_Actual_Id
+           (To_String (Value), Actual_ID, Status)
+         then
+            Notice := To_Unbounded_String
+              ("Actual ID rejected: " &
+               HRA.Actual_Admission.Actual_Id_Status'Image (Status));
+            return False;
+         end if;
+         return True;
+      end Prompt_Actual_Id;
+
+      function Prompt_Relation_Id
+        (Relation_ID : out HRA.Issue_Relation.Relation_Event_Id) return Boolean
+      is
+         Value  : Unbounded_String;
+         Status : HRA.Issue_Relation.Relation_Event_Id_Status;
+      begin
+         if not Prompt_Line
+           ("Durable relation ID (reuse exactly when resuming):", Value)
+         then
+            Notice := To_Unbounded_String ("Issue realization cancelled.");
+            return False;
+         end if;
+
+         if not HRA.Issue_Relation.Create_Relation_Event_Id
+           (To_String (Value), Relation_ID, Status)
+         then
+            Notice := To_Unbounded_String
+              ("Relation ID rejected: " &
+               HRA.Issue_Relation.Relation_Event_Id_Status'Image (Status));
+            return False;
+         end if;
+         return True;
+      end Prompt_Relation_Id;
+
+      procedure Realize_Issue (Issue_ID : HRA.Issues.Issue_Id) is
+         Edited : constant Record_TUI.Edit_Result :=
+           Record_TUI.Edit (Current_State, Coordinates.Selected_Day);
+      begin
+         case Edited.Kind is
+            when Record_TUI.Cancelled =>
+               Notice := To_Unbounded_String ("Issue realization cancelled.");
+
+            when Record_TUI.Accepted =>
+               declare
+                  Actual_ID       : HRA.Actual_Admission.Actual_Id;
+                  Relation_ID     : HRA.Issue_Relation.Relation_Event_Id;
+                  Relation_On     : HRA.Dates.Date;
+                  Closed_On       : HRA.Dates.Date;
+                  Details_Value   : Unbounded_String;
+               begin
+                  if not Prompt_Actual_Id (Actual_ID)
+                    or else not Prompt_Relation_Id (Relation_ID)
+                    or else not Prompt_Selected_Date ("Relation recorded on:", Relation_On)
+                    or else not Prompt_Selected_Date ("Issue closed on:", Closed_On)
+                    or else not Prompt_Line
+                      ("Relation details ('-' for none; reuse exactly when resuming):",
+                       Details_Value)
+                  then
+                     Notice := To_Unbounded_String ("Issue realization cancelled.");
+                     return;
+                  end if;
+
+                  declare
+                     Relation_Observation : HRA.Issue_Relation.Sidecar.Observation;
+                     Observation_Diag :
+                       HRA.Issue_Relation.Sidecar.Observation_Diagnostic;
+                     Prepared : HRA.Issue_Realization_Resume.Prepared_Resume;
+                     Resume_Diag : HRA.Issue_Realization_Resume.Resume_Diagnostic;
+                     Pub_Result :
+                       HRA.Issue_Realization_Resume.Publication.Publication_Result;
+                     Details : constant String :=
+                       (if To_String (Details_Value) = "-"
+                        then ""
+                        else To_String (Details_Value));
+                  begin
+                     if not HRA.Issue_Relation.Sidecar.Observe
+                       (To_String (Current_State.Root_Path),
+                        Relation_Observation,
+                        Observation_Diag)
+                     then
+                        Notice := To_Unbounded_String
+                          (if Length (Observation_Diag.Message) > 0
+                           then "Issue relation observation failed: " &
+                             To_String (Observation_Diag.Message)
+                           else "Issue relation observation failed: " &
+                             HRA.Issue_Relation.Sidecar.Observation_Status'Image
+                               (Observation_Diag.Status));
+                        return;
+                     end if;
+
+                     if not HRA.Issue_Realization_Resume.Prepare_Resume
+                       (State                => Current_State,
+                        Tx                   => Edited.Tx,
+                        Issue_ID             => Issue_ID,
+                        Actual_ID            => Actual_ID,
+                        Relation_Event_ID    => Relation_ID,
+                        Relation_Recorded_On => Relation_On,
+                        Closed_On            => Closed_On,
+                        Relation_Details     => Details,
+                        Relation_Observation => Relation_Observation,
+                        Prepared             => Prepared,
+                        Diag                 => Resume_Diag)
+                     then
+                        Notice := To_Unbounded_String
+                          (if Length (Resume_Diag.Message) > 0
+                           then "Issue realization rejected: " &
+                             To_String (Resume_Diag.Message)
+                           else "Issue realization rejected: " &
+                             HRA.Issue_Realization_Resume.Resume_Status'Image
+                               (Resume_Diag.Status));
+                        return;
+                     end if;
+
+                     if not HRA.Issue_Realization_Resume.Publication.Publish
+                       (Prepared, Pub_Result)
+                     then
+                        Reload_Household;
+                        Notice := To_Unbounded_String
+                          ("Issue realization paused at " &
+                           HRA.Issue_Realization_Resume.Publication.Confirmed_World'Image
+                             (Pub_Result.Last_Confirmed) &
+                           "; retry the same transaction, IDs, dates and details." &
+                           (if Length (Pub_Result.Message) > 0
+                            then " " & To_String (Pub_Result.Message)
+                            else ""));
+                        return;
+                     end if;
+
+                     Reload_Household;
+                     Notice := To_Unbounded_String ("Issue realized as Actual.");
+                  end;
+               end;
+         end case;
+      end Realize_Issue;
+
+      procedure Open_Issue_Action is
+         Action_Value : Unbounded_String;
+         Issue_ID     : HRA.Issues.Issue_Id;
+      begin
+         if not Prompt_Line
+           ("Issue action: [c] close  [r] realize (blank cancels):",
+            Action_Value)
+         then
+            Notice := To_Unbounded_String ("Issue action cancelled.");
+            return;
+         end if;
+
+         if not Prompt_Issue_Id (Issue_ID) then
+            return;
+         end if;
+
+         declare
+            Choice : constant String := To_String (Action_Value);
+         begin
+            if Choice = "c" or else Choice = "C"
+              or else Choice = "close" or else Choice = "Close"
+            then
+               Close_Issue (Issue_ID);
+            elsif Choice = "r" or else Choice = "R"
+              or else Choice = "realize" or else Choice = "Realize"
+            then
+               Realize_Issue (Issue_ID);
+            else
+               Notice := To_Unbounded_String
+                 ("Issue action rejected; use close or realize.");
+            end if;
+         end;
+      end Open_Issue_Action;
+
    begin
       HRA.Terminal_UTF8.Initialize;
       Curses.Init_Screen;
@@ -438,7 +622,7 @@ package body HRA.Household_Home_TUI is
                   Plan_Selected_Day;
 
                when Input.Open_Issue =>
-                  Close_Issue;
+                  Open_Issue_Action;
 
                when Input.Quit =>
                   Running := False;
