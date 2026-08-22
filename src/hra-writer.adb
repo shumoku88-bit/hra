@@ -42,8 +42,14 @@ package body HRA.Writer is
      (Value : Candidate_Source) return Ada.Strings.Unbounded.Unbounded_String is
      (Value.Text);
 
+   function Make_Source_Premise
+     (Path     : String;
+      Expected : Expected_Source) return Source_Premise is
+     ((Path     => To_Unbounded_String (Path),
+       Expected => Expected));
+
    function Same_Source
-     (Left : Expected_Source;
+     (Left  : Expected_Source;
       Right : Expected_Source) return Boolean is
    begin
       if Left.State /= Right.State then
@@ -160,6 +166,95 @@ package body HRA.Writer is
          return False;
    end Write_File_Exact;
 
+   type Premise_Check_Result is
+     (Premises_Match,
+      Premise_Stale,
+      Premise_Read_Failed);
+
+   function Check_Source_Premises
+     (Premises : Source_Premise_Array;
+      Error_Msg : out Unbounded_String) return Premise_Check_Result
+   is
+      On_Disk    : Expected_Source;
+      Read_Error : Unbounded_String;
+   begin
+      Error_Msg := Null_Unbounded_String;
+      for Premise of Premises loop
+         declare
+            Path : constant String := To_String (Premise.Path);
+         begin
+            if not Observe_Source (Path, On_Disk, Read_Error) then
+               Error_Msg := To_Unbounded_String
+                 ("Failed to observe guarded source: " & Path & ": " &
+                  To_String (Read_Error));
+               return Premise_Read_Failed;
+            end if;
+
+            if not Same_Source (On_Disk, Premise.Expected) then
+               Error_Msg := To_Unbounded_String
+                 ("Guarded source presence or exact bytes changed: " & Path);
+               return Premise_Stale;
+            end if;
+         end;
+      end loop;
+      return Premises_Match;
+   end Check_Source_Premises;
+
+   function Restore_Target_If_Own_Candidate
+     (Target_Path    : String;
+      Expected       : Expected_Source;
+      Candidate_Text : String;
+      Backup_Path    : String;
+      Error_Msg      : out Unbounded_String) return Boolean
+   is
+      Current    : Expected_Source;
+      Read_Error : Unbounded_String;
+      Candidate_Expected : constant Expected_Source :=
+        Make_Expected_Source (Candidate_Text);
+   begin
+      Error_Msg := Null_Unbounded_String;
+
+      if not Observe_Source (Target_Path, Current, Read_Error) then
+         Error_Msg := To_Unbounded_String
+           ("cannot observe target before rollback: " & To_String (Read_Error));
+         return False;
+      end if;
+
+      if not Same_Source (Current, Candidate_Expected) then
+         Error_Msg := To_Unbounded_String
+           ("target no longer contains Writer candidate; refusing to overwrite external change");
+         return False;
+      end if;
+
+      if Expected.State = Present then
+         if not Exists (Backup_Path) then
+            Error_Msg := To_Unbounded_String
+              ("exact rollback backup is missing: " & Backup_Path);
+            return False;
+         end if;
+
+         declare
+            Renamed : Boolean;
+         begin
+            GNAT.OS_Lib.Rename_File (Backup_Path, Target_Path, Renamed);
+            if not Renamed then
+               Error_Msg := To_Unbounded_String
+                 ("failed to restore exact rollback backup: " & Backup_Path);
+               return False;
+            end if;
+         end;
+      elsif Exists (Target_Path) then
+         Delete_File (Target_Path);
+      end if;
+
+      return True;
+   exception
+      when others =>
+         Error_Msg := To_Unbounded_String
+           ("exception while restoring exact target premise");
+         return False;
+   end Restore_Target_If_Own_Candidate;
+
    function Writer_Status_Image (Status : Writer_Status) return String is
    begin
       case Status is
@@ -264,18 +359,73 @@ package body HRA.Writer is
       Status      : out Writer_Status;
       Error_Msg   : out Unbounded_String) return Boolean
    is
+      Empty_Guards : Source_Premise_Array (1 .. 0);
+   begin
+      return Atomic_Publish_Journal_Guarded
+        (Target_Path => Target_Path,
+         Expected    => Expected,
+         Candidate   => Candidate,
+         Guards      => Empty_Guards,
+         Status      => Status,
+         Error_Msg   => Error_Msg);
+   end Atomic_Publish_Journal;
+
+   function Atomic_Publish_Journal_Guarded
+     (Target_Path : String;
+      Expected    : Expected_Source;
+      Candidate   : Candidate_Source;
+      Guards      : Source_Premise_Array;
+      Status      : out Writer_Status;
+      Error_Msg   : out Unbounded_String) return Boolean
+   is
       Initial_On_Disk  : Expected_Source;
       Second_On_Disk   : Expected_Source;
       Read_Error       : Unbounded_String;
+      Guard_Error      : Unbounded_String;
+      Rollback_Error   : Unbounded_String;
       Staged_Path      : Unbounded_String := Null_Unbounded_String;
       Bak_Path         : constant String := Target_Path & ".bak";
       Dummy_L          : Ledger.Ledger;
       Parse_Err        : Unbounded_String;
       Expected_Text    : constant String := Source_Text (Expected);
       Candidate_Text   : constant String := Source_Text (Candidate);
+
+      procedure Clean_Staged is
+      begin
+         if Length (Staged_Path) > 0 and then Exists (To_String (Staged_Path)) then
+            Delete_File (To_String (Staged_Path));
+         end if;
+      end Clean_Staged;
+
+      function Check_Guards_Before_Mutation
+        (Phase : String) return Boolean
+      is
+         Check : constant Premise_Check_Result :=
+           Check_Source_Premises (Guards, Guard_Error);
+      begin
+         case Check is
+            when Premises_Match =>
+               return True;
+            when Premise_Stale =>
+               Clean_Staged;
+               Status := Stale_Source_Rejected;
+               Error_Msg := To_Unbounded_String
+                 ("Stale guarded source rejected during " & Phase & ": " &
+                  To_String (Guard_Error));
+               return False;
+            when Premise_Read_Failed =>
+               Clean_Staged;
+               Status := File_Write_Failed;
+               Error_Msg := To_Unbounded_String
+                 ("Guarded source observation failed during " & Phase & ": " &
+                  To_String (Guard_Error));
+               return False;
+         end case;
+      end Check_Guards_Before_Mutation;
+
    begin
-      --  1. Initial stale check: compare exact filesystem presence and bytes
-      --  before any mutation or staging.
+      --  1. Initial stale check: compare exact target presence and bytes before
+      --  any mutation or staging.
       if not Observe_Source (Target_Path, Initial_On_Disk, Read_Error) then
          Status := File_Write_Failed;
          Error_Msg := To_Unbounded_String
@@ -291,28 +441,35 @@ package body HRA.Writer is
          return False;
       end if;
 
-      --  2. Pre-admission validation, before any candidate staging or filesystem mutation.
+      --  2. Guard premises are also checked before staging so already-stale
+      --  read-only sources fail without creating any candidate file.
+      if not Check_Guards_Before_Mutation ("initial guard fence") then
+         return False;
+      end if;
+
+      --  3. Pre-admission validation, before candidate staging or mutation.
       if not Parse_Journal_Text (Candidate_Text, Dummy_L, Parse_Err) then
          Status := Pre_Admission_Failed;
-         Error_Msg := To_Unbounded_String ("Pre-admission validation rejected candidate: " & To_String (Parse_Err));
+         Error_Msg := To_Unbounded_String
+           ("Pre-admission validation rejected candidate: " &
+            To_String (Parse_Err));
          return False;
       end if;
 
-      --  3. Unique Candidate Staging: write Candidate to unique sibling staging file.
+      --  4. Unique candidate staging.
       if not Stage_Candidate_File (Target_Path, Candidate_Text, Staged_Path) then
          Status := File_Write_Failed;
-         Error_Msg := To_Unbounded_String ("Failed to stage candidate to unique temporary file");
+         Error_Msg := To_Unbounded_String
+           ("Failed to stage candidate to unique temporary file");
          return False;
       end if;
 
-      --  4. Optional test / inspection hook immediately after candidate staging.
+      --  5. Optional test / inspection hook immediately after candidate staging.
       HRA.Writer.Test_Hooks.Notify_Staged (To_String (Staged_Path));
 
-      --  5. Second stale fence: re-observe target right before publication.
+      --  6. Second target stale fence right before publication.
       if not Observe_Source (Target_Path, Second_On_Disk, Read_Error) then
-         if Exists (To_String (Staged_Path)) then
-            Delete_File (To_String (Staged_Path));
-         end if;
+         Clean_Staged;
          Status := File_Write_Failed;
          Error_Msg := To_Unbounded_String
            ("Failed to observe target for second stale fence: " &
@@ -321,40 +478,43 @@ package body HRA.Writer is
       end if;
 
       if not Same_Source (Second_On_Disk, Expected) then
-         if Exists (To_String (Staged_Path)) then
-            Delete_File (To_String (Staged_Path));
-         end if;
+         Clean_Staged;
          Status := Stale_Source_Rejected;
          Error_Msg := To_Unbounded_String
            ("Stale source rejected: target presence or exact bytes changed during publication preparation");
          return False;
       end if;
 
-      --  6. Keep an exact recovery copy until post-admission validation succeeds.
-      if Expected.State = Present
-        and then not Write_File_Exact (Bak_Path, Expected_Text)
-      then
-         if Exists (To_String (Staged_Path)) then
-            Delete_File (To_String (Staged_Path));
-         end if;
-         Status := Backup_Failed;
-         Error_Msg := To_Unbounded_String ("Failed to create backup file: " & Bak_Path);
+      --  7. Guard premises get their own second fence after staging and as near
+      --  as possible to the target replacement. A change here leaves target
+      --  untouched.
+      if not Check_Guards_Before_Mutation ("pre-publication guard fence") then
          return False;
       end if;
 
-      --  7. Atomically replace the target where the host rename semantics
-      --  support replacement. Unlike delete-then-rename, a failure leaves
-      --  the original target in place.
+      --  8. Keep an exact target recovery copy until all post-publication
+      --  checks succeed.
+      if Expected.State = Present
+        and then not Write_File_Exact (Bak_Path, Expected_Text)
+      then
+         Clean_Staged;
+         Status := Backup_Failed;
+         Error_Msg := To_Unbounded_String
+           ("Failed to create backup file: " & Bak_Path);
+         return False;
+      end if;
+
+      --  9. Atomically replace only the target root.
       declare
          Renamed : Boolean;
       begin
          GNAT.OS_Lib.Rename_File (To_String (Staged_Path), Target_Path, Renamed);
          if not Renamed then
             Status := File_Write_Failed;
-            Error_Msg := To_Unbounded_String ("Failed atomic rename from " & To_String (Staged_Path) & " to " & Target_Path);
-            if Exists (To_String (Staged_Path)) then
-               Delete_File (To_String (Staged_Path));
-            end if;
+            Error_Msg := To_Unbounded_String
+              ("Failed atomic rename from " & To_String (Staged_Path) &
+               " to " & Target_Path);
+            Clean_Staged;
             if Expected.State = Present and then Exists (Bak_Path) then
                Delete_File (Bak_Path);
             end if;
@@ -362,32 +522,74 @@ package body HRA.Writer is
          end if;
       end;
 
-      --  8. Post-Admission Validation (Intentional legacy preserved for 2A)
-      declare
-         Parsed_L : Ledger.Ledger;
-      begin
-         if not Parse_Journal_Text (Candidate_Text, Parsed_L, Parse_Err) then
-            if Expected.State = Present and then Exists (Bak_Path) then
-               if Exists (Target_Path) then
-                  Delete_File (Target_Path);
-               end if;
-               Rename (Bak_Path, Target_Path);
-            elsif Expected.State = Absent and then Exists (Target_Path) then
-               --  The exact pre-publication premise was absence, so rollback
-               --  restores absence rather than inventing an empty file.
-               Delete_File (Target_Path);
-            end if;
+      --  10. Test-only race point after root replacement and before the guarded
+      --  source post-publication fence.
+      HRA.Writer.Test_Hooks.Notify_Published (Target_Path);
 
-            Status := Post_Admission_Failed;
-            Error_Msg := To_Unbounded_String ("Post-admission validation failed (source premise restored): " & To_String (Parse_Err));
+      --  11. Recheck every read-only source immediately after replacement. If a
+      --  guard changed across the commit window, restore the root only when it
+      --  still contains Writer's own candidate. Never overwrite a later
+      --  external root change with the old backup.
+      declare
+         Check : constant Premise_Check_Result :=
+           Check_Source_Premises (Guards, Guard_Error);
+      begin
+         if Check /= Premises_Match then
+            if Restore_Target_If_Own_Candidate
+              (Target_Path,
+               Expected,
+               Candidate_Text,
+               Bak_Path,
+               Rollback_Error)
+            then
+               Status :=
+                 (if Check = Premise_Stale
+                  then Stale_Source_Rejected
+                  else File_Write_Failed);
+               Error_Msg := To_Unbounded_String
+                 ((if Check = Premise_Stale
+                   then "Guarded source changed across publication; exact target premise restored: "
+                   else "Guarded source became unreadable across publication; exact target premise restored: ") &
+                  To_String (Guard_Error));
+            else
+               Status := File_Write_Failed;
+               Error_Msg := To_Unbounded_String
+                 ("Guarded source fence failed after root publication and safe rollback was refused or failed: " &
+                  To_String (Guard_Error) & "; " & To_String (Rollback_Error));
+            end if;
             return False;
          end if;
       end;
 
-      --  9. Success: Clean up temporary backup & staging files if present
-      if Exists (To_String (Staged_Path)) then
-         Delete_File (To_String (Staged_Path));
-      end if;
+      --  12. Post-admission validation (intentional legacy check). The same
+      --  safe rollback rule avoids clobbering any external root change.
+      declare
+         Parsed_L : Ledger.Ledger;
+      begin
+         if not Parse_Journal_Text (Candidate_Text, Parsed_L, Parse_Err) then
+            if Restore_Target_If_Own_Candidate
+              (Target_Path,
+               Expected,
+               Candidate_Text,
+               Bak_Path,
+               Rollback_Error)
+            then
+               Status := Post_Admission_Failed;
+               Error_Msg := To_Unbounded_String
+                 ("Post-admission validation failed; exact target premise restored: " &
+                  To_String (Parse_Err));
+            else
+               Status := File_Write_Failed;
+               Error_Msg := To_Unbounded_String
+                 ("Post-admission validation failed and safe rollback was refused or failed: " &
+                  To_String (Parse_Err) & "; " & To_String (Rollback_Error));
+            end if;
+            return False;
+         end if;
+      end;
+
+      --  13. Success: remove any remaining backup/staging files.
+      Clean_Staged;
       if Expected.State = Present and then Exists (Bak_Path) then
          Delete_File (Bak_Path);
       end if;
@@ -395,7 +597,7 @@ package body HRA.Writer is
       Status := Success;
       Error_Msg := Null_Unbounded_String;
       return True;
-   end Atomic_Publish_Journal;
+   end Atomic_Publish_Journal_Guarded;
 
    function Append_Transaction_Safely
      (Target_Path : String;
@@ -422,11 +624,15 @@ package body HRA.Writer is
       end if;
 
       New_Content := Old_Content;
-      if Length (New_Content) > 0 and then Element (New_Content, Length (New_Content)) /= ASCII.LF then
+      if Length (New_Content) > 0
+        and then Element (New_Content, Length (New_Content)) /= ASCII.LF
+      then
          Append (New_Content, ASCII.LF);
       end if;
       Append (New_Content, New_Tx_Text);
-      if New_Tx_Text'Length > 0 and then New_Tx_Text (New_Tx_Text'Last) /= ASCII.LF then
+      if New_Tx_Text'Length > 0
+        and then New_Tx_Text (New_Tx_Text'Last) /= ASCII.LF
+      then
          Append (New_Content, ASCII.LF);
       end if;
 

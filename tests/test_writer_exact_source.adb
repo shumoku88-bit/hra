@@ -80,6 +80,7 @@ procedure Test_Writer_Exact_Source is
    end Read_Exact;
 
    Target : constant String := "/tmp/hra_writer_exact_source.journal";
+   Guard  : constant String := "/tmp/hra_writer_guarded_source.txt";
 
    CRLF_Initial : constant String :=
      "account assets:cash" & ASCII.CR & ASCII.LF &
@@ -106,6 +107,12 @@ procedure Test_Writer_Exact_Source is
 
    Complete_Candidate : constant String := LF_Initial & ASCII.LF;
 
+   Guard_Initial : constant String :=
+     "included source" & ASCII.CR & ASCII.LF & "exact bytes";
+   Guard_Changed : constant String :=
+     "included source" & ASCII.LF & "changed bytes";
+   External_Root : constant String := "external root change" & ASCII.LF;
+
    Observed : Expected_Source;
    Error    : Unbounded_String;
    Status   : Writer_Status;
@@ -115,6 +122,12 @@ begin
 
    if Exists (Target) then
       Delete_File (Target);
+   end if;
+   if Exists (Guard) then
+      Delete_File (Guard);
+   end if;
+   if Exists (Target & ".bak") then
+      Delete_File (Target & ".bak");
    end if;
 
    Assert
@@ -233,8 +246,183 @@ begin
          "Appearance stale rejection leaves the external target untouched");
    end;
 
+   --  Guarded publication succeeds only while an unrelated read-only source
+   --  remains byte-for-byte equal to its supplied premise.
+   declare
+      Target_Expected : Expected_Source;
+      Guard_Expected  : Expected_Source;
+   begin
+      Write_Exact (Target, LF_Initial);
+      Write_Exact (Guard, Guard_Initial);
+      Assert
+        (Observe_Source (Target, Target_Expected, Error)
+         and then Observe_Source (Guard, Guard_Expected, Error),
+         "Guarded publication captures target and additional source premises");
+
+      declare
+         Guards : Source_Premise_Array (1 .. 1) :=
+           (1 => Make_Source_Premise (Guard, Guard_Expected));
+      begin
+         Assert
+           (Atomic_Publish_Journal_Guarded
+              (Target_Path => Target,
+               Expected    => Target_Expected,
+               Candidate   => Make_Candidate_Source (Complete_Candidate),
+               Guards      => Guards,
+               Status      => Status,
+               Error_Msg   => Error)
+            and then Status = Success,
+            "Guarded publication succeeds while every source premise remains exact");
+         Assert
+           (Read_Exact (Target) = Complete_Candidate
+            and then Read_Exact (Guard) = Guard_Initial,
+            "Successful guarded publication changes only the target root");
+      end;
+   end;
+
+   --  A guard change after staging but before root replacement is rejected
+   --  without mutating the root.
+   declare
+      Target_Expected : Expected_Source;
+      Guard_Expected  : Expected_Source;
+
+      procedure Change_Guard_After_Stage (Staged_Path : String) is
+         pragma Unreferenced (Staged_Path);
+      begin
+         Write_Exact (Guard, Guard_Changed);
+      end Change_Guard_After_Stage;
+   begin
+      Write_Exact (Target, LF_Initial);
+      Write_Exact (Guard, Guard_Initial);
+      Assert
+        (Observe_Source (Target, Target_Expected, Error)
+         and then Observe_Source (Guard, Guard_Expected, Error),
+         "Pre-publication guard race captures exact premises");
+
+      declare
+         Guards : Source_Premise_Array (1 .. 1) :=
+           (1 => Make_Source_Premise (Guard, Guard_Expected));
+      begin
+         HRA.Writer.Test_Hooks.Set_After_Stage_Hook
+           (Change_Guard_After_Stage'Address);
+         Assert
+           (not Atomic_Publish_Journal_Guarded
+              (Target_Path => Target,
+               Expected    => Target_Expected,
+               Candidate   => Make_Candidate_Source (Complete_Candidate),
+               Guards      => Guards,
+               Status      => Status,
+               Error_Msg   => Error)
+            and then Status = Stale_Source_Rejected,
+            "Guard change after staging is rejected before root replacement");
+         HRA.Writer.Test_Hooks.Clear_After_Stage_Hook;
+         Assert
+           (Read_Exact (Target) = LF_Initial
+            and then Read_Exact (Guard) = Guard_Changed,
+            "Pre-publication guard rejection leaves root and external guard ownership intact");
+      end;
+   end;
+
+   --  A guard change in the narrow window after root replacement is detected by
+   --  the post-publication fence and the exact old root is restored.
+   declare
+      Target_Expected : Expected_Source;
+      Guard_Expected  : Expected_Source;
+
+      procedure Change_Guard_After_Publish (Published_Path : String) is
+         pragma Unreferenced (Published_Path);
+      begin
+         Write_Exact (Guard, Guard_Changed);
+      end Change_Guard_After_Publish;
+   begin
+      Write_Exact (Target, LF_Initial);
+      Write_Exact (Guard, Guard_Initial);
+      Assert
+        (Observe_Source (Target, Target_Expected, Error)
+         and then Observe_Source (Guard, Guard_Expected, Error),
+         "Post-publication guard race captures exact premises");
+
+      declare
+         Guards : Source_Premise_Array (1 .. 1) :=
+           (1 => Make_Source_Premise (Guard, Guard_Expected));
+      begin
+         HRA.Writer.Test_Hooks.Set_After_Publish_Hook
+           (Change_Guard_After_Publish'Address);
+         Assert
+           (not Atomic_Publish_Journal_Guarded
+              (Target_Path => Target,
+               Expected    => Target_Expected,
+               Candidate   => Make_Candidate_Source (Complete_Candidate),
+               Guards      => Guards,
+               Status      => Status,
+               Error_Msg   => Error)
+            and then Status = Stale_Source_Rejected,
+            "Guard change after root replacement is rejected by post-publication fence");
+         HRA.Writer.Test_Hooks.Clear_After_Publish_Hook;
+         Assert
+           (Read_Exact (Target) = LF_Initial
+            and then Read_Exact (Guard) = Guard_Changed
+            and then not Exists (Target & ".bak"),
+            "Post-publication guard rejection restores exact root and never rewrites guard");
+      end;
+   end;
+
+   --  If somebody also changes the root after Writer's rename, rollback must not
+   --  overwrite that later external root change with an older backup.
+   declare
+      Target_Expected : Expected_Source;
+      Guard_Expected  : Expected_Source;
+
+      procedure Change_Guard_And_Root_After_Publish (Published_Path : String) is
+      begin
+         Write_Exact (Guard, Guard_Changed);
+         Write_Exact (Published_Path, External_Root);
+      end Change_Guard_And_Root_After_Publish;
+   begin
+      Write_Exact (Target, LF_Initial);
+      Write_Exact (Guard, Guard_Initial);
+      Assert
+        (Observe_Source (Target, Target_Expected, Error)
+         and then Observe_Source (Guard, Guard_Expected, Error),
+         "External root race captures exact premises");
+
+      declare
+         Guards : Source_Premise_Array (1 .. 1) :=
+           (1 => Make_Source_Premise (Guard, Guard_Expected));
+      begin
+         HRA.Writer.Test_Hooks.Set_After_Publish_Hook
+           (Change_Guard_And_Root_After_Publish'Address);
+         Assert
+           (not Atomic_Publish_Journal_Guarded
+              (Target_Path => Target,
+               Expected    => Target_Expected,
+               Candidate   => Make_Candidate_Source (Complete_Candidate),
+               Guards      => Guards,
+               Status      => Status,
+               Error_Msg   => Error)
+            and then Status = File_Write_Failed,
+            "Writer refuses rollback when root no longer contains its own candidate");
+         HRA.Writer.Test_Hooks.Clear_After_Publish_Hook;
+         Assert
+           (Read_Exact (Target) = External_Root
+            and then Read_Exact (Guard) = Guard_Changed
+            and then Exists (Target & ".bak")
+            and then Read_Exact (Target & ".bak") = LF_Initial,
+            "Rollback refusal preserves external root and retains exact recovery backup");
+      end;
+   end;
+
+   HRA.Writer.Test_Hooks.Clear_After_Stage_Hook;
+   HRA.Writer.Test_Hooks.Clear_After_Publish_Hook;
+
    if Exists (Target) then
       Delete_File (Target);
+   end if;
+   if Exists (Guard) then
+      Delete_File (Guard);
+   end if;
+   if Exists (Target & ".bak") then
+      Delete_File (Target & ".bak");
    end if;
 
    New_Line;
