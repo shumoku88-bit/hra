@@ -4,8 +4,14 @@ package body HRA.Actual_Root_Candidate is
 
    use type HRA.Ledger.Transaction;
 
+   function Root_Path_Of (Candidate : Candidate_Root) return String is
+     (To_String (Candidate.Root_Path));
+
+   function Observed_Text (Candidate : Candidate_Root) return String is
+     (To_String (Candidate.Observed_Source_Text));
+
    function Text (Candidate : Candidate_Root) return String is
-     (To_String (Candidate.Source_Text));
+     (To_String (Candidate.Candidate_Source_Text));
 
    function Empty_Journal_Diagnostic return HRA.Journal.Parse_Diagnostic is
      ((File_Name   => Null_Unbounded_String,
@@ -73,7 +79,10 @@ package body HRA.Actual_Root_Candidate is
       Rendered           : Unbounded_String := To_Unbounded_String (Root_Text);
       Block_Text         : constant String := HRA.Actual_Candidate.Text (Block);
    begin
-      Candidate := (Source_Text => Null_Unbounded_String);
+      Candidate :=
+        (Root_Path             => Null_Unbounded_String,
+         Observed_Source_Text  => Null_Unbounded_String,
+         Candidate_Source_Text => Null_Unbounded_String);
       Diag :=
         (Status   => Success,
          Journal  => Empty_Journal_Diagnostic,
@@ -222,7 +231,10 @@ package body HRA.Actual_Root_Candidate is
          end if;
       end;
 
-      Candidate := (Source_Text => Rendered);
+      Candidate :=
+        (Root_Path             => To_Unbounded_String (Root_Path),
+         Observed_Source_Text  => To_Unbounded_String (Root_Text),
+         Candidate_Source_Text => Rendered);
       return True;
    end Prepare;
 
