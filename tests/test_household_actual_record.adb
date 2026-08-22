@@ -325,6 +325,41 @@ begin
          "Account qualification failure leaves canonical Actual bytes untouched");
    end;
 
+   Reset_Files;
+   declare
+      State : constant HRA.Household.Household_State := Load_State;
+      Actual_Path : constant String :=
+        Path_For (State.Sources.Paths, Actual_Source);
+      Accounts_Path : constant String :=
+        Path_For (State.Sources.Paths, Accounts_Source);
+      Actual_Before : constant String := Read_Exact (Actual_Path);
+      External_Accounts : constant String :=
+        "account assets:wallet" & ASCII.LF &
+        "  ; type: Asset" & ASCII.LF &
+        "account income:salary" & ASCII.LF &
+        "  ; type: Income" & ASCII.LF;
+      Diag : HRA.Household_Actual_Record.Record_Diagnostic;
+   begin
+      Write_Exact (Accounts_Path, External_Accounts);
+      Assert
+        (not HRA.Household_Actual_Record.Record_Actual
+           (State,
+            Transaction_For ("expenses:coffee", 100.0, "Stale Account Authority"),
+            Actual_ID ("stale-account-authority"),
+            Diag)
+         and then Diag.Status =
+           HRA.Household_Actual_Record.Publication_Rejected
+         and then Diag.Publication.Writer_Status =
+           HRA.Writer.Stale_Source_Rejected,
+         "Account-qualified Actual cannot publish after canonical Accounts source changes");
+      Assert
+        (Read_Exact (Actual_Path) = Actual_Before,
+         "Stale Accounts premise rejection leaves canonical Actual bytes untouched");
+      Assert
+        (Read_Exact (Accounts_Path) = External_Accounts,
+         "Stale Accounts premise rejection never rewrites external Account authority");
+   end;
+
    Delete_Tree (Temp_Dir);
 
    Put_Line
