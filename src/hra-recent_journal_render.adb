@@ -5,6 +5,7 @@ with HRA.Account;          use HRA.Account;
 with HRA.Actual_Admission;
 with HRA.Dates;
 with HRA.Money;         use HRA.Money;
+with HRA.Terminal_Layout;
 
 package body HRA.Recent_Journal_Render is
 
@@ -41,7 +42,8 @@ package body HRA.Recent_Journal_Render is
          for Posting of Item.Value.Postings loop
             Append
               (Buf,
-               "    " & Name (Posting.Acc) & "    " &
+               "    " &
+               HRA.Terminal_Layout.Pad_Right (Name (Posting.Acc), 28) &
                Render_Amount (Posting.Amt) & ASCII.LF);
          end loop;
          Append (Buf, ASCII.LF);
