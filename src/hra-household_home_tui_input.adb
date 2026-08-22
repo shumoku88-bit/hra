@@ -34,6 +34,8 @@ package body HRA.Household_Home_TUI_Input is
          return (Kind => Open_Record);
       elsif Key = Character'Pos ('p') or else Key = Character'Pos ('P') then
          return (Kind => Open_Plan);
+      elsif Key = Character'Pos ('i') or else Key = Character'Pos ('I') then
+         return (Kind => Open_Issue);
       elsif Key = Character'Pos ('q') or else Key = Character'Pos ('Q') then
          return (Kind => Quit);
       elsif Key = Ctrl_L or else Key = Integer (Curses.Key_Resize) then
