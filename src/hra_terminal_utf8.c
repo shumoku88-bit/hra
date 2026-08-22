@@ -6,9 +6,8 @@
 #include <string.h>
 #include <wchar.h>
 
-/* Provided by the wide-character ncurses library selected by AdaCurses. */
-extern int mvaddnwstr(int line, int column, const wchar_t *text, int length);
-extern int get_wch(wint_t *value);
+/* Provided by the standard narrow ncurses library selected by AdaCurses. */
+extern int mvaddnstr(int line, int column, const char *text, int length);
 
 int hra_terminal_utf8_initialize(void)
 {
@@ -21,83 +20,49 @@ int hra_terminal_utf8_add_line(int line,
                                int max_columns)
 {
     mbstate_t state;
-    const char *source;
-    size_t wide_length;
-    size_t converted;
-    size_t count;
-    int columns;
-    int result;
-    wchar_t *wide;
+    const char *ptr;
+    size_t remaining;
+    int columns = 0;
+    int bytes_to_draw = 0;
 
     if (text == NULL || text[0] == '\0' || max_columns <= 0) {
         return 0;
     }
 
     memset(&state, 0, sizeof(state));
-    source = text;
-    wide_length = mbsrtowcs(NULL, &source, 0, &state);
-    if (wide_length == (size_t)-1 || wide_length > (size_t)INT_MAX) {
-        return -1;
-    }
+    ptr = text;
+    remaining = strlen(text);
 
-    wide = calloc(wide_length + 1, sizeof(*wide));
-    if (wide == NULL) {
-        return -1;
-    }
+    while (remaining > 0) {
+        wchar_t wc;
+        size_t consumed = mbrtowc(&wc, ptr, remaining, &state);
+        int width;
 
-    memset(&state, 0, sizeof(state));
-    source = text;
-    converted = mbsrtowcs(wide, &source, wide_length + 1, &state);
-    if (converted == (size_t)-1) {
-        free(wide);
-        return -1;
-    }
-
-    columns = 0;
-    count = 0;
-    while (count < converted) {
-        int width = wcwidth(wide[count]);
-
-        if (width < 0) {
-            free(wide);
+        if (consumed == (size_t)-1 || consumed == (size_t)-2) {
             return -1;
         }
+        if (consumed == 0) {
+            break;
+        }
+
+        width = wcwidth(wc);
+        if (width < 0) {
+            return -1;
+        }
+
         if (columns + width > max_columns) {
             break;
         }
 
         columns += width;
-        ++count;
+        bytes_to_draw += (int)consumed;
+        ptr += consumed;
+        remaining -= consumed;
     }
 
-    if (count == 0) {
-        free(wide);
+    if (bytes_to_draw == 0) {
         return 0;
     }
 
-    result = mvaddnwstr(line, column, wide, (int)count);
-    free(wide);
-    return result;
-}
-
-int hra_terminal_utf8_read_key(int *kind, unsigned int *value)
-{
-    wint_t input;
-    int result;
-
-    if (kind == NULL || value == NULL) {
-        return -1;
-    }
-
-    result = get_wch(&input);
-    if (result < 0) {
-        return -1;
-    }
-
-    /* get_wch returns OK (zero) for a character and KEY_CODE_YES for a
-       function/special key. Preserve only that distinction across the C/Ada
-       boundary; AdaCurses remains the owner of concrete KEY_* numbers. */
-    *kind = result == 0 ? 0 : 1;
-    *value = (unsigned int)input;
-    return 0;
+    return mvaddnstr(line, column, text, bytes_to_draw);
 }

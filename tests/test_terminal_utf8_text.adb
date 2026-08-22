@@ -72,6 +72,99 @@ begin
      (HRA.Terminal_UTF8.Drop_Last_Code_Point ("") = "",
       "backspace on empty text remains empty");
 
+   declare
+      use type HRA.Terminal_UTF8.Decode_Status;
+      use type HRA.Terminal_UTF8.Unicode_Code_Point;
+      State : HRA.Terminal_UTF8.Decoder_State :=
+        HRA.Terminal_UTF8.Initial_Decoder_State;
+      Res   : HRA.Terminal_UTF8.Decode_Result;
+   begin
+      Res := HRA.Terminal_UTF8.Feed_Keystroke (State, Character'Pos ('Z'));
+      Assert
+        (Res.Status = HRA.Terminal_UTF8.Decoded_Character
+         and then Res.Code_Point = Character'Pos ('Z'),
+         "stream decoder decodes single-byte ASCII");
+
+      Res := HRA.Terminal_UTF8.Feed_Keystroke (State, 263);
+      Assert
+        (Res.Status = HRA.Terminal_UTF8.Decoded_Special_Key
+         and then Res.Key_Code = 263,
+         "stream decoder decodes curses special key");
+
+      Res := HRA.Terminal_UTF8.Feed_Keystroke (State, 16#C3#);
+      Assert
+        (Res.Status = HRA.Terminal_UTF8.Incomplete,
+         "2-byte sequence byte 1 is incomplete");
+      Res := HRA.Terminal_UTF8.Feed_Keystroke (State, 16#A9#);
+      Assert
+        (Res.Status = HRA.Terminal_UTF8.Decoded_Character
+         and then Res.Code_Point = 16#E9#,
+         "2-byte sequence decodes complete Unicode scalar");
+
+      Res := HRA.Terminal_UTF8.Feed_Keystroke (State, 16#E5#);
+      Assert
+        (Res.Status = HRA.Terminal_UTF8.Incomplete,
+         "3-byte sequence byte 1 is incomplete");
+      Res := HRA.Terminal_UTF8.Feed_Keystroke (State, 16#AE#);
+      Assert
+        (Res.Status = HRA.Terminal_UTF8.Incomplete,
+         "3-byte sequence byte 2 is incomplete");
+      Res := HRA.Terminal_UTF8.Feed_Keystroke (State, 16#B6#);
+      Assert
+        (Res.Status = HRA.Terminal_UTF8.Decoded_Character
+         and then Res.Code_Point = 16#5BB6#,
+         "3-byte sequence decodes complete Kanji code point");
+
+      Res := HRA.Terminal_UTF8.Feed_Keystroke (State, 16#F0#);
+      Assert
+        (Res.Status = HRA.Terminal_UTF8.Incomplete,
+         "4-byte sequence byte 1 is incomplete");
+      Res := HRA.Terminal_UTF8.Feed_Keystroke (State, 16#9F#);
+      Assert
+        (Res.Status = HRA.Terminal_UTF8.Incomplete,
+         "4-byte sequence byte 2 is incomplete");
+      Res := HRA.Terminal_UTF8.Feed_Keystroke (State, 16#90#);
+      Assert
+        (Res.Status = HRA.Terminal_UTF8.Incomplete,
+         "4-byte sequence byte 3 is incomplete");
+      Res := HRA.Terminal_UTF8.Feed_Keystroke (State, 16#B8#);
+      Assert
+        (Res.Status = HRA.Terminal_UTF8.Decoded_Character
+         and then Res.Code_Point = 16#1F438#,
+         "4-byte sequence decodes complete Emoji code point");
+
+      --  Special key interrupts incomplete sequence
+      Res := HRA.Terminal_UTF8.Feed_Keystroke (State, 16#E5#);
+      Assert
+        (Res.Status = HRA.Terminal_UTF8.Incomplete,
+         "incomplete 3-byte start");
+      Res := HRA.Terminal_UTF8.Feed_Keystroke (State, 259);
+      Assert
+        (Res.Status = HRA.Terminal_UTF8.Decoded_Special_Key
+         and then Res.Key_Code = 259,
+         "special key immediately interrupts incomplete sequence");
+
+      --  Invalid byte validations
+      Res := HRA.Terminal_UTF8.Feed_Keystroke (State, 16#80#);
+      Assert
+        (Res.Status = HRA.Terminal_UTF8.Invalid_Sequence,
+         "stray continuation byte is rejected");
+
+      Res := HRA.Terminal_UTF8.Feed_Keystroke (State, 16#C0#);
+      Assert
+        (Res.Status = HRA.Terminal_UTF8.Invalid_Sequence,
+         "overlong leading byte 16#C0# is rejected");
+
+      Res := HRA.Terminal_UTF8.Feed_Keystroke (State, 16#ED#);
+      Assert (Res.Status = HRA.Terminal_UTF8.Incomplete, "ED is incomplete");
+      Res := HRA.Terminal_UTF8.Feed_Keystroke (State, 16#A0#);
+      Assert (Res.Status = HRA.Terminal_UTF8.Incomplete, "A0 is incomplete");
+      Res := HRA.Terminal_UTF8.Feed_Keystroke (State, 16#80#);
+      Assert
+        (Res.Status = HRA.Terminal_UTF8.Invalid_Sequence,
+         "UTF-16 surrogate code point 16#D800# is rejected");
+   end;
+
    Put_Line
      ("Summary: Passed =" & Natural'Image (Passed_Count) &
       ", Failed =" & Natural'Image (Failed_Count));
