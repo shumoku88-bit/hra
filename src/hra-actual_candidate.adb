@@ -76,12 +76,27 @@ package body HRA.Actual_Candidate is
          return False;
       end if;
 
-      if Contains_Line_Break (To_String (Tx.Code_Or_Payee)) then
-         Diag.Status := Description_Contains_Line_Break;
-         Diag.Message := To_Unbounded_String
-           ("Actual transaction description cannot contain a line break");
-         return False;
-      end if;
+      declare
+         Description : constant String := To_String (Tx.Code_Or_Payee);
+         Trimmed     : constant String := Trim (Description, Ada.Strings.Both);
+      begin
+         if Trimmed'Length = 0 then
+            Diag.Status := Description_Required;
+            Diag.Message := To_Unbounded_String
+              ("Actual transaction description is required by canonical Journal syntax");
+            return False;
+         elsif Description /= Trimmed then
+            Diag.Status := Description_Has_Surrounding_Whitespace;
+            Diag.Message := To_Unbounded_String
+              ("Actual transaction description cannot have surrounding whitespace");
+            return False;
+         elsif Contains_Line_Break (Description) then
+            Diag.Status := Description_Contains_Line_Break;
+            Diag.Message := To_Unbounded_String
+              ("Actual transaction description cannot contain a line break");
+            return False;
+         end if;
+      end;
 
       for Posting of Tx.Postings loop
          if Posting.Memo.Present then
@@ -93,15 +108,8 @@ package body HRA.Actual_Candidate is
       end loop;
 
       Append (Rendered, HRA.Dates.Image (Tx.Date));
-      declare
-         Desc : constant String :=
-           Trim (To_String (Tx.Code_Or_Payee), Ada.Strings.Both);
-      begin
-         if Desc'Length > 0 then
-            Append (Rendered, " ");
-            Append (Rendered, Desc);
-         end if;
-      end;
+      Append (Rendered, " ");
+      Append (Rendered, Tx.Code_Or_Payee);
       Append (Rendered, ASCII.LF);
       Append
         (Rendered,
@@ -168,9 +176,6 @@ package body HRA.Actual_Candidate is
       begin
          Expected.Event_ID :=
            To_Unbounded_String (HRA.Actual_Admission.Text (Actual_ID));
-         Expected.Code_Or_Payee :=
-           To_Unbounded_String
-             (Trim (To_String (Tx.Code_Or_Payee), Ada.Strings.Both));
          if Actual_Entry.Tx /= Expected then
             Diag.Status := Semantic_Roundtrip_Failed;
             Diag.Message := To_Unbounded_String
