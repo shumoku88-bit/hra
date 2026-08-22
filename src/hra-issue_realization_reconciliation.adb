@@ -56,12 +56,18 @@ package body HRA.Issue_Realization_Reconciliation is
         (Existing : HRA.Issue_Relation.Relation_Event) return Boolean is
       begin
          return
-           HRA.Issue_Relation.Kind (Existing) = HRA.Issue_Relation.Realized_As
-           and then HRA.Issue_Relation.Event_Id (Existing) = Relation_Event_ID
-           and then HRA.Issue_Relation.Recorded_On (Existing) = Relation_Recorded_On
-           and then HRA.Issue_Relation.Issue_Id (Existing) = Issue_ID
-           and then HRA.Issue_Relation.Actual_Id (Existing) = Actual_ID
-           and then HRA.Issue_Relation.Details (Existing) = Relation_Details;
+           HRA.Issue_Relation.Kind (Existing) =
+             HRA.Issue_Relation.Kind (Requested_Relation)
+           and then HRA.Issue_Relation.Event_Id (Existing) =
+             HRA.Issue_Relation.Event_Id (Requested_Relation)
+           and then HRA.Issue_Relation.Recorded_On (Existing) =
+             HRA.Issue_Relation.Recorded_On (Requested_Relation)
+           and then HRA.Issue_Relation.Issue_Id (Existing) =
+             HRA.Issue_Relation.Issue_Id (Requested_Relation)
+           and then HRA.Issue_Relation.Actual_Id (Existing) =
+             HRA.Issue_Relation.Actual_Id (Requested_Relation)
+           and then HRA.Issue_Relation.Details (Existing) =
+             HRA.Issue_Relation.Details (Requested_Relation);
       end Relation_Matches;
 
       function Is_Open_Prefix_Issue
@@ -164,11 +170,11 @@ package body HRA.Issue_Realization_Reconciliation is
         (State.Actual_Identity)
       loop
          declare
-            Entry : constant HRA.Actual_Admission.Actual_Transaction_Entry :=
+            Actual_Item : constant HRA.Actual_Admission.Actual_Transaction_Entry :=
               HRA.Actual_Admission.Transaction_At (State.Actual_Identity, I);
          begin
-            if Entry.Identity.Present
-              and then Entry.Identity.Value = Actual_ID
+            if Actual_Item.Identity.Present
+              and then Actual_Item.Identity.Value = Actual_ID
             then
                Actual_Index := I;
                exit;
@@ -178,13 +184,13 @@ package body HRA.Issue_Realization_Reconciliation is
 
       if Actual_Index > 0 then
          declare
-            Entry : constant HRA.Actual_Admission.Actual_Transaction_Entry :=
+            Actual_Item : constant HRA.Actual_Admission.Actual_Transaction_Entry :=
               HRA.Actual_Admission.Transaction_At
                 (State.Actual_Identity, Positive (Actual_Index));
             Expected : HRA.Ledger.Transaction := Tx;
          begin
-            if not Entry.Source_Durable_Identity.Present
-              or else Entry.Source_Durable_Identity.Value /= Actual_ID
+            if not Actual_Item.Source_Durable_Identity.Present
+              or else Actual_Item.Source_Durable_Identity.Value /= Actual_ID
             then
                Set_Diagnostic
                  (Actual_Identity_Collision,
@@ -194,7 +200,7 @@ package body HRA.Issue_Realization_Reconciliation is
 
             Expected.Event_ID :=
               To_Unbounded_String (HRA.Actual_Admission.Text (Actual_ID));
-            if Entry.Tx /= Expected then
+            if Actual_Item.Tx /= Expected then
                Set_Diagnostic
                  (Actual_Meaning_Mismatch,
                   "existing source-durable Actual ID has different Transaction meaning");
