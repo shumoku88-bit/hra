@@ -4,6 +4,7 @@ with HRA.Money;
 
 package body HRA.Actual_Candidate is
 
+   use type HRA.Actual_Admission.Actual_Id;
    use type HRA.Ledger.Transaction;
 
    function Text (Candidate : Candidate_Block) return String is
@@ -61,9 +62,22 @@ package body HRA.Actual_Candidate is
        Actual_Id   => Null_Unbounded_String,
        Message     => Null_Unbounded_String));
 
-   function Prepare
-     (Tx        : HRA.Ledger.Transaction;
-      Actual_ID : HRA.Actual_Admission.Actual_Id;
+   --  Private discriminated type representing presence or absence of identity.
+   --  Ordinary path: (Present => False).
+   --  Identified path: (Present => True, Value => <explicit id>).
+   type Candidate_Identity (Present : Boolean := False) is record
+      case Present is
+         when True =>
+            Value : HRA.Actual_Admission.Actual_Id;
+         when False =>
+            null;
+      end case;
+   end record;
+
+   --  Shared preparation core for both ordinary and identified Actual candidates.
+   function Prepare_Internal
+     (Tx       : HRA.Ledger.Transaction;
+      Identity : Candidate_Identity;
       Candidate : out Candidate_Block;
       Diag      : out Candidate_Diagnostic) return Boolean
    is
@@ -129,13 +143,19 @@ package body HRA.Actual_Candidate is
          end if;
       end loop;
 
+      --  Render transaction header
       Append (Rendered, HRA.Dates.Image (Tx.Date));
       Append (Rendered, " ");
       Append (Rendered, Tx.Code_Or_Payee);
       Append (Rendered, ASCII.LF);
-      Append
-        (Rendered,
-         "    ; event-id: " & HRA.Actual_Admission.Text (Actual_ID) & ASCII.LF);
+
+      --  Render event-id metadata only for identified Actuals
+      if Identity.Present then
+         Append
+           (Rendered,
+            "    ; event-id: " &
+            HRA.Actual_Admission.Text (Identity.Value) & ASCII.LF);
+      end if;
 
       for Posting of Tx.Postings loop
          Append (Rendered, "    ");
@@ -181,13 +201,10 @@ package body HRA.Actual_Candidate is
          return False;
       end if;
 
-      if HRA.Actual_Admission.Transaction_Count (Observation) /= 1
-        or else not HRA.Actual_Admission.Has_Source_Durable_Identity
-          (Observation, Actual_ID)
-      then
+      if HRA.Actual_Admission.Transaction_Count (Observation) /= 1 then
          Diag.Status := Semantic_Roundtrip_Failed;
          Diag.Message := To_Unbounded_String
-           ("Actual candidate did not round-trip to one source-durable transaction");
+           ("Actual candidate did not round-trip to exactly one transaction");
          return False;
       end if;
 
@@ -196,18 +213,72 @@ package body HRA.Actual_Candidate is
            HRA.Actual_Admission.Transaction_At (Observation, 1);
          Expected     : HRA.Ledger.Transaction := Tx;
       begin
-         Expected.Event_ID :=
-           To_Unbounded_String (HRA.Actual_Admission.Text (Actual_ID));
-         if Actual_Entry.Tx /= Expected then
-            Diag.Status := Semantic_Roundtrip_Failed;
-            Diag.Message := To_Unbounded_String
-              ("Actual candidate changed typed Transaction meaning during round-trip");
-            return False;
+         if Identity.Present then
+            if not Actual_Entry.Identity.Present
+              or else not Actual_Entry.Source_Durable_Identity.Present
+              or else Actual_Entry.Identity.Value /= Identity.Value
+              or else Actual_Entry.Source_Durable_Identity.Value /= Identity.Value
+              or else not HRA.Actual_Admission.Has_Source_Durable_Identity
+                (Observation, Identity.Value)
+            then
+               Diag.Status := Semantic_Roundtrip_Failed;
+               Diag.Message := To_Unbounded_String
+                 ("Actual candidate did not round-trip to one source-durable transaction");
+               return False;
+            end if;
+
+            Expected.Event_ID :=
+              To_Unbounded_String
+                (HRA.Actual_Admission.Text (Identity.Value));
+
+            if Actual_Entry.Tx /= Expected then
+               Diag.Status := Semantic_Roundtrip_Failed;
+               Diag.Message := To_Unbounded_String
+                 ("Actual candidate changed typed Transaction meaning during round-trip");
+               return False;
+            end if;
+         else
+            if Actual_Entry.Identity.Present
+              or else Actual_Entry.Source_Durable_Identity.Present
+            then
+               Diag.Status := Semantic_Roundtrip_Failed;
+               Diag.Message := To_Unbounded_String
+                 ("ordinary Actual candidate acquired unexpected identity during round-trip");
+               return False;
+            end if;
+
+            if Actual_Entry.Tx /= Expected then
+               Diag.Status := Semantic_Roundtrip_Failed;
+               Diag.Message := To_Unbounded_String
+                 ("Actual candidate changed typed Transaction meaning during round-trip");
+               return False;
+            end if;
          end if;
       end;
 
       Candidate := (Source_Text => Rendered);
       return True;
-   end Prepare;
+   end Prepare_Internal;
+
+   function Prepare_Ordinary
+     (Tx        : HRA.Ledger.Transaction;
+      Candidate : out Candidate_Block;
+      Diag      : out Candidate_Diagnostic) return Boolean
+   is
+   begin
+      return Prepare_Internal
+        (Tx, (Present => False), Candidate, Diag);
+   end Prepare_Ordinary;
+
+   function Prepare_Identified
+     (Tx        : HRA.Ledger.Transaction;
+      Actual_ID : HRA.Actual_Admission.Actual_Id;
+      Candidate : out Candidate_Block;
+      Diag      : out Candidate_Diagnostic) return Boolean
+   is
+   begin
+      return Prepare_Internal
+        (Tx, (Present => True, Value => Actual_ID), Candidate, Diag);
+   end Prepare_Identified;
 
 end HRA.Actual_Candidate;

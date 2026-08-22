@@ -81,6 +81,9 @@ procedure Test_Issue_Relation_Admission is
      "Older chair" & ASCII.HT & "" & ASCII.HT & "" & ASCII.HT & "" & ASCII.LF;
 
    Actual_Source : constant String :=
+     "2026-08-09 Ordinary coffee" & ASCII.LF &
+     "    assets:cash          -50 JPY" & ASCII.LF &
+     "    expenses:household    50 JPY" & ASCII.LF & ASCII.LF &
      "2026-08-10 Plan completion" & ASCII.LF &
      "    ; plan-id: plan-a" & ASCII.LF &
      "    assets:cash         -100 JPY" & ASCII.LF &
@@ -186,6 +189,21 @@ begin
         and then Diag.Reference.Status =
           HRA.Issue_Relation.Unknown_Source_Durable_Actual,
       "Plan-derived effective Actual identity is not cross-source evidence");
+
+   Assert
+     (not HRA.Issue_Relation.Admission.Admit
+        (Relation_Header & ASCII.LF &
+         "rel-ordinary-actual" & ASCII.HT & "2026-08-12" & ASCII.HT &
+         "ISSUE-OPEN" & ASCII.HT & "realized-as" & ASCII.HT &
+         "coffee-actual" & ASCII.HT & ASCII.LF,
+         Issues,
+         Actuals,
+         History,
+         Diag)
+        and then Diag.Status = HRA.Issue_Relation.Admission.Reference_Error
+        and then Diag.Reference.Status =
+          HRA.Issue_Relation.Unknown_Source_Durable_Actual,
+      "Relation to ordinary identity-free Actual is rejected as non-durable reference");
 
    Assert
      (not HRA.Issue_Relation.Admission.Admit

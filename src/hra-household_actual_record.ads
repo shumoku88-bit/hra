@@ -8,7 +8,7 @@ with HRA.Actual_Root_Candidate;
 with HRA.Household;
 with HRA.Ledger;
 
---  UI-neutral application boundary for recording one ordinary Actual from an
+--  UI-neutral application boundary for recording an Actual transaction from an
 --  already-admitted Household.
 --
 --  The Household owns the current canonical Account universe, admitted Actual
@@ -37,7 +37,7 @@ package HRA.Household_Actual_Record is
    end record;
 
    --  Record one explicit typed transaction through the complete ordinary
-   --  Actual path:
+   --  identity-free Actual path:
    --
    --    source-local candidate -> root candidate -> complete graph admission
    --    -> canonical Account qualification -> exact guarded publication
@@ -45,7 +45,14 @@ package HRA.Household_Actual_Record is
    --  State is observation-only here. On success it still describes the
    --  pre-publication Household; an interactive shell may re-admit the
    --  Household afterwards before accepting another mutation.
-   function Record_Actual
+   function Record_Ordinary
+     (State : HRA.Household.Household_State;
+      Tx    : HRA.Ledger.Transaction;
+      Diag  : out Record_Diagnostic) return Boolean;
+
+   --  Record one explicit typed transaction as a source-durable identified Actual
+   --  through the complete publication path:
+   function Record_Identified
      (State     : HRA.Household.Household_State;
       Tx        : HRA.Ledger.Transaction;
       Actual_ID : HRA.Actual_Admission.Actual_Id;

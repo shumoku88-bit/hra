@@ -130,7 +130,7 @@ procedure Test_Actual_Account_Admission is
       Existing    : HRA.Actual_Admission.Actual_Observation :=
         HRA.Actual_Admission.Empty_Observation;
    begin
-      if not HRA.Actual_Candidate.Prepare
+      if not HRA.Actual_Candidate.Prepare_Identified
         (Make_Transaction (Expense_Name),
          Actual_ID (ID_Text),
          Block,
@@ -151,6 +151,39 @@ procedure Test_Actual_Account_Admission is
          raise Program_Error with "graph candidate unexpectedly rejected before Account qualification";
       end if;
    end Build_Graph;
+
+   procedure Build_Ordinary_Graph
+     (Expense_Name : String;
+      Graph        : out HRA.Actual_Graph_Admission.Candidate_Graph)
+   is
+      Block       : HRA.Actual_Candidate.Candidate_Block;
+      Block_Diag  : HRA.Actual_Candidate.Candidate_Diagnostic;
+      Root        : HRA.Actual_Root_Candidate.Candidate_Root;
+      Root_Diag   : HRA.Actual_Root_Candidate.Candidate_Diagnostic;
+      Graph_Diag  : HRA.Actual_Graph_Admission.Admission_Diagnostic;
+      Existing    : HRA.Actual_Admission.Actual_Observation :=
+        HRA.Actual_Admission.Empty_Observation;
+   begin
+      if not HRA.Actual_Candidate.Prepare_Ordinary
+        (Make_Transaction (Expense_Name),
+         Block,
+         Block_Diag)
+      then
+         raise Program_Error with "ordinary Actual block unexpectedly rejected before Account qualification";
+      end if;
+
+      if not HRA.Actual_Root_Candidate.Prepare
+        (Root_Path, "", Block, Root, Root_Diag)
+      then
+         raise Program_Error with "ordinary root candidate unexpectedly rejected before Account qualification";
+      end if;
+
+      if not HRA.Actual_Graph_Admission.Admit_Candidate_Root
+        (Existing, Root, Graph, Graph_Diag)
+      then
+         raise Program_Error with "ordinary graph candidate unexpectedly rejected before Account qualification";
+      end if;
+   end Build_Ordinary_Graph;
 
 begin
    Put_Line ("--- Testing Actual Account admission ---");
@@ -180,6 +213,23 @@ begin
       Assert
         (HRA.Account.Declarations (Registry)'Length = Before_Count,
          "Account qualification does not mutate canonical registry authority");
+   end;
+
+   declare
+      Registry  : HRA.Account.Account_Registry := Make_Registry;
+      Graph     : HRA.Actual_Graph_Admission.Candidate_Graph;
+      Qualified : HRA.Actual_Account_Admission.Account_Qualified_Graph;
+      Diag      : HRA.Actual_Account_Admission.Admission_Diagnostic;
+   begin
+      Build_Ordinary_Graph ("expenses:household", Graph);
+      Assert
+        (HRA.Actual_Account_Admission.Admit
+           (Registry, Graph, Qualified, Diag),
+         "Ordinary identity-free candidate graph qualifies against canonical Account registry");
+      Assert
+        (HRA.Actual_Admission.Transaction_Count
+           (HRA.Actual_Account_Admission.Observation_Of (Qualified)) = 1,
+         "Qualified ordinary graph preserves identity-free observation");
    end;
 
    declare

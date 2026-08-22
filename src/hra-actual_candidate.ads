@@ -4,13 +4,21 @@ with HRA.Journal;
 with HRA.Journal_Evidence;
 with HRA.Ledger;
 
---  Pure source-local preparation of one explicit source-durable Actual.
+--  Pure source-local preparation of one Actual candidate block.
 --
 --  This package renders one already-typed balanced Transaction into the current
---  Journal source grammar with one explicit event-id, then admits that block
---  back through Journal, Journal_Evidence, and Actual_Admission before exposing
---  it as a candidate. It does not append to a root Journal, resolve includes,
---  inspect Household Accounts, or publish files.
+--  Journal source grammar, then admits that block back through Journal,
+--  Journal_Evidence, and Actual_Admission before exposing it as a candidate.
+--  It does not append to a root Journal, resolve includes, inspect Household
+--  Accounts, or publish files.
+--
+--  Two preparation modes are supported:
+--
+--    Prepare_Ordinary   — identity-free Actual (no event-id metadata)
+--    Prepare_Identified — one explicit source-durable event-id
+--
+--  Description is required and must not carry surrounding whitespace, so
+--  source generation never invents or silently normalizes semantic text.
 package HRA.Actual_Candidate is
 
    type Candidate_Block is private;
@@ -38,16 +46,29 @@ package HRA.Actual_Candidate is
       Message         : Unbounded_String;
    end record;
 
-   --  Prepare one canonical source block for an ordinary Actual transaction.
-   --  Actual_ID becomes explicit `event-id` metadata owned by the source.
+   --  Prepare one identity-free ordinary Actual block.
    --
-   --  Tx.Event_ID and Tx.Reverses_ID must be empty. Reversal preparation is a
-   --  separate semantic operation and source identity must not have two owners.
-   --  Description is required and must not carry surrounding whitespace, so
-   --  source generation never invents or silently normalizes semantic text.
-   --  Posting memo is rejected until the Journal grammar has a lossless posting
-   --  memo representation.
-   function Prepare
+   --  The rendered source carries no event-id metadata. The round-tripped
+   --  Actual_Transaction_Entry has Identity.Present = False and
+   --  Source_Durable_Identity.Present = False.
+   --
+   --  Tx.Event_ID and Tx.Reverses_ID must be empty.
+   --  Description is required and must not carry surrounding whitespace.
+   --  Posting memo is rejected until the Journal grammar has a lossless
+   --  posting memo representation.
+   function Prepare_Ordinary
+     (Tx        : HRA.Ledger.Transaction;
+      Candidate : out Candidate_Block;
+      Diag      : out Candidate_Diagnostic) return Boolean;
+
+   --  Prepare one source-durable identified Actual block.
+   --
+   --  The rendered source carries one `; event-id: <id>` metadata line.
+   --  The round-tripped Actual_Transaction_Entry has Identity.Present = True
+   --  and Source_Durable_Identity.Present = True, both holding Actual_ID.
+   --
+   --  Same preconditions as Prepare_Ordinary apply.
+   function Prepare_Identified
      (Tx        : HRA.Ledger.Transaction;
       Actual_ID : HRA.Actual_Admission.Actual_Id;
       Candidate : out Candidate_Block;
