@@ -1,5 +1,4 @@
 with Ada.Containers.Indefinite_Vectors;
-with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
 
 --  Source-local admission for the explicit Issue relation sidecar.
 --
@@ -16,6 +15,15 @@ package HRA.Issue_Relation.TSV is
      (History : Relation_History;
       Index   : Positive) return HRA.Issue_Relation.Relation_Event
      with Pre => Index <= Count (History);
+
+   --  Canonical source rendering and header recognition remain owned beside
+   --  the six-column parser so candidate builders do not duplicate TSV syntax.
+   function Canonical_Header_Text return String;
+
+   function Render_Event_Row
+     (Event : HRA.Issue_Relation.Relation_Event) return String;
+
+   function Has_Canonical_Header (Source_Text : String) return Boolean;
 
    type Admission_Status is
      (Success,

@@ -28,6 +28,59 @@ package body HRA.Issue_Relation.TSV is
       Index   : Positive) return HRA.Issue_Relation.Relation_Event is
      (History.Items.Element (Index));
 
+   function Without_Trailing_CR (Line : String) return String;
+
+   function Canonical_Header_Text return String is (Canonical_Header);
+
+   function Render_Event_Row
+     (Event : HRA.Issue_Relation.Relation_Event) return String is
+     (HRA.Issue_Relation.Text (HRA.Issue_Relation.Event_Id (Event)) &
+      ASCII.HT &
+      HRA.Dates.Image (HRA.Issue_Relation.Recorded_On (Event)) &
+      ASCII.HT &
+      HRA.Issues.Text (HRA.Issue_Relation.Issue_Id (Event)) &
+      ASCII.HT &
+      (case HRA.Issue_Relation.Kind (Event) is
+          when HRA.Issue_Relation.Realized_As => "realized-as") &
+      ASCII.HT &
+      (case HRA.Issue_Relation.Kind (Event) is
+          when HRA.Issue_Relation.Realized_As =>
+             HRA.Actual_Admission.Text
+               (HRA.Issue_Relation.Actual_Id (Event))) &
+      ASCII.HT &
+      HRA.Issue_Relation.Details (Event));
+
+   function Has_Canonical_Header (Source_Text : String) return Boolean is
+      Line_Start : Natural := Source_Text'First;
+   begin
+      while Line_Start <= Source_Text'Last loop
+         declare
+            Line_End : Natural := Line_Start;
+         begin
+            while Line_End <= Source_Text'Last
+              and then Source_Text (Line_End) /= ASCII.LF
+            loop
+               Line_End := Line_End + 1;
+            end loop;
+
+            declare
+               Raw : constant String :=
+                 (if Line_End > Line_Start
+                  then Source_Text (Line_Start .. Line_End - 1)
+                  else "");
+               Line : constant String := Without_Trailing_CR (Raw);
+            begin
+               if Line = Canonical_Header then
+                  return True;
+               end if;
+            end;
+
+            Line_Start := Line_End + 1;
+         end;
+      end loop;
+      return False;
+   end Has_Canonical_Header;
+
    function Without_Trailing_CR (Line : String) return String is
    begin
       if Line'Length = 0 or else Line (Line'Last) /= ASCII.CR then
