@@ -541,20 +541,20 @@ begin
       Diag     : HRA.Issue_Realization_Resume.Resume_Diagnostic;
       Pub_Res  : HRA.Issue_Realization_Resume.Publication.Publication_Result;
 
-      procedure Drift_Issues_After_Relation_Publish (Path : String) is
+      procedure Stale_Issue_Target_During_Step_2 (Staged_Path : String) is
       begin
-         if Index (Path, "issue-relations.tsv") > 0 then
+         if Index (Staged_Path, "issues.tsv") > 0 then
             Write_Exact (Compose (Root, "issues.tsv"), Changed_Issues_Text);
          end if;
-      end Drift_Issues_After_Relation_Publish;
+      end Stale_Issue_Target_During_Step_2;
    begin
       Reset (Appended_Actual_Text, Issues_Open_Text);
       Assert
         (Prepare_Resume_Call (Prepared, Diag),
          "prepare W1 for step-2 issue drift test");
 
-      HRA.Writer.Test_Hooks.Set_After_Publish_Hook
-        (Drift_Issues_After_Relation_Publish'Address);
+      HRA.Writer.Test_Hooks.Set_After_Stage_Hook
+        (Stale_Issue_Target_During_Step_2'Address);
 
       Assert
         (not HRA.Issue_Realization_Resume.Publication.Publish
@@ -567,7 +567,7 @@ begin
            HRA.Issue_Realization_Preparation.Publication.W2,
          "step-2 issue drift preserves confirmed W2 without cross-step rollback");
 
-      HRA.Writer.Test_Hooks.Clear_After_Publish_Hook;
+      HRA.Writer.Test_Hooks.Clear_After_Stage_Hook;
 
       Assert
         (Read_Exact (Compose (Root, "actual.journal")) = Appended_Actual_Text
