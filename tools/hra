@@ -99,7 +99,9 @@ build_tests() {
   # Remove only old executables so a retired test cannot survive as a stale
   # runnable binary. Keep objects for incremental compilation.
   rm -rf "$project_root/tests/bin"
-  alr exec -- gprbuild -P "$project_root/tests/hra_tests.gpr"
+  # Let GPRbuild use the platform's available processor cores across the
+  # independent test compilation, binding, and linking jobs.
+  alr exec -- gprbuild -j0 -P "$project_root/tests/hra_tests.gpr"
 }
 
 run_tests() {
