@@ -30,6 +30,8 @@ package body HRA.Household_Home_TUI_Input is
          return
            (Kind   => Navigate,
             Intent => Interaction.Intent_Focus_Known_Through);
+      elsif Key = Character'Pos ('r') or else Key = Character'Pos ('R') then
+         return (Kind => Open_Record);
       elsif Key = Character'Pos ('q') or else Key = Character'Pos ('Q') then
          return (Kind => Quit);
       elsif Key = Ctrl_L or else Key = Integer (Curses.Key_Resize) then
