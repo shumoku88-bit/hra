@@ -1,14 +1,17 @@
 with Ada.Strings.Fixed; use Ada.Strings.Fixed;
 with Ada.Text_IO; use Ada.Text_IO;
+with HRA.Backing_Policy;
 with HRA.Cycle_Observation;
 with HRA.Dates;
 with HRA.Envelope; use HRA.Envelope;
 with HRA.Envelope_Consumption;
-with HRA.Envelope_Fulfillment;
 with HRA.Envelope_Report_Render;
 with HRA.Household_Envelope_Change;
 with HRA.Household_Envelope_Cycle_Comparison;
+with HRA.Household_Report_Observation;
 with HRA.Money; use HRA.Money;
+with HRA.Terminal_Layout;
+with HRA.Terminal_UTF8;
 
 procedure Test_Envelope_Report_Render is
    package Change renames HRA.Household_Envelope_Change;
@@ -27,6 +30,48 @@ procedure Test_Envelope_Report_Render is
          Failed_Count := Failed_Count + 1;
       end if;
    end Assert;
+
+   function U
+     (Text : String;
+      Code : HRA.Terminal_UTF8.Unicode_Code_Point) return String is
+     (HRA.Terminal_UTF8.Append_Code_Point (Text, Code));
+
+   function Line_Containing (Text, Needle : String) return String is
+      Match_At : constant Natural := Index (Text, Needle);
+      Start_At : Natural := Match_At;
+      Stop_At  : Natural;
+   begin
+      if Match_At = 0 then
+         raise Program_Error with "missing rendered test line: " & Needle;
+      end if;
+      while Start_At > Text'First
+        and then Text (Start_At - 1) /= ASCII.LF
+      loop
+         Start_At := Start_At - 1;
+      end loop;
+      Stop_At := Index (Text (Start_At .. Text'Last), String'(1 => ASCII.LF));
+      if Stop_At = 0 then
+         return Text (Start_At .. Text'Last);
+      end if;
+      return Text (Start_At .. Stop_At - 1);
+   end Line_Containing;
+
+   function Separator_Column
+     (Text : String; Occurrence : Positive) return Natural
+   is
+      Seen : Natural := 0;
+   begin
+      for Index in Text'Range loop
+         if Text (Index) = '|' then
+            Seen := Seen + 1;
+            if Seen = Occurrence then
+               return HRA.Terminal_Layout.Display_Width
+                 (Text (Text'First .. Index - 1));
+            end if;
+         end if;
+      end loop;
+      raise Program_Error with "missing rendered separator";
+   end Separator_Column;
 
    function D (Text : String) return HRA.Dates.Date is
       Result : HRA.Dates.Date;
@@ -53,12 +98,78 @@ procedure Test_Envelope_Report_Render is
 
    JPY : constant Commodity := Make_Commodity ("JPY");
    Food : constant Envelope_Id := Make_Envelope_Id ("food");
+   Mixed_Food : constant Envelope_Id := Make_Envelope_Id
+     ("food-" & U (U ("", 16#98DF#), 16#8CBB#));
 
    function B (Value : Quantity) return Balance is
      (Singleton_Balance (Make_Amount (JPY, Value)));
 
 begin
+   HRA.Terminal_UTF8.Initialize;
    Put_Line ("--- Testing temporal Envelope report rendering ---");
+
+   declare
+      package Report renames HRA.Household_Report_Observation;
+      Observation : Report.Envelope_Report_Observation :=
+        (Observed_Through      => D ("2026-08-15"),
+         Current_Cycle         => W ("2026-08-01", "2026-09-01"),
+         Lines                 => Report.Envelope_Report_Line_Vectors.Empty_Vector,
+         Unmanaged_Consumption =>
+           Report.Account_Consumption_Line_Vectors.Empty_Vector,
+         Unrouted_Consumption =>
+           Report.Account_Consumption_Line_Vectors.Empty_Vector,
+         Unmanaged_Commitment =>
+           Report.Account_Commitment_Line_Vectors.Empty_Vector,
+         Unrouted_Commitment  =>
+           Report.Account_Commitment_Line_Vectors.Empty_Vector,
+         Backing_Lines         => Report.Backing_Report_Line_Vectors.Empty_Vector,
+         Signed_Envelope_Total => B (1_255.0),
+         Unallocated           => Empty_Balance,
+         Total_Funding_Assets  => B (1_255.0),
+         Backing_Status        => HRA.Backing_Policy.Fully_Backed);
+   begin
+      Observation.Lines.Append
+        (Report.Envelope_Report_Line'
+           (Env_Id => Food, Entitlement => B (5.0),
+          Consumption_Charges => B (1.0), Consumption_Refunds => Empty_Balance,
+          Net_Consumption => B (1.0), Fulfillment_Applied => Empty_Balance,
+          Fulfillment_Reversed => Empty_Balance,
+          Net_Fulfillment => Empty_Balance, Remaining => B (4.0),
+          Plan_Commitment => Empty_Balance, Headroom => B (4.0)));
+      Observation.Lines.Append
+        (Report.Envelope_Report_Line'
+           (Env_Id => Mixed_Food, Entitlement => B (1_250.0),
+          Consumption_Charges => B (10.0), Consumption_Refunds => B (5.0),
+          Net_Consumption => B (5.0), Fulfillment_Applied => Empty_Balance,
+          Fulfillment_Reversed => Empty_Balance,
+          Net_Fulfillment => Empty_Balance, Remaining => B (1_245.0),
+          Plan_Commitment => B (-200.0), Headroom => B (1_045.0)));
+
+      declare
+         Text : constant String := HRA.Envelope_Report_Render.Render (Observation);
+         Header : constant String := Line_Containing (Text, "Entitlement");
+         ASCII_Row : constant String := Line_Containing (Text, "food ");
+         Mixed_Row : constant String :=
+           Line_Containing (Text, HRA.Envelope.Image (Mixed_Food));
+      begin
+         for Separator in 1 .. 7 loop
+            Assert
+              (Separator_Column (Header, Separator) =
+                 Separator_Column (ASCII_Row, Separator)
+               and then Separator_Column (Header, Separator) =
+                 Separator_Column (Mixed_Row, Separator),
+               "ASCII and mixed UTF-8 Envelope rows keep separator" &
+               Separator'Image & " in the header column");
+         end loop;
+         Assert
+           (Index (ASCII_Row, "|       5 JPY |") > 0,
+            "Envelope numeric cells are right aligned");
+         Assert
+           (HRA.Terminal_Layout.Display_Width (Header) =
+              HRA.Terminal_Layout.Display_Width (Mixed_Row),
+            "Envelope header and mixed UTF-8 body have one display width");
+      end;
+   end;
 
    declare
       Observation : Change.Change_Observation :=
@@ -93,8 +204,8 @@ begin
             "Change renderer retains explicit observation interval");
          Assert
            (Index (Text, "Envelope: food") > 0
-              and then Index (Text, "Consumption charges change: 50 JPY") > 0
-              and then Index (Text, "Plan commitment change   : (50 JPY)") > 0,
+              and then Index (Text, "Consumption charges change : 50 JPY") > 0
+              and then Index (Text, "Plan commitment change     : (50 JPY)") > 0,
             "Change renderer exposes typed gross and signed differences");
       end;
    end;

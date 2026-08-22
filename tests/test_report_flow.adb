@@ -1,5 +1,4 @@
 with Ada.Strings.Fixed; use Ada.Strings.Fixed;
-with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
 with Ada.Text_IO; use Ada.Text_IO;
 with HRA.Account;
 with HRA.Dates;
@@ -10,7 +9,6 @@ with HRA.Render;
 with HRA.Report_Flow;
 
 procedure Test_Report_Flow is
-   use type HRA.Account.Account;
    use type HRA.Dates.Date;
    use type HRA.Money.Quantity;
    use type HRA.Report_Flow.Year_Month;
@@ -185,11 +183,21 @@ begin
          and then Index (Daily_Text, "expenses:food") > 0,
          "Daily renderer exposes typed day and Expense coordinates");
       Assert
+        (Index (Daily_Text, "Date       |  Income | Expenses |      Net") > 0
+         and then Index
+           (Daily_Text, "2026-01-31 | 100 JPY |        0 |  100 JPY") > 0,
+         "Daily header and body separators align with right-aligned numbers");
+      Assert
         (Index (Monthly_Text, "== Monthly Accounts (Account x Month) ==") > 0
          and then Index (Monthly_Text, "2026-01") > 0
          and then Index (Monthly_Text, "2026-02") > 0
          and then Index (Monthly_Text, "expenses:rent") > 0,
          "Monthly renderer exposes explicit Account x Month coordinates");
+      Assert
+        (Index (Monthly_Text, "Month   |  Income | Expenses |      Net") > 0
+         and then Index
+           (Monthly_Text, "2026-01 | 100 JPY |        0 |  100 JPY") > 0,
+         "Monthly header and body separators align with right-aligned numbers");
    end;
 
    Put_Line

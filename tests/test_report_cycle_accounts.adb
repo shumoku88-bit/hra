@@ -9,9 +9,10 @@ with HRA.Journal;
 with HRA.Ledger;
 with HRA.Money;
 with HRA.Report_Cycle_Accounts;
+with HRA.Terminal_Layout;
+with HRA.Terminal_UTF8;
 
 procedure Test_Report_Cycle_Accounts is
-   use type HRA.Account.Account;
    use type HRA.Dates.Date;
    use type HRA.Money.Quantity;
    use type HRA.Report_Cycle_Accounts.Comparison_Status;
@@ -53,6 +54,51 @@ procedure Test_Report_Cycle_Accounts is
       return Result;
    end Window;
 
+   function U
+     (Text : String;
+      Code : HRA.Terminal_UTF8.Unicode_Code_Point) return String is
+     (HRA.Terminal_UTF8.Append_Code_Point (Text, Code));
+
+   Food_Account : constant String :=
+     "expenses:" & U (U ("", 16#98DF#), 16#8CBB#);
+
+   function Line_Containing (Text, Needle : String) return String is
+      Match_At : constant Natural := Index (Text, Needle);
+      Start_At : Natural := Match_At;
+      Stop_At  : Natural;
+   begin
+      if Match_At = 0 then
+         raise Program_Error with "missing rendered test line: " & Needle;
+      end if;
+      while Start_At > Text'First
+        and then Text (Start_At - 1) /= ASCII.LF
+      loop
+         Start_At := Start_At - 1;
+      end loop;
+      Stop_At := Index (Text (Start_At .. Text'Last), String'(1 => ASCII.LF));
+      if Stop_At = 0 then
+         return Text (Start_At .. Text'Last);
+      end if;
+      return Text (Start_At .. Stop_At - 1);
+   end Line_Containing;
+
+   function Separator_Column
+     (Text : String; Occurrence : Positive) return Natural
+   is
+      Seen : Natural := 0;
+   begin
+      for Index in Text'Range loop
+         if Text (Index) = '|' then
+            Seen := Seen + 1;
+            if Seen = Occurrence then
+               return HRA.Terminal_Layout.Display_Width
+                 (Text (Text'First .. Index - 1));
+            end if;
+         end if;
+      end loop;
+      raise Program_Error with "missing rendered separator";
+   end Separator_Column;
+
    function JPY (Value : HRA.Money.Balance) return HRA.Money.Quantity is
    begin
       return HRA.Money.Lookup_Balance
@@ -74,22 +120,22 @@ procedure Test_Report_Cycle_Accounts is
      "  ; type: Equity" & ASCII.LF &
      "account income:salary" & ASCII.LF &
      "  ; type: Income" & ASCII.LF &
-     "account expenses:food" & ASCII.LF &
+     "account " & Food_Account & ASCII.LF &
      "  ; type: Expense" & ASCII.LF & ASCII.LF &
      "2026-01-01 Previous salary" & ASCII.LF &
      "    assets:cash             100 JPY" & ASCII.LF &
      "    income:salary          -100 JPY" & ASCII.LF & ASCII.LF &
      "2026-01-02 Previous food" & ASCII.LF &
-     "    expenses:food            20 JPY" & ASCII.LF &
+     "    " & Food_Account & "            20 JPY" & ASCII.LF &
      "    assets:cash             -20 JPY" & ASCII.LF & ASCII.LF &
      "2026-02-01 Current salary" & ASCII.LF &
      "    assets:cash             100 JPY" & ASCII.LF &
      "    income:salary          -100 JPY" & ASCII.LF & ASCII.LF &
      "2026-02-02 Current food" & ASCII.LF &
-     "    expenses:food            30 JPY" & ASCII.LF &
+     "    " & Food_Account & "            30 JPY" & ASCII.LF &
      "    assets:cash             -30 JPY" & ASCII.LF & ASCII.LF &
      "2026-02-03 Food refund" & ASCII.LF &
-     "    expenses:food            -5 JPY" & ASCII.LF &
+     "    " & Food_Account & "            -5 JPY" & ASCII.LF &
      "    assets:cash               5 JPY" & ASCII.LF & ASCII.LF &
      "2026-02-03 USD transfer" & ASCII.LF &
      "    assets:cash              10 USD" & ASCII.LF &
@@ -106,6 +152,7 @@ procedure Test_Report_Cycle_Accounts is
    Comparison_Diag : HRA.Report_Cycle_Accounts.Comparison_Diagnostic;
 
 begin
+   HRA.Terminal_UTF8.Initialize;
    Put_Line ("--- Testing typed Cycle Accounts report ---");
 
    Assert
@@ -128,7 +175,7 @@ begin
       and then HRA.Account.Name (Current.Rows.Element (2).Acc) = "liabilities:card"
       and then HRA.Account.Name (Current.Rows.Element (3).Acc) = "equity:opening"
       and then HRA.Account.Name (Current.Rows.Element (4).Acc) = "income:salary"
-      and then HRA.Account.Name (Current.Rows.Element (5).Acc) = "expenses:food",
+      and then HRA.Account.Name (Current.Rows.Element (5).Acc) = Food_Account,
       "current Cycle Accounts preserves every declared Account in declaration order");
 
    Assert
@@ -218,13 +265,30 @@ begin
            (Status => HRA.Report_Cycle_Accounts.Comparison_Available,
             Value  => Comparison));
       Text : constant String := HRA.Cycle_Accounts_Render.Render (Report_Value);
+      Header : constant String := Line_Containing (Text, "Account ");
+      Japanese_Row : constant String := Line_Containing (Text, Food_Account);
+      Zero_Row : constant String := Line_Containing (Text, "equity:opening");
    begin
       Assert
         (Index (Text, "== Current Cycle Accounts ==") > 0
-         and then Index (Text, "Opening | Debit | Credit | Movement | Closing") > 0
+         and then Index (Text, "Opening") > 0
+         and then Index (Text, "Debit") > 0
+         and then Index (Text, "Movement") > 0
+         and then Index (Text, "Closing") > 0
          and then Index (Text, "== Cycle Comparison (Aligned Elapsed) ==") > 0
          and then Index (Text, "Previous same-day") > 0,
          "renderer consumes typed current and comparison observations only");
+      for Separator in 1 .. 5 loop
+         Assert
+           (Separator_Column (Header, Separator) =
+              Separator_Column (Japanese_Row, Separator),
+            "UTF-8 Account row keeps separator" & Separator'Image &
+            " in the header column");
+      end loop;
+      Assert
+        (Index (Zero_Row, "|") > 0
+         and then Zero_Row (Index (Zero_Row, "|") + 2) = ' ',
+         "numeric Cycle Account cells are right aligned");
    end;
 
    Put_Line
