@@ -440,7 +440,12 @@ package body HRA.Journal is
                               else
                                  Tx_Payee := Null_Unbounded_String;
                               end if;
-                              In_Tx := True;
+
+                              if Length (Tx_Payee) = 0 then
+                                 Set_Error ("Transaction description is required");
+                              else
+                                 In_Tx := True;
+                              end if;
                            end if;
                         end;
                      else
