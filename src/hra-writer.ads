@@ -71,6 +71,13 @@ package HRA.Writer is
 
    function Writer_Status_Image (Status : Writer_Status) return String;
 
+   --  Verify that every source premise in the array matches current filesystem
+   --  presence and exact bytes. Returns True on match, or False with Stale_Source_Rejected.
+   function Verify_Source_Premises
+     (Premises  : Source_Premise_Array;
+      Status    : out Writer_Status;
+      Error_Msg : out Unbounded_String) return Boolean;
+
    function Atomic_Publish_Journal
      (Target_Path : String;
       Expected    : Expected_Source;

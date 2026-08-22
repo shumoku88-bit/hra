@@ -166,4 +166,39 @@ package body HRA.Account is
       return Arr;
    end Declarations;
 
+   function Same_Declaration (Left, Right : Account_Declaration) return Boolean is
+   begin
+      if Left.Acc /= Right.Acc or else Left.Acc_Type /= Right.Acc_Type then
+         return False;
+      end if;
+
+      if Left.Default_Commodity.Has_Value /= Right.Default_Commodity.Has_Value then
+         return False;
+      elsif Left.Default_Commodity.Has_Value then
+         return Left.Default_Commodity.Value = Right.Default_Commodity.Value;
+      else
+         return True;
+      end if;
+   end Same_Declaration;
+
+   function Same_Registry (Left, Right : Account_Registry) return Boolean is
+      Left_Decls  : constant Declaration_Array := Declarations (Left);
+      Right_Decls : constant Declaration_Array := Declarations (Right);
+   begin
+      if Left_Decls'Length /= Right_Decls'Length then
+         return False;
+      end if;
+
+      for I in Left_Decls'Range loop
+         if not Same_Declaration
+           (Left_Decls (I),
+            Right_Decls (Right_Decls'First + (I - Left_Decls'First)))
+         then
+            return False;
+         end if;
+      end loop;
+
+      return True;
+   end Same_Registry;
+
 end HRA.Account;

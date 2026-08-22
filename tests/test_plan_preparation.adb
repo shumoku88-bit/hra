@@ -335,6 +335,16 @@ begin
         (Read_Exact (Plan_Path) = Plan_Before
          and then Read_Exact (Acc_Path) = Acc_Before,
          "Preparation writes no files to filesystem");
+
+      --  Check Published_Source_Premises contains Plan root and Accounts root
+      declare
+         Premises : constant HRA.Writer.Source_Premise_Array :=
+           HRA.Household_Plan_Preparation.Publication.Published_Source_Premises (Prepared);
+      begin
+         Assert
+           (Premises'Length = 2,
+            "Fresh Published_Source_Premises contains Plan root and Accounts root (length = 2)");
+      end;
    end;
 
    --  3. Undeclared account rejected during preparation
@@ -374,7 +384,40 @@ begin
          "Duplicate Plan_Id with different transaction meaning is rejected");
    end;
 
-   --  5. Exact retry recognition during preparation
+   --  5. Blocker 3: Retry request admissibility validation (Event_ID / Reverses_ID rejected)
+   Reset_Files;
+   declare
+      State       : constant HRA.Household.Household_State := Load_State;
+      PID         : constant HRA.Plan.Plan_Id := Make_PID ("existing-plan-1");
+      Tx_Exact    : constant HRA.Ledger.Transaction :=
+        Transaction_For ("expenses:rent", 80000.0, "Planned Rent", "2026-08-25");
+      Tx_With_Eid : HRA.Ledger.Transaction := Tx_Exact;
+      Tx_With_Rev : HRA.Ledger.Transaction := Tx_Exact;
+      Prepared    : HRA.Household_Plan_Preparation.Prepared_Plan;
+      Diag        : HRA.Household_Plan_Preparation.Preparation_Diagnostic;
+   begin
+      Tx_With_Eid.Event_ID := To_Unbounded_String ("invalid-own-actual-id");
+      Assert
+        (not HRA.Household_Plan_Preparation.Prepare
+           (State, PID, Tx_With_Eid, Prepared, Diag)
+         and then Diag.Status =
+           HRA.Household_Plan_Preparation.Candidate_Rejected
+         and then Diag.Candidate.Status =
+           HRA.Plan_Candidate.Transaction_Already_Owns_Identity,
+         "Retry request with Event_ID is rejected by source-local candidate validation");
+
+      Tx_With_Rev.Reverses_ID := To_Unbounded_String ("invalid-reverses-id");
+      Assert
+        (not HRA.Household_Plan_Preparation.Prepare
+           (State, PID, Tx_With_Rev, Prepared, Diag)
+         and then Diag.Status =
+           HRA.Household_Plan_Preparation.Candidate_Rejected
+         and then Diag.Candidate.Status =
+           HRA.Plan_Candidate.Transaction_Already_Owns_Identity,
+         "Retry request with Reverses_ID is rejected by source-local candidate validation");
+   end;
+
+   --  6. Exact retry recognition and verified no-op publication
    Reset_Files;
    declare
       State         : constant HRA.Household.Household_State := Load_State;
@@ -397,6 +440,16 @@ begin
         (HRA.Household_Plan_Preparation.Is_Already_Present (Prepared),
          "Retry prepared Plan is marked as already present");
 
+      --  Check Published_Source_Premises contains full Plan graph and Accounts graph
+      declare
+         Premises : constant HRA.Writer.Source_Premise_Array :=
+           HRA.Household_Plan_Preparation.Publication.Published_Source_Premises (Prepared);
+      begin
+         Assert
+           (Premises'Length = 2,
+            "Retry Published_Source_Premises contains Plan root and Accounts root (length = 2)");
+      end;
+
       --  Publishing Already_Present is an exact verified no-op
       Assert
         (HRA.Household_Plan_Preparation.Publication.Publish (Prepared, Pub_Result)
@@ -409,7 +462,53 @@ begin
          "No-op publication leaves plan.journal untouched");
    end;
 
-   --  6. Fresh publication succeeds and re-admits verified domain fact
+   --  7. Blocker 2: Retry Publish_With_Guards respects Additional_Guards
+   Reset_Files;
+   declare
+      State         : constant HRA.Household.Household_State := Load_State;
+      PID           : constant HRA.Plan.Plan_Id := Make_PID ("existing-plan-1");
+      Tx_Exact      : constant HRA.Ledger.Transaction :=
+        Transaction_For ("expenses:rent", 80000.0, "Planned Rent", "2026-08-25");
+      Prepared      : HRA.Household_Plan_Preparation.Prepared_Plan;
+      Diag          : HRA.Household_Plan_Preparation.Preparation_Diagnostic;
+      Pub_Result    : HRA.Household_Plan_Preparation.Publication.Publication_Result;
+      Extra_Path    : constant String := Compose (Temp_Dir, "extra_guard.txt");
+      Extra_Premise : HRA.Writer.Source_Premise;
+      Extra_Guards  : HRA.Writer.Source_Premise_Array (1 .. 1);
+   begin
+      Write_Exact (Extra_Path, "original guard text" & ASCII.LF);
+      Extra_Premise := HRA.Writer.Make_Source_Premise
+        (Extra_Path,
+         HRA.Writer.Make_Expected_Source ("original guard text" & ASCII.LF));
+      Extra_Guards (1) := Extra_Premise;
+
+      Assert
+        (HRA.Household_Plan_Preparation.Prepare
+           (State, PID, Tx_Exact, Prepared, Diag)
+         and then Diag.Status =
+           HRA.Household_Plan_Preparation.Already_Present_As_Requested,
+         "Retry prepares successfully before guard verification test");
+
+      --  When additional guard matches, retry Publish_With_Guards succeeds
+      Assert
+        (HRA.Household_Plan_Preparation.Publication.Publish_With_Guards
+           (Prepared, Extra_Guards, Pub_Result)
+         and then Pub_Result.Completion =
+           HRA.Household_Plan_Preparation.Publication.Already_Present,
+         "Retry Publish_With_Guards succeeds when Additional_Guards match");
+
+      --  When additional guard drifts before Publish_With_Guards, fails closed
+      Write_Exact (Extra_Path, "modified guard text" & ASCII.LF);
+      Assert
+        (not HRA.Household_Plan_Preparation.Publication.Publish_With_Guards
+           (Prepared, Extra_Guards, Pub_Result)
+         and then Pub_Result.Failure =
+           HRA.Household_Plan_Preparation.Publication.Writer_Failure
+         and then Pub_Result.Writer_Status = HRA.Writer.Stale_Source_Rejected,
+         "Retry Publish_With_Guards rejects drifted Additional_Guards with Stale_Source_Rejected");
+   end;
+
+   --  8. Fresh publication succeeds and re-admits verified domain fact
    Reset_Files;
    declare
       State       : constant HRA.Household.Household_State := Load_State;
@@ -456,7 +555,7 @@ begin
       end;
    end;
 
-   --  7. Stale target rejected without mutation
+   --  9. Stale target rejected without mutation
    Reset_Files;
    declare
       State       : constant HRA.Household.Household_State := Load_State;
@@ -470,8 +569,8 @@ begin
       External_Plan : constant String :=
         "2026-08-28 External Concurrent Plan" & ASCII.LF &
          "    ; plan-id: concurrent-plan" & ASCII.LF &
-         "    expenses:coffee       300 JPY" & ASCII.LF &
-         "    assets:wallet        -300 JPY" & ASCII.LF;
+         "    assets:wallet        -300 JPY" & ASCII.LF &
+         "    expenses:coffee       300 JPY" & ASCII.LF;
    begin
       Assert
         (HRA.Household_Plan_Preparation.Prepare
@@ -493,7 +592,7 @@ begin
          "External plan.journal preserved after stale rejection");
    end;
 
-   --  8. Stale guard (accounts.journal) rejected without mutation
+   --  10. Stale guard (accounts.journal) rejected without mutation
    Reset_Files;
    declare
       State       : constant HRA.Household.Household_State := Load_State;
@@ -532,7 +631,7 @@ begin
          "Target plan.journal preserved after stale guard rejection");
    end;
 
-   --  9. Retry premise drift rejected
+   --  11. Retry premise drift rejected
    Reset_Files;
    declare
       State       : constant HRA.Household.Household_State := Load_State;
@@ -563,7 +662,7 @@ begin
          "Drift in plan.journal rejects retry publication before success");
    end;
 
-   --  10. Include graph support and include drift rejection
+   --  12. Blocker 1: Plan include graph authority and drift rejection (fresh & retry)
    Reset_Files;
    declare
       Sub_Dir        : constant String := Compose (Temp_Dir, "plans");
@@ -572,45 +671,193 @@ begin
         "include plans/included.journal" & ASCII.LF &
         "2026-08-25 Root Plan" & ASCII.LF &
         "    ; plan-id: root-plan" & ASCII.LF &
-        "    expenses:coffee       400 JPY" & ASCII.LF &
-        "    assets:wallet        -400 JPY" & ASCII.LF;
+        "    assets:wallet        -400 JPY" & ASCII.LF &
+        "    expenses:coffee       400 JPY" & ASCII.LF;
       Included_Text  : constant String :=
         "2026-08-20 Included Plan" & ASCII.LF &
         "    ; plan-id: inc-plan" & ASCII.LF &
-        "    expenses:coffee       300 JPY" & ASCII.LF &
-        "    assets:wallet        -300 JPY" & ASCII.LF;
+        "    assets:wallet        -300 JPY" & ASCII.LF &
+        "    expenses:coffee       300 JPY" & ASCII.LF;
    begin
       Create_Directory (Sub_Dir);
       Write_Exact (Included_File, Included_Text);
       Write_Exact (Compose (Temp_Dir, "plan.journal"), Root_With_Inc);
 
+      --  12.1 Load State with include graph
       declare
-         State       : constant HRA.Household.Household_State := Load_State;
-         PID         : constant HRA.Plan.Plan_Id := Make_PID ("new-root-plan-2");
-         Tx          : constant HRA.Ledger.Transaction :=
+         State          : constant HRA.Household.Household_State := Load_State;
+         Fresh_PID      : constant HRA.Plan.Plan_Id := Make_PID ("new-root-plan-2");
+         Fresh_Tx       : constant HRA.Ledger.Transaction :=
            Transaction_For ("expenses:coffee", 550.0, "Second Root Plan");
-         Prepared    : HRA.Household_Plan_Preparation.Prepared_Plan;
-         Prep_Diag   : HRA.Household_Plan_Preparation.Preparation_Diagnostic;
-         Pub_Result  : HRA.Household_Plan_Preparation.Publication.Publication_Result;
+         Retry_PID      : constant HRA.Plan.Plan_Id := Make_PID ("inc-plan");
+         Retry_Tx       : constant HRA.Ledger.Transaction :=
+           Transaction_For ("expenses:coffee", 300.0, "Included Plan", "2026-08-20");
+         Prepared_Fresh : HRA.Household_Plan_Preparation.Prepared_Plan;
+         Prepared_Retry : HRA.Household_Plan_Preparation.Prepared_Plan;
+         Prep_Diag      : HRA.Household_Plan_Preparation.Preparation_Diagnostic;
+         Pub_Result     : HRA.Household_Plan_Preparation.Publication.Publication_Result;
       begin
          Assert
            (HRA.Plan_Admission.Transaction_Count (State.Plan_Journal) = 2,
             "Plan include graph loads both root and included entries (count = 2)");
+
+         --  12.2 Retry preparation succeeds over include graph
          Assert
            (HRA.Household_Plan_Preparation.Prepare
-              (State, PID, Tx, Prepared, Prep_Diag),
-            "Plan prepares successfully over include graph");
+              (State, Retry_PID, Retry_Tx, Prepared_Retry, Prep_Diag)
+            and then Prep_Diag.Status =
+              HRA.Household_Plan_Preparation.Already_Present_As_Requested,
+            "Retry for included Plan recognized as Already_Present_As_Requested");
 
-         --  Mutate included file to test include drift rejection
-         Write_Exact (Included_File, "changed content");
+         --  Retry Published_Source_Premises has root + included + accounts root = 3
+         declare
+            Premises : constant HRA.Writer.Source_Premise_Array :=
+              HRA.Household_Plan_Preparation.Publication.Published_Source_Premises
+                (Prepared_Retry);
+         begin
+            Assert
+              (Premises'Length = 3,
+               "Retry Published_Source_Premises contains root + included plan + accounts (length = 3)");
+         end;
+
+         --  12.3 Fresh preparation succeeds over include graph
+         Assert
+           (HRA.Household_Plan_Preparation.Prepare
+              (State, Fresh_PID, Fresh_Tx, Prepared_Fresh, Prep_Diag),
+            "Fresh Plan prepares successfully over include graph");
+
+         --  Fresh Published_Source_Premises has candidate root + included + accounts root = 3
+         declare
+            Premises : constant HRA.Writer.Source_Premise_Array :=
+              HRA.Household_Plan_Preparation.Publication.Published_Source_Premises
+                (Prepared_Fresh);
+         begin
+            Assert
+              (Premises'Length = 3,
+               "Fresh Published_Source_Premises contains candidate root + included plan + accounts (length = 3)");
+         end;
+
+         --  12.4 Mutate included file before publication -> both fresh and retry publish fail closed
+         Write_Exact (Included_File, "corrupted or drifted included content" & ASCII.LF);
 
          Assert
            (not HRA.Household_Plan_Preparation.Publication.Publish
-              (Prepared, Pub_Result)
+              (Prepared_Fresh, Pub_Result)
             and then Pub_Result.Failure =
               HRA.Household_Plan_Preparation.Publication.Writer_Failure
             and then Pub_Result.Writer_Status = HRA.Writer.Stale_Source_Rejected,
-            "Included file drift is rejected by Writer fence in Plan publication");
+            "Fresh publication rejects drifted included file with Stale_Source_Rejected");
+
+         Assert
+           (not HRA.Household_Plan_Preparation.Publication.Publish
+              (Prepared_Retry, Pub_Result)
+            and then Pub_Result.Failure =
+              HRA.Household_Plan_Preparation.Publication.Writer_Failure
+            and then Pub_Result.Writer_Status = HRA.Writer.Stale_Source_Rejected,
+            "Retry publication rejects drifted included file with Stale_Source_Rejected");
+
+         --  12.5 Mutate included file before Prepare (with old State) -> Prepare fails closed
+         Assert
+           (not HRA.Household_Plan_Preparation.Prepare
+              (State, Fresh_PID, Fresh_Tx, Prepared_Fresh, Prep_Diag)
+            and then Prep_Diag.Status =
+              HRA.Household_Plan_Preparation.Graph_Admission_Rejected,
+            "Fresh Prepare rejects drifted include graph before preparation");
+
+         Assert
+           (not HRA.Household_Plan_Preparation.Prepare
+              (State, Retry_PID, Retry_Tx, Prepared_Retry, Prep_Diag)
+            and then Prep_Diag.Status =
+              HRA.Household_Plan_Preparation.Graph_Admission_Rejected,
+            "Retry Prepare rejects drifted include graph before preparation");
+      end;
+   end;
+
+   --  13. Accounts include graph authority and drift rejection
+   Reset_Files;
+   declare
+      Sub_Dir        : constant String := Compose (Temp_Dir, "accounts");
+      Included_File  : constant String := Compose (Sub_Dir, "expenses.journal");
+      Root_With_Inc  : constant String :=
+        "include accounts/expenses.journal" & ASCII.LF &
+        "account assets:wallet" & ASCII.LF &
+        "  ; type: Asset" & ASCII.LF &
+        "account income:salary" & ASCII.LF &
+        "  ; type: Income" & ASCII.LF;
+      Included_Text  : constant String :=
+        "account expenses:coffee" & ASCII.LF &
+        "  ; type: Expense" & ASCII.LF &
+        "account expenses:rent" & ASCII.LF &
+        "  ; type: Expense" & ASCII.LF;
+   begin
+      Create_Directory (Sub_Dir);
+      Write_Exact (Included_File, Included_Text);
+      Write_Exact (Compose (Temp_Dir, "accounts.journal"), Root_With_Inc);
+
+      declare
+         State          : constant HRA.Household.Household_State := Load_State;
+         Fresh_PID      : constant HRA.Plan.Plan_Id := Make_PID ("plan-acc-inc-1");
+         Fresh_Tx       : constant HRA.Ledger.Transaction :=
+           Transaction_For ("expenses:coffee", 450.0, "Accounts Include Plan");
+         Retry_PID      : constant HRA.Plan.Plan_Id := Make_PID ("existing-plan-1");
+         Retry_Tx       : constant HRA.Ledger.Transaction :=
+           Transaction_For ("expenses:rent", 80000.0, "Planned Rent", "2026-08-25");
+         Prepared_Fresh : HRA.Household_Plan_Preparation.Prepared_Plan;
+         Prepared_Retry : HRA.Household_Plan_Preparation.Prepared_Plan;
+         Prep_Diag      : HRA.Household_Plan_Preparation.Preparation_Diagnostic;
+         Pub_Result     : HRA.Household_Plan_Preparation.Publication.Publication_Result;
+      begin
+         --  Prepare fresh and retry over Accounts include graph
+         Assert
+           (HRA.Household_Plan_Preparation.Prepare
+              (State, Fresh_PID, Fresh_Tx, Prepared_Fresh, Prep_Diag)
+            and then Prep_Diag.Status = HRA.Household_Plan_Preparation.Success,
+            "Fresh Plan prepares successfully over Accounts include graph");
+
+         Assert
+           (HRA.Household_Plan_Preparation.Prepare
+              (State, Retry_PID, Retry_Tx, Prepared_Retry, Prep_Diag)
+            and then Prep_Diag.Status =
+              HRA.Household_Plan_Preparation.Already_Present_As_Requested,
+            "Retry Plan prepares successfully over Accounts include graph");
+
+         --  Published_Source_Premises includes Plan root + Accounts root + Accounts included = 3
+         declare
+            Premises : constant HRA.Writer.Source_Premise_Array :=
+              HRA.Household_Plan_Preparation.Publication.Published_Source_Premises
+                (Prepared_Fresh);
+         begin
+            Assert
+              (Premises'Length = 3,
+               "Published_Source_Premises contains Plan root + 2 Account sources (length = 3)");
+         end;
+
+         --  Mutate included accounts file before publication -> both fail closed
+         Write_Exact (Included_File, "corrupted accounts include" & ASCII.LF);
+
+         Assert
+           (not HRA.Household_Plan_Preparation.Publication.Publish
+              (Prepared_Fresh, Pub_Result)
+            and then Pub_Result.Failure =
+              HRA.Household_Plan_Preparation.Publication.Writer_Failure
+            and then Pub_Result.Writer_Status = HRA.Writer.Stale_Source_Rejected,
+            "Fresh publication rejects drifted Accounts included file");
+
+         Assert
+           (not HRA.Household_Plan_Preparation.Publication.Publish
+              (Prepared_Retry, Pub_Result)
+            and then Pub_Result.Failure =
+              HRA.Household_Plan_Preparation.Publication.Writer_Failure
+            and then Pub_Result.Writer_Status = HRA.Writer.Stale_Source_Rejected,
+            "Retry publication rejects drifted Accounts included file");
+
+         --  Mutate included accounts file before Prepare (with old State) -> Prepare fails closed
+         Assert
+           (not HRA.Household_Plan_Preparation.Prepare
+              (State, Fresh_PID, Fresh_Tx, Prepared_Fresh, Prep_Diag)
+            and then Prep_Diag.Status =
+              HRA.Household_Plan_Preparation.Account_Admission_Rejected,
+            "Prepare rejects drifted Accounts include graph before candidate preparation");
       end;
    end;
 

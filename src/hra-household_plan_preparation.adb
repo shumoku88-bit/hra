@@ -1,5 +1,5 @@
+with HRA.Account;
 with HRA.Canonical_Source;
-with HRA.Dates;
 with HRA.Plan_Admission;
 
 package body HRA.Household_Plan_Preparation is
@@ -7,7 +7,6 @@ package body HRA.Household_Plan_Preparation is
    use type HRA.Plan.Plan_Id;
    use type HRA.Plan_Admission.Retirement_Kind;
    use type HRA.Ledger.Transaction;
-   use type HRA.Dates.Date;
 
    function Prepare
      (State    : HRA.Household.Household_State;
@@ -25,23 +24,18 @@ package body HRA.Household_Plan_Preparation is
       Qualified      : HRA.Plan_Account_Admission.Account_Qualified_Graph;
       Account_Diag   : HRA.Plan_Account_Admission.Admission_Diagnostic;
 
-      Root_Path : constant String :=
+      Plan_Root_Path : constant String :=
         HRA.Canonical_Source.Path_For
           (State.Sources.Paths, HRA.Canonical_Source.Plan_Source);
-      Root_Text : constant String :=
+      Plan_Root_Text : constant String :=
         HRA.Canonical_Source.Text_For
           (State.Sources, HRA.Canonical_Source.Plan_Source);
-      Account_Path : constant String :=
+      Account_Root_Path : constant String :=
         HRA.Canonical_Source.Path_For
           (State.Sources.Paths, HRA.Canonical_Source.Accounts_Source);
-      Account_Text : constant String :=
+      Account_Root_Text : constant String :=
         HRA.Canonical_Source.Text_For
           (State.Sources, HRA.Canonical_Source.Accounts_Source);
-      Account_Guard : constant HRA.Writer.Source_Premise :=
-        HRA.Writer.Make_Source_Premise
-          (Path => Account_Path,
-           Expected =>
-             HRA.Writer.Make_Expected_Source (Account_Text));
 
       procedure Set_Diagnostic
         (Status  : Preparation_Status;
@@ -59,72 +53,15 @@ package body HRA.Household_Plan_Preparation is
 
    begin
       Prepared :=
-        (Target_Plan_ID     => Plan_ID,
-         Target_Tx          => Tx,
-         Target_Path        => To_Unbounded_String (Root_Path),
-         Expected_Root_Text => To_Unbounded_String (Root_Text),
-         Account_Guard_Path => To_Unbounded_String (Account_Path),
-         Account_Guard_Text => To_Unbounded_String (Account_Text),
-         Account_Guard      => Account_Guard,
-         Qualified          => <>,
-         Already_Present    => False);
+        (Target_Plan_ID  => Plan_ID,
+         Target_Tx       => Tx,
+         Account_Sources => <>,
+         Plan_Sources    => <>,
+         Qualified       => <>,
+         Already_Present => False);
       Set_Diagnostic (Success, "");
 
-      if HRA.Plan.Is_Null (Plan_ID) then
-         Set_Diagnostic (Candidate_Rejected, "Plan_Id must not be null");
-         return False;
-      end if;
-
-      --  Check if Plan_ID is already present in admitted Plan_Journal (retry)
-      if HRA.Plan.Contains
-        (HRA.Plan_Admission.Plan_Ids_Of (State.Plan_Journal), Plan_ID)
-      then
-         declare
-            Existing_Found : Boolean := False;
-            Existing_Entry : HRA.Plan_Admission.Plan_Transaction_Entry;
-         begin
-            for I in 1 .. HRA.Plan_Admission.Transaction_Count (State.Plan_Journal) loop
-               declare
-                  Item : constant HRA.Plan_Admission.Plan_Transaction_Entry :=
-                    HRA.Plan_Admission.Transaction_At (State.Plan_Journal, I);
-               begin
-                  if Item.ID = Plan_ID then
-                     Existing_Entry := Item;
-                     Existing_Found := True;
-                     exit;
-                  end if;
-               end;
-            end loop;
-
-            if Existing_Found then
-               declare
-                  Expected_Tx : HRA.Ledger.Transaction := Tx;
-               begin
-                  Expected_Tx.Event_ID := Null_Unbounded_String;
-                  Expected_Tx.Reverses_ID := Null_Unbounded_String;
-
-                  if Existing_Entry.Retirement.Kind = HRA.Plan_Admission.No_Retirement
-                    and then Existing_Entry.Tx.Date = Tx.Date
-                    and then To_String (Existing_Entry.Tx.Code_Or_Payee) =
-                      To_String (Tx.Code_Or_Payee)
-                    and then Existing_Entry.Tx = Expected_Tx
-                  then
-                     Prepared.Already_Present := True;
-                     Set_Diagnostic
-                       (Already_Present_As_Requested,
-                        "Plan already present with exact requested meaning");
-                     return True;
-                  else
-                     Set_Diagnostic
-                       (Conflicting_Plan_Already_Exists,
-                        "Plan_Id already exists with conflicting transaction meaning or lifecycle state");
-                     return False;
-                  end if;
-               end;
-            end if;
-         end;
-      end if;
-
+      --  1. Source-local complete request validation (shared for fresh & retry)
       if not HRA.Plan_Candidate.Prepare_Pending
         (Tx, Plan_ID, Block, Candidate_Diag)
       then
@@ -138,8 +75,117 @@ package body HRA.Household_Plan_Preparation is
          return False;
       end if;
 
+      --  2. Validate and retain complete fresh Accounts include graph
+      declare
+         Account_Loaded : HRA.Journal_Loader.Journal_Observation;
+         Account_Error  : Unbounded_String;
+      begin
+         if not HRA.Journal_Loader.Load_From_Root_Source
+           (Root_Path   => Account_Root_Path,
+            Root_Text   => Account_Root_Text,
+            Observation => Account_Loaded,
+            Error_Msg   => Account_Error)
+         then
+            Set_Diagnostic
+              (Account_Admission_Rejected,
+               "accounts.journal include graph failed to load: " &
+               To_String (Account_Error));
+            return False;
+         end if;
+
+         if not HRA.Account.Same_Registry
+           (Account_Loaded.Value.Registry, State.Registry)
+         then
+            Set_Diagnostic
+              (Account_Admission_Rejected,
+               "Accounts declaration authority drifted from loaded Household state");
+            return False;
+         end if;
+
+         Prepared.Account_Sources := Account_Loaded.Sources;
+      end;
+
+      --  3. Validate and retain complete fresh Plan include graph
+      declare
+         Plan_Loaded      : HRA.Journal_Loader.Journal_Observation;
+         Plan_Error       : Unbounded_String;
+         Fresh_Plan       : HRA.Plan_Admission.Plan_Journal;
+         Fresh_Admit_Diag : HRA.Plan_Admission.Admission_Diagnostic;
+      begin
+         if not HRA.Journal_Loader.Load_From_Root_Source
+           (Root_Path   => Plan_Root_Path,
+            Root_Text   => Plan_Root_Text,
+            Observation => Plan_Loaded,
+            Error_Msg   => Plan_Error)
+         then
+            Set_Diagnostic
+              (Graph_Admission_Rejected,
+               "plan.journal include graph failed to load: " &
+               To_String (Plan_Error));
+            return False;
+         end if;
+
+         if not HRA.Plan_Admission.Admit
+           (Plan_Loaded.Value, Plan_Loaded.Evidence, Fresh_Plan, Fresh_Admit_Diag)
+         then
+            Set_Diagnostic
+              (Graph_Admission_Rejected,
+               "plan.journal admission failed: " &
+               To_String (Fresh_Admit_Diag.Message));
+            return False;
+         end if;
+
+         if not HRA.Plan_Admission.Same_Journal (Fresh_Plan, State.Plan_Journal) then
+            Set_Diagnostic
+              (Graph_Admission_Rejected,
+               "Plan include graph drifted from loaded Household state");
+            return False;
+         end if;
+
+         --  Check if Plan_ID already exists in the admitted graph (Retry path)
+         if HRA.Plan.Contains
+           (HRA.Plan_Admission.Plan_Ids_Of (Fresh_Plan), Plan_ID)
+         then
+            declare
+               Existing_Found : Boolean := False;
+               Existing_Entry : HRA.Plan_Admission.Plan_Transaction_Entry;
+            begin
+               for I in 1 .. HRA.Plan_Admission.Transaction_Count (Fresh_Plan) loop
+                  declare
+                     Item : constant HRA.Plan_Admission.Plan_Transaction_Entry :=
+                       HRA.Plan_Admission.Transaction_At (Fresh_Plan, I);
+                  begin
+                     if Item.ID = Plan_ID then
+                        Existing_Entry := Item;
+                        Existing_Found := True;
+                        exit;
+                     end if;
+                  end;
+               end loop;
+
+               if Existing_Found
+                 and then Existing_Entry.Retirement.Kind = HRA.Plan_Admission.No_Retirement
+                 and then Existing_Entry.Tx = Tx
+               then
+                  Prepared.Already_Present := True;
+                  Prepared.Plan_Sources := Plan_Loaded.Sources;
+                  Set_Diagnostic
+                    (Already_Present_As_Requested,
+                     "Plan already present with exact requested meaning");
+                  return True;
+               else
+                  Set_Diagnostic
+                    (Conflicting_Plan_Already_Exists,
+                     "Plan_Id already exists with conflicting transaction meaning or lifecycle state");
+                  return False;
+               end if;
+            end;
+         end if;
+      end;
+
+      --  4. Fresh creation: prepare root candidate, graph admission, and account qualification
       if not HRA.Plan_Root_Candidate.Prepare
-        (Root_Path, Root_Text, Block, Root, Root_Diag)
+        (Plan_Root_Path, Plan_Root_Text, Block, Root, Root_Diag)
       then
          Set_Diagnostic
            (Root_Candidate_Rejected,

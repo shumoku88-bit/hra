@@ -1,12 +1,12 @@
 with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
 with HRA.Household;
+with HRA.Journal_Loader;
 with HRA.Ledger;
 with HRA.Plan;
 with HRA.Plan_Account_Admission;
 with HRA.Plan_Candidate;
 with HRA.Plan_Graph_Admission;
 with HRA.Plan_Root_Candidate;
-with HRA.Writer;
 
 --  Household-qualified, publication-free preparation of one Plan creation request.
 --
@@ -71,15 +71,12 @@ package HRA.Household_Plan_Preparation is
 private
 
    type Prepared_Plan is record
-      Target_Plan_ID     : HRA.Plan.Plan_Id;
-      Target_Tx          : HRA.Ledger.Transaction;
-      Target_Path        : Unbounded_String;
-      Expected_Root_Text : Unbounded_String;
-      Account_Guard_Path : Unbounded_String;
-      Account_Guard_Text : Unbounded_String;
-      Account_Guard      : HRA.Writer.Source_Premise;
-      Qualified          : HRA.Plan_Account_Admission.Account_Qualified_Graph;
-      Already_Present    : Boolean := False;
+      Target_Plan_ID  : HRA.Plan.Plan_Id;
+      Target_Tx       : HRA.Ledger.Transaction;
+      Account_Sources : HRA.Journal_Loader.Source_Observation_Vectors.Vector;
+      Plan_Sources    : HRA.Journal_Loader.Source_Observation_Vectors.Vector;
+      Qualified       : HRA.Plan_Account_Admission.Account_Qualified_Graph;
+      Already_Present : Boolean := False;
    end record;
 
    function Plan_Id_Of (Prepared : Prepared_Plan) return HRA.Plan.Plan_Id is
