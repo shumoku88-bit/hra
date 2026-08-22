@@ -19,6 +19,7 @@ with HRA.Writer;
 
 procedure Test_Actual_Publication is
    use type HRA.Actual_Publication.Publication_Status;
+   use type HRA.Money.Quantity;
    use type HRA.Writer.Writer_Status;
 
    Passed_Count : Natural := 0;
