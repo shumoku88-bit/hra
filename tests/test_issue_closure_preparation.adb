@@ -1,12 +1,12 @@
 with Ada.Command_Line;
 with Ada.Directories; use Ada.Directories;
+with Ada.Streams; use Ada.Streams;
+with Ada.Streams.Stream_IO;
 with Ada.Strings.Fixed; use Ada.Strings.Fixed;
 with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
 with Ada.Text_IO; use Ada.Text_IO;
-with HRA.Canonical_Source;
 with HRA.Dates;
 with HRA.Household;
-with HRA.Household_Check_Observation;
 with HRA.Issue_Close;
 with HRA.Issue_Closure_Preparation;
 with HRA.Issue_Closure_Preparation.Publication;
@@ -53,32 +53,52 @@ procedure Test_Issue_Closure_Preparation is
 
    Root : constant String := ".hra-test-issue-closure-prep";
 
-   procedure Write_Exact (Path : String; Content : String) is
-      File : File_Type;
+   procedure Write_Exact (Path : String; Text : String) is
+      package SIO renames Ada.Streams.Stream_IO;
+      File : SIO.File_Type;
    begin
-      Create (File, Out_File, Path);
-      Put (File, Content);
-      Close (File);
+      SIO.Create (File, SIO.Out_File, Path);
+      if Text'Length > 0 then
+         declare
+            Bytes : Stream_Element_Array
+              (1 .. Stream_Element_Offset (Text'Length));
+         begin
+            for I in Text'Range loop
+               Bytes (Stream_Element_Offset (I - Text'First + 1)) :=
+                 Stream_Element (Character'Pos (Text (I)));
+            end loop;
+            SIO.Write (File, Bytes);
+         end;
+      end if;
+      SIO.Close (File);
    end Write_Exact;
 
    function Read_Exact (Path : String) return String is
-      File : File_Type;
+      package SIO renames Ada.Streams.Stream_IO;
+      use type SIO.Count;
+      File : SIO.File_Type;
    begin
-      Open (File, In_File, Path);
+      SIO.Open (File, SIO.In_File, Path);
       declare
-         Len : constant Natural := Natural (Size (File));
-         Buf : String (1 .. Len);
-         Last : Natural := 0;
+         Size : constant SIO.Count := SIO.Size (File);
       begin
-         for I in 1 .. Len loop
-            if End_Of_File (File) then
-               exit;
-            end if;
-            Last := Last + 1;
-            Get (File, Buf (Last));
-         end loop;
-         Close (File);
-         return Buf (1 .. Last);
+         if Size = 0 then
+            SIO.Close (File);
+            return "";
+         end if;
+         declare
+            Bytes : Stream_Element_Array
+              (1 .. Stream_Element_Offset (Size));
+            Last : Stream_Element_Offset;
+            Text : String (1 .. Natural (Size));
+         begin
+            SIO.Read (File, Bytes, Last);
+            for I in Bytes'Range loop
+               Text (Natural (I)) := Character'Val (Bytes (I));
+            end loop;
+            SIO.Close (File);
+            return Text;
+         end;
       end;
    end Read_Exact;
 
@@ -485,39 +505,40 @@ begin
       Pub_Res  : HRA.Issue_Closure_Preparation.Publication.Publication_Result;
       Old_ID   : constant HRA.Issues.Issue_Id :=
         HRA.Issues.Make_Issue_Id ("ISSUE-OLD"); -- Already resolved on 2026-08-05
-      Before_Text : String := "";
    begin
       Reset;
       Assert
         (HRA.Household.Load_Canonical_Household (Root, State, Error),
          "initial Household admits for retry Resolve test");
 
-      Before_Text := Read_Exact (Compose (Root, "issues.tsv"));
+      declare
+         Before_Text : constant String := Read_Exact (Compose (Root, "issues.tsv"));
+      begin
+         Assert
+           (HRA.Issue_Closure_Preparation.Prepare
+              (State       => State,
+               Issue_ID    => Old_ID,
+               Disposition => HRA.Issue_Close.Resolve_Issue,
+               Closed_On   => D ("2026-08-05"),
+               Prepared    => Prepared,
+               Diag        => Prep_Diag)
+            and then Prep_Diag.Status =
+              HRA.Issue_Closure_Preparation.Already_Closed_As_Requested
+            and then HRA.Issue_Closure_Preparation.Is_Already_Closed (Prepared),
+            "prepare recognizes already-resolved exact retry request");
 
-      Assert
-        (HRA.Issue_Closure_Preparation.Prepare
-           (State       => State,
-            Issue_ID    => Old_ID,
-            Disposition => HRA.Issue_Close.Resolve_Issue,
-            Closed_On   => D ("2026-08-05"),
-            Prepared    => Prepared,
-            Diag        => Prep_Diag)
-         and then Prep_Diag.Status =
-           HRA.Issue_Closure_Preparation.Already_Closed_As_Requested
-         and then HRA.Issue_Closure_Preparation.Is_Already_Closed (Prepared),
-         "prepare recognizes already-resolved exact retry request");
+         Assert
+           (HRA.Issue_Closure_Preparation.Publication.Publish (Prepared, Pub_Res)
+            and then Pub_Res.Kind =
+              HRA.Issue_Closure_Preparation.Publication.Completed
+            and then Pub_Res.Completion =
+              HRA.Issue_Closure_Preparation.Publication.Already_Closed,
+            "publish exact retry succeeds as no-op");
 
-      Assert
-        (HRA.Issue_Closure_Preparation.Publication.Publish (Prepared, Pub_Res)
-         and then Pub_Res.Kind =
-           HRA.Issue_Closure_Preparation.Publication.Completed
-         and then Pub_Res.Completion =
-           HRA.Issue_Closure_Preparation.Publication.Already_Closed,
-         "publish exact retry succeeds as no-op");
-
-      Assert
-        (Read_Exact (Compose (Root, "issues.tsv")) = Before_Text,
-         "issues.tsv left byte-for-byte untouched on exact retry");
+         Assert
+           (Read_Exact (Compose (Root, "issues.tsv")) = Before_Text,
+            "issues.tsv left byte-for-byte untouched on exact retry");
+      end;
    end;
 
    --  Test 9: Exact retry after already-published Drop (crash-after-publish scenario)
@@ -533,7 +554,6 @@ begin
       Pub_Res_2   : HRA.Issue_Closure_Preparation.Publication.Publication_Result;
       Desk_ID     : constant HRA.Issues.Issue_Id :=
         HRA.Issues.Make_Issue_Id ("ISSUE-DESK");
-      Written_Text : String := "";
    begin
       Reset;
       --  Step 1: First attempt prepares and publishes Drop
@@ -558,38 +578,40 @@ begin
            HRA.Issue_Closure_Preparation.Publication.Newly_Closed,
          "initial publish Drop succeeds");
 
-      Written_Text := Read_Exact (Compose (Root, "issues.tsv"));
+      declare
+         Written_Text : constant String := Read_Exact (Compose (Root, "issues.tsv"));
+      begin
+         --  Simulate crash & caller presenting the exact same request again
+         Assert
+           (HRA.Household.Load_Canonical_Household (Root, Post_State, Error),
+            "re-load Household in new process after crash");
 
-      --  Simulate crash & caller presenting the exact same request again
-      Assert
-        (HRA.Household.Load_Canonical_Household (Root, Post_State, Error),
-         "re-load Household in new process after crash");
+         Assert
+           (HRA.Issue_Closure_Preparation.Prepare
+              (State       => Post_State,
+               Issue_ID    => Desk_ID,
+               Disposition => HRA.Issue_Close.Drop_Issue,
+               Closed_On   => D ("2026-08-22"),
+               Prepared    => Prepared_2,
+               Diag        => Prep_Diag_2)
+            and then Prep_Diag_2.Status =
+              HRA.Issue_Closure_Preparation.Already_Closed_As_Requested
+            and then HRA.Issue_Closure_Preparation.Is_Already_Closed (Prepared_2),
+            "crash retry recognizes already-dropped exact state");
 
-      Assert
-        (HRA.Issue_Closure_Preparation.Prepare
-           (State       => Post_State,
-            Issue_ID    => Desk_ID,
-            Disposition => HRA.Issue_Close.Drop_Issue,
-            Closed_On   => D ("2026-08-22"),
-            Prepared    => Prepared_2,
-            Diag        => Prep_Diag_2)
-         and then Prep_Diag_2.Status =
-           HRA.Issue_Closure_Preparation.Already_Closed_As_Requested
-         and then HRA.Issue_Closure_Preparation.Is_Already_Closed (Prepared_2),
-         "crash retry recognizes already-dropped exact state");
+         Assert
+           (HRA.Issue_Closure_Preparation.Publication.Publish
+              (Prepared_2, Pub_Res_2)
+            and then Pub_Res_2.Kind =
+              HRA.Issue_Closure_Preparation.Publication.Completed
+            and then Pub_Res_2.Completion =
+              HRA.Issue_Closure_Preparation.Publication.Already_Closed,
+            "crash retry publication succeeds with Already_Closed completion");
 
-      Assert
-        (HRA.Issue_Closure_Preparation.Publication.Publish
-           (Prepared_2, Pub_Res_2)
-         and then Pub_Res_2.Kind =
-           HRA.Issue_Closure_Preparation.Publication.Completed
-         and then Pub_Res_2.Completion =
-           HRA.Issue_Closure_Preparation.Publication.Already_Closed,
-         "crash retry publication succeeds with Already_Closed completion");
-
-      Assert
-        (Read_Exact (Compose (Root, "issues.tsv")) = Written_Text,
-         "issues.tsv unchanged after crash retry publication");
+         Assert
+           (Read_Exact (Compose (Root, "issues.tsv")) = Written_Text,
+            "issues.tsv unchanged after crash retry publication");
+      end;
    end;
 
    if Exists (Root) then
