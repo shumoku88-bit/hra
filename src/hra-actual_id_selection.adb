@@ -82,12 +82,12 @@ package body HRA.Actual_Id_Selection is
       begin
          for Index in 1 .. Count loop
             declare
-               Entry : constant HRA.Actual_Admission.Actual_Transaction_Entry :=
+               Actual_Item : constant HRA.Actual_Admission.Actual_Transaction_Entry :=
                  HRA.Actual_Admission.Transaction_At (Observation, Index);
             begin
-               if Entry.Identity.Present then
+               if Actual_Item.Identity.Present then
                   Mark_Generated_Identity
-                    (HRA.Actual_Admission.Text (Entry.Identity.Value), Used);
+                    (HRA.Actual_Admission.Text (Actual_Item.Identity.Value), Used);
                end if;
             end;
          end loop;
