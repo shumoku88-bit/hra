@@ -630,6 +630,104 @@ begin
       end;
    end;
 
+   --  Test 10: Already_Closed witness rejected when issues.tsv drifts before Publish
+   declare
+      State    : HRA.Household.Household_State;
+      Error    : Unbounded_String;
+      Prepared : HRA.Issue_Closure_Preparation.Prepared_Closure;
+      Prep_Diag : HRA.Issue_Closure_Preparation.Preparation_Diagnostic;
+      Pub_Res  : HRA.Issue_Closure_Preparation.Publication.Publication_Result;
+      Old_ID   : constant HRA.Issues.Issue_Id :=
+        HRA.Issues.Make_Issue_Id ("ISSUE-OLD");
+      Drifted_Text : constant String :=
+        Header_Row & ASCII.LF &
+        Open_Chair_Row & ASCII.LF &
+        Open_Desk_Row & ASCII.LF &
+        "ISSUE-OLD" & ASCII.HT &
+        "resolved" & ASCII.HT &
+        "2026-08-01" & ASCII.HT &
+        "none" & ASCII.HT &
+        "2026-08-06" & ASCII.HT &
+        "purchase" & ASCII.HT &
+        "Old item" & ASCII.HT &
+        "" & ASCII.HT &
+        "" & ASCII.HT &
+        "already finished" & ASCII.LF;
+   begin
+      Reset;
+      Assert
+        (HRA.Household.Load_Canonical_Household (Root, State, Error),
+         "initial Household admits for stale retry test");
+
+      Assert
+        (HRA.Issue_Closure_Preparation.Prepare
+           (State       => State,
+            Issue_ID    => Old_ID,
+            Disposition => HRA.Issue_Close.Resolve_Issue,
+            Closed_On   => D ("2026-08-05"),
+            Prepared    => Prepared,
+            Diag        => Prep_Diag)
+         and then Prep_Diag.Status =
+           HRA.Issue_Closure_Preparation.Already_Closed_As_Requested
+         and then HRA.Issue_Closure_Preparation.Is_Already_Closed (Prepared),
+         "prepare recognizes already-resolved exact retry request");
+
+      --  External mutation: change Closed_On of ISSUE-OLD from 2026-08-05 to 2026-08-06
+      Write_Exact (Compose (Root, "issues.tsv"), Drifted_Text);
+
+      Assert
+        (not HRA.Issue_Closure_Preparation.Publication.Publish (Prepared, Pub_Res)
+         and then Pub_Res.Kind =
+           HRA.Issue_Closure_Preparation.Publication.Failed
+         and then Pub_Res.Writer_Status =
+           HRA.Writer.Stale_Source_Rejected,
+         "stale issues.tsv premise rejects Already_Closed publish");
+
+      Assert
+        (Read_Exact (Compose (Root, "issues.tsv")) = Drifted_Text,
+         "issues.tsv left untouched after stale retry rejection");
+   end;
+
+   --  Test 11: Already_Closed witness rejected when issues.tsv deleted before Publish
+   declare
+      State    : HRA.Household.Household_State;
+      Error    : Unbounded_String;
+      Prepared : HRA.Issue_Closure_Preparation.Prepared_Closure;
+      Prep_Diag : HRA.Issue_Closure_Preparation.Preparation_Diagnostic;
+      Pub_Res  : HRA.Issue_Closure_Preparation.Publication.Publication_Result;
+      Old_ID   : constant HRA.Issues.Issue_Id :=
+        HRA.Issues.Make_Issue_Id ("ISSUE-OLD");
+   begin
+      Reset;
+      Assert
+        (HRA.Household.Load_Canonical_Household (Root, State, Error),
+         "initial Household admits for deleted retry test");
+
+      Assert
+        (HRA.Issue_Closure_Preparation.Prepare
+           (State       => State,
+            Issue_ID    => Old_ID,
+            Disposition => HRA.Issue_Close.Resolve_Issue,
+            Closed_On   => D ("2026-08-05"),
+            Prepared    => Prepared,
+            Diag        => Prep_Diag)
+         and then Prep_Diag.Status =
+           HRA.Issue_Closure_Preparation.Already_Closed_As_Requested
+         and then HRA.Issue_Closure_Preparation.Is_Already_Closed (Prepared),
+         "prepare recognizes already-resolved exact retry request");
+
+      --  External mutation: delete issues.tsv
+      Delete_File (Compose (Root, "issues.tsv"));
+
+      Assert
+        (not HRA.Issue_Closure_Preparation.Publication.Publish (Prepared, Pub_Res)
+         and then Pub_Res.Kind =
+           HRA.Issue_Closure_Preparation.Publication.Failed
+         and then Pub_Res.Writer_Status =
+           HRA.Writer.Stale_Source_Rejected,
+         "deleted issues.tsv premise rejects Already_Closed publish");
+   end;
+
    if Exists (Root) then
       Delete_Tree (Root);
    end if;

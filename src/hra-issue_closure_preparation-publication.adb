@@ -9,6 +9,7 @@ package body HRA.Issue_Closure_Preparation.Publication is
    use type HRA.Issues.Issue_Closed_Kind;
    use type HRA.Issues.Issue_Id;
    use type HRA.Issues.Issue_Status;
+   use type HRA.Writer.Source_Presence;
    use type HRA.Writer.Writer_Status;
 
    function Publish
@@ -22,13 +23,47 @@ package body HRA.Issue_Closure_Preparation.Publication is
       Target_Found  : Boolean := False;
       Target_Issue  : HRA.Issues.Household_Issue;
    begin
-      --  Exact retry / already closed: no filesystem mutation
+      --  Exact retry / already closed: verify current filesystem premise
+      --  without performing filesystem mutation (no-op publication).
       if Is_Already_Closed (Prepared) then
+         declare
+            Observed  : HRA.Writer.Expected_Source;
+            Obs_Error : Unbounded_String;
+         begin
+            if not HRA.Writer.Observe_Source
+              (Target_Path => To_String (Prepared.Target_Path),
+               Observed    => Observed,
+               Error_Msg   => Obs_Error)
+            then
+               Result :=
+                 (Kind          => Failed,
+                  Writer_Status => HRA.Writer.Stale_Source_Rejected,
+                  Message       => To_Unbounded_String
+                    ("cannot observe current issues source for retry verification: " &
+                     To_String (Obs_Error)),
+                  Failure       => Writer_Failure);
+               return False;
+            end if;
+
+            if HRA.Writer.Presence_Of (Observed) /= HRA.Writer.Present
+              or else HRA.Writer.Source_Text (Observed) /=
+                To_String (Prepared.Expected_Text)
+            then
+               Result :=
+                 (Kind          => Failed,
+                  Writer_Status => HRA.Writer.Stale_Source_Rejected,
+                  Message       => To_Unbounded_String
+                    ("current issues source is stale against prepared retry premise"),
+                  Failure       => Writer_Failure);
+               return False;
+            end if;
+         end;
+
          Result :=
            (Kind          => Completed,
             Writer_Status => HRA.Writer.Success,
             Message       => To_Unbounded_String
-              ("Issue already closed with requested coordinates; publication skipped"),
+              ("Issue already closed with requested coordinates; publication verified as exact no-op"),
             Completion    => Already_Closed);
          return True;
       end if;

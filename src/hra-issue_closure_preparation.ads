@@ -33,11 +33,16 @@ package HRA.Issue_Closure_Preparation is
    --  Prepare one explicit Issue closure without financial fact.
    --
    --  If the Issue is Open, prepares a candidate issues.tsv source changing only
-   --  status and closed coordinate while preserving all other fields.
+   --  status and closed coordinates while preserving all other physical row fields
+   --  (category, title, amount, currency, details) and line structure.
    --
-   --  If the Issue is already closed with the exact requested disposition,
-   --  exact requested Closed_On, and consistent identity, recognizes it as
-   --  Already_Closed_As_Requested (valid witness for a no-op publication).
+   --  If the Issue is already closed, verifies exact equality on closure-owned
+   --  coordinates:
+   --    1. stable Issue_Id matches target
+   --    2. current lifecycle disposition matches requested Disposition
+   --    3. current Closed_On matches requested Closed_On
+   --  When these match, recognizes the world as Already_Closed_As_Requested
+   --  (valid witness for a guarded no-op publication).
    --
    --  Any other state (non-open with different date or disposition, nonexistent
    --  issue, invalid closed date before recorded date, etc.) fails closed.
