@@ -1,4 +1,4 @@
-with Ada.Strings.Fixed; use Ada.Strings.Fixed;
+with Ada.Characters.Handling; use Ada.Characters.Handling;
 with HRA.Account;
 with HRA.Dates;
 with HRA.Money;
@@ -19,6 +19,27 @@ package body HRA.Actual_Candidate is
       end loop;
       return False;
    end Contains_Line_Break;
+
+   function Is_Whitespace_Only (Value : String) return Boolean is
+   begin
+      if Value'Length = 0 then
+         return True;
+      end if;
+
+      for C of Value loop
+         if not Is_Space (C) then
+            return False;
+         end if;
+      end loop;
+
+      return True;
+   end Is_Whitespace_Only;
+
+   function Has_Surrounding_Whitespace (Value : String) return Boolean is
+     (Value'Length > 0
+      and then
+        (Is_Space (Value (Value'First))
+         or else Is_Space (Value (Value'Last))));
 
    function Empty_Journal_Diagnostic return HRA.Journal.Parse_Diagnostic is
      ((File_Name   => Null_Unbounded_String,
@@ -78,14 +99,13 @@ package body HRA.Actual_Candidate is
 
       declare
          Description : constant String := To_String (Tx.Code_Or_Payee);
-         Trimmed     : constant String := Trim (Description, Ada.Strings.Both);
       begin
-         if Trimmed'Length = 0 then
+         if Is_Whitespace_Only (Description) then
             Diag.Status := Description_Required;
             Diag.Message := To_Unbounded_String
               ("Actual transaction description is required by canonical Journal syntax");
             return False;
-         elsif Description /= Trimmed then
+         elsif Has_Surrounding_Whitespace (Description) then
             Diag.Status := Description_Has_Surrounding_Whitespace;
             Diag.Message := To_Unbounded_String
               ("Actual transaction description cannot have surrounding whitespace");
