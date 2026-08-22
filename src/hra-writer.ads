@@ -81,11 +81,30 @@ package HRA.Writer is
      with Pre => Target_Path'Length > 0,
           Post => (if Atomic_Publish_Journal'Result then Status = Success);
 
-   --  Publish the target only while every additional read-only source premise
-   --  remains exact. Guards are fenced immediately before the atomic root
-   --  replacement and again immediately after it. A post-replacement guard
-   --  change causes the root to be restored to its exact Expected premise when
-   --  the root still contains Writer's own candidate bytes.
+   --  Replace a single target with exact candidate bytes while the target and
+   --  every guard still equal their exact filesystem premises.
+   --
+   --  This operation proves only that the target still equals Expected, the
+   --  guards still equal their premises, the candidate bytes are staged
+   --  exactly, replacement is fenced, and rollback will not overwrite a later
+   --  external target change. It proves no source syntax, domain semantics, or
+   --  cross-source meaning. Candidate semantic admission remains the caller's
+   --  or domain owner's responsibility.
+   function Atomic_Replace_Exact_Guarded
+     (Target_Path : String;
+      Expected    : Expected_Source;
+      Candidate   : Candidate_Source;
+      Guards      : Source_Premise_Array;
+      Status      : out Writer_Status;
+      Error_Msg   : out Unbounded_String) return Boolean
+     with Pre => Target_Path'Length > 0,
+          Post => (if Atomic_Replace_Exact_Guarded'Result then Status = Success);
+
+   --  Publish an admitted Journal target only while every additional read-only
+   --  source premise remains exact. Guards are fenced immediately before the
+   --  atomic root replacement and again immediately after it. A post-replacement
+   --  guard change or Journal compatibility-check failure restores the target
+   --  only while it still contains Writer's own candidate bytes.
    function Atomic_Publish_Journal_Guarded
      (Target_Path : String;
       Expected    : Expected_Source;

@@ -370,7 +370,26 @@ package body HRA.Writer is
          Error_Msg   => Error_Msg);
    end Atomic_Publish_Journal;
 
-   function Atomic_Publish_Journal_Guarded
+   generic
+      with function Admit_Candidate
+        (Candidate_Text : String;
+         Error_Msg      : out Unbounded_String) return Boolean;
+      Admission_Failure_Status    : Writer_Status;
+      Admission_Failure_Prefix    : String;
+      with function Confirm_Candidate
+        (Candidate_Text : String;
+         Error_Msg      : out Unbounded_String) return Boolean;
+      Confirmation_Failure_Status : Writer_Status;
+      Confirmation_Failure_Prefix : String;
+   function Atomic_Replace_Exact_Guarded_Core
+     (Target_Path : String;
+      Expected    : Expected_Source;
+      Candidate   : Candidate_Source;
+      Guards      : Source_Premise_Array;
+      Status      : out Writer_Status;
+      Error_Msg   : out Unbounded_String) return Boolean;
+
+   function Atomic_Replace_Exact_Guarded_Core
      (Target_Path : String;
       Expected    : Expected_Source;
       Candidate   : Candidate_Source;
@@ -385,8 +404,8 @@ package body HRA.Writer is
       Rollback_Error   : Unbounded_String;
       Staged_Path      : Unbounded_String := Null_Unbounded_String;
       Bak_Path         : constant String := Target_Path & ".bak";
-      Dummy_L          : Ledger.Ledger;
-      Parse_Err        : Unbounded_String;
+      Admission_Err    : Unbounded_String;
+      Confirmation_Err : Unbounded_String;
       Expected_Text    : constant String := Source_Text (Expected);
       Candidate_Text   : constant String := Source_Text (Candidate);
 
@@ -447,12 +466,13 @@ package body HRA.Writer is
          return False;
       end if;
 
-      --  3. Pre-admission validation, before candidate staging or mutation.
-      if not Parse_Journal_Text (Candidate_Text, Dummy_L, Parse_Err) then
-         Status := Pre_Admission_Failed;
+      --  3. Run the caller-selected admission before staging. The exact-byte
+      --  API supplies an unconditional admission; semantic wrappers can supply
+      --  their domain admission without making the mechanism its owner.
+      if not Admit_Candidate (Candidate_Text, Admission_Err) then
+         Status := Admission_Failure_Status;
          Error_Msg := To_Unbounded_String
-           ("Pre-admission validation rejected candidate: " &
-            To_String (Parse_Err));
+           (Admission_Failure_Prefix & ": " & To_String (Admission_Err));
          return False;
       end if;
 
@@ -561,34 +581,35 @@ package body HRA.Writer is
          end if;
       end;
 
-      --  12. Post-admission validation (intentional legacy check). The same
-      --  safe rollback rule avoids clobbering any external root change.
-      declare
-         Parsed_L : Ledger.Ledger;
-      begin
-         if not Parse_Journal_Text (Candidate_Text, Parsed_L, Parse_Err) then
-            if Restore_Target_If_Own_Candidate
-              (Target_Path,
-               Expected,
-               Candidate_Text,
-               Bak_Path,
-               Rollback_Error)
-            then
-               Status := Post_Admission_Failed;
-               Error_Msg := To_Unbounded_String
-                 ("Post-admission validation failed; exact target premise restored: " &
-                  To_String (Parse_Err));
-            else
-               Status := File_Write_Failed;
-               Error_Msg := To_Unbounded_String
-                 ("Post-admission validation failed and safe rollback was refused or failed: " &
-                  To_String (Parse_Err) & "; " & To_String (Rollback_Error));
-            end if;
-            return False;
+      --  11. The caller-selected compatibility confirmation runs while the
+      --  exact backup is still available. A semantic wrapper can therefore
+      --  preserve the same safe rollback law without putting semantics in the
+      --  exact replacement mechanism.
+      if not Confirm_Candidate (Candidate_Text, Confirmation_Err) then
+         if Restore_Target_If_Own_Candidate
+           (Target_Path,
+            Expected,
+            Candidate_Text,
+            Bak_Path,
+            Rollback_Error)
+         then
+            Status := Confirmation_Failure_Status;
+            Error_Msg := To_Unbounded_String
+              (Confirmation_Failure_Prefix &
+               "; exact target premise restored: " &
+               To_String (Confirmation_Err));
+         else
+            Status := File_Write_Failed;
+            Error_Msg := To_Unbounded_String
+              (Confirmation_Failure_Prefix &
+               " and safe rollback was refused or failed: " &
+               To_String (Confirmation_Err) & "; " &
+               To_String (Rollback_Error));
          end if;
-      end;
+         return False;
+      end if;
 
-      --  13. Success: remove any remaining backup/staging files.
+      --  12. Success: remove any remaining backup/staging files.
       Clean_Staged;
       if Expected.State = Present and then Exists (Bak_Path) then
          Delete_File (Bak_Path);
@@ -597,6 +618,80 @@ package body HRA.Writer is
       Status := Success;
       Error_Msg := Null_Unbounded_String;
       return True;
+   end Atomic_Replace_Exact_Guarded_Core;
+
+   function Accept_Exact_Bytes
+     (Candidate_Text : String;
+      Error_Msg      : out Unbounded_String) return Boolean
+   is
+      pragma Unreferenced (Candidate_Text);
+   begin
+      Error_Msg := Null_Unbounded_String;
+      return True;
+   end Accept_Exact_Bytes;
+
+   function Replace_Exact_Core is new Atomic_Replace_Exact_Guarded_Core
+     (Admit_Candidate               => Accept_Exact_Bytes,
+      Admission_Failure_Status     => File_Write_Failed,
+      Admission_Failure_Prefix     => "Exact byte admission failed",
+      Confirm_Candidate            => Accept_Exact_Bytes,
+      Confirmation_Failure_Status => File_Write_Failed,
+      Confirmation_Failure_Prefix => "Exact byte confirmation failed");
+
+   function Atomic_Replace_Exact_Guarded
+     (Target_Path : String;
+      Expected    : Expected_Source;
+      Candidate   : Candidate_Source;
+      Guards      : Source_Premise_Array;
+      Status      : out Writer_Status;
+      Error_Msg   : out Unbounded_String) return Boolean
+   is
+   begin
+      return Replace_Exact_Core
+        (Target_Path => Target_Path,
+         Expected    => Expected,
+         Candidate   => Candidate,
+         Guards      => Guards,
+         Status      => Status,
+         Error_Msg   => Error_Msg);
+   end Atomic_Replace_Exact_Guarded;
+
+   function Confirm_Journal
+     (Candidate_Text : String;
+      Error_Msg      : out Unbounded_String) return Boolean
+   is
+      Parsed : Ledger.Ledger;
+   begin
+      return Parse_Journal_Text (Candidate_Text, Parsed, Error_Msg);
+   end Confirm_Journal;
+
+   function Replace_Journal_Core is new Atomic_Replace_Exact_Guarded_Core
+     (Admit_Candidate               => Confirm_Journal,
+      Admission_Failure_Status     => Pre_Admission_Failed,
+      Admission_Failure_Prefix     => "Pre-admission validation rejected candidate",
+      Confirm_Candidate            => Confirm_Journal,
+      Confirmation_Failure_Status => Post_Admission_Failed,
+      Confirmation_Failure_Prefix => "Post-admission validation failed");
+
+   function Atomic_Publish_Journal_Guarded
+     (Target_Path : String;
+      Expected    : Expected_Source;
+      Candidate   : Candidate_Source;
+      Guards      : Source_Premise_Array;
+      Status      : out Writer_Status;
+      Error_Msg   : out Unbounded_String) return Boolean
+   is
+   begin
+      --  Journal admission is selected by this semantic wrapper, not owned by
+      --  exact replacement. The generic mechanism runs it after initial stale
+      --  fences and repeats it after rename while rollback remains available.
+      return Replace_Journal_Core
+        (Target_Path => Target_Path,
+         Expected    => Expected,
+         Candidate   => Candidate,
+         Guards      => Guards,
+         Status      => Status,
+         Error_Msg   => Error_Msg);
    end Atomic_Publish_Journal_Guarded;
 
    function Append_Transaction_Safely

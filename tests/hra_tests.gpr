@@ -75,7 +75,8 @@ project HRA_Tests is
       "test_household_home_tui_input.adb",
       "test_terminal_utf8_text.adb",
       "test_writer.adb",
-      "test_writer_exact_source.adb");
+      "test_writer_exact_source.adb",
+      "test_writer_exact_replacement.adb");
 
    package Compiler is
       for Default_Switches ("Ada") use
@@ -157,5 +158,6 @@ project HRA_Tests is
       for Executable ("test_terminal_utf8_text.adb") use "test_terminal_utf8_text";
       for Executable ("test_writer.adb") use "test_writer";
       for Executable ("test_writer_exact_source.adb") use "test_writer_exact_source";
+      for Executable ("test_writer_exact_replacement.adb") use "test_writer_exact_replacement";
    end Builder;
 end HRA_Tests;
