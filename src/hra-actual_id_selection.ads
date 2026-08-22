@@ -1,7 +1,8 @@
 with HRA.Actual_Admission;
 
---  Clock-free selection of one fresh source-durable identity candidate for an
---  ordinary Actual publication.
+--  Clock-free selection of one fresh source-durable identity candidate for
+--  operations that explicitly require an identified Actual (such as Issue
+--  realization).
 --
 --  No counter file, machine clock, randomness, or filesystem observation is an
 --  authority here. Selection depends only on the already-admitted effective

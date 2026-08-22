@@ -1,6 +1,4 @@
 with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
-with HRA.Actual_Admission;
-with HRA.Actual_Id_Selection;
 with HRA.Household_Actual_Record;
 with HRA.Household_Actual_Record_TUI;
 with HRA.Household_Home_Command;
@@ -126,18 +124,10 @@ package body HRA.Household_Home_TUI is
 
             when Record_TUI.Accepted =>
                declare
-                  Actual_ID : HRA.Actual_Admission.Actual_Id;
-                  ID_Status : HRA.Actual_Id_Selection.Selection_Status;
                   Record_Diag : HRA.Household_Actual_Record.Record_Diagnostic;
                begin
-                  if not HRA.Actual_Id_Selection.Select_Next
-                    (Current_State.Actual_Identity, Actual_ID, ID_Status)
-                  then
-                     Notice := To_Unbounded_String
-                       ("Record identity unavailable: " &
-                        HRA.Actual_Id_Selection.Selection_Status'Image (ID_Status));
-                  elsif HRA.Household_Actual_Record.Record_Actual
-                    (Current_State, Edited.Tx, Actual_ID, Record_Diag)
+                  if HRA.Household_Actual_Record.Record_Ordinary
+                    (Current_State, Edited.Tx, Record_Diag)
                   then
                      Reload_Household;
                      Notice := To_Unbounded_String ("Recorded Actual.");

@@ -140,7 +140,7 @@ procedure Test_Actual_Graph_Admission is
       Block_Diag : HRA.Actual_Candidate.Candidate_Diagnostic;
       Root_Diag  : HRA.Actual_Root_Candidate.Candidate_Diagnostic;
    begin
-      if not HRA.Actual_Candidate.Prepare
+      if not HRA.Actual_Candidate.Prepare_Identified
         (Transaction_For (Payee, "2026-08-20"),
          Actual_ID (ID_Text),
          Block,
@@ -159,6 +159,33 @@ procedure Test_Actual_Graph_Admission is
          raise Program_Error with "failed to prepare Actual root candidate for graph test";
       end if;
    end Build_Root_Candidate;
+
+   procedure Build_Ordinary_Root_Candidate
+     (Payee  : String;
+      Result : out HRA.Actual_Root_Candidate.Candidate_Root)
+   is
+      Block      : HRA.Actual_Candidate.Candidate_Block;
+      Block_Diag : HRA.Actual_Candidate.Candidate_Diagnostic;
+      Root_Diag  : HRA.Actual_Root_Candidate.Candidate_Diagnostic;
+   begin
+      if not HRA.Actual_Candidate.Prepare_Ordinary
+        (Transaction_For (Payee, "2026-08-20"),
+         Block,
+         Block_Diag)
+      then
+         raise Program_Error with "failed to prepare ordinary Actual block for graph test";
+      end if;
+
+      if not HRA.Actual_Root_Candidate.Prepare
+        (Root_Path,
+         Root_Source,
+         Block,
+         Result,
+         Root_Diag)
+      then
+         raise Program_Error with "failed to prepare ordinary root candidate for graph test";
+      end if;
+   end Build_Ordinary_Root_Candidate;
 
 begin
    Put_Line ("--- Testing Actual candidate graph admission ---");
@@ -317,6 +344,38 @@ begin
             Diag)
          and then Diag.Status = HRA.Actual_Graph_Admission.Candidate_Graph_Load_Failed,
          "Candidate graph fails closed when an included source disappears");
+   end;
+
+   --  Ordinary identity-free graph admission
+   Write_Exact (Child_Path, Child_Source);
+   declare
+      Root_Candidate  : HRA.Actual_Root_Candidate.Candidate_Root;
+      Graph_Candidate : HRA.Actual_Graph_Admission.Candidate_Graph;
+      Diag            : HRA.Actual_Graph_Admission.Admission_Diagnostic;
+   begin
+      Build_Ordinary_Root_Candidate ("Ordinary Coffee", Root_Candidate);
+      Assert
+        (HRA.Actual_Graph_Admission.Admit_Candidate_Root
+           (Existing,
+            Root_Candidate,
+            Graph_Candidate,
+            Diag),
+         "Identity-free ordinary Actual is admitted through the candidate graph");
+
+      declare
+         Observation : constant HRA.Actual_Admission.Actual_Observation :=
+           HRA.Actual_Graph_Admission.Observation_Of (Graph_Candidate);
+         Appended : constant HRA.Actual_Admission.Actual_Transaction_Entry :=
+           HRA.Actual_Admission.Transaction_At (Observation, 3);
+      begin
+         Assert
+           (not Appended.Identity.Present
+            and then not Appended.Source_Durable_Identity.Present,
+            "Ordinary appended Actual has no effective identity and no source-durable identity");
+         Assert
+           (To_String (Appended.Tx.Code_Or_Payee) = "Ordinary Coffee",
+            "Ordinary appended Actual retains typed Transaction meaning");
+      end;
    end;
 
    Delete_Tree (Temp_Dir);

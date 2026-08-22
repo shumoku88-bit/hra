@@ -1,17 +1,14 @@
-with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
 with HRA.Canonical_Source;
 with HRA.Writer;
 
 package body HRA.Household_Actual_Record is
 
-   function Record_Actual
-     (State     : HRA.Household.Household_State;
-      Tx        : HRA.Ledger.Transaction;
-      Actual_ID : HRA.Actual_Admission.Actual_Id;
-      Diag      : out Record_Diagnostic) return Boolean
+   function Publish_Candidate_Block
+     (State          : HRA.Household.Household_State;
+      Block          : HRA.Actual_Candidate.Candidate_Block;
+      Candidate_Diag : HRA.Actual_Candidate.Candidate_Diagnostic;
+      Diag           : out Record_Diagnostic) return Boolean
    is
-      Block            : HRA.Actual_Candidate.Candidate_Block;
-      Candidate_Diag   : HRA.Actual_Candidate.Candidate_Diagnostic;
       Root             : HRA.Actual_Root_Candidate.Candidate_Root;
       Root_Diag        : HRA.Actual_Root_Candidate.Candidate_Diagnostic;
       Graph            : HRA.Actual_Graph_Admission.Candidate_Graph;
@@ -27,7 +24,7 @@ package body HRA.Household_Actual_Record is
         HRA.Canonical_Source.Text_For
           (State.Sources, HRA.Canonical_Source.Actual_Source);
       Account_Guards : constant HRA.Writer.Source_Premise_Array (1 .. 1) :=
-        (1 =>
+        [1 =>
            HRA.Writer.Make_Source_Premise
              (Path =>
                 HRA.Canonical_Source.Path_For
@@ -35,7 +32,7 @@ package body HRA.Household_Actual_Record is
               Expected =>
                 HRA.Writer.Make_Expected_Source
                   (HRA.Canonical_Source.Text_For
-                     (State.Sources, HRA.Canonical_Source.Accounts_Source))));
+                     (State.Sources, HRA.Canonical_Source.Accounts_Source)))];
 
       procedure Set_Diagnostic
         (Status  : Record_Status;
@@ -52,20 +49,6 @@ package body HRA.Household_Actual_Record is
             Message     => To_Unbounded_String (Message));
       end Set_Diagnostic;
    begin
-      if not HRA.Actual_Candidate.Prepare
-        (Tx, Actual_ID, Block, Candidate_Diag)
-      then
-         Set_Diagnostic
-           (Candidate_Rejected,
-            "ordinary Actual candidate rejected: " &
-            HRA.Actual_Candidate.Candidate_Status'Image
-              (Candidate_Diag.Status) &
-            (if Length (Candidate_Diag.Message) > 0
-             then ": " & To_String (Candidate_Diag.Message)
-             else ""));
-         return False;
-      end if;
-
       if not HRA.Actual_Root_Candidate.Prepare
         (Root_Path, Root_Text, Block, Root, Root_Diag)
       then
@@ -124,6 +107,69 @@ package body HRA.Household_Actual_Record is
 
       Set_Diagnostic (Success, "");
       return True;
-   end Record_Actual;
+   end Publish_Candidate_Block;
+
+   function Record_Ordinary
+     (State : HRA.Household.Household_State;
+      Tx    : HRA.Ledger.Transaction;
+      Diag  : out Record_Diagnostic) return Boolean
+   is
+      Block          : HRA.Actual_Candidate.Candidate_Block;
+      Candidate_Diag : HRA.Actual_Candidate.Candidate_Diagnostic;
+   begin
+      if not HRA.Actual_Candidate.Prepare_Ordinary
+        (Tx, Block, Candidate_Diag)
+      then
+         Diag :=
+           (Status      => Candidate_Rejected,
+            Candidate   => Candidate_Diag,
+            Root        => <>,
+            Graph       => <>,
+            Account     => <>,
+            Publication => <>,
+            Message     => To_Unbounded_String
+              ("ordinary Actual candidate rejected: " &
+               HRA.Actual_Candidate.Candidate_Status'Image
+                 (Candidate_Diag.Status) &
+               (if Length (Candidate_Diag.Message) > 0
+                then ": " & To_String (Candidate_Diag.Message)
+                else "")));
+         return False;
+      end if;
+
+      return Publish_Candidate_Block (State, Block, Candidate_Diag, Diag);
+   end Record_Ordinary;
+
+   function Record_Identified
+     (State     : HRA.Household.Household_State;
+      Tx        : HRA.Ledger.Transaction;
+      Actual_ID : HRA.Actual_Admission.Actual_Id;
+      Diag      : out Record_Diagnostic) return Boolean
+   is
+      Block          : HRA.Actual_Candidate.Candidate_Block;
+      Candidate_Diag : HRA.Actual_Candidate.Candidate_Diagnostic;
+   begin
+      if not HRA.Actual_Candidate.Prepare_Identified
+        (Tx, Actual_ID, Block, Candidate_Diag)
+      then
+         Diag :=
+           (Status      => Candidate_Rejected,
+            Candidate   => Candidate_Diag,
+            Root        => <>,
+            Graph       => <>,
+            Account     => <>,
+            Publication => <>,
+            Message     => To_Unbounded_String
+              ("identified Actual candidate rejected: " &
+               HRA.Actual_Candidate.Candidate_Status'Image
+                 (Candidate_Diag.Status) &
+               (if Length (Candidate_Diag.Message) > 0
+                then ": " & To_String (Candidate_Diag.Message)
+                else "")));
+         return False;
+      end if;
+
+      return Publish_Candidate_Block (State, Block, Candidate_Diag, Diag);
+   end Record_Identified;
 
 end HRA.Household_Actual_Record;

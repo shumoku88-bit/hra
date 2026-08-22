@@ -33,6 +33,19 @@ procedure Test_Household_Actual_Record is
       end if;
    end Assert;
 
+   function Contains_Substring (Text, Sub : String) return Boolean is
+   begin
+      if Sub'Length > Text'Length or else Sub'Length = 0 then
+         return Sub'Length = 0;
+      end if;
+      for I in Text'First .. Text'Last - Sub'Length + 1 loop
+         if Text (I .. I + Sub'Length - 1) = Sub then
+            return True;
+         end if;
+      end loop;
+      return False;
+   end Contains_Substring;
+
    procedure Write_Exact (Path : String; Text : String) is
       package SIO renames Ada.Streams.Stream_IO;
       File : SIO.File_Type;
@@ -119,7 +132,7 @@ procedure Test_Household_Actual_Record is
       Description  : String) return HRA.Ledger.Transaction
    is
       Posts  : HRA.Ledger.Posting_Vectors.Vector;
-      Tx     : HRA.Ledger.Transaction;
+      Tx    : HRA.Ledger.Transaction;
       Status : HRA.Ledger.Transaction_Error;
       JPY    : constant HRA.Money.Commodity := HRA.Money.Make_Commodity ("JPY");
    begin
@@ -251,33 +264,77 @@ procedure Test_Household_Actual_Record is
 begin
    Put_Line ("--- Testing Household Actual record boundary ---");
 
+   --  =====================================================================
+   --  Ordinary identity-free Record
+   --  =====================================================================
+
    Reset_Files;
    declare
       State        : constant HRA.Household.Household_State := Load_State;
       Before_Count : constant Natural :=
         HRA.Actual_Admission.Transaction_Count (State.Actual_Identity);
       Diag         : HRA.Household_Actual_Record.Record_Diagnostic;
-      First_ID     : constant HRA.Actual_Admission.Actual_Id :=
-        Actual_ID ("home-record-actual");
    begin
       Assert
-        (HRA.Household_Actual_Record.Record_Actual
+        (HRA.Household_Actual_Record.Record_Ordinary
            (State,
             Transaction_For ("expenses:coffee", 700.0, "Recorded Coffee"),
-            First_ID,
             Diag)
          and then Diag.Status = HRA.Household_Actual_Record.Success,
-         "Admitted Household records one explicit Actual through the complete publication path");
+         "Admitted Household records one ordinary Actual through the complete publication path");
+
+      declare
+         Actual_Text : constant String :=
+           Read_Exact (Path_For (State.Sources.Paths, Actual_Source));
+      begin
+         Assert
+           (Contains_Substring (Actual_Text, "2026-08-20 Recorded Coffee")
+            and then not Contains_Substring (Actual_Text, "event-id: Recorded Coffee"),
+            "Ordinary Household record contains no event-id metadata for the recorded transaction");
+      end;
 
       declare
          Reloaded : constant HRA.Household.Household_State := Load_State;
       begin
          Assert
            (HRA.Actual_Admission.Transaction_Count (Reloaded.Actual_Identity) =
-              Before_Count + 1
-            and then HRA.Actual_Admission.Has_Source_Durable_Identity
-              (Reloaded.Actual_Identity, First_ID),
-            "Published Actual is visible after ordinary Household reload with durable identity");
+              Before_Count + 1,
+            "Published ordinary Actual is visible after ordinary Household reload");
+
+         declare
+            New_Entry : constant HRA.Actual_Admission.Actual_Transaction_Entry :=
+              HRA.Actual_Admission.Transaction_At (Reloaded.Actual_Identity, Before_Count + 1);
+         begin
+            Assert
+              (not New_Entry.Identity.Present
+               and then not New_Entry.Source_Durable_Identity.Present,
+               "Reloaded ordinary Actual has neither effective identity nor source-durable identity");
+         end;
+
+         --  Sequential second ordinary record from reloaded state
+         declare
+            Diag2 : HRA.Household_Actual_Record.Record_Diagnostic;
+         begin
+            Assert
+              (HRA.Household_Actual_Record.Record_Ordinary
+                 (Reloaded,
+                  Transaction_For ("expenses:coffee", 300.0, "Second Coffee"),
+                  Diag2)
+               and then Diag2.Status = HRA.Household_Actual_Record.Success,
+               "Two sequential ordinary records succeed without requiring identity selection");
+
+            declare
+               Reloaded2 : constant HRA.Household.Household_State := Load_State;
+               Actual_Text2 : constant String :=
+                 Read_Exact (Path_For (State.Sources.Paths, Actual_Source));
+            begin
+               Assert
+                 (HRA.Actual_Admission.Transaction_Count (Reloaded2.Actual_Identity) =
+                    Before_Count + 2
+                  and then not Contains_Substring (Actual_Text2, "hra-actual"),
+                  "Sequential ordinary records remain completely identity-free in source and memory");
+            end;
+         end;
       end;
 
       declare
@@ -286,10 +343,9 @@ begin
          Stale_Diag : HRA.Household_Actual_Record.Record_Diagnostic;
       begin
          Assert
-           (not HRA.Household_Actual_Record.Record_Actual
+           (not HRA.Household_Actual_Record.Record_Ordinary
               (State,
                Transaction_For ("expenses:coffee", 300.0, "Stale Second Record"),
-               Actual_ID ("stale-second-actual"),
                Stale_Diag)
             and then Stale_Diag.Status =
               HRA.Household_Actual_Record.Publication_Rejected
@@ -303,18 +359,65 @@ begin
       end;
    end;
 
+   --  =====================================================================
+   --  Explicit Identified Record
+   --  =====================================================================
+
    Reset_Files;
    declare
-      State      : constant HRA.Household.Household_State := Load_State;
-      Root_Path  : constant String := Path_For (State.Sources.Paths, Actual_Source);
-      Root_Before : constant String := Read_Exact (Root_Path);
-      Diag       : HRA.Household_Actual_Record.Record_Diagnostic;
+      State        : constant HRA.Household.Household_State := Load_State;
+      Before_Count : constant Natural :=
+        HRA.Actual_Admission.Transaction_Count (State.Actual_Identity);
+      Diag         : HRA.Household_Actual_Record.Record_Diagnostic;
+      Explicit_ID  : constant HRA.Actual_Admission.Actual_Id :=
+        Actual_ID ("explicit-identified-actual");
    begin
       Assert
-        (not HRA.Household_Actual_Record.Record_Actual
+        (HRA.Household_Actual_Record.Record_Identified
+           (State,
+            Transaction_For ("expenses:coffee", 1200.0, "Identified Purchase"),
+            Explicit_ID,
+            Diag)
+         and then Diag.Status = HRA.Household_Actual_Record.Success,
+         "Admitted Household records one explicitly identified Actual");
+
+      declare
+         Actual_Text : constant String :=
+           Read_Exact (Path_For (State.Sources.Paths, Actual_Source));
+      begin
+         Assert
+           (Contains_Substring
+              (Actual_Text, "; event-id: explicit-identified-actual"),
+            "Identified record writes explicit event-id metadata to source");
+      end;
+
+      declare
+         Reloaded : constant HRA.Household.Household_State := Load_State;
+      begin
+         Assert
+           (HRA.Actual_Admission.Transaction_Count (Reloaded.Actual_Identity) =
+              Before_Count + 1
+            and then HRA.Actual_Admission.Has_Source_Durable_Identity
+              (Reloaded.Actual_Identity, Explicit_ID),
+            "Published identified Actual is re-admitted with source-durable identity");
+      end;
+   end;
+
+   --  =====================================================================
+   --  Account Qualification and Premise Guards
+   --  =====================================================================
+
+   Reset_Files;
+   declare
+      State       : constant HRA.Household.Household_State := Load_State;
+      Root_Path   : constant String := Path_For (State.Sources.Paths, Actual_Source);
+      Root_Before : constant String := Read_Exact (Root_Path);
+      Diag        : HRA.Household_Actual_Record.Record_Diagnostic;
+   begin
+      Assert
+        (not HRA.Household_Actual_Record.Record_Ordinary
            (State,
             Transaction_For ("expenses:rogue", 100.0, "Undeclared Account"),
-            Actual_ID ("rogue-account-actual"),
             Diag)
          and then Diag.Status =
            HRA.Household_Actual_Record.Account_Admission_Rejected
@@ -342,10 +445,9 @@ begin
    begin
       Write_Exact (Accounts_Path, External_Accounts);
       Assert
-        (not HRA.Household_Actual_Record.Record_Actual
+        (not HRA.Household_Actual_Record.Record_Ordinary
            (State,
             Transaction_For ("expenses:coffee", 100.0, "Stale Account Authority"),
-            Actual_ID ("stale-account-authority"),
             Diag)
          and then Diag.Status =
            HRA.Household_Actual_Record.Publication_Rejected

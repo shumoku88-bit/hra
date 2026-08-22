@@ -225,7 +225,7 @@ procedure Test_Actual_Publication is
          raise Program_Error with "failed to admit existing publication Actual authority";
       end if;
 
-      if not HRA.Actual_Candidate.Prepare
+      if not HRA.Actual_Candidate.Prepare_Identified
         (New_Transaction, Actual_ID ("published-actual"), Block, Block_Diag)
       then
          raise Program_Error with "failed to prepare publication Actual block";
@@ -249,6 +249,59 @@ procedure Test_Actual_Publication is
          raise Program_Error with "failed to qualify publication candidate Accounts";
       end if;
    end Build_Qualified;
+
+   procedure Build_Ordinary_Qualified
+     (Qualified : out HRA.Actual_Account_Admission.Account_Qualified_Graph)
+   is
+      Loaded       : HRA.Journal_Loader.Journal_Observation;
+      Load_Error   : Unbounded_String;
+      Existing     : HRA.Actual_Admission.Actual_Observation;
+      Actual_Diag  : HRA.Actual_Admission.Admission_Diagnostic;
+      Block        : HRA.Actual_Candidate.Candidate_Block;
+      Block_Diag   : HRA.Actual_Candidate.Candidate_Diagnostic;
+      Root         : HRA.Actual_Root_Candidate.Candidate_Root;
+      Root_Diag    : HRA.Actual_Root_Candidate.Candidate_Diagnostic;
+      Graph        : HRA.Actual_Graph_Admission.Candidate_Graph;
+      Graph_Diag   : HRA.Actual_Graph_Admission.Admission_Diagnostic;
+      Account_Diag : HRA.Actual_Account_Admission.Admission_Diagnostic;
+   begin
+      if not HRA.Journal_Loader.Load_From_Root_Source
+        (Root_Path, Root_Source, Loaded, Load_Error)
+      then
+         raise Program_Error with
+           "failed to load existing publication graph: " & To_String (Load_Error);
+      end if;
+
+      if not HRA.Actual_Admission.Admit
+        (Loaded.Value, Loaded.Evidence, Existing, Actual_Diag)
+      then
+         raise Program_Error with "failed to admit existing publication Actual authority";
+      end if;
+
+      if not HRA.Actual_Candidate.Prepare_Ordinary
+        (New_Transaction, Block, Block_Diag)
+      then
+         raise Program_Error with "failed to prepare ordinary publication Actual block";
+      end if;
+
+      if not HRA.Actual_Root_Candidate.Prepare
+        (Root_Path, Root_Source, Block, Root, Root_Diag)
+      then
+         raise Program_Error with "failed to prepare ordinary publication root candidate";
+      end if;
+
+      if not HRA.Actual_Graph_Admission.Admit_Candidate_Root
+        (Existing, Root, Graph, Graph_Diag)
+      then
+         raise Program_Error with "failed to admit ordinary publication candidate graph";
+      end if;
+
+      if not HRA.Actual_Account_Admission.Admit
+        (Registry, Graph, Qualified, Account_Diag)
+      then
+         raise Program_Error with "failed to qualify ordinary publication candidate Accounts";
+      end if;
+   end Build_Ordinary_Qualified;
 
    function Candidate_Text
      (Qualified : HRA.Actual_Account_Admission.Account_Qualified_Graph)
@@ -285,6 +338,26 @@ begin
          Assert
            (Read_Exact (Child_Path) = Child_Source,
             "Qualified publication leaves included source bytes untouched");
+      end;
+   end;
+
+   Reset_Files;
+   declare
+      Qualified : HRA.Actual_Account_Admission.Account_Qualified_Graph;
+      Diag      : HRA.Actual_Publication.Publication_Diagnostic;
+   begin
+      Build_Ordinary_Qualified (Qualified);
+      declare
+         Expected_Root : constant String := Candidate_Text (Qualified);
+      begin
+         Assert
+           (HRA.Actual_Publication.Publish (Qualified, Diag)
+            and then Diag.Status = HRA.Actual_Publication.Success
+            and then Diag.Writer_Status = HRA.Writer.Success,
+            "Ordinary identity-free qualified graph publishes successfully");
+         Assert
+           (Read_Exact (Root_Path) = Expected_Root,
+            "Ordinary publication replaces root with identity-free candidate bytes");
       end;
    end;
 

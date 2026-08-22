@@ -83,7 +83,7 @@ begin
    Put_Line ("--- Testing pure Actual root source candidate ---");
 
    Assert
-     (HRA.Actual_Candidate.Prepare
+     (HRA.Actual_Candidate.Prepare_Identified
         (Balanced_Transaction,
          Actual_ID ("chair-actual"),
          Block,

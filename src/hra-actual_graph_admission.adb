@@ -1,6 +1,5 @@
 with Ada.Directories; use Ada.Directories;
 with HRA.Journal_Evidence;
-with HRA.Journal_Loader;
 with HRA.Ledger;
 
 package body HRA.Actual_Graph_Admission is
@@ -240,14 +239,15 @@ package body HRA.Actual_Graph_Admission is
               HRA.Actual_Admission.Transaction_At
                 (Candidate_Actual, Candidate_Count);
          begin
-            if not Appended.Source_Durable_Identity.Present
-              or else not Appended.Identity.Present
-              or else Appended.Identity.Value /=
-                Appended.Source_Durable_Identity.Value
+            if Appended.Identity.Present /=
+              Appended.Source_Durable_Identity.Present
+              or else (Appended.Identity.Present
+                       and then Appended.Identity.Value /=
+                         Appended.Source_Durable_Identity.Value)
             then
                Diag.Status := Appended_Actual_Not_Source_Durable;
                Diag.Message := To_Unbounded_String
-                 ("appended Actual must retain one explicit source-durable identity");
+                 ("appended Actual identity must match explicit source-durable identity");
                return False;
             end if;
 

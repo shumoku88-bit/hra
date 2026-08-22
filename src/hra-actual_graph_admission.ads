@@ -52,9 +52,10 @@ package HRA.Actual_Graph_Admission is
 
    --  Resolve and admit Candidate_Root through the current include graph.
    --  Success requires the supplied Existing observation to remain an exact
-   --  admitted prefix and exactly one new source-durable, root-owned Actual to
-   --  appear at the end. The root coordinate cannot be supplied separately from
-   --  the root candidate, and no file is written here.
+   --  admitted prefix and exactly one new root-owned Actual to appear at the
+   --  end. If an identity is present, it must be an explicit source-durable
+   --  event-id. The root coordinate cannot be supplied separately from the root
+   --  candidate, and no file is written here.
    function Admit_Candidate_Root
      (Existing       : HRA.Actual_Admission.Actual_Observation;
       Candidate_Root : HRA.Actual_Root_Candidate.Candidate_Root;
