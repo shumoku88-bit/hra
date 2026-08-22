@@ -11,16 +11,28 @@ alire_settings_dir="$project_root/alire/settings"
 mkdir -p "$alire_settings_dir"
 export ALIRE_SETTINGS_DIR="$alire_settings_dir"
 
+test_project="$project_root/tests/hra_tests.gpr"
+
 usage() {
   cat <<'EOF'
 Usage: tools/hra COMMAND [ARGS...]
 
 Repository commands:
   build                 Build production source with Alire
-  test                  Build and run the repository test suites
+  test [FILTER ...]     Build and run all tests, or only matching focused tests
+  test-list [FILTER]    List declared focused test mains
   prove                 Run the SPARK proof project
-  qualify               Build production, run tests, and prove
+  qualify               Build production, run all tests, and prove
   clean                 Clean production, test, and proof build products
+
+Focused test examples:
+  tools/hra test money
+  tools/hra test issue
+  tools/hra test plan tui
+
+An exact short test name (for example "money") selects only test_money.adb.
+Otherwise each FILTER selects declared test mains whose name contains FILTER.
+No FILTER keeps the full repository test behavior used by qualify and CI.
 
 Application commands:
   home [--base ROOT] [--through DATE] [--day DATE]
@@ -88,6 +100,95 @@ ensure_local_index() {
   fi
 }
 
+list_test_mains() {
+  sed -n '/for Main use/,/);/p' "$test_project" |
+    sed -n 's/.*"\(test_[^"]*\.adb\)".*/\1/p'
+}
+
+short_test_name() {
+  local main="$1"
+  main="${main#test_}"
+  printf '%s\n' "${main%.adb}"
+}
+
+append_unique_main() {
+  local candidate="$1"
+  local existing
+  for existing in "${selected_test_mains[@]:-}"; do
+    if [[ "$existing" == "$candidate" ]]; then
+      return
+    fi
+  done
+  selected_test_mains+=("$candidate")
+}
+
+select_test_mains() {
+  selected_test_mains=()
+
+  local selector
+  local normalized
+  local exact
+  local main
+  local matched
+  local all_mains
+
+  all_mains="$(list_test_mains)"
+
+  for selector in "$@"; do
+    normalized="${selector%.adb}"
+    normalized="${normalized#test_}"
+    if [[ -z "$normalized" ]]; then
+      echo "tools/hra test: empty focused test selector" >&2
+      exit 2
+    fi
+
+    exact="test_${normalized}.adb"
+    matched=0
+
+    for main in $all_mains; do
+      if [[ "$main" == "$exact" ]]; then
+        append_unique_main "$main"
+        matched=1
+        break
+      fi
+    done
+
+    if [[ "$matched" -eq 1 ]]; then
+      continue
+    fi
+
+    for main in $all_mains; do
+      if [[ "${main%.adb}" == *"$normalized"* ]]; then
+        append_unique_main "$main"
+        matched=1
+      fi
+    done
+
+    if [[ "$matched" -eq 0 ]]; then
+      echo "tools/hra test: no declared focused test matches '$selector'" >&2
+      echo "tools/hra test: use 'tools/hra test-list' to inspect names" >&2
+      exit 2
+    fi
+  done
+}
+
+executable_for_main() {
+  local main="$1"
+  local executable
+
+  executable="$(
+    sed -n \
+      "s/.*for Executable (\"${main}\") use \"\\([^\"]*\\)\";.*/\\1/p" \
+      "$test_project"
+  )"
+
+  if [[ -n "$executable" ]]; then
+    printf '%s\n' "$executable"
+  else
+    printf '%s\n' "${main%.adb}"
+  fi
+}
+
 build_production() {
   ensure_local_index
   # Keep application stdout reserved for application output (not build logs).
@@ -101,7 +202,12 @@ build_tests() {
   rm -rf "$project_root/tests/bin"
   # Let GPRbuild use the platform's available processor cores across the
   # independent test compilation, binding, and linking jobs.
-  alr exec -- gprbuild -j0 -P "$project_root/tests/hra_tests.gpr"
+  alr exec -- gprbuild -j0 -P "$test_project"
+}
+
+build_focused_tests() {
+  ensure_local_index
+  alr exec -- gprbuild -j0 -P "$test_project" "$@"
 }
 
 run_tests() {
@@ -119,6 +225,22 @@ run_tests() {
   fi
 }
 
+run_focused_tests() {
+  local main
+  local executable
+  local test_exe
+
+  for main in "$@"; do
+    executable="$(executable_for_main "$main")"
+    test_exe="$project_root/tests/bin/$executable"
+    if [[ ! -x "$test_exe" ]]; then
+      echo "tools/hra test: expected executable not built: $test_exe" >&2
+      exit 1
+    fi
+    "$test_exe"
+  done
+}
+
 command="${1:-help}"
 if [[ $# -gt 0 ]]; then
   shift
@@ -133,12 +255,33 @@ case "$command" in
     exec alr build "$@"
     ;;
   test)
-    if [[ $# -ne 0 ]]; then
-      echo "tools/hra test: unexpected arguments" >&2
+    if [[ $# -eq 0 ]]; then
+      build_tests
+      run_tests
+    else
+      select_test_mains "$@"
+      build_focused_tests "${selected_test_mains[@]}"
+      run_focused_tests "${selected_test_mains[@]}"
+    fi
+    ;;
+  test-list)
+    if [[ $# -gt 1 ]]; then
+      echo "tools/hra test-list: expected zero or one FILTER" >&2
       exit 2
     fi
-    build_tests
-    run_tests
+    if [[ $# -eq 0 ]]; then
+      while IFS= read -r main; do
+        short_test_name "$main"
+      done < <(list_test_mains)
+    else
+      filter="${1#test_}"
+      filter="${filter%.adb}"
+      while IFS= read -r main; do
+        if [[ "${main%.adb}" == *"$filter"* ]]; then
+          short_test_name "$main"
+        fi
+      done < <(list_test_mains)
+    fi
     ;;
   prove)
     if [[ $# -ne 0 ]]; then
