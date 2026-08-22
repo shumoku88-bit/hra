@@ -78,6 +78,12 @@ begin
       "G maps to Focus_Known_Through");
 
    Assert
+     (Decode_Key (Character'Pos ('r')).Kind = Open_Record,
+      "r maps to Open_Record without a Home intent");
+   Assert
+     (Decode_Key (Character'Pos ('R')).Kind = Open_Record,
+      "R maps to Open_Record without a Home intent");
+   Assert
      (Decode_Key (Character'Pos ('q')).Kind = Quit,
       "q maps to Quit without a Home intent");
    Assert
