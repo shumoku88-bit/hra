@@ -2,6 +2,7 @@ with Ada.Command_Line;
 with Ada.Directories; use Ada.Directories;
 with Ada.Streams; use Ada.Streams;
 with Ada.Streams.Stream_IO;
+with Ada.Strings.Fixed; use Ada.Strings.Fixed;
 with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
 with Ada.Text_IO; use Ada.Text_IO;
 with HRA.Writer; use HRA.Writer;
@@ -113,9 +114,20 @@ procedure Test_Writer_Exact_Source is
      "included source" & ASCII.LF & "changed bytes";
    External_Root : constant String := "external root change" & ASCII.LF;
 
-   Observed : Expected_Source;
-   Error    : Unbounded_String;
-   Status   : Writer_Status;
+   Observed        : Expected_Source;
+   Error           : Unbounded_String;
+   Recovery_Backup : Unbounded_String;
+   Status          : Writer_Status;
+
+   function Recovery_Path (Message : String) return String is
+      Marker   : constant String := "recovery backup preserved at: ";
+      Position : constant Natural := Index (Message, Marker);
+   begin
+      if Position = 0 then
+         return "";
+      end if;
+      return Message (Position + Marker'Length .. Message'Last);
+   end Recovery_Path;
 
 begin
    Put_Line ("--- Testing Writer exact source premise ---");
@@ -403,11 +415,14 @@ begin
             and then Status = File_Write_Failed,
             "Writer refuses rollback when root no longer contains its own candidate");
          HRA.Writer.Test_Hooks.Clear_After_Publish_Hook;
+         Recovery_Backup :=
+           To_Unbounded_String (Recovery_Path (To_String (Error)));
          Assert
            (Read_Exact (Target) = External_Root
             and then Read_Exact (Guard) = Guard_Changed
-            and then Exists (Target & ".bak")
-            and then Read_Exact (Target & ".bak") = LF_Initial,
+            and then Length (Recovery_Backup) > 0
+            and then Exists (To_String (Recovery_Backup))
+            and then Read_Exact (To_String (Recovery_Backup)) = LF_Initial,
             "Rollback refusal preserves external root and retains exact recovery backup");
       end;
    end;
@@ -423,6 +438,11 @@ begin
    end if;
    if Exists (Target & ".bak") then
       Delete_File (Target & ".bak");
+   end if;
+   if Length (Recovery_Backup) > 0
+     and then Exists (To_String (Recovery_Backup))
+   then
+      Delete_File (To_String (Recovery_Backup));
    end if;
 
    New_Line;

@@ -45,8 +45,8 @@ package HRA.Writer is
      (Value : Candidate_Source) return Ada.Strings.Unbounded.Unbounded_String;
 
    --  One read-only source premise that must remain physically unchanged while
-   --  another Journal root is published. Writer does not interpret the guarded
-   --  source. It compares only filesystem presence and exact bytes.
+   --  a target root is replaced. Writer does not interpret the guarded source.
+   --  It compares only filesystem presence and exact bytes.
    type Source_Premise is private;
 
    function Make_Source_Premise
@@ -54,12 +54,11 @@ package HRA.Writer is
       Expected : Expected_Source) return Source_Premise
      with Pre => Path'Length > 0;
 
-   --  Natural indexing permits a null array, which is how the ordinary
-   --  Atomic_Publish_Journal delegates to the guarded implementation.
+   --  Natural indexing permits a null array for an unguarded replacement.
    type Source_Premise_Array is array (Natural range <>) of Source_Premise;
 
    --  ========================================================================
-   --  Safe Writer Laws: Atomic Publication, Backup, Stale Check, Restore
+   --  Safe Writer Laws: Single-Target Rename, Backup, Stale Check, Restore
    --  ========================================================================
 
    type Writer_Status is
@@ -81,11 +80,36 @@ package HRA.Writer is
      with Pre => Target_Path'Length > 0,
           Post => (if Atomic_Publish_Journal'Result then Status = Success);
 
-   --  Publish the target only while every additional read-only source premise
-   --  remains exact. Guards are fenced immediately before the atomic root
-   --  replacement and again immediately after it. A post-replacement guard
-   --  change causes the root to be restored to its exact Expected premise when
-   --  the root still contains Writer's own candidate bytes.
+   --  Replace a single target with exact candidate bytes while the target and
+   --  every guard still equal their exact filesystem premises.
+   --
+   --  This operation proves only that the target is observed to equal Expected
+   --  at both stale fences, every guard is observed to equal its premise at its
+   --  fences, candidate bytes are staged exactly, one staged-candidate-to-target
+   --  filesystem rename performs the single-target replacement, and rollback
+   --  will not overwrite a later external target change. A present Expected is
+   --  preserved in a create-new, uniquely named Writer-owned recovery backup.
+   --
+   --  It does not provide a cross-process compare-and-swap across stale check
+   --  and rename, an exclusive Writer lock, multi-target atomicity, or crash/fsync
+   --  durability. It also proves no source syntax, domain semantics, or
+   --  cross-source meaning. Candidate semantic admission remains the caller's
+   --  or domain owner's responsibility.
+   function Atomic_Replace_Exact_Guarded
+     (Target_Path : String;
+      Expected    : Expected_Source;
+      Candidate   : Candidate_Source;
+      Guards      : Source_Premise_Array;
+      Status      : out Writer_Status;
+      Error_Msg   : out Unbounded_String) return Boolean
+     with Pre => Target_Path'Length > 0,
+          Post => (if Atomic_Replace_Exact_Guarded'Result then Status = Success);
+
+   --  Publish an admitted Journal target only while every additional read-only
+   --  source premise remains exact. Guards are fenced immediately before the
+   --  atomic root replacement and again immediately after it. A post-replacement
+   --  guard change or Journal compatibility-check failure restores the target
+   --  only while it still contains Writer's own candidate bytes.
    function Atomic_Publish_Journal_Guarded
      (Target_Path : String;
       Expected    : Expected_Source;
