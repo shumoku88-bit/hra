@@ -1,97 +1,58 @@
 with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
 with HRA.Account;
 with HRA.Household_Actual_Draft;
+with HRA.Household_Actual_Record_Interaction;
 with HRA.Money;
 with HRA.Terminal_UTF8;
 with Terminal_Interface.Curses;
 
 package body HRA.Household_Actual_Record_TUI is
 
-   package Drafts renames HRA.Household_Actual_Draft;
-   package Curses renames Terminal_Interface.Curses;
+   package Drafts      renames HRA.Household_Actual_Draft;
+   package Interaction renames HRA.Household_Actual_Record_Interaction;
+   package Curses      renames Terminal_Interface.Curses;
 
    type Editor_Mode is (Editing, Previewing);
 
-   type Focus_Field is
-     (Description_Field,
-      First_Account_Field,
-      First_Amount_Field,
-      Second_Account_Field,
-      Second_Amount_Field);
-
-   function Next_Field (Field : Focus_Field) return Focus_Field is
-   begin
-      case Field is
-         when Description_Field    => return First_Account_Field;
-         when First_Account_Field  => return First_Amount_Field;
-         when First_Amount_Field   => return Second_Account_Field;
-         when Second_Account_Field => return Second_Amount_Field;
-         when Second_Amount_Field  => return Description_Field;
-      end case;
-   end Next_Field;
-
-   function Previous_Field (Field : Focus_Field) return Focus_Field is
-   begin
-      case Field is
-         when Description_Field    => return Second_Amount_Field;
-         when First_Account_Field  => return Description_Field;
-         when First_Amount_Field   => return First_Account_Field;
-         when Second_Account_Field => return First_Amount_Field;
-         when Second_Amount_Field  => return Second_Account_Field;
-      end case;
-   end Previous_Field;
-
    function Field_Text
      (Draft : Drafts.Record_Draft;
-      Field : Focus_Field) return String
+      Focus : Interaction.Editor_Focus) return String
    is
    begin
-      case Field is
-         when Description_Field =>
+      case Focus.Kind is
+         when Interaction.Description_Field =>
             return Drafts.Description_Text (Draft);
-         when First_Account_Field =>
-            return To_String (Drafts.Posting_At (Draft, 1).Account_Text);
-         when First_Amount_Field =>
-            return To_String (Drafts.Posting_At (Draft, 1).Amount_Text);
-         when Second_Account_Field =>
-            return To_String (Drafts.Posting_At (Draft, 2).Account_Text);
-         when Second_Amount_Field =>
-            return To_String (Drafts.Posting_At (Draft, 2).Amount_Text);
+         when Interaction.Account_Field =>
+            return To_String
+              (Drafts.Posting_At (Draft, Focus.Posting_Index).Account_Text);
+         when Interaction.Amount_Field =>
+            return To_String
+              (Drafts.Posting_At (Draft, Focus.Posting_Index).Amount_Text);
       end case;
    end Field_Text;
 
    function Set_Field_Text
      (Draft : Drafts.Record_Draft;
-      Field : Focus_Field;
+      Focus : Interaction.Editor_Focus;
       Text  : String) return Drafts.Record_Draft
    is
    begin
-      case Field is
-         when Description_Field =>
+      case Focus.Kind is
+         when Interaction.Description_Field =>
             return Drafts.Set_Description (Draft, Text);
-         when First_Account_Field =>
+         when Interaction.Account_Field =>
             return Drafts.Set_Posting
               (Draft,
-               1,
+               Focus.Posting_Index,
                Text,
-               To_String (Drafts.Posting_At (Draft, 1).Amount_Text));
-         when First_Amount_Field =>
+               To_String
+                 (Drafts.Posting_At (Draft, Focus.Posting_Index).Amount_Text));
+         when Interaction.Amount_Field =>
             return Drafts.Set_Posting
               (Draft,
-               1,
-               To_String (Drafts.Posting_At (Draft, 1).Account_Text),
-               Text);
-         when Second_Account_Field =>
-            return Drafts.Set_Posting
-              (Draft,
-               2,
-               Text,
-               To_String (Drafts.Posting_At (Draft, 2).Amount_Text));
-         when Second_Amount_Field =>
-            return Drafts.Set_Posting
-              (Draft,
-               2,
-               To_String (Drafts.Posting_At (Draft, 2).Account_Text),
+               Focus.Posting_Index,
+               To_String
+                 (Drafts.Posting_At (Draft, Focus.Posting_Index).Account_Text),
                Text);
       end case;
    end Set_Field_Text;
@@ -100,12 +61,52 @@ package body HRA.Household_Actual_Record_TUI is
      (State : HRA.Household.Household_State;
       Day   : HRA.Dates.Date) return Edit_Result
    is
-      Draft : Drafts.Record_Draft := Drafts.Start (Day);
-      Focus : Focus_Field := Description_Field;
-      Mode  : Editor_Mode := Editing;
-      Candidate : HRA.Ledger.Transaction;
+      Draft      : Drafts.Record_Draft := Drafts.Start (Day);
+      Focus      : Interaction.Editor_Focus := Interaction.Initial_Focus;
+      Mode       : Editor_Mode := Editing;
+      Candidate  : HRA.Ledger.Transaction;
       Draft_Diag : Drafts.Build_Diagnostic;
-      Notice : Unbounded_String := Null_Unbounded_String;
+      Notice     : Unbounded_String := Null_Unbounded_String;
+
+      procedure Apply_Interaction
+        (Intent : Interaction.Interaction_Intent_Kind)
+      is
+         use type Interaction.Interaction_Result_Kind;
+         Res : constant Interaction.Interaction_Result :=
+           Interaction.Apply_Intent
+             (Focus         => Focus,
+              Posting_Count => Drafts.Posting_Count (Draft),
+              Intent        => Intent);
+      begin
+         case Res.Kind is
+            when Interaction.Navigation_Applied =>
+               Focus  := Res.Focus;
+               Notice := Null_Unbounded_String;
+            when Interaction.Row_Added =>
+               Draft  := Drafts.Resize_Postings (Draft, Res.New_Count);
+               Focus  := Res.Focus;
+               Notice := Null_Unbounded_String;
+            when Interaction.Row_Dropped =>
+               Draft  := Drafts.Resize_Postings (Draft, Res.New_Count);
+               Focus  := Res.Focus;
+               Notice := Null_Unbounded_String;
+            when Interaction.Notice_Minimum_Postings =>
+               Focus  := Res.Focus;
+               Notice :=
+                 To_Unbounded_String
+                   ("Transaction requires at least two postings.");
+            when Interaction.Notice_Maximum_Postings =>
+               Focus  := Res.Focus;
+               Notice :=
+                 To_Unbounded_String
+                   ("Maximum number of postings reached.");
+            when Interaction.Notice_Not_Tail_Posting =>
+               Focus  := Res.Focus;
+               Notice :=
+                 To_Unbounded_String
+                   ("Only the last posting row can be dropped. Move focus to last row.");
+         end case;
+      end Apply_Interaction;
 
       procedure Draw is
          Max_Rows : constant Natural := Natural (Curses.Lines);
@@ -127,14 +128,31 @@ package body HRA.Household_Actual_Record_TUI is
          end Add;
 
          procedure Add_Field
-           (Field : Focus_Field;
+           (Loc   : Interaction.Editor_Focus;
             Label : String)
          is
+            use type Interaction.Focus_Kind;
             Prefix : constant String :=
-              (if Mode = Editing and then Focus = Field then "> " else "  ");
+              (if Mode = Editing
+                 and then Focus.Kind = Loc.Kind
+                 and then (Loc.Kind = Interaction.Description_Field
+                           or else Focus.Posting_Index = Loc.Posting_Index)
+               then "> "
+               else "  ");
          begin
-            Add (Prefix & Label & Field_Text (Draft, Field));
+            Add (Prefix & Label & Field_Text (Draft, Loc));
          end Add_Field;
+
+         function Formatted_Index (Index : Positive) return String is
+            Raw : constant String := Positive'Image (Index);
+         begin
+            if Raw'Length > 0 and then Raw (Raw'First) = ' ' then
+               return Raw (Raw'First + 1 .. Raw'Last);
+            else
+               return Raw;
+            end if;
+         end Formatted_Index;
+
       begin
          Curses.Clear;
          Add ("================================================================================");
@@ -144,21 +162,25 @@ package body HRA.Household_Actual_Record_TUI is
          if Mode = Editing then
             Add (" Signed postings must balance. Amount may be '-700' or '-12.50 USD'.");
             Add ("");
-            Add_Field (Description_Field, "Description : ");
+            Add_Field
+              (Loc   => (Kind => Interaction.Description_Field, Posting_Index => 1),
+               Label => "Description : ");
             Add ("");
-            Add (" Posting 1");
-            Add_Field (First_Account_Field, "Account     : ");
-            Add_Field (First_Amount_Field,  "Amount      : ");
-            Add ("");
-            Add (" Posting 2");
-            Add_Field (Second_Account_Field, "Account     : ");
-            Add_Field (Second_Amount_Field,  "Amount      : ");
-            Add ("");
+            for Index in 1 .. Drafts.Posting_Count (Draft) loop
+               Add (" Posting " & Formatted_Index (Index));
+               Add_Field
+                 (Loc   => (Kind => Interaction.Account_Field, Posting_Index => Index),
+                  Label => "Account     : ");
+               Add_Field
+                 (Loc   => (Kind => Interaction.Amount_Field, Posting_Index => Index),
+                  Label => "Amount      : ");
+               Add ("");
+            end loop;
             if Length (Notice) > 0 then
                Add (" ! " & To_String (Notice));
                Add ("");
             end if;
-            Add (" [Tab] next  [Shift-Tab] previous  [Enter] preview  [Esc] cancel");
+            Add (" [Tab] next  [Shift-Tab] prev  [Ctrl-N] add row  [Ctrl-D] drop last  [Enter] preview  [Esc] cancel");
          else
             Add (" Preview");
             Add ("");
@@ -170,7 +192,7 @@ package body HRA.Household_Actual_Record_TUI is
                     Candidate.Postings.Element (Index);
                begin
                   Add
-                    (" " & Positive'Image (Index) & ". " &
+                    (" " & Formatted_Index (Index) & ". " &
                      HRA.Account.Name (Posting.Acc) & "  " &
                      HRA.Money.Render_Quantity (Posting.Amt.Val) & " " &
                      HRA.Money.Code (Posting.Amt.Comm));
@@ -233,6 +255,14 @@ package body HRA.Household_Actual_Record_TUI is
             case Event.Kind is
                when HRA.Terminal_UTF8.Character_Input =>
                   case Event.Code_Point is
+                     when 14 =>
+                        if Mode = Editing then
+                           Apply_Interaction (Interaction.Add_Row_Intent);
+                        end if;
+                     when 4 =>
+                        if Mode = Editing then
+                           Apply_Interaction (Interaction.Drop_Last_Intent);
+                        end if;
                      when 27 =>
                         if Mode = Previewing then
                            Mode := Editing;
@@ -241,7 +271,7 @@ package body HRA.Household_Actual_Record_TUI is
                         end if;
                      when 9 =>
                         if Mode = Editing then
-                           Focus := Next_Field (Focus);
+                           Apply_Interaction (Interaction.Next_Field_Intent);
                         end if;
                      when 10 | 13 =>
                         if Mode = Previewing then
@@ -272,11 +302,11 @@ package body HRA.Household_Actual_Record_TUI is
                   elsif Mode = Editing
                     and then Event.Key_Code = Integer (Curses.Key_Back_Tab)
                   then
-                     Focus := Previous_Field (Focus);
+                     Apply_Interaction (Interaction.Previous_Field_Intent);
                   elsif Event.Key_Code = Integer (Curses.Key_Enter_Or_Send) then
                      if Mode = Previewing then
                         return (Kind => Accepted, Tx => Candidate);
-                     else
+                      else
                         Prepare_Preview;
                      end if;
                   end if;

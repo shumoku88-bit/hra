@@ -202,6 +202,58 @@ begin
 
    declare
       State : constant HRA.Household.Household_State := State_With_Registry;
+      Draft : HRA.Household_Actual_Draft.Record_Draft :=
+        HRA.Household_Actual_Draft.Start (D ("2026-08-20"));
+      Tx   : HRA.Ledger.Transaction;
+      Diag : HRA.Household_Actual_Draft.Build_Diagnostic;
+   begin
+      Draft := HRA.Household_Actual_Draft.Set_Description (Draft, "Multi Split");
+      Draft := HRA.Household_Actual_Draft.Resize_Postings (Draft, 4);
+      Draft := HRA.Household_Actual_Draft.Set_Posting
+        (Draft, 1, "assets:wallet", "-1500");
+      Draft := HRA.Household_Actual_Draft.Set_Posting
+        (Draft, 2, "expenses:coffee", "700");
+      Draft := HRA.Household_Actual_Draft.Set_Posting
+        (Draft, 3, "expenses:snack", "300");
+      Draft := HRA.Household_Actual_Draft.Set_Posting
+        (Draft, 4, "expenses:coffee", "500");
+      Assert
+        (HRA.Household_Actual_Draft.Build_Transaction (State, Draft, Tx, Diag)
+         and then Natural (Tx.Postings.Length) = 4
+         and then Tx.Postings.Element (4).Amt.Val = 500.0,
+         "Four-posting split lowers to one balanced typed transaction");
+
+      Draft := HRA.Household_Actual_Draft.Resize_Postings (Draft, 3);
+      Assert
+        (HRA.Household_Actual_Draft.Posting_Count (Draft) = 3
+         and then HRA.Household_Actual_Draft.Posting_At (Draft, 3).Account_Text =
+           HRA.Account.To_Unbounded (HRA.Account.Make_Account ("expenses:snack")),
+         "Shrinking multi-posting draft drops tail posting and retains preceding rows");
+   end;
+
+   declare
+      State : constant HRA.Household.Household_State := State_With_Registry;
+      Draft : HRA.Household_Actual_Draft.Record_Draft :=
+        HRA.Household_Actual_Draft.Start (D ("2026-08-20"));
+      Tx   : HRA.Ledger.Transaction;
+      Diag : HRA.Household_Actual_Draft.Build_Diagnostic;
+   begin
+      Draft := HRA.Household_Actual_Draft.Resize_Postings (Draft, 3);
+      Draft := HRA.Household_Actual_Draft.Set_Posting
+        (Draft, 1, "assets:wallet", "-1000");
+      Draft := HRA.Household_Actual_Draft.Set_Posting
+        (Draft, 2, "expenses:coffee", "700");
+      Draft := HRA.Household_Actual_Draft.Set_Posting
+        (Draft, 3, "expenses:undeclared", "300");
+      Assert
+        (not HRA.Household_Actual_Draft.Build_Transaction (State, Draft, Tx, Diag)
+         and then Diag.Status = HRA.Household_Actual_Draft.Undeclared_Account
+         and then Diag.Posting_Index = 3,
+         "Diagnostic correctly pinpoints undeclared Account on third posting row");
+   end;
+
+   declare
+      State : constant HRA.Household.Household_State := State_With_Registry;
       Draft : constant HRA.Household_Actual_Draft.Record_Draft :=
         Two_Posting_Draft
           ("assets:wallet", "-100", "expenses:coffee", "90");
