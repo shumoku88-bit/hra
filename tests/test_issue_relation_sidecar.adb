@@ -81,7 +81,8 @@ begin
      (HRA.Issue_Relation.Sidecar.Observe (Root, Result, Diag)
         and then HRA.Issue_Relation.Sidecar.State_Of (Result) =
           HRA.Issue_Relation.Sidecar.Absent
-        and then HRA.Issue_Relation.Sidecar.Path_Of (Result) = Sidecar,
+        and then HRA.Issue_Relation.Sidecar.Path_Of (Result) =
+          Full_Name (Sidecar),
       "Missing sidecar is an explicit successful Absent observation");
 
    declare
