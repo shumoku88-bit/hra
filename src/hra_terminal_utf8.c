@@ -8,6 +8,7 @@
 
 /* Provided by the wide-character ncurses library selected by AdaCurses. */
 extern int mvaddnwstr(int line, int column, const wchar_t *text, int length);
+extern int get_wch(wint_t *value);
 
 int hra_terminal_utf8_initialize(void)
 {
@@ -77,4 +78,26 @@ int hra_terminal_utf8_add_line(int line,
     result = mvaddnwstr(line, column, wide, (int)count);
     free(wide);
     return result;
+}
+
+int hra_terminal_utf8_read_key(int *kind, unsigned int *value)
+{
+    wint_t input;
+    int result;
+
+    if (kind == NULL || value == NULL) {
+        return -1;
+    }
+
+    result = get_wch(&input);
+    if (result < 0) {
+        return -1;
+    }
+
+    /* get_wch returns OK (zero) for a character and KEY_CODE_YES for a
+       function/special key. Preserve only that distinction across the C/Ada
+       boundary; AdaCurses remains the owner of concrete KEY_* numbers. */
+    *kind = result == 0 ? 0 : 1;
+    *value = (unsigned int)input;
+    return 0;
 }
