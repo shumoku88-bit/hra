@@ -44,6 +44,20 @@ package HRA.Writer is
    function Unbounded_Text
      (Value : Candidate_Source) return Ada.Strings.Unbounded.Unbounded_String;
 
+   --  One read-only source premise that must remain physically unchanged while
+   --  another Journal root is published. Writer does not interpret the guarded
+   --  source. It compares only filesystem presence and exact bytes.
+   type Source_Premise is private;
+
+   function Make_Source_Premise
+     (Path     : String;
+      Expected : Expected_Source) return Source_Premise
+     with Pre => Path'Length > 0;
+
+   --  Natural indexing permits a null array, which is how the ordinary
+   --  Atomic_Publish_Journal delegates to the guarded implementation.
+   type Source_Premise_Array is array (Natural range <>) of Source_Premise;
+
    --  ========================================================================
    --  Safe Writer Laws: Atomic Publication, Backup, Stale Check, Restore
    --  ========================================================================
@@ -67,6 +81,21 @@ package HRA.Writer is
      with Pre => Target_Path'Length > 0,
           Post => (if Atomic_Publish_Journal'Result then Status = Success);
 
+   --  Publish the target only while every additional read-only source premise
+   --  remains exact. Guards are fenced immediately before the atomic root
+   --  replacement and again immediately after it. A post-replacement guard
+   --  change causes the root to be restored to its exact Expected premise when
+   --  the root still contains Writer's own candidate bytes.
+   function Atomic_Publish_Journal_Guarded
+     (Target_Path : String;
+      Expected    : Expected_Source;
+      Candidate   : Candidate_Source;
+      Guards      : Source_Premise_Array;
+      Status      : out Writer_Status;
+      Error_Msg   : out Unbounded_String) return Boolean
+     with Pre => Target_Path'Length > 0,
+          Post => (if Atomic_Publish_Journal_Guarded'Result then Status = Success);
+
    function Append_Transaction_Safely
      (Target_Path : String;
       New_Tx_Text : String;
@@ -86,6 +115,11 @@ private
    type Candidate_Source is record
       Text : Ada.Strings.Unbounded.Unbounded_String :=
         Ada.Strings.Unbounded.Null_Unbounded_String;
+   end record;
+
+   type Source_Premise is record
+      Path     : Ada.Strings.Unbounded.Unbounded_String;
+      Expected : Expected_Source;
    end record;
 
 end HRA.Writer;
