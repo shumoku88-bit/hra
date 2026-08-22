@@ -17,6 +17,13 @@ package HRA.Actual_Account_Admission is
      (Candidate : Account_Qualified_Graph)
       return HRA.Actual_Admission.Actual_Observation;
 
+   --  Preserve the exact already-admitted graph for later boundaries that must
+   --  consume its retained source witness. Callers still cannot construct an
+   --  Account_Qualified_Graph without successful Account-universe admission.
+   function Graph_Of
+     (Candidate : Account_Qualified_Graph)
+      return HRA.Actual_Graph_Admission.Candidate_Graph;
+
    type Admission_Status is
      (Success,
       Undeclared_Account);
