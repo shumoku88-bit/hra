@@ -131,8 +131,12 @@ package body HRA.Issue_Realization_Preparation is
         (Actual           => Actual,
          Relation_Source  => Relation_Source,
          Relation_History => Relation_History,
-         Issues_Source    => Issues_Source,
-         Issues_Guard     => Issues_Guard);
+         Issues_Source        => Issues_Source,
+         Issues_Path          => To_Unbounded_String
+           (HRA.Canonical_Source.Path_For
+              (State.Sources.Paths, HRA.Canonical_Source.Issues_Source)),
+         Issues_Observed_Text => To_Unbounded_String (Current_Issues),
+         Issues_Guard         => Issues_Guard);
       Set_Diagnostic (Success, "");
       return True;
    end Prepare;
