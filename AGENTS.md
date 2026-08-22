@@ -84,12 +84,14 @@ source topology / meaningへ触れる作業では、HRA内の文書や過去実�
 - branchは最初のreviewable commitでpushしてDraft PRを作り、long-running repository qualificationをGitHub CIと並行させる
 - latest successful `main` CIや同条件の信頼できるbenchmarkがある場合、変更前baselineをローカルで再実行しない
 - benchmarkは比較条件を固定し、各候補に必要な最小回数だけ実行する。全候補後の重複`qualify`は行わない
-- Ada executionへ影響し得るPRでは、latest headのGitHub `qualify`をrepository-only full qualificationの正本とする。Ready / mergeのgateはlatest head CI success、mergeable、未解決blockerなしである
-- tracked変更がMarkdown (`*.md`) だけのPR / `main` pushではAda qualification workflowを起動しない。merge gateはreview済みdiff、mergeable、未解決blockerなしであり、build / test / proofを証拠なく消費しない
+- `main`への直接pushは禁止し、変更はPRを経由する。通常mergeはsquashを使う
+- Ada executionへ影響し得るPRでは、GitHub `qualify`でprospective merge treeを一度full qualificationする。Ready / mergeのgateはそのCI success、mergeable、未解決blockerなしである
+- CI開始後に`main`が進んだ場合はbranchを最新`main`へ更新し、新しいprospective merge treeでCIを再実行する。古いbaseに対するsuccessをmergeへ流用しない
+- tracked変更がMarkdown (`*.md`) だけのPRではAda qualification workflowを起動しない。merge gateはreview済みdiff、mergeable、未解決blockerなしであり、build / test / proofを証拠なく消費しない
 - Markdown以外を1つでも変更するPRは、docsを同時変更していてもfull GitHub qualificationを通す
 - local `qualify`はPR CIを使えない場合、CI failureの診断、またはlocal固有の証拠が必要な場合だけ実行する。private canonical root、platform固有動作、resource計測は必要な対象commandだけを使う
 - taskがmergeまでを含む場合、gate通過後は待たずにReady、squash merge、branch delete、local `main` syncまで進める。明示されたreview checkpointやDraft維持指示は優先する
-- qualificationが起動したPRのmerge後に走る`main` CIは結果を追跡するが、merge完了報告や次の独立作業を待たせるgateにはしない
+- successful PR qualificationと同じtreeをmerge後に再qualificationしない。`main`のautomatic push CIは持たず、手動復旧・診断だけ`workflow_dispatch`を使う
 - source mutation、CI/compiler failure、writer/domain correctnessでは速度よりexact evidenceを優先し、必要ならraw outputへ戻る
 
 このflowはexecution-affecting変更のtest数、SPARK checks、proof level、full CI qualificationを減らす許可ではない。
