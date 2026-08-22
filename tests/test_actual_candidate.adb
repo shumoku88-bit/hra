@@ -105,7 +105,13 @@ begin
       Assert
         (not HRA.Actual_Candidate.Prepare (Tx, ID, Candidate, Diag)
            and then Diag.Status = HRA.Actual_Candidate.Description_Required,
-         "Whitespace-only description is rejected instead of being normalized away");
+         "Space-only description is rejected instead of being normalized away");
+
+      Tx.Code_Or_Payee := To_Unbounded_String (ASCII.HT & ASCII.HT);
+      Assert
+        (not HRA.Actual_Candidate.Prepare (Tx, ID, Candidate, Diag)
+           and then Diag.Status = HRA.Actual_Candidate.Description_Required,
+         "Tab-only description is rejected by the same canonical description law");
 
       Tx.Code_Or_Payee := To_Unbounded_String (" Chair");
       Assert
