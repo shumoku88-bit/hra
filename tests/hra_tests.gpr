@@ -10,6 +10,7 @@ project HRA_Tests is
       "test_actual_candidate.adb",
       "test_actual_root_candidate.adb",
       "test_actual_graph_admission.adb",
+      "test_actual_account_admission.adb",
       "test_plan_admission.adb",
       "test_plan_completion_relation.adb",
       "test_plan_temporal_observation.adb",
@@ -81,6 +82,7 @@ project HRA_Tests is
       for Executable ("test_actual_candidate.adb") use "test_actual_candidate";
       for Executable ("test_actual_root_candidate.adb") use "test_actual_root_candidate";
       for Executable ("test_actual_graph_admission.adb") use "test_actual_graph_admission";
+      for Executable ("test_actual_account_admission.adb") use "test_actual_account_admission";
       for Executable ("test_plan_admission.adb") use "test_plan_admission";
       for Executable ("test_plan_completion_relation.adb") use "test_plan_completion_relation";
       for Executable ("test_plan_temporal_observation.adb") use "test_plan_temporal_observation";
