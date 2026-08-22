@@ -90,6 +90,12 @@ begin
      (Decode_Key (Character'Pos ('P')).Kind = Open_Plan,
       "P maps to Open_Plan without a Home intent");
    Assert
+     (Decode_Key (Character'Pos ('i')).Kind = Open_Issue,
+      "i maps to Open_Issue without a Home intent");
+   Assert
+     (Decode_Key (Character'Pos ('I')).Kind = Open_Issue,
+      "I maps to Open_Issue without a Home intent");
+   Assert
      (Decode_Key (Character'Pos ('q')).Kind = Quit,
       "q maps to Quit without a Home intent");
    Assert
