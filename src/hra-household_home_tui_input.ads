@@ -2,11 +2,13 @@ with HRA.Household_Home_Interaction;
 
 --  Thin terminal-input mapping boundary for Household Home TUI.
 --  Owns terminal key interpretation only. It does not perform date arithmetic,
---  mutate Home coordinates, read the clock, or observe Household state.
+--  mutate Home coordinates, read the clock, observe Household state, or publish
+--  Actual data.
 package HRA.Household_Home_TUI_Input is
 
    type Input_Action_Kind is
      (Navigate,
+      Open_Record,
       Quit,
       Redraw,
       Ignored);
@@ -15,7 +17,7 @@ package HRA.Household_Home_TUI_Input is
       case Kind is
          when Navigate =>
             Intent : HRA.Household_Home_Interaction.Home_Intent;
-         when Quit | Redraw | Ignored =>
+         when Open_Record | Quit | Redraw | Ignored =>
             null;
       end case;
    end record;
